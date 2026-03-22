@@ -810,7 +810,7 @@ build_vxlan_topo(void){
      |       |30.1.1.2/24                        30.1.1.1/24|          |
      +--|----+                                              +----|-----+
         |eth1                                                    |eth3
-        |v10                                                     |v10
+        |v20                                                     |v20
 	|                                                        |
 	|                                                        |
 	|                                                        |
@@ -828,28 +828,32 @@ config node R1_re rtm-route prefix 122.1.1.2/32 0 0 0 2 1 gateway 30.1.1.1 inter
 config node R2_re rtm-route prefix 122.1.1.0/32 0 0 0 2 1 gateway 20.1.1.1 interface eth1
 config node R2_re rtm-route prefix 122.1.1.1/32 0 0 0 2 1 gateway 30.1.1.2 interface eth2
 
-config node R0_re interface vlan 20 ip-address 192.168.0.30 24
-config node R0_re interface vlan 20 vni 5010
+config node R0_re interface vlan 20 ip-address 192.168.0.1 24
+config node R0_re interface vlan 20 vni 5020
 config node R0_re interface network-virtualization-edge nve1 member l2vni 5010
 config node R0_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
 config node R0_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.2
 
-config node R1_re interface vlan 10 ip-address 192.168.0.1 24
-config node R1_re interface vlan 10 vni 5010
+config node R1_re interface vlan 20 ip-address 192.168.0.1 24
+config node R1_re interface vlan 20 vni 5020
 config node R1_re interface network-virtualization-edge nve1 member l2vni 5010
-config node R1_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.0
-config node R1_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.2
+config node R1_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.0
+config node R1_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.2
 
-config node R2_re interface vlan 10 ip-address 192.168.0.1 24
-config node R2_re interface vlan 10 vni 5010
+config node R2_re interface vlan 20 ip-address 192.168.0.1 24
+config node R2_re interface vlan 20 vni 5020
 config node R2_re interface network-virtualization-edge nve1 member l2vni 5010
-config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.0
-config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
+config node R2_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.0
+config node R2_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
+
+config node H1 rtm-route prefix 0.0.0.0/0 0 0 0 2 1 gateway 192.168.0.1 interface eth1
+config node H2 rtm-route prefix 0.0.0.0/0 0 0 0 2 1 gateway 192.168.0.1 interface eth1
+config node H3 rtm-route prefix 0.0.0.0/0 0 0 0 2 1 gateway 192.168.0.1 interface eth1
 
 #endif
 
 
-    graph_t *topo = create_new_graph("Hello World Generic Graph");
+    graph_t *topo = create_new_graph("VxLAN Topology");
     node_t *R0_re = Router_Create(topo, (const c_string)"R0_re");
     node_t *R1_re = Router_Create(topo, (const c_string)"R1_re");
     node_t *R2_re = Router_Create(topo, (const c_string)"R2_re");
@@ -857,12 +861,12 @@ config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
     node_t *H2 = Router_Create(topo, (const c_string)"H2");
     node_t *H3 = Router_Create(topo, (const c_string)"H3");
 
-    insert_link_between_two_nodes(R0_re, R2_re, "eth0", "eth1", 5);
-    insert_link_between_two_nodes(R2_re, R1_re, "eth2", "eth3", 4);
-    insert_link_between_two_nodes(R0_re, R1_re, "eth4", "eth5", 9);
-    insert_link_between_two_nodes(H1, R1_re, "eth1", "eth1", 1);
-    insert_link_between_two_nodes(H2, R2_re, "eth1", "eth3", 1);
-    insert_link_between_two_nodes(H3, R0_re, "eth1", "eth1", 1);
+    insert_link_between_two_nodes(R0_re, R2_re, "eth0", "eth1", INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(R2_re, R1_re, "eth2", "eth3", INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(R0_re, R1_re, "eth4", "eth5", INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(H1, R1_re, "eth1", "eth1", INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(H2, R2_re, "eth1", "eth3", INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(H3, R0_re, "eth1", "eth1", INTF_METRIC_DEFAULT);
     
     node_set_rtr_id(R0_re, "122.1.1.0");
 
@@ -888,10 +892,9 @@ config node R2_re mac-table install 10 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
     node_set_intf_ip_address(H3, "eth1", "192.168.0.30", 24);
 
     node_set_intf_switchport(R1_re, "eth1");
-    node_set_intf_vlan_membership(R1_re, "eth1", 10, false);
+    node_set_intf_vlan_membership(R1_re, "eth1", 20, false);
     node_set_intf_switchport(R2_re, "eth3");
-    node_set_intf_vlan_membership(R2_re, "eth3", 10, false);
-
+    node_set_intf_vlan_membership(R2_re, "eth3", 20, false);
     node_set_intf_switchport(R0_re, "eth1");
     node_set_intf_vlan_membership(R0_re, "eth1", 20, false);
 

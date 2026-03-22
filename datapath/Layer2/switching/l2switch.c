@@ -124,7 +124,7 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
         
         if (!oif || (oif == recv_intf )) continue;
 
-        if (oif->if_type== DP_INTF_TYPE_NVE) {
+        if (oif->if_type == DP_INTF_TYPE_NVE) {
             
             encap_data = (encap_meta_data_t *) XCALLOC2 (0, 1, encap_meta_data_t);
             vlan_id = mac_entry->vlan_id;
@@ -135,9 +135,9 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
             if (vni_id == 0) {
 
                 tracer (dp_ctx->dptr, DL2SW | DERR,
-                        "VLAN to VNI mapping not found for vlan %d, Dropping the frame on NVE interface\n", vlan_id);
+                    "VLAN to VNI mapping not found for vlan %d, Dropping the frame on NVE interface\n", vlan_id);
                 XFREE(encap_data);
-                return;
+                continue;
             }
 
             encap_data->u.vxlan.vni = vni_id;
@@ -145,8 +145,15 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
         }
 
         /* Create a copy of pkt blocks, and xmit them because they can be modified*/
+        /* Flush old encap data if any*/
+        if (pkt_block->encap_data) {
+            XFREE(pkt_block->encap_data);
+            pkt_block->encap_data = NULL;
+        }
+
         pkt_block2 = pkt_block_dup(pkt_block);
         pkt_block2->encap_data = encap_data;
+        encap_data = NULL;
         dp_send_pkt_out(dp_ctx, oif, pkt_block2);
         pkt_block_dereference(pkt_block2);
 

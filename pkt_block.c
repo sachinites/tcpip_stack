@@ -281,7 +281,11 @@ pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno) {
     pkt_block2->fn_name = fn_name;    
     pkt_block2->no_modify = pkt_block->no_modify;
     pkt_block2->ingress_intf = pkt_block->ingress_intf;
-    pkt_block2->encap_data = pkt_block->encap_data;
+    if (pkt_block->encap_data) {
+        pkt_block2->encap_data = (encap_meta_data_t *)XCALLOC2(0, 1, encap_meta_data_t);
+        memcpy (pkt_block2->encap_data, pkt_block->encap_data, 
+            sizeof (*pkt_block->encap_data));
+    }
     return pkt_block2;
 }
 

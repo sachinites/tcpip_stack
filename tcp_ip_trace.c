@@ -150,7 +150,7 @@ tcp_dump_ip6_hdr(c_string buff, ipv6_hdr_t *ipv6_hdr, pkt_size_t pkt_size){
      int rc = 0;
      char ipv61[48];
      char ipv62[48];
-     byte string_buffer[32];
+     byte string_buffer[32] = {0};
      pkt_block_t *pkt_block;
 
     inet_ntop(AF_INET6, ipv6_hdr->src_addr, ipv61, INET6_ADDRSTRLEN);
@@ -177,7 +177,7 @@ tcp_dump_ip_hdr(c_string buff, ip_hdr_t *ip_hdr, pkt_size_t pkt_size){
      int rc = 0;
      byte ip1[IPV4_ADDR_LEN_STR];
      byte ip2[IPV4_ADDR_LEN_STR];
-     byte string_buffer[32];
+     byte string_buffer[32] = {0};
      pkt_block_t *pkt_block;
 
      tcp_ip_covert_ip_n_to_p( htonl(ip_hdr->src_ip), ip1);

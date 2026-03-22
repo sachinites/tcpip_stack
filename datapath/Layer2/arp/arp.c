@@ -47,9 +47,10 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     }
 
     pkt_block_t *pkt_block = pkt_block_get_new_pkt_buffer(
-                                (vlan_id ? VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD : ETH_HDR_SIZE_EXCL_PAYLOAD) + payload_size);
+                                (vlan_id ? VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD : \
+                                ETH_HDR_SIZE_EXCL_PAYLOAD) + payload_size);
 
-    ethernet_hdr_t *ethernet_hdr =  (ethernet_hdr_t *) 
+    ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *) 
         pkt_block_get_pkt(pkt_block, &pkt_size);
 
     /* Tag the pkt with Vlan id if not already tagged */
@@ -591,7 +592,7 @@ add_arp_pending_entry (dp_ctx_t *dp_ctx,
         arp_entry_t *arp_entry,
         arp_processing_fn cb,
         pkt_block_t *pkt_block){
-
+    
     arp_pending_entry_t *arp_pending_entry = 
         (arp_pending_entry_t *)XCALLOC2(0, 1, arp_pending_entry_t);
 
@@ -605,9 +606,9 @@ add_arp_pending_entry (dp_ctx_t *dp_ctx,
     {
         char ip_addr_str[IPV4_ADDR_LEN_STR];
         tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
-    tracer(dp_ctx->dptr, DARP_DET, 
-        "ARP-entry %s : Added ARP-Pending entry\n", 
-        ip_addr_str);
+        tracer(dp_ctx->dptr, DARP_DET, 
+            "ARP-entry %s : Added ARP-Pending entry\n", 
+            ip_addr_str);
     }
 }
 

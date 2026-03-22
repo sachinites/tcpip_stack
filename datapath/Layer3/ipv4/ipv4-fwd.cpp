@@ -5,6 +5,8 @@
 
 #include "../../../common/l3_hdrs.h"
 #include "../../../common/l2_hdrs.h"
+#include "../../../common/l4_hdrs.h"
+
 #include "../../../common/cmn_api.h"
 
 #include "../../dp_ctx.h"
@@ -42,12 +44,16 @@ dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                      pkt_block_t *pkt_block,
                      hdr_type_t hdr_type);
 
-extern void 
+extern void
 layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
-                                  dp_vrf_t *vrf,
-                                  dp_intf_t *interface,
-                                  pkt_block_t *pkt_block,
-                                  fib_nh_t *nh);
+                      dp_vrf_t *vrf,
+                      dp_intf_t *interface,
+                      pkt_block_t *pkt_block,
+                      fib_nh_t *nh);
+
+extern void 
+vxlan_decapsulate (dp_ctx_t *dp_ctx,
+                   pkt_block_t *pkt_block, uint32_t src_vtep_ip);
 
 void
 layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
@@ -157,12 +163,27 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     return;
 
                 case UDP_PROTO:
-                        /* TODO: dp2cp_punt_pkt_to_layer4 needs old Interface type */
-                        dp2cp_punt_pkt_to_layer4 (
-                                              dp_ctx->ctx_pvt_data,
-                                             (Interface *)NULL,
-										      pkt_block,
-                                              UDP_PROTO);
+                    /* VxLAN Block !! */
+                    {
+                        /* Check if this is VxLAN pkt, then no need to punt to CP */
+                        pkt_size_t ip_hr_size;
+                        ip_hdr_t *ip_hdr = (ip_hdr_t *)pkt_block_get_pkt(pkt_block, &ip_hr_size);
+                        udp_hdr_t *udp_hdr = (udp_hdr_t *)INCREMENT_IPHDR(ip_hdr);
+                        ip_hr_size = (pkt_size_t)((char *)udp_hdr - (char *)ip_hdr);
+                        pkt_block_set_new_pkt(pkt_block, (uint8_t *)udp_hdr, 
+                            pkt_block->pkt_size - ip_hr_size);
+                        pkt_block_set_starting_hdr_type(pkt_block, UDP_HDR);
+                        vxlan_decapsulate(dp_ctx, pkt_block, ntohl(ip_hdr->src_ip));
+                        return;
+                    }
+
+                    /* TODO: dp2cp_punt_pkt_to_layer4 needs old Interface type */
+                    dp2cp_punt_pkt_to_layer4(
+                                            dp_ctx->ctx_pvt_data,
+                                            (Interface *)NULL,
+                                            pkt_block,
+                                            UDP_PROTO);
+
                     return;
 
                 case PROTO_IP_IN_IP:

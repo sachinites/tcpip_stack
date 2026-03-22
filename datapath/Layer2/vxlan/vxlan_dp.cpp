@@ -73,7 +73,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_v
 
      udp_hdr_t *udp_hdr = (udp_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-     assert (htons(udp_hdr->dst_port_no) == VXLAN_PROTO);
+     assert (ntohs(udp_hdr->dst_port_no) == VXLAN_PROTO);
 
      vxlan_hdr_t *vxlan_hdr = (vxlan_hdr_t *)(udp_hdr + 1);
 
@@ -83,7 +83,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_v
      vni_ptr[2] = vxlan_hdr->vni[1];
      vni_ptr[1] = vxlan_hdr->vni[2];
 
-     vni = htonl (vni);
+     vni = ntohl (vni);
 
      tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Decapsulation : VNI %u \n", vni);
