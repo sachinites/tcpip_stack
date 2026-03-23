@@ -187,7 +187,7 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
 
     tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
             pkt_block_str (pkt_block), 
-            htons(vlan_8021q_hdr->tci_vid));
+            TCI_VID(vlan_8021q_hdr->tci));
 
     mac_table_entry_xmit_frame (dp_ctx, mac_flood_entry, pkt_block, exempted_intf);
 }

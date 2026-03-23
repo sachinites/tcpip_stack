@@ -362,7 +362,7 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
 
     tracer (dp_ctx->dptr, DL2FWD , 
         "Rmac Interface %s : Recvd pkt %s with vlan tag : %d\n", 
-        intf->if_name, pkt_block_str(pkt_block), vlan_8021q_hdr->tci_vid);
+        intf->if_name, pkt_block_str(pkt_block), TCI_VID(vlan_8021q_hdr->tci));
     
     if ( is_arp_pkt_for_svi_interface (dp_ctx, pkt_block) ) {
             svi_interface_intercept_arp_pkt (dp_ctx, intf->vrf, pkt_block);
@@ -454,7 +454,7 @@ VlanFloodInterface_SendPacketOut(
 
     vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(eth_hdr);
     assert (vlan_8021q_hdr);
-    uint16_t vlan_id = ntohs(vlan_8021q_hdr->tci_vid);
+    uint16_t vlan_id = (uint16_t)TCI_VID(vlan_8021q_hdr->tci);
 
     dp_intf_t *vlan_intf  = exempt_intf->l2_mode == DP_LAN_ACCESS_MODE ?
                     exempt_intf->vlan_intf : \

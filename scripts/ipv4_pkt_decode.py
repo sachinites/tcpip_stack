@@ -4,7 +4,12 @@ import socket
 
 
 ETHERTYPE_IPV4 = 0x0800
+ETHERTYPE_ARP  = 0x0806
 ETHERTYPE_VLAN = 0x8100
+
+ARP_HW_ETHERNET = 1
+ARP_OP_REQUEST  = 1
+ARP_OP_REPLY    = 2
 
 
 def mac_str(mac_bytes):
@@ -13,6 +18,48 @@ def mac_str(mac_bytes):
 
 def ipv4(addr):
     return socket.inet_ntop(socket.AF_INET, addr)
+
+
+def decode_arp(inferior, pkt, offset):
+    # ARP fixed header: 8 bytes
+    # htype(2) ptype(2) hlen(1) plen(1) oper(2)
+    # followed by: sha(hlen) spa(plen) tha(hlen) tpa(plen)
+    # For Ethernet/IPv4: hlen=6, plen=4  => total 28 bytes
+    arp_hdr = inferior.read_memory(pkt + offset, 8)
+    htype, ptype, hlen, plen, oper = struct.unpack("!HHBBH", bytes(arp_hdr))
+
+    op_str = {ARP_OP_REQUEST: "REQUEST", ARP_OP_REPLY: "REPLY"}.get(oper, "UNKNOWN")
+
+    print("\n===== ARP HEADER =====")
+    print("HW Type     :", "Ethernet" if htype == ARP_HW_ETHERNET else hex(htype))
+    print("Proto Type  :", hex(ptype))
+    print("HW Addr Len :", hlen)
+    print("Proto Len   :", plen)
+    print("Operation   : {} ({})".format(oper, op_str))
+
+    payload_offset = offset + 8
+    payload_len = 2 * hlen + 2 * plen
+    payload = inferior.read_memory(pkt + payload_offset, payload_len)
+
+    pos = 0
+    sha = bytes(payload[pos: pos + hlen]); pos += hlen
+    spa = bytes(payload[pos: pos + plen]); pos += plen
+    tha = bytes(payload[pos: pos + hlen]); pos += hlen
+    tpa = bytes(payload[pos: pos + plen])
+
+    if hlen == 6:
+        print("Sender MAC  :", mac_str(sha))
+        print("Target MAC  :", mac_str(tha))
+    else:
+        print("Sender HW   :", sha.hex())
+        print("Target HW   :", tha.hex())
+
+    if plen == 4:
+        print("Sender IP   :", ipv4(spa))
+        print("Target IP   :", ipv4(tpa))
+    else:
+        print("Sender Proto:", spa.hex())
+        print("Target Proto:", tpa.hex())
 
 
 def decode_ipv4(inferior, pkt, offset):
@@ -107,6 +154,8 @@ class DecodeEthPkt(gdb.Command):
         # ---- L3 ----
         if ethertype == ETHERTYPE_IPV4:
             decode_ipv4(inferior, pkt, offset)
+        elif ethertype == ETHERTYPE_ARP:
+            decode_arp(inferior, pkt, offset)
         else:
             print("\nUnsupported EtherType:", hex(ethertype))
 

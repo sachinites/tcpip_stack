@@ -31,11 +31,21 @@ typedef struct vxlan_hdr_ {
 typedef struct vlan_8021q_hdr_{
 
     unsigned short tpid; /* = 0x8100*/
-    unsigned short tci_pcp : 3 ;  /* inital 4 bits not used in this course*/
-    unsigned short tci_dei : 1;   /*Not used*/
-    unsigned short tci_vid : 12 ; /*Tagged vlan id*/
+    /* TCI stored in network byte order.
+     * Layout on wire (MSB first): PCP[15:13] | DEI[12] | VID[11:0]
+     * Use GET/SET macros below; never access tci directly. */
+    unsigned short tci;
 
 } vlan_8021q_hdr_t;
+
+/* Extract PCP / DEI / VID from a network-byte-order TCI word */
+#define TCI_PCP(tci_ne)   (( ntohs(tci_ne) >> 13) & 0x7)
+#define TCI_DEI(tci_ne)   (( ntohs(tci_ne) >> 12) & 0x1)
+#define TCI_VID(tci_ne)   (  ntohs(tci_ne)         & 0xFFF)
+
+/* Build a network-byte-order TCI word from components */
+#define MAKE_TCI(pcp, dei, vid) \
+    htons((((pcp) & 0x7) << 13) | (((dei) & 0x1) << 12) | ((vid) & 0xFFF))
 
 typedef struct vlan_ethernet_hdr_{
 
@@ -70,7 +80,7 @@ typedef struct ethernet_hdr_{
 static inline uint32_t
 GET_802_1Q_VLAN_ID(vlan_8021q_hdr_t *vlan_8021q_hdr){
 
-    return (uint32_t)ntohs(vlan_8021q_hdr->tci_vid);
+    return (uint32_t)TCI_VID(vlan_8021q_hdr->tci);
 }
 
 #define VLAN_ETH_FCS(vlan_eth_hdr_ptr, payload_size)  \
