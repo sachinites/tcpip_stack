@@ -48,8 +48,6 @@
 #include "datapath/Layer2/switching/mac_table.h"
 #include "RTM/rtm_nb_integ.h"
 #include "RTM/rtm_show.h"
-#include "datapath/FIB/fib.h"
-#include "datapath/FIB/fib_show.h"
 #include "RTM/rtm_priv_api.h"
 #include "mtrie/mtrie.h"
 #include "Layer3/layer3.h"
@@ -601,48 +599,6 @@ show_rtm_presentation_db_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 static int
-show_fib_handler(int cmdcode, 
-                 Stack_t *tlv_stack,
-                 op_mode enable_or_disable){
-
-    node_t *node = NULL;
-    c_string node_name = NULL;
-    c_string fib_name = NULL;
-    fib_t *fib = NULL;
-    tlv_struct_t *tlv = NULL;
-
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "fib-name"))
-            fib_name = tlv->value;
-
-    }TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-
-    printw ("\n\r");
-
-    switch (cmdcode) {
-        case CMDCODE_SHOW_NODE_VRF_FIB:
-
-            fib = fib_get_by_name(node->dp_ctx, fib_name);
-            if (!fib) {
-                cprintf("Error : FIB %s not found\n", fib_name);
-                return -1;
-            }
-            fib_show_routes_brief(fib);
-            break;
-
-        default:
-            break;
-    }
-
-    return 0;
-}
-
-static int
 clear_rt_handler(int cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
@@ -896,14 +852,18 @@ debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
 			wt_enable_logging(CP_TIMER(node));
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT:
+        #if 0
             mtrie_longest_prefix_first_traverse(
                     fib_get(node->dp_ctx, AF_IPV4, 0)->u.lpm,
                     mtrie_print_node, NULL);
+        #endif
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT6:
+        #if 0
             mtrie_longest_prefix_first_traverse(
                     fib_get(node->dp_ctx, AF_IPV6, 0)->u.lpm,
                     mtrie_print_node, NULL);
+        #endif
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_ACL:
              access_list_print_bitmap(node, access_list_name);
@@ -1235,20 +1195,6 @@ nw_init_cli(){
                             libcli_set_param_cmd_code(&vni_id, CMDCODE_SHOW_NODE_MAC_VNI_TABLE);
                         }
                     }
-                 }
-
-                 {
-                     /*show node <node-name> fib*/
-                     static param_t fib;
-                     init_param(&fib, CMD, "fib", 0, 0, INVALID, 0, "FIB commands");
-                     libcli_register_param(&node_name, &fib);
-                     {
-                         /*show node <node-name> fib <fib-name>*/
-                         static param_t fib_name;
-                         init_param(&fib_name, LEAF, NULL, show_fib_handler, 0, STRING, "fib-name", "Show FIB");
-                         libcli_register_param(&fib, &fib_name);
-                         libcli_set_param_cmd_code(&fib_name, CMDCODE_SHOW_NODE_VRF_FIB);
-                     }
                  }
 
                  {

@@ -757,7 +757,7 @@ vlan_extension_topo(void) {
     insert_link_between_two_nodes(R1, H1, "eth0",  "eth0",  INTF_METRIC_DEFAULT);
     insert_link_between_two_nodes(R2, H2, "eth0",  "eth0",  INTF_METRIC_DEFAULT);
 
-    interface_loopback_create (H1, 0);
+    interface_loopback_create (H1, "lo0");
     
     node_set_rtr_id(H1, "122.1.1.1");
     node_set_rtr_id(H2, "122.1.1.2");
@@ -936,6 +936,9 @@ config node Spine2 protocol isis interface eth1
 config node Spine2 protocol isis interface eth2
 config node Spine2 protocol isis interface eth3
 
+config node Spine1 protocol isis interface lo0
+config node Spine2 protocol isis interface lo0
+
 config node Leaf1 protocol isis interface eth0
 config node Leaf2 protocol isis interface eth0
 config node Leaf3 protocol isis interface eth0
@@ -945,6 +948,11 @@ config node Leaf1 protocol isis interface eth1
 config node Leaf2 protocol isis interface eth1
 config node Leaf3 protocol isis interface eth1
 config node Leaf4 protocol isis interface eth1
+
+config node Leaf1 protocol isis interface lo0
+config node Leaf2 protocol isis interface lo0
+config node Leaf3 protocol isis interface lo0
+config node Leaf4 protocol isis interface lo0
 
 config node Leaf1 interface vlan 10 vni 5010
 config node Leaf2 interface vlan 10 vni 5010

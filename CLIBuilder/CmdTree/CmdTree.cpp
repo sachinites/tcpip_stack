@@ -210,6 +210,52 @@ libcli_block_negate_command (param_t *param) {
     param->flags |= PARAM_F_NEG_CMD_BLOCK;
 }
 
+void 
+libcli_set_user_flag(param_t *param, uint8_t flag) {
+
+    assert (flag == 1 || flag == 2 || flag == 3);
+
+    switch (flag) {
+        case 1:
+            param->flags |= PARAM_F_USER_FLAG1;
+            return;
+        case 2:
+            param->flags |= PARAM_F_USER_FLAG2;
+            return;
+        case 3:
+            param->flags |= (PARAM_F_USER_FLAG1 | PARAM_F_USER_FLAG2);
+            return;
+    }
+}
+
+/* Flag is either 1 or 2 or 3*/
+bool 
+libcli_is_user_flag_set(param_t *param, uint8_t flag) {
+
+    assert(flag == 1 || flag == 2 || flag == 3);
+
+    switch (flag)
+    {
+        case 1:
+            return param->flags & PARAM_F_USER_FLAG1;
+        case 2:
+            return param->flags & PARAM_F_USER_FLAG2;
+        case 3:
+            return ((param->flags & PARAM_F_USER_FLAG1) &&
+                    (param->flags & PARAM_F_USER_FLAG2));
+    }
+    return false;
+}
+
+uint8_t
+libcli_get_user_flag(param_t *param) {
+
+    uint8_t flag = 0;
+    if (param->flags & PARAM_F_USER_FLAG1) flag |= 1;
+    if (param->flags & PARAM_F_USER_FLAG2) flag |= 2;
+    return flag;
+}
+
 static void 
  libcli_build_default_cmdtree() {
 

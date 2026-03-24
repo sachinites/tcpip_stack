@@ -178,12 +178,14 @@
 /* show node <node-name> rtm <rib-name> ppt-db <prefix-filter> */
 #define CMDCODE_SHOW_NODE_RTM_PPT_DB_FILTER 73
 
-/* show node <node-name> vrf <vrf-id> fib rt */
-#define CMDCODE_SHOW_NODE_VRF_FIB 74
-
 #define CMDCODE_CONF_INTF_VRF 75
 
 /* show node <node-name> vrf */
 #define CMDCODE_SHOW_NODE_VRF 76
+
+/* Flag to distinguish if the CLI typed should go to
+  control plane scheduler or data plane scheduler*/
+#define CLI_F_CONTROL_PLANE 1
+#define CLI_F_DATA_PLANE 2
 
 #endif /* __CMDCODES__ */

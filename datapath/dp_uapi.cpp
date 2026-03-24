@@ -120,3 +120,9 @@ dp_de_register_l2_pkt_trap_rule(
 
 	nfc_de_register_notif_chain(&dp_ctx->layer2_proto_reg_db, &nfce_template);	
 }
+
+event_dispatcher_t *
+dp_uapi_get_dp_scheduler (dp_ctx_t *dp_ctx) {
+
+    return &dp_ctx->dp_ev_dis;
+}

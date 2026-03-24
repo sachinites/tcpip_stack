@@ -688,7 +688,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
         case CMDCODE_INTF_CONFIG_BIND_OVERLAY_TUNNEL:
         {
             VirtualPort *vport_intf = reinterpret_cast<VirtualPort *>(
-                node_interface_lookup_by_name(node, (const char *)intf_name));
+                node_interface_lookup_by_name(node, (const char *)if_name));
 
             if (!vport_intf)
             {
@@ -905,6 +905,8 @@ intf_config_virtual_port_create_handler(int cmdcode,
                 return -1;
             }
             cp2dp_interface_create(node, intf);
+            intf->SetSwitchport(true);
+            cp2dp_send_intf_switchport_update(node, intf->ifindex, 1);    
             SET_BIT(if_change_flags, IF_CREATE_F);
             nfc_intf_invoke_notification_to_sbscribers(
                 intf, &intf_prop_changed, if_change_flags);
@@ -930,6 +932,7 @@ intf_config_virtual_port_create_handler(int cmdcode,
             SET_BIT(if_change_flags, IF_DELETE_F);
             nfc_intf_invoke_notification_to_sbscribers(
                 intf, &intf_prop_changed, if_change_flags);
+            cp2dp_interface_delete(node, intf->ifindex);
             node_global_intf_map_delete_by_ifindex(node, intf->ifindex);
         }
         break;

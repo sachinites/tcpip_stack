@@ -21,6 +21,8 @@ typedef struct dp_ctx_ dp_ctx_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_msg_ dp_msg_t;
+typedef struct event_dispatcher_ event_dispatcher_t;
+
 #include "../notif.h"
 
 #include <stdint.h>
@@ -59,5 +61,8 @@ void dp_de_register_l2_pkt_trap_rule(
                 dp_ctx_t *dp_ctx,
                 nfc_pkt_trap pkt_trap_cb,
                 nfc_app_cb app_cb);
+
+event_dispatcher_t *
+dp_uapi_get_dp_scheduler (dp_ctx_t *dp_ctx);
 
 #endif /* __DP_UAPI__ */

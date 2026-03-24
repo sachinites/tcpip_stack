@@ -35,6 +35,17 @@ libcli_support_cmd_negation (param_t *param);
 void 
 libcli_param_recursive (param_t *param);
 
+/* Flag is either 1 or 2 or 3 */
+void 
+libcli_set_user_flag(param_t *param, uint8_t flag);
+
+/* Flag is either 1 or 2 or 3*/
+bool 
+libcli_is_user_flag_set(param_t *param, uint8_t flag);
+
+uint8_t
+libcli_get_user_flag(param_t *param) ;
+
 /* Force invoke the CLI synchronously*/
 void 
 libcli_param_synchronous (param_t *param);

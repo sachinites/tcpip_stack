@@ -25,11 +25,15 @@
 #include "Interface/dp_intf.h"
 #include "Interface/dp_intf_store.h"
 #include "Vrfs/dp_vrf.h"
+#include "FIB/fib.h"
+#include "FIB/fib_show.h"
+#include "Layer2/arp/arp.h"
 #include "../c-hashtable/hashtable.h"
 #include "../c-hashtable/hashtable_itr.h"
 #include "../BitOp/bitmap.h"
 #include "../router_init.h"
 #include "dp_ctx.h"
+#include "../tcpconst.h"
 
 extern graph_t *topo;
 
@@ -38,6 +42,7 @@ extern graph_t *topo;
 #define CMDCODE_SHOW_DP_INTF_TABLE       2
 #define CMDCODE_SHOW_DP_INTF_TABLE_BRIEF 3
 #define CMDCODE_SHOW_DP_FIB              4
+#define CMDCODE_SHOW_DP_ARP              5
 
 /* -----  Interface display helpers  ----- */
 
@@ -223,6 +228,7 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
     c_string node_name = NULL;
     c_string fib_name = NULL;
     c_string intf_name_filter = NULL;
+    c_string vrf_name = NULL;
     tlv_struct_t *tlv;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
@@ -232,6 +238,8 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
             fib_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "intf-name"))
             intf_name_filter = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -352,11 +360,31 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
         break;
     }
 
-    case CMDCODE_SHOW_DP_FIB: {
-        printw("\n");
-        cprintf("Node: %s - Datapath FIB: %s\n", node_name, fib_name);
-        cprintf("FIB display not yet implemented\n");
-        printw("\n");
+    case CMDCODE_SHOW_DP_FIB:
+    {
+        fib_t *fib = fib_get_by_name(dp_ctx, (char *)fib_name);
+
+        if (!fib) {
+            cprintf("Error: FIB '%s' not initialized\n", fib_name);
+            return -1;
+        }
+
+        fib_show_routes_brief(fib);
+        break;
+    }
+
+    case CMDCODE_SHOW_DP_ARP:
+    {
+        const char *arp_vrf = vrf_name ? (const char *)vrf_name : DEF_VRF_NAME;
+
+        arp_table_t *arp_table = dp_vrf_get_arp_cache(dp_ctx, (char *)arp_vrf);
+        
+        if (!arp_table) {
+            cprintf("Error: ARP cache not found for VRF '%s'\n", arp_vrf);
+            return -1;
+        }
+
+        show_arp_table(arp_table);
         break;
     }
 
@@ -384,6 +412,7 @@ dp_build_dp_show_cli_tree(param_t *node_name)
         init_param(&vrf_table, CMD, "vrf-table", dp_show_handler, NULL, INVALID, NULL, "Show datapath VRF table");
         libcli_register_param(&data_path, &vrf_table);
         libcli_set_param_cmd_code(&vrf_table, CMDCODE_SHOW_DP_VRF_TABLE);
+        libcli_set_user_flag(&vrf_table, CLI_F_DATA_PLANE);
     }
 
     {
@@ -391,12 +420,14 @@ dp_build_dp_show_cli_tree(param_t *node_name)
         init_param(&intf_table, CMD, "interface-table", dp_show_handler, NULL, INVALID, NULL, "Show datapath interface table");
         libcli_register_param(&data_path, &intf_table);
         libcli_set_param_cmd_code(&intf_table, CMDCODE_SHOW_DP_INTF_TABLE);
+        libcli_set_user_flag(&intf_table, CLI_F_DATA_PLANE);
 
         {
             static param_t intf_name;
             init_param(&intf_name, LEAF, NULL, dp_show_handler, NULL, STRING, "intf-name", "Interface name filter (optional)");
             libcli_register_param(&intf_table, &intf_name);
             libcli_set_param_cmd_code(&intf_name, CMDCODE_SHOW_DP_INTF_TABLE);
+            libcli_set_user_flag(&intf_name, CLI_F_DATA_PLANE);
         }
 
         {
@@ -404,6 +435,7 @@ dp_build_dp_show_cli_tree(param_t *node_name)
             init_param(&brief, CMD, "brief", dp_show_handler, NULL, INVALID, NULL, "Show datapath interface table (brief)");
             libcli_register_param(&intf_table, &brief);
             libcli_set_param_cmd_code(&brief, CMDCODE_SHOW_DP_INTF_TABLE_BRIEF);
+            libcli_set_user_flag(&brief, CLI_F_DATA_PLANE);
         }
     }
 
@@ -414,10 +446,27 @@ dp_build_dp_show_cli_tree(param_t *node_name)
 
         {
             static param_t fib_name;
-            init_param(&fib_name, LEAF, NULL, dp_show_handler, NULL, STRING, "fib-name", "FIB name (e.g., inet.0, inet6.0)");
+            init_param(&fib_name, LEAF, NULL, dp_show_handler, NULL, STRING, "fib-name", "FIB name (format :  <vrf-name>.inet[6]");
             libcli_register_param(&fib, &fib_name);
             libcli_set_param_cmd_code(&fib_name, CMDCODE_SHOW_DP_FIB);
+            libcli_set_user_flag(&fib_name, CLI_F_DATA_PLANE);
         }
     }
+
+    {
+        static param_t arp;
+        init_param(&arp, CMD, "arp", dp_show_handler, NULL, INVALID, NULL, "Show ARP cache");
+        libcli_register_param(&data_path, &arp);
+        libcli_set_param_cmd_code(&arp, CMDCODE_SHOW_DP_ARP);
+        libcli_set_user_flag(&arp, CLI_F_DATA_PLANE);
+        {
+            static param_t vrf_name;
+            init_param(&vrf_name, LEAF, NULL, dp_show_handler, NULL, STRING, "vrf-name", "VRF name");
+            libcli_register_param(&arp, &vrf_name);
+            libcli_set_param_cmd_code(&vrf_name, CMDCODE_SHOW_DP_ARP);
+            libcli_set_user_flag(&vrf_name, CLI_F_DATA_PLANE);
+        }
+    }
+
 }
 

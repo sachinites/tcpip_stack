@@ -79,10 +79,10 @@ typedef struct dp_intf_ {
     bool is_up;
 
     /* If this is GRE tunnel intf, then its dest ip and virtual port*/
+    uint32_t gre_tunnel_src_ip;
     uint32_t gre_tunnel_dst_ip;
-    struct dp_intf_ *virtual_port;
-
     bool is_tunnel_up;
+    struct dp_intf_ *virtual_port;
 
     /* If this is Virtual port, then overlay tunnel interface */
     struct dp_intf_ *olay_tunnel_intf;

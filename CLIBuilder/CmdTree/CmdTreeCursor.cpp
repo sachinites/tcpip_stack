@@ -38,6 +38,7 @@ cli_process_key_interrupt(int ch);
 
 extern void  SetFilterContext (tlv_struct_t **lfilter_array, int lsize) ;
 extern void UnsetFilterContext () ;
+extern uint8_t libcli_get_user_flag(param_t *param) ;
 
 static bool is_refresh_in_progress = false;
 static bool CtrlC_refresh_terminate = false;
@@ -1545,7 +1546,8 @@ extern void
 task_invoke_appln_cbk_handler(int cmdcode,
                               cmd_callback cbk,
                               Stack_t *tlv_stack,
-                              op_mode enable_or_disable);
+                              op_mode enable_or_disable,
+                              uint8_t user_flag);
 #endif 
 
 
@@ -1725,7 +1727,9 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                 }
 
                 while (j < CALLBACKS_N && param->callback[j]) {
-                    task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
+                    task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], 
+                        cmdtc->tlv_stack, enable_or_disable, 
+                        libcli_get_user_flag(param));
                 }
 
                 if (temp_cmdtc)
@@ -1776,7 +1780,9 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                 else
                 {
                     while (j < CALLBACKS_N && param->callback[j])
-                        task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
+                        task_invoke_appln_cbk_handler(param->CMDCODE, 
+                            param->callback[j++], cmdtc->tlv_stack, 
+                            enable_or_disable, libcli_get_user_flag(param));
                     j = 0;
                 }
 #endif
@@ -1808,7 +1814,8 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
             else
             {
                 while (j < CALLBACKS_N && param->callback[j])
-                    task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
+                    task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], 
+                        cmdtc->tlv_stack, enable_or_disable, libcli_get_user_flag(param));
             }
 #endif
             if (temp_cmdtc)
@@ -1838,7 +1845,8 @@ cmd_tree_trigger_cli (cmd_tree_cursor_t *cli_cmdtc) {
                 else
                 {
                     while (j < CALLBACKS_N && param->callback[j])
-                        task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], cmdtc->tlv_stack, enable_or_disable);
+                        task_invoke_appln_cbk_handler(param->CMDCODE, param->callback[j++], 
+                            cmdtc->tlv_stack, enable_or_disable, libcli_get_user_flag(param));
                 }
 #endif
                 UnsetFilterContext();

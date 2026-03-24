@@ -1,6 +1,8 @@
 #include <ctype.h>
 #include "router_init.h"
 #include "CLIBuilder/libcli.h"
+#include "datapath/dp_uapi.h"
+#include "cmdcodes.h"
 
 extern graph_t *topo;
 
@@ -10,24 +12,28 @@ extern event_dispatcher_t gev_dis;
 /* With N-Curses we will disable async mode of CLI submission to backend app*/
 #define ASYNC_MODE_DISABLED
 
-void
-task_invoke_appln_cbk_handler (int cmdcode, 
-                                                     cmd_callback cbk, 
-                                                     Stack_t  *tlv_stack,
-                                                     op_mode enable_or_disable);
+void 
+task_invoke_appln_cbk_handler(int cmdcode,
+                                   cmd_callback cbk,
+                                   Stack_t *tlv_stack,
+                                   op_mode enable_or_disable,
+                                   uint8_t user_flag);
 
-typedef struct unified_cli_data_{
-    
-        param_t *param;
-        cmd_callback cbk;
-        int cmdcode;
-        int rc;
-        Stack_t  *tlv_stack;
-        op_mode enable_or_disable;
+typedef struct unified_cli_data_
+{
+    param_t *param;
+    cmd_callback cbk;
+    int cmdcode;
+    int rc;
+    Stack_t *tlv_stack;
+    op_mode enable_or_disable;
+
 } unified_cli_data_t;
 
 extern void 
-parser_config_commit_internal (void *node, Stack_t  *tlv_stack, op_mode enable_or_disable);
+parser_config_commit_internal (void *node, 
+                               Stack_t  *tlv_stack, 
+                               op_mode enable_or_disable);
 
 static void
 parser_config_commit(void *node, Stack_t  *tlv_stack, op_mode enable_or_disable) {
@@ -71,7 +77,7 @@ task_cbk_handler_internal (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_s
 }
 
 static event_dispatcher_t *
-node_get_ev_dispatcher (Stack_t *tlv_stack) {
+node_get_ev_dispatcher (Stack_t *tlv_stack, uint8_t user_flag) {
 
     node_t *node;
     tlv_struct_t *tlv;
@@ -92,27 +98,29 @@ node_get_ev_dispatcher (Stack_t *tlv_stack) {
     node = node_get_node_by_name(topo, node_name);
     assert(node);
 
-    return &node->ev_dis;
+    if (user_flag & CLI_F_CONTROL_PLANE) return &node->ev_dis;
+    return dp_uapi_get_dp_scheduler(node->dp_ctx);
 }
 
 
 /* Public API to be called by CLIBuilder*/
-void
-task_invoke_appln_cbk_handler (int cmdcode, 
-                                                     cmd_callback cbk, 
-                                                     Stack_t  *tlv_stack,
-                                                     op_mode enable_or_disable) {
+void task_invoke_appln_cbk_handler(int cmdcode,
+                                   cmd_callback cbk,
+                                   Stack_t *tlv_stack,
+                                   op_mode enable_or_disable,
+                                   uint8_t user_flag)
+{
 
-        int i = 0;
-        tlv_struct_t *tlv;
+    int i = 0;
+    tlv_struct_t *tlv;
 
-        unified_cli_data_t *unified_cli_data =
-                (unified_cli_data_t *)calloc(1, sizeof(unified_cli_data_t));
+    unified_cli_data_t *unified_cli_data =
+        (unified_cli_data_t *)calloc(1, sizeof(unified_cli_data_t));
 
-        unified_cli_data->cbk = cbk;
-        unified_cli_data->cmdcode = cmdcode;
-        unified_cli_data->tlv_stack = (Stack_t *)get_new_stack();
-        unified_cli_data->enable_or_disable = enable_or_disable;
+    unified_cli_data->cbk = cbk;
+    unified_cli_data->cmdcode = cmdcode;
+    unified_cli_data->tlv_stack = (Stack_t *)get_new_stack();
+    unified_cli_data->enable_or_disable = enable_or_disable;
 
 #ifndef ASYNC_MODE_DISABLED
         if (enable_or_disable == OPERATIONAL) {
@@ -126,7 +134,7 @@ task_invoke_appln_cbk_handler (int cmdcode,
             unified_cli_data->tlv_stack->top = tlv_stack->top;
 
             task_create_new_job_synchronous(
-                node_get_ev_dispatcher(tlv_stack),
+                node_get_ev_dispatcher(tlv_stack, user_flag),
                 (void *)unified_cli_data,
                 task_cbk_handler_internal,
                 TASK_ONE_SHOT,
@@ -147,7 +155,7 @@ task_invoke_appln_cbk_handler (int cmdcode,
             unified_cli_data->tlv_stack->top = tlv_stack->top;
 
             task_create_new_job(
-                node_get_ev_dispatcher(tlv_stack),
+                node_get_ev_dispatcher(tlv_stack, user_flag),
                 (void *)unified_cli_data,
                 task_cbk_handler_internal,
                 TASK_ONE_SHOT,
