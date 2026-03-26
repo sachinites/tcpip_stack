@@ -79,11 +79,9 @@ gre_tunnel_config_handler (int cmdcode,
 
                 case CONFIG_ENABLE:
                     gre_tunnel_set_src_addr (node, gre_tun_id, src_addr);
-                    interface_install_local_v4_routes (node, tunnel);
                     break;
                 case CONFIG_DISABLE:
                     gre_tunnel_set_src_addr (node, gre_tun_id, NULL);
-                    interface_uninstall_local_v4_routes (node, tunnel);
                     break;
                 default: ;
             }
@@ -95,11 +93,9 @@ gre_tunnel_config_handler (int cmdcode,
 
                 case CONFIG_ENABLE:
                     if (!gre_tunnel_set_src_interface (node, gre_tun_id, if_name)) return -1;
-                    interface_install_local_v4_routes (node, tunnel);
                     break;
                 case CONFIG_DISABLE:
                     if (!gre_tunnel_set_src_interface (node, gre_tun_id, NULL)) {
-                        interface_uninstall_local_v4_routes (node, tunnel);
                         return -1;
                     }
                     break;
@@ -111,11 +107,9 @@ gre_tunnel_config_handler (int cmdcode,
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
                     gre_tunnel_set_dst_addr (node, gre_tun_id, dst_addr);
-                    interface_install_local_v4_routes (node, tunnel);
                     break;
                 case CONFIG_DISABLE:
                     gre_tunnel_set_dst_addr (node, gre_tun_id, NULL);
-                    interface_uninstall_local_v4_routes (node, tunnel);
                     break;
                 default:
                     ;
@@ -126,11 +120,9 @@ gre_tunnel_config_handler (int cmdcode,
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
                     gre_tunnel_set_lcl_ip_addr(node, gre_tun_id, intf_ip_addr, mask);
-                    interface_install_local_v4_routes (node, tunnel);
                     break;
                 case CONFIG_DISABLE:
                     gre_tunnel_set_lcl_ip_addr(node, gre_tun_id, NULL, 0);
-                    interface_uninstall_local_v4_routes (node, tunnel);
                     break;
                 default:
                     ;

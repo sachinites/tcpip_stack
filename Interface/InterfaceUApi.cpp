@@ -24,23 +24,26 @@ interface_set_ip_addr(node_t *node,
         return;
     }
 
+    assert (intf->iftype != INTF_TYPE_GRE_TUNNEL);
+
     ip_addr_int = tcp_ip_convert_ip_p_to_n(intf_ip_addr);
     
     /* new config */
     if (!intf->IsIpConfigured()) {
 
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
-        cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex,ip_addr_int, mask);
-        interface_install_local_v4_routes  (node, intf);
-        
+        cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, ip_addr_int, mask);
+        interface_install_local_v4_routes(node, intf);
+    }
+
         /* Add MAC table entry for VLAN interface */
-        if (intf->iftype == INTF_TYPE_VLAN) {
+    if (intf->iftype == INTF_TYPE_VLAN) {
+
             VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
             cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, vlan_intf->GetVlanId(), 
                        NODE_RMAC_INTF(node)->ifindex, MAC_STATIC, true, 0);
-        }
-        return;
     }
+    return;
 
     /* Existing config changed */
     uint32_t existing_ip_addr;
@@ -52,7 +55,7 @@ interface_set_ip_addr(node_t *node,
 
         interface_uninstall_local_v4_routes  (node, intf);
         intf->InterfaceSetIpAddressMask(0, 0);
-        cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, existing_ip_addr, existing_mask);
+        cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, 0, 0);
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
         cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, ip_addr_int, mask);
         interface_install_local_v4_routes  (node, intf);
@@ -74,6 +77,8 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
     if ( !intf->IsIpConfigured()) {
         return;
     }
+
+    assert (intf->iftype != INTF_TYPE_GRE_TUNNEL);
 
     intf->InterfaceGetIpAddressMask(&existing_ip_addr, &existing_mask);
 
@@ -300,12 +305,6 @@ interface_install_local_v4_routes (node_t *node, Interface  *intf) {
     if (!intf) return;
     if (!intf->IsInterfaceUp(0)) return;
     if (!intf->IsIpConfigured()) return;
-
-    if (intf->iftype == INTF_TYPE_GRE_TUNNEL) {
-
-        GRETunnelInterface *gre_intf = dynamic_cast <GRETunnelInterface *> (intf);
-        if (!gre_intf->IsGRETunnelActive()) return;
-    }
 
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
 

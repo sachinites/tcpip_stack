@@ -511,17 +511,28 @@ validate_flag_values(stack_t *tlv_stack, c_string value){
 
 
 static void
+tcp_ip_print_dp_intf_log_status_header(void) {
+    cprintf("\t%-18s %-6s %-5s %-5s %-5s %-7s %s\n",
+        "Interface", "Status", "All", "Recv", "Send", "Stdout", "ACL Filter");
+    cprintf("\t%-18s %-6s %-5s %-5s %-5s %-7s %s\n",
+        "------------------", "------", "-----", "-----", "-----", "-------", "----------");
+}
+
+static void
 tcp_ip_print_dp_intf_log_status(dp_intf_t *dp_intf) {
 
     log_t *log_info = &dp_intf->log_info;
-    cprintf("\tLog Status : %s(%s)\n", dp_intf->if_name, dp_intf->is_up ? "UP" : "DOWN");
-    cprintf("\t\tall     : %s\n", log_info->all     ? "ON" : "OFF");
-    cprintf("\t\trecv    : %s\n", log_info->recv    ? "ON" : "OFF");
-    cprintf("\t\tsend    : %s\n", log_info->send    ? "ON" : "OFF");
-    cprintf("\t\tstdout  : %s\n", log_info->is_stdout ? "ON" : "OFF");
-    cprintf("\t\taccess list filter : %s\n",
-        log_info->acc_lst_filter && log_info->acc_lst_filter->name
-            ? log_info->acc_lst_filter->name : "none");
+    const char *acl = (log_info->acc_lst_filter && log_info->acc_lst_filter->name)
+                      ? log_info->acc_lst_filter->name : "none";
+
+    cprintf("\t%-18s %-6s %-5s %-5s %-5s %-7s %s\n",
+        dp_intf->if_name,
+        dp_intf->is_up  ? "UP"  : "DOWN",
+        log_info->all        ? "ON"  : "OFF",
+        log_info->recv       ? "ON"  : "OFF",
+        log_info->send       ? "ON"  : "OFF",
+        log_info->is_stdout  ? "ON"  : "OFF",
+        acl);
 }
 
 void tcp_ip_show_log_status(node_t *node){
@@ -542,7 +553,10 @@ void tcp_ip_show_log_status(node_t *node){
             log_info->acc_lst_filter && log_info->acc_lst_filter->name
                 ? log_info->acc_lst_filter->name : "none");
 
-    /* Regular interfaces — iterate directly over the DP interface hashtable */
+    /* Interface log status — one header, one row per interface */
+    cprintf("\n");
+    tcp_ip_print_dp_intf_log_status_header();
+
     if (hashtable_count(dp_ctx->dp_intf_ht) > 0) {
         struct hashtable_itr *itr = hashtable_iterator(dp_ctx->dp_intf_ht);
         do {

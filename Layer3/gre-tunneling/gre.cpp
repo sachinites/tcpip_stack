@@ -30,6 +30,7 @@ gre_tunnel_create (node_t *node, uint32_t tunnel_id) {
     gre_shared_ptr->att_node = node;
     gre_shared_ptr->ifindex = interface_get_new_ifindex (node);
     intf = gre_shared_ptr.get();
+    intf->is_up = false;
     
     cp2dp_interface_create (node, intf);
 
@@ -177,36 +178,52 @@ bool
     }
  }
 
-void 
-gre_tunnel_set_lcl_ip_addr(node_t *node, 
-                                             uint32_t gre_tun_id,
-                                             c_string intf_ip_addr,
-                                             uint8_t mask) {
+ void gre_tunnel_set_lcl_ip_addr(node_t *node,
+                                 uint32_t gre_tun_id,
+                                 c_string intf_ip_addr,
+                                 uint8_t mask)
+ {
 
-    Interface *tunnel;
-    byte intf_name[IF_NAME_SIZE];
+     Interface *tunnel;
+     byte intf_name[IF_NAME_SIZE];
 
-    snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", gre_tun_id);
+     snprintf((char *)intf_name, IF_NAME_SIZE, "tunnel%d", gre_tun_id);
 
-    tunnel = node_interface_lookup_by_name(node, (const char *)intf_name);
+     tunnel = node_interface_lookup_by_name(node, (const char *)intf_name);
 
-    if (!tunnel) {
-        cprintf ("Error : Tunnel Do Not  Exist\n");
-        return;
-    }
+     if (!tunnel)
+     {
+         cprintf("Error : Tunnel Do Not  Exist\n");
+         return;
+     }
 
-    if (tunnel->iftype != INTF_TYPE_GRE_TUNNEL) {
-        cprintf ("Error : Specified tunnel is not GRE tunnel\n");
-        return;
-    }
+     if (tunnel->iftype != INTF_TYPE_GRE_TUNNEL)
+     {
+         cprintf("Error : Specified tunnel is not GRE tunnel\n");
+         return;
+     }
 
-    if (intf_ip_addr && mask) {
-        interface_set_ip_addr(node, tunnel, intf_ip_addr, mask);
-    }
-    else {
-         interface_unset_ip_addr(node, tunnel, intf_ip_addr, mask);
-    }
-}
+     uint32_t existing_ip_addr; uint8_t existing_mask;
+     tunnel->InterfaceGetIpAddressMask(&existing_ip_addr, &existing_mask);
+
+     if (intf_ip_addr && mask)
+     {
+
+        if (existing_ip_addr || existing_mask) {
+            cprintf ("Error : Intf Address/Mask already configured\n");
+            return;
+        }
+
+
+        tunnel->InterfaceSetIpAddressMask(
+                tcp_ip_convert_ip_p_to_n(intf_ip_addr), mask);
+     }
+
+     else if (intf_ip_addr == NULL ||  mask == 0)
+     {
+         tunnel->InterfaceSetIpAddressMask(0, 0);
+     }
+ }
 
 void
 gre_interface_updates (event_dispatcher_t *ev_dis, void *arg, unsigned int arg_size) {

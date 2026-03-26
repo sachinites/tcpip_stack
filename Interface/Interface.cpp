@@ -988,6 +988,7 @@ GRETunnelInterface::SetTunnelSource(PhysicalInterface *interface)
             <PhysicalInterface>( interface->GetSharedPtr());
         interface->used_as_underlying_tunnel_intf++;
         this->config_flags |= GRE_TUNNEL_SRC_INTF_SET;
+        gre_tunnel_check_and_activate_tunnel ();
     }
     else {
 
@@ -996,6 +997,7 @@ GRETunnelInterface::SetTunnelSource(PhysicalInterface *interface)
         tunnel_src_intf->used_as_underlying_tunnel_intf--;
         this->tunnel_src_intf = nullptr;
         this->config_flags &= ~GRE_TUNNEL_SRC_INTF_SET;
+        gre_deactivate_tunnel ();
     }
     return true;
 }
@@ -1007,16 +1009,20 @@ GRETunnelInterface::SetTunnelDestination(uint32_t ip_addr)
     this->tunnel_dst_ip = ip_addr;
     if (ip_addr) {
         this->config_flags |= GRE_TUNNEL_DST_ADDR_SET;
+        gre_tunnel_check_and_activate_tunnel ();
     }
     else {
         this->config_flags &= ~GRE_TUNNEL_DST_ADDR_SET;
+        gre_deactivate_tunnel ();
     }
+
 }
 
 void 
 GRETunnelInterface::SetTunnelLclIpMask(uint32_t ip_addr, uint8_t mask)
 {
     this->InterfaceSetIpAddressMask(ip_addr, mask);
+    gre_tunnel_check_and_activate_tunnel ();
 }
 
  bool 
@@ -1037,6 +1043,7 @@ GRETunnelInterface::SetTunnelSrcIp(uint32_t src_addr)
 
     this->tunnel_src_ip = src_addr;
     this->config_flags |= GRE_TUNNEL_SRC_ADDR_SET;
+    gre_tunnel_check_and_activate_tunnel ();
 }
 
 void
@@ -1046,6 +1053,7 @@ GRETunnelInterface::UnSetTunnelSrcIp()
     {
         this->tunnel_src_ip = 0;
         this->config_flags &= ~GRE_TUNNEL_SRC_ADDR_SET;
+        gre_deactivate_tunnel ();
     }
 }
 
@@ -1056,9 +1064,11 @@ GRETunnelInterface::InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) {
         this->mask = mask;
         if (ip_addr == 0 ) {
             this->config_flags &= ~GRE_TUNNEL_OVLAY_IP_SET;
+            gre_deactivate_tunnel ();
             return;
         }
         this->config_flags |= GRE_TUNNEL_OVLAY_IP_SET;
+        gre_tunnel_check_and_activate_tunnel ();
     }
     
 void 
@@ -1134,6 +1144,7 @@ GRETunnelInterface::InterfaceReleaseAllResources() {
     if (this->tunnel_src_intf) {
         this->SetTunnelSource(NULL);
     }
+    gre_deactivate_tunnel ();
 }
 
 /* Stored in default way*/
@@ -1142,6 +1153,36 @@ GRETunnelInterface::IsCrossReferenced()
 {
     return this->GetSharedPtr().use_count() > (GRE_IF_REFCOUNT + 1);
 }
+
+void 
+GRETunnelInterface::gre_tunnel_check_and_activate_tunnel () {
+
+    /* Check if already activated */
+    if (this->is_up) return;
+
+    /* Not in a state to be activated, return*/
+    if (!this->IsGRETunnelActive()) return;
+
+    /* Now Activate */
+    this->is_up = true;
+
+    cp2dp_send_intf_admin_status_update (this->att_node, this->ifindex, false);
+    cp2dp_send_intf_ipv4_addr_update(this->att_node, this->ifindex, this->lcl_ip, this->mask);
+    interface_install_local_v4_routes(this->att_node, this);
+}
+
+void 
+GRETunnelInterface::gre_deactivate_tunnel () {
+
+    if (!this->is_up) return;
+    this->is_up = false;
+    cp2dp_send_intf_admin_status_update (this->att_node, this->ifindex, true);
+    cp2dp_send_intf_ipv4_addr_update(this->att_node, this->ifindex, 0, 0);
+    interface_uninstall_local_v4_routes (this->att_node, this);
+}
+
+
+
 
 
 /* ******** VirtualPort **************** */

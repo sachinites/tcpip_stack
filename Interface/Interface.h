@@ -355,6 +355,8 @@ class GRETunnelInterface : public VirtualInterface {
 
 private:
     void InterfaceReleaseAllResources() ;
+    void gre_tunnel_check_and_activate_tunnel ();
+    void gre_deactivate_tunnel ();
 protected:
 public:
     

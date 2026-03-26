@@ -98,8 +98,8 @@ node_get_ev_dispatcher (Stack_t *tlv_stack, uint8_t user_flag) {
     node = node_get_node_by_name(topo, node_name);
     assert(node);
 
-    if (user_flag & CLI_F_CONTROL_PLANE) return &node->ev_dis;
-    return dp_uapi_get_dp_scheduler(node->dp_ctx);
+    if (user_flag & CLI_F_DATA_PLANE) return dp_uapi_get_dp_scheduler(node->dp_ctx);
+    return &node->ev_dis;
 }
 
 
