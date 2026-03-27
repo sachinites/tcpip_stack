@@ -86,8 +86,6 @@ config_rtm_route_cli_handler(int cmdcode,
                               Stack_t *tlv_stack,
                               op_mode enable_or_disable) ;
 
-extern void sql_build_cli_tree (param_t *root) ;
-
 extern void 
 ipv6_build_cli_run_tree (param_t *root) ;
 
@@ -1322,9 +1320,6 @@ nw_init_cli(){
 
             /* Mount ping6 CLI here*/
             ipv6_build_cli_run_tree (&node_name);
-            
-            /* Mount SQL Query CLI */
-            sql_build_cli_tree (&node_name);
 
             
             static param_t vrf_name;

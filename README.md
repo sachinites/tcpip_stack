@@ -58,9 +58,8 @@ Make sure you have C++ compiler and Makefile utility installed in your system. I
 
 
 Installation of standard libraries:  
-1. `sudo apt-get install libpq-dev`        # For PostgresSQL client interface
-2. `sudo apt-get install libncurses5-dev`  # For ncurses library
-3. `sudo apt-get install libfl-dev`     	 # For flex library, used for parsing
+1. `sudo apt-get install libncurses5-dev`  # For ncurses library
+
 
 Rest of the standard libraries are installed by default on any linux distro which are listed below. So you need  
 not take any action to install them on your linux system.  
@@ -93,35 +92,6 @@ linked with the project during compilation.
 13. c-hashtable (hashtable)
 14. Tracer (Tracer)
 
-Installation of private external libraries. Some libraries are build separately. These include :
-1. MathExpressionParser
-2. RDBMSImplementation (This library is dependent on MathExpressionParser)
-
-Pls follow the below steps : 
-Assuming you have downloaded this project in your home directory. Download the below libraries in your home directory as well  (as the same level as this project), follow the below steps in your terminal.
-
-git clone https://github.com/sachinites/MathExpressionParser.git  
-`cd MathExpressionParser`  
-`git checkout Oops`  
-
-
-git clone https://github.com/sachinites/RDBMSImplementation.git  
-`cd RDBMSImplementation`  
-`git checkout DCB`  
-
-After above steps, you home directory should have following 3 dir : 
-`tcpip_stack (this project)`   `MathExpressionParser`    `RDBMSImplementation`
-
-### Continue to follow below steps : 
-
-### compile MathExpressionParser library first 
-`cd MathExpressionParser`  
-`sh compile.sh`
-
-### compile RDBMSImplementation library next
-`cd RDBMSImplementation/SqlParser`  
-`make all`
-
 ### Now, final step is to compile tcpip_stack project
 `cd tcpip_stack`  
 `make all`  
@@ -140,5 +110,5 @@ Thats it . Enjoy the project. If you make any changes in tcpip_stack dir (main p
 if you make any changes in external private libraries (MathExpressionParser/RDBMSImplementation), then rebuild the library, followed by rebuilding the tcpip_stack project.
 
 
-Last updated : 14 Mar 2025
+Last updated : 28 Mar 2026
 ( Miss you Maa !! )

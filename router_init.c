@@ -205,9 +205,6 @@ Router_Create(graph_t *graph, const c_string node_name){
     sprintf(file_name, "logs/%s-cp-acl.txt", node->node_name);
     node->acl_cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO,  debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->acl_cptr, true);
-
-    /* initialize SQL Table Catalog*/
-    sql_init_db(&node->sql_db);
     
     /* Start Control plane Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "CP-%s", node_name);

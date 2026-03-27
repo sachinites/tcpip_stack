@@ -23,13 +23,9 @@ LIBS= ${ISIS_LIB_PATH} \
        		-LLinuxMemoryManager -lmm \
 			-LFSMImplementation -lfsm \
 			-LFireWall -lasa \
-			-L../RDBMSImplementation/SqlParser -lsqlapi \
-			-L../RDBMSImplementation/SqlParser -ldbms \
-			-L../MathExpressionParser -lMexpr \
 			-Ldatapath -ldp \
 			-LRTM -lrtm \
 			-lpthread \
-			-lpq \
    		    -lrt \
 			-lfl \
 			-lm \
@@ -83,12 +79,10 @@ OBJS=gluethread/glthread.o \
 		  Interface/Interface.o \
 		  Interface/InterfaceUApi.o \
 		  Interface/InterfaceCli.o \
-		  PostgresLibpq/postgresLib.o \
 		  dpal/cp2dp.o \
 		  common/cmn_prefix.o \
 		  common/cmn_api.o \
 		  lmm_reg.o \
-		  sql_cli.o \
 		  Linux/LinuxInterface.o \
 		  RTM/rtm_nb_integ.o \
 		  vrf/vrf_cli.cpp \
@@ -99,17 +93,11 @@ OBJS=gluethread/glthread.o \
 lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
 
-sql_cli.o:sql_cli.cpp
-	${CC} ${CFLAGS} -c sql_cli.cpp -o sql_cli.o
-
 Layer2/vxlan/cp/vlan_vni_mapping.o:Layer2/vxlan/cp/vlan_vni_mapping.c
 	${CC} ${CFLAGS} -c -I Layer2/vxlan Layer2/vxlan/cp/vlan_vni_mapping.c -o Layer2/vxlan/cp/vlan_vni_mapping.o
 
 Layer2/vxlan/cp/vxlan_cli.o:Layer2/vxlan/cp/vxlan_cli.c 
 	${CC} ${CFLAGS} -c -I . Layer2/vxlan/cp/vxlan_cli.c -o Layer2/vxlan/cp/vxlan_cli.o
-
-Threads/refcount.o:Threads/refcount.c
-	${CC} ${CFLAGS} -c Threads/refcount.c -o Threads/refcount.o
 
 Tracer/tracer.o:Tracer/tracer.cpp
 	${CC} ${CFLAGS} -I Tracer -c Tracer/tracer.cpp -o Tracer/tracer.o
@@ -140,7 +128,7 @@ pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
 tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a
-	${CC} ${CFLAGS} main.o ../RDBMSImplementation/SqlParser/SqlToMexprEnumMapper.o ${OBJS}  ${LIBS} -o tcpstack.exe
+	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
 notif.o:notif.c
@@ -270,10 +258,6 @@ vrf/vrf_cli.o:vrf/vrf_cli.cpp
 	${CC} ${CFLAGS} -c vrf/vrf_cli.cpp -o vrf/vrf_cli.o 
 vrf/vrf.o:vrf/vrf.cpp
 	${CC} ${CFLAGS} -c vrf/vrf.cpp -o vrf/vrf.o 
-
-#postgresLib files
-PostgresLibpq/postgresLib.o:PostgresLibpq/postgresLib.cpp
-	${CC} ${CFLAGS} -c PostgresLibpq/postgresLib.cpp -o PostgresLibpq/postgresLib.o
 
 #ipv6 files 
 Layer3/ipv6/ipv6cli.o:Layer3/ipv6/ipv6cli.cpp
