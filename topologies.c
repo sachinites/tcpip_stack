@@ -701,12 +701,7 @@ config node R1 interface vlan 10
 config node R1 transport-service-profile tsp10
 config node R1 transport-service-profile tsp10 vlan 10
 
-config node R1 interface virtual-port vp1 
-config node R1 interface virtual-port vp1 transport-service-profile tsp10
-config node R1 interface virtual-port vp1 overlay-tunnel tunnel2
-
-config node R1 route 100.1.1.2 32 20.1.1.2 eth1
-
+config node R1 rtm-route prefix 100.1.1.2/32 0 0 0 2 1 gateway 20.1.1.2 interface eth1
 
 config node R2 interface tunnel 2
 config node R2 interface tunnel 2 tunnel-source 100.1.1.2
@@ -717,13 +712,18 @@ config node R2 interface vlan 10
 config node R2 transport-service-profile tsp10
 config node R2 transport-service-profile tsp10 vlan 10
 
+config node R2 rtm-route prefix 100.1.1.1/32 0 0 0 2 1 gateway 20.1.1.1 interface eth1
+
+run node H1 ping 10.1.1.2
+
 config node R2 interface virtual-port vp1 
 config node R2 interface virtual-port vp1 transport-service-profile tsp10
 config node R2 interface virtual-port vp1 overlay-tunnel tunnel2
 
-config node R2 route 100.1.1.1 32 20.1.1.1 eth1
+config node R1 interface virtual-port vp1 
+config node R1 interface virtual-port vp1 transport-service-profile tsp10
+config node R1 interface virtual-port vp1 overlay-tunnel tunnel2
 
-run node H1 ping 10.1.1.2
 
                              +-------------GRE-Tunnel----------+
                              |                                 |

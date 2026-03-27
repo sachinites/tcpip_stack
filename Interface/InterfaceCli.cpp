@@ -25,7 +25,9 @@ config_interface_build_transport_svc_cli_tree (
 extern int validate_mask_value(Stack_t *tlv_stack, c_string mask_str);
 
 void
-Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_configs);
+Interface_config_cli_common_subtree (param_t *if_name, 
+    int (*cbk) (int , Stack_t *, op_mode ), 
+    uint64_t unsupported_configs);
 
 static int
 validate_vlan_id(Stack_t *tlv_stack, c_string vlan_value){
@@ -942,7 +944,9 @@ intf_config_virtual_port_create_handler(int cmdcode,
 }
 
 void
-Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_configs)
+Interface_config_cli_common_subtree (param_t *if_name,  
+                    int (*cbk) (int , Stack_t *, op_mode ), 
+                    uint64_t unsupported_configs)
 {
 
     {
@@ -963,13 +967,13 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
         {
             /*config node <node-name> interface <if-name> switchport */
             static param_t switchport;
-            init_param(&switchport, CMD, "switchport", intf_config_handler, 0, INVALID, 0, "\"switchport\" keyword");
+            init_param(&switchport, CMD, "switchport", cbk, 0, INVALID, 0, "\"switchport\" keyword");
             libcli_register_param(if_name, &switchport);
             libcli_set_param_cmd_code(&switchport, CMDCODE_INTF_CONFIG_SWITCHPORT);
             {
                 /* config node <node-name> interface . . . <if-name> switchport access ...*/
                 static param_t access;
-                init_param(&access, CMD, "access", intf_config_handler, 0, INVALID, 0, "\"switchport\" keyword");
+                init_param(&access, CMD, "access", cbk, 0, INVALID, 0, "\"switchport\" keyword");
                 libcli_register_param(&switchport, &access);
                 {
                     /* config node <node-name> interface . . . <if-name> switchport access vlan <vlan-id>*/
@@ -979,7 +983,7 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
                     {
                         /*config node <node-name> interface . . . <if-name> switchport access vlan <vlan-id>*/
                         static param_t vlan_id;
-                        init_param(&vlan_id, LEAF, 0, intf_config_handler, validate_vlan_id, INT, "vlan-id", "vlan id(1-4095)");
+                        init_param(&vlan_id, LEAF, 0, cbk, validate_vlan_id, INT, "vlan-id", "vlan id(1-4095)");
                         libcli_register_param(&vlan, &vlan_id);
                         libcli_set_param_cmd_code(&vlan_id, CMDCODE_INTF_CONFIG_VLAN);
                     }
@@ -991,7 +995,7 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
         {
             /* config node <node-name> interface . . . <if-name>  <up|down>*/
             static param_t if_up_down_status;
-            init_param(&if_up_down_status, LEAF, 0, intf_config_handler, validate_if_up_down_status, STRING, "if-up-down", "<up | down>");
+            init_param(&if_up_down_status, LEAF, 0, cbk, validate_if_up_down_status, STRING, "if-up-down", "<up | down>");
             libcli_register_param(if_name, &if_up_down_status);
             libcli_set_param_cmd_code(&if_up_down_status, CMDCODE_CONF_INTF_UP_DOWN);
         }
@@ -1004,7 +1008,7 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
             libcli_register_param(if_name, &metric);
             {
                 static param_t metric_val;
-                init_param(&metric_val, LEAF, 0, intf_config_handler, validate_interface_metric_val, INT, "metric-val", "Metric Value(1-16777215)");
+                init_param(&metric_val, LEAF, 0, cbk, validate_interface_metric_val, INT, "metric-val", "Metric Value(1-16777215)");
                 libcli_register_param(&metric, &metric_val);
                 libcli_set_param_cmd_code(&metric_val, CMDCODE_INTF_CONFIG_METRIC);
             }
@@ -1022,7 +1026,7 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
                 libcli_register_param(&ip_addr, &ip_addr_val);
                 {
                     static param_t mask;
-                    init_param(&mask, LEAF, 0, intf_config_handler, validate_mask_value, INT, "mask", "mask [0-32]");
+                    init_param(&mask, LEAF, 0, cbk, validate_mask_value, INT, "mask", "mask [0-32]");
                     libcli_register_param(&ip_addr_val, &mask);
                     libcli_set_param_cmd_code(&mask, CMDCODE_INTF_CONFIG_IP_ADDR);
                 }
@@ -1034,7 +1038,7 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
             libcli_register_param(if_name, &ipv6_addr);
             {
                 static param_t ipv6_addr_val;
-                init_param(&ipv6_addr_val, LEAF, 0, intf_config_handler, 0, STRING, "intf-ipv6-address", "IPv6 address with prefix (e.g., 2001:db8::1/64)");
+                init_param(&ipv6_addr_val, LEAF, 0, cbk, 0, STRING, "intf-ipv6-address", "IPv6 address with prefix (e.g., 2001:db8::1/64)");
                 libcli_register_param(&ipv6_addr, &ipv6_addr_val);
                 libcli_set_param_cmd_code(&ipv6_addr_val, CMDCODE_INTF_CONFIG_IPV6_ADDR);
             }
@@ -1049,7 +1053,7 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
             {
                 /*config node <node-name> interface . . . <if-name> vlan <vlan-id>*/
                 static param_t vlan_id;
-                init_param(&vlan_id, LEAF, 0, intf_config_handler, validate_vlan_id, INT, "vlan-id", "vlan id(1-4096)");
+                init_param(&vlan_id, LEAF, 0, cbk, validate_vlan_id, INT, "vlan-id", "vlan id(1-4096)");
                 libcli_register_param(&vlan, &vlan_id);
                 libcli_set_param_cmd_code(&vlan_id, CMDCODE_INTF_CONFIG_VLAN);
             }
@@ -1064,7 +1068,7 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
             {
                 /*config node <node-name> interface virtual-port <if-name> overlay-tunnel <tunnel-name>*/
                 static param_t tunnel_name;
-                init_param(&tunnel_name, LEAF, 0, intf_config_handler, 0, STRING, "tunnel-name", "Tunnel Name");
+                init_param(&tunnel_name, LEAF, 0, cbk, 0, STRING, "tunnel-name", "Tunnel Name");
                 libcli_register_param(&overlay_tunnel, &tunnel_name);
                 libcli_set_param_cmd_code(&tunnel_name, CMDCODE_INTF_CONFIG_BIND_OVERLAY_TUNNEL);
             }
@@ -1079,7 +1083,7 @@ Interface_config_cli_common_subtree (param_t *if_name, uint64_t unsupported_conf
             {
                 /* config node <node-name> interface . . . <if-name> vrf <vrf-name> */
                 static param_t vrf_name;
-                init_param(&vrf_name, LEAF, 0, intf_config_handler, 0, STRING, "vrf-name", "VRF Name");
+                init_param(&vrf_name, LEAF, 0, cbk, 0, STRING, "vrf-name", "VRF Name");
                 libcli_register_param(&vrf, &vrf_name);
                 libcli_set_param_cmd_code(&vrf_name, CMDCODE_CONF_INTF_VRF);
             }
@@ -1118,7 +1122,7 @@ vlan_cli_config_tree(param_t *root)
              unsupported_configs &= ~INTF_CONFIG_NOT_SUPPORTED_UP_DOWN;
              unsupported_configs &= ~INTF_CONFIG_NOT_SUPPORTED_TRACEOPTIONS;
              unsupported_configs &= ~INTF_CONFIG_NOT_SUPPORTED_VRF;
-             Interface_config_cli_common_subtree(&vlan_id, unsupported_configs);
+             Interface_config_cli_common_subtree(&vlan_id, intf_config_handler, unsupported_configs);
         }
 }
 
@@ -1151,7 +1155,7 @@ Interface_config_cli_tree (param_t *root) {
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_SWITCHPORT;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_VLAN;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL;
-                    Interface_config_cli_common_subtree (&loname, unsupported_configs);
+                    Interface_config_cli_common_subtree (&loname, intf_config_handler, unsupported_configs);
                 }
             }
 
@@ -1169,7 +1173,7 @@ Interface_config_cli_tree (param_t *root) {
                     uint64_t unsupported_configs = 0;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_METRIC;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_IP_ADDRESS;
-                    Interface_config_cli_common_subtree (&vp_name, unsupported_configs);
+                    Interface_config_cli_common_subtree (&vp_name, intf_config_handler, unsupported_configs);
                 }
             }
 
@@ -1221,7 +1225,7 @@ Interface_config_cli_tree (param_t *root) {
                     libcli_register_param(&ethernet, &if_name);
                     uint64_t unsupported_configs = 0;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL;
-                    Interface_config_cli_common_subtree (&if_name, unsupported_configs);
+                    Interface_config_cli_common_subtree (&if_name, intf_config_handler, unsupported_configs);
 		            libcli_support_cmd_negation(&if_name);                               
                 }
             }

@@ -355,8 +355,6 @@ class GRETunnelInterface : public VirtualInterface {
 
 private:
     void InterfaceReleaseAllResources() ;
-    void gre_tunnel_check_and_activate_tunnel ();
-    void gre_deactivate_tunnel ();
 protected:
 public:
     
@@ -368,7 +366,8 @@ public:
     uint32_t lcl_ip;
     uint16_t config_flags;
     uint8_t mask;
-    char padding[5];
+    uint8_t is_active;
+    char padding[4];
 
     GRETunnelInterface(uint32_t tunnel_id);
     virtual ~GRETunnelInterface();
@@ -386,6 +385,8 @@ public:
     virtual bool IsSameSubnet(uint32_t ip_addr);
     virtual mac_addr_t * GetMacAddr() final;
     virtual bool IsCrossReferenced() final;
+    void gre_tunnel_check_and_activate_tunnel ();
+    void gre_deactivate_tunnel ();
 } __attribute__((aligned(8)));
 
 
