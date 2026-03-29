@@ -26,7 +26,6 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../common/l2_hdrs.h"
 #include "../common/l3_hdrs.h"
-#include "../../lmm_enums.h"
 #include "../common/cmn_api.h"
 
 gen_proto_id_t
@@ -38,7 +37,7 @@ pkt_block_get_starting_hdr(pkt_block_t *pkt_block) {
 pkt_block_t *
 pkt_block_get_new2(uint8_t *pkt, pkt_size_t pkt_size, const char *fn_name, uint16_t lineno) {
 
-    pkt_block_t *pkt_block = (pkt_block_t *)XCALLOC2(0, 1, pkt_block_t);
+    pkt_block_t *pkt_block = (pkt_block_t *)calloc(1, sizeof(pkt_block_t));
     pkt_block->pkt_id = 0;
     pkt_block->pkt = pkt;
     pkt_block->pkt_size = pkt_size;
@@ -51,7 +50,7 @@ pkt_block_get_new2(uint8_t *pkt, pkt_size_t pkt_size, const char *fn_name, uint1
 pkt_block_t *
 pkt_block_get_new_pkt_buffer2(pkt_size_t pkt_size, const char *fn_name, uint16_t lineno) {
 
-    pkt_block_t *pkt_block = (pkt_block_t *)XCALLOC2(0, 1, pkt_block_t);
+    pkt_block_t *pkt_block = (pkt_block_t *)calloc( 1, sizeof(pkt_block_t));
     pkt_block->pkt_id = 0;
     pkt_block->pkt = (uint8_t *)tcp_ip_get_new_pkt_buffer(pkt_size);
     pkt_block->pkt_size = pkt_size;
@@ -86,7 +85,7 @@ pkt_block_free(pkt_block_t *pkt_block) {
     tcp_ip_free_pkt_buffer(pkt_block->pkt, pkt_block->pkt_size);
     assert (!pkt_block->encap_data);
     assert (!pkt_block->ingress_intf);
-    XFREE(pkt_block);
+    free(pkt_block);
 }
 
 uint8_t
@@ -95,7 +94,7 @@ pkt_block_dereference(pkt_block_t *pkt_block) {
     uint8_t ref_count = pkt_block->ref_count;
 
     if (pkt_block->ref_count == 0) {
-        if (pkt_block->encap_data) XFREE(pkt_block->encap_data);
+        if (pkt_block->encap_data) free(pkt_block->encap_data);
         pkt_block->encap_data = NULL;
         if (pkt_block->ingress_intf) pkt_block->ingress_intf = 0;
         pkt_block_free(pkt_block);
@@ -105,7 +104,7 @@ pkt_block_dereference(pkt_block_t *pkt_block) {
     pkt_block->ref_count--;
 
     if (pkt_block->ref_count == 0) {
-        if (pkt_block->encap_data) XFREE(pkt_block->encap_data);
+        if (pkt_block->encap_data) free(pkt_block->encap_data);
         pkt_block->encap_data = NULL;        
         if (pkt_block->ingress_intf) pkt_block->ingress_intf = 0;
         pkt_block_free(pkt_block);
@@ -263,7 +262,7 @@ pkt_block_set_new_pkt(pkt_block_t *pkt_block, uint8_t *pkt, pkt_size_t pkt_size)
 pkt_block_t *
 pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno) {
 
-    pkt_block_t *pkt_block2 = (pkt_block_t *)XCALLOC2(0, 1, pkt_block_t );
+    pkt_block_t *pkt_block2 = (pkt_block_t *)calloc(1, sizeof(pkt_block_t));
     pkt_block2->pkt_id = 0;
     pkt_block2->pkt = (uint8_t *) tcp_ip_get_new_pkt_buffer(pkt_block->pkt_size);
     memcpy(pkt_block2->pkt , pkt_block->pkt, pkt_block->pkt_size);
@@ -275,7 +274,7 @@ pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno) {
     pkt_block2->no_modify = pkt_block->no_modify;
     pkt_block2->ingress_intf = pkt_block->ingress_intf;
     if (pkt_block->encap_data) {
-        pkt_block2->encap_data = (encap_meta_data_t *)XCALLOC2(0, 1, encap_meta_data_t);
+        pkt_block2->encap_data = (encap_meta_data_t *)calloc( 1, sizeof(encap_meta_data_t));
         memcpy (pkt_block2->encap_data, pkt_block->encap_data, 
             sizeof (*pkt_block->encap_data));
     }
@@ -353,14 +352,14 @@ tcp_ip_expand_buffer_ethernet_hdr(pkt_block_t *pkt_block) {
     /* No use case of encapsulating ethernet hdr inside ethernet hdr */
     assert (pkt_block_get_starting_hdr (pkt_block) != ETHERNET_HEADER);
     uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
-    char *temp = (char *)XCALLOC_BUFF(0, pkt_size);   
+    char *temp = (char *)calloc(1, pkt_size);   
     memcpy(temp, pkt, pkt_size);    
     pkt_block_expand_buffer_left (pkt_block, ETH_HDR_SIZE_EXCL_PAYLOAD);
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &new_pkt_size);
     memset((char *)eth_hdr, 0, ETH_HDR_SIZE_EXCL_PAYLOAD);
     memcpy(eth_hdr->payload, temp, pkt_size);
     SET_COMMON_ETH_FCS(eth_hdr, pkt_size, 0);
-    XFREE(temp);
+    free(temp);
     pkt_block_set_starting_hdr_type(pkt_block , ETHERNET_HEADER);
 }
 

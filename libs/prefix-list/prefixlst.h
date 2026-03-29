@@ -84,13 +84,13 @@ prefix_list_dereference (prefix_list_t *prefix_lst) {
 
         pfx_lst_node = glue_to_pfx_lst_node(curr);
         remove_glthread (curr);
-        XFREE(pfx_lst_node);
+        free(pfx_lst_node);
 
     } ITERATE_GLTHREAD_END(&prefix_lst->pfx_lst_head, curr) ;
 
     assert(IS_GLTHREAD_LIST_EMPTY(&prefix_lst->glue));
 
-    XFREE(prefix_lst);
+    free(prefix_lst);
     return 0;
 }
 

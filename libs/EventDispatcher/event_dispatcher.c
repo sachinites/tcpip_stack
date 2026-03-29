@@ -121,7 +121,7 @@ event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 		if(debug) printf("%p : Syn Task Returned\n", ptr);
 		/* Task finished, free now */
 		free(task->app_cond_var);
-		XFREE(task);
+		free(task);
 	}
 	else {
 		EV_DIS_UNLOCK(ev_dis);
@@ -146,7 +146,7 @@ eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 					pthread_cond_signal(task->app_cond_var);
 				}
 				else {
-					XFREE(task);
+					free(task);
 				}
 			}
 			else{
@@ -284,7 +284,7 @@ create_new_task(void *arg,
 				uint32_t arg_size,
 				event_cbk cbk){
 
-	task_t *task = (task_t *)XCALLOC2(0, 1, task_t);
+	task_t *task = (task_t *)calloc(1, sizeof(task_t));
 	task->data = arg;
 	task->data_size = arg_size;
 	task->ev_cbk = cbk;
@@ -404,7 +404,7 @@ task_cancel_job(event_dispatcher_t *ev_dis, task_t *task){
 		EV_DIS_LOCK(ev_dis);
 		remove_glthread(&pkt_q->glue);
 		remove_glthread(&task->glue);
-		XFREE(task);
+		free(task);
 		EV_DIS_UNLOCK(ev_dis);
 	}
 	else if (task->task_type == TASK_ONE_SHOT ||
@@ -412,7 +412,7 @@ task_cancel_job(event_dispatcher_t *ev_dis, task_t *task){
 		EV_DIS_LOCK(ev_dis);
 		remove_glthread(&task->glue);
 		EV_DIS_UNLOCK(ev_dis);
-		XFREE(task);	
+		free(task);	
 	}
 }
 
@@ -427,7 +427,7 @@ GLTHREAD_TO_STRUCT(glue_to_pkt, pkt_t, glue);
 static pkt_t *
 task_get_new_pkt(char *pkt, uint32_t pkt_size){
 
-	pkt_t *_pkt = (pkt_t *)XCALLOC2(0, 1, pkt_t);
+	pkt_t *_pkt = (pkt_t *)calloc(1, sizeof(pkt_t));
 	_pkt->pkt = pkt;
 	_pkt->pkt_size = pkt_size;
 	init_glthread(&_pkt->glue);
@@ -460,7 +460,7 @@ task_get_next_pkt (event_dispatcher_t *ev_dis, uint32_t *pkt_size){
 
 	actual_pkt = pkt->pkt;
 	*pkt_size = pkt->pkt_size;
-	XFREE(pkt);
+	free(pkt);
 	return actual_pkt;
 }
 

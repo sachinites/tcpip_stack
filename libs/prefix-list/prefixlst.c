@@ -69,7 +69,7 @@ prefix_list_add_rule (prefix_list_t *prefix_lst,
     pfx_lst_node_t *pfx_lst_node;
     pfx_lst_node_t *pfx_lst_node_existing;
 
-    pfx_lst_node = (pfx_lst_node_t *)XCALLOC(0, 1, pfx_lst_node_t);
+    pfx_lst_node = (pfx_lst_node_t *)calloc( 1, sizeof(pfx_lst_node_t));
     pfx_lst_node->pfx = prefix;
     pfx_lst_node->pfx_len = len;
 
@@ -79,7 +79,7 @@ prefix_list_add_rule (prefix_list_t *prefix_lst,
     pfx_lst_node_existing = prefix_lst_node_lookup (prefix_lst, pfx_lst_node);
 
     if (pfx_lst_node_existing) {
-        XFREE(pfx_lst_node);
+        free(pfx_lst_node);
         pfx_lst_node = NULL;
         //cprintf ("Error : This Prefix list rule already exists\n");
         return false;
@@ -108,7 +108,7 @@ prefix_list_del_rule (prefix_list_t *prefix_lst,
         pfx_lst_node = glue_to_pfx_lst_node(curr);
         if (pfx_lst_node->seq_no == seq_no) {
             remove_glthread(&pfx_lst_node->glue);
-           XFREE(pfx_lst_node);
+            free(pfx_lst_node);
             return true;
         }
      } ITERATE_GLTHREAD_END(&prefix_lst->pfx_lst_head, curr);
