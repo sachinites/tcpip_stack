@@ -5,9 +5,15 @@
 #include "../../libs/BitOp/bitmap.h"
 
 #include "dp_intf.h"
+#include "../Vrfs/dp_vrf.h"
+
 #include "../../libs/c-hashtable/hashtable.h"
 #include "../../libs/c-hashtable/hashtable_itr.h"
 
+typedef struct arp_table_ arp_table_t;
+
+extern void 
+arp_entry_delete_by_interface  (arp_table_t *arp_table, dp_intf_t *intf);
 
 /* Hash function for port_id (uint32_t) keys */
 static inline uint32_t hash32(void *_x) {
@@ -102,6 +108,7 @@ dp_delete_interface (hashtable_t *ht, uint32_t port_id) {
     dp_intf_t *intf = (dp_intf_t *)hashtable_remove(ht, (void *)&port_id);
     assert(intf);
     dp_intf_de_init_logging (intf);
+    arp_entry_delete_by_interface(intf->vrf->arp_table, intf);
     dp_check_and_free_interface (intf);
 }
 

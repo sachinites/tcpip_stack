@@ -3,7 +3,6 @@
 #include <string.h>
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "../prefix-list/prefixlst.h"
-#include "../../utils.h"
 
 
 prefix_list_t *
@@ -16,7 +15,7 @@ prefix_lst_lookup_by_name (pfxlst_db *pfxlstdb, unsigned char *pfxlst_name) {
 
         prefix_lst = glue_to_pfx_lst(curr);
         
-        if (string_compare(prefix_lst->name, pfxlst_name, PFX_LST_NAME_LEN) == 0) {
+        if (strncmp (prefix_lst->name, pfxlst_name, PFX_LST_NAME_LEN) == 0) {
             return prefix_lst;
         }
 

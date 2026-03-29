@@ -337,7 +337,8 @@ bool arp_table_entry_add(dp_ctx_t *dp_ctx,
         tracer_disable_hdr_print (dp_ctx->dptr);
         tracer(dp_ctx->dptr, DARP_DET, "VRF:%s:     OIF = %s, is_sane = %s\n", 
             vrf->vrf_name,
-            arp_entry->oif_name, arp_entry_sane(arp_entry) ? "true" : "false");
+            arp_entry->oif ? arp_entry->oif->if_name : "null",
+            arp_entry_sane(arp_entry) ? "true" : "false");
         return true;
     }
     
@@ -399,9 +400,7 @@ bool arp_table_entry_add(dp_ctx_t *dp_ctx,
 
         memcpy( (char *)arp_entry_old->mac_addr.mac,
 				(char *)arp_entry->mac_addr.mac, sizeof(mac_addr_t));
-        memcpy( (char *)arp_entry_old->oif_name, 
-                 ( char *)arp_entry->oif_name, IF_NAME_SIZE);
-        arp_entry_old->oif_name[IF_NAME_SIZE -1] = '\0';
+        arp_entry_old->oif = arp_entry->oif;
 
         if(arp_pending_list)
             *arp_pending_list = &arp_entry_old->arp_pending_list;
@@ -468,7 +467,7 @@ void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
 
     arp_entry->ip_addr = htonl(arp_hdr->src_ip);
     memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, MAC_ADDR_SIZE);
-    string_copy(arp_entry->oif_name, iif->if_name, IF_NAME_SIZE);
+    arp_entry->oif = iif;
     arp_entry->is_sane = false;
     arp_entry->proto = ETH_TYPE_ARP;
 
@@ -520,7 +519,8 @@ void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
         tracer_disable_hdr_print (dp_ctx->dptr);
         tracer(dp_ctx->dptr, DARP_DET, "VRF:%s:     OIF = %s, is_sane = %s\n", 
             vrf->vrf_name,
-            arp_entry->oif_name, arp_entry_sane(arp_entry) ? "true" : "false");        
+            arp_entry->oif ? arp_entry->oif->if_name : "null",
+            arp_entry_sane(arp_entry) ? "true" : "false");
     }
 
     if(rc == false){
@@ -557,7 +557,7 @@ show_arp_table(arp_table_t *arp_table){
             arp_entry->mac_addr.mac[3], 
             arp_entry->mac_addr.mac[4], 
             arp_entry->mac_addr.mac[5], 
-            arp_entry->oif_name,
+            arp_entry->oif ? arp_entry->oif->if_name : "null",
             arp_entry_sane(arp_entry) ? "false" : "true",
 			arp_entry_get_exp_time_left(arp_entry),
             proto_id_str(arp_entry->proto),
@@ -742,7 +742,7 @@ arp_entry_add(dp_ctx_t *dp_ctx,
     arp_entry->ip_addr = tcp_ip_convert_ip_p_to_n((char *)ip_addr);
     memcpy(arp_entry->mac_addr.mac, mac.mac, MAC_ADDR_SIZE);
     arp_entry->proto = proto;
-    string_copy(arp_entry->oif_name, oif->if_name, IF_NAME_SIZE);
+    arp_entry->oif = oif;
     if (!arp_table_entry_add (dp_ctx, vrf, vrf->arp_table, arp_entry, 0)) {
         XFREE(arp_entry);
         return false;
@@ -793,4 +793,19 @@ int show_arp_cli_tree(param_t *param)
     }
 
     return 0;
+}
+
+void 
+arp_entry_delete_by_interface (arp_table_t *arp_table, dp_intf_t *intf) {
+
+    glthread_t *curr;
+    arp_entry_t *arp_entry;
+
+    ITERATE_GLTHREAD_BEGIN(&arp_table->arp_entries, curr) {
+
+        arp_entry = arp_glue_to_arp_entry(curr);
+        if (arp_entry->oif != intf) continue;
+        delete_arp_entry(arp_entry);
+
+    } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
 }

@@ -45,7 +45,6 @@ typedef uint8_t  ip_proto_id_t;
  * Reference: https://www.iana.org/assignments/protocol-numbers
  * ========================================================================= */
 
-#define IP_PROTO_HOPOPT         0       /* IPv6 Hop-by-Hop options       */
 #define IP_PROTO_ICMP           1       /* Internet Control Message      */
 #define IP_PROTO_IGMP           2       /* Internet Group Management     */
 #define IP_PROTO_IP_IN_IP       4       /* IPv4 encapsulation            */
@@ -129,6 +128,8 @@ proto_id_str(uint16_t proto)
 {
     switch (proto) {
 
+    case ETHERNET_HEADER:           return "Ethernet";
+
     /* EtherTypes */
     case ETH_TYPE_IPv4:             return "IPv4";
     case ETH_TYPE_ARP:              return "ARP";
@@ -147,7 +148,6 @@ proto_id_str(uint16_t proto)
     case ETH_TYPE_GRE:              return "GRE-Ethernet";
 
     /* IP protocol numbers (some overlap with EtherType — handled above) */
-    case IP_PROTO_HOPOPT:           return "IPv6-HopOpt";
     case IP_PROTO_ICMP:             return "ICMP";
     case IP_PROTO_IGMP:             return "IGMP";
     case IP_PROTO_IP_IN_IP:         return "IP-in-IP";
@@ -208,32 +208,6 @@ proto_id_str(uint16_t proto)
     }
 }
 
-/* =========================================================================
- * srh_nexthdr_proto_name_str() — map an IPv6 SRH / IPv6 Next-Header value
- * to a human-readable string, using the IP_PROTO_* constants above.
- * ========================================================================= */
-
-static inline const char *
-srh_nexthdr_proto_name_str(uint8_t srh_nxthdr)
-{
-    switch (srh_nxthdr) {
-    case IP_PROTO_IP_IN_IP:     return "IPv4";
-    case IP_PROTO_TCP:          return "TCP";
-    case IP_PROTO_UDP:          return "UDP";
-    case IP_PROTO_IPv6:         return "IPv6";
-    case IP_PROTO_IPv6_ROUTE:   return "SRH";
-    case IP_PROTO_GRE:          return "GRE";
-    case IP_PROTO_ESP:          return "ESP";
-    case IP_PROTO_AH:           return "AH";
-    case IP_PROTO_ICMP:         return "ICMP";
-    case IP_PROTO_ICMPv6:       return "ICMPv6";
-    case IP_PROTO_OSPF:         return "OSPF";
-    case IP_PROTO_PIM:          return "PIM";
-    case IP_PROTO_SCTP:         return "SCTP";
-    case IP_PROTO_MPLS_IN_IP:   return "MPLS-in-IP";
-    default:                    return "unknown";
-    }
-}
 
 
 #endif /* __PROTO_IDS__ */

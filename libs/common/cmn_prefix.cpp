@@ -9,7 +9,6 @@
 #include "cmn_prefix.h"
 #include "ipv6_utils.h"
 #include "../BitOp/bitmap.h"
-#include "../../utils.h"
 
 bool cmn_prefix_is_null (cmn_prefix_t *prefix) {
 
@@ -46,7 +45,7 @@ cmn_prefix_to_string(cmn_prefix_t *prefix, char (*buffer)[48]) {
     
     switch (prefix->afi) {
         case AF_IPV4:
-            tcp_ip_covert_ip_n_to_p(prefix->u.v4_addr, (c_string)addr_str);
+            inet_ntop(AF_INET, (void *)&prefix->u.v4_addr, addr_str, sizeof(addr_str));
             snprintf(*buffer, 48, "%s/%d", addr_str, prefix->prefix_len);
             break;
             
@@ -238,7 +237,11 @@ bool cmn_parse_prefix_string(const char *prefix_str, cmn_prefix_t *prefix) {
     }
     
     /* Parse IPv4 address */
-    uint32_t ip_addr = tcp_ip_convert_ip_p_to_n((c_string)addr_str);
+    uint32_t ip_addr;
+    inet_pton(AF_INET, addr_str, &ip_addr);
+
+    ip_addr = htonl(ip_addr);
+    
     if (ip_addr == 0 && strcmp(addr_str, "0.0.0.0") != 0) {
         return false;
     }
@@ -247,6 +250,22 @@ bool cmn_parse_prefix_string(const char *prefix_str, cmn_prefix_t *prefix) {
     prefix->prefix_len = mask;
     prefix->afi = AF_IPV4;
     return true;
+}
+
+static uint16_t 
+afi_stride_len (AFI_T afi) {
+    switch (afi) {
+        case AF_IPV4:
+            return 32;  /* IPv4 address is 32 bits */
+        case AF_IPV6:
+            return 128; /* IPv6 address is 128 bits */
+        case AF_LABEL:
+            return 20;  /* MPLS label is 20 bits */
+        case AF_MAC:
+            return 48;  /* MAC address is 48 bits */
+        default:
+            return 0;
+    }
 }
 
 /* Convert FIB prefix to bitmap format for mtrie operations */

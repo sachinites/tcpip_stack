@@ -21,7 +21,6 @@
 
 #include <stddef.h>  /* for size_t */
 #include <stdbool.h>
-#include "../../utils.h"
 #include "../gluethread/glthread.h"
 #include "../EventDispatcher/event_dispatcher.h"
 
