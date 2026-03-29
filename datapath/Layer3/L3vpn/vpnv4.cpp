@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include "../../../libs/pkt-block/pkt_block.h"
-#include "../../../Layer3/ipv6/ipv6_hdrs.h"
+#include "../../../libs/common/ipv6_hdrs.h"
 #include "../../../libs/common/l3_hdrs.h"
 #include "../../../libs/LinuxMemoryManager/uapi_mm.h"
 

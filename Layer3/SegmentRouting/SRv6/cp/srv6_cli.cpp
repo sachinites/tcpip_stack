@@ -4,7 +4,7 @@
 #include "../../../../router_init.h"
 #include "../../../../Interface/InterfaceUApi.h"
 #include "../../../../libs/common/l3_hdrs.h"
-#include "../../../ipv6/ipv6_utils.h"
+#include "../../../../libs/common/ipv6_utils.h"
 #include "../../../../libs/common/ipv6_hdrs.h"
 #include "../../../../libs/pkt-block/pkt_block.h"
 #include "../../../../dpal/cp2dp.h"

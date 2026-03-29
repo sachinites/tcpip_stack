@@ -9,7 +9,7 @@
 #include "../libs/pkt-block/pkt_block.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../libs/Tracer/tracer.h"
-#include "../Layer3/ipv6/ipv6_hdrs.h"
+#include "../libs/common/ipv6_hdrs.h"
 #include "../lmm_enums.h"
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../RTM/rtm_nb_integ.h"

@@ -26,7 +26,6 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../common/l2_hdrs.h"
 #include "../common/l3_hdrs.h"
-#include "../../Layer3/ipv6/ipv6_hdrs.h"
 #include "../../lmm_enums.h"
 #include "../common/cmn_api.h"
 

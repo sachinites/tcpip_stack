@@ -15,7 +15,7 @@
 #define CLI_INTG
 
 #ifdef CLI_INTG
-extern int cprintf (const char* format, ...) ;
+extern int (*stdlib_printf)(const char *format, ...);
 #endif 
 
 /* Reserved bits, Application is not allowed to use these bits*/
@@ -160,10 +160,10 @@ trace_internal (tracer_t *tracer,
         }
         #else 
         if (tracer->op_flags & DISABLE_HDR_PRINTING) {
-            cprintf ("%s", tracer->Logbuffer + HDR_SIZE, tracer->log_msg_len - HDR_SIZE);
+            stdlib_printf ("%s", tracer->Logbuffer + HDR_SIZE, tracer->log_msg_len - HDR_SIZE);
         }
         else {
-            cprintf ("%s",  tracer->Logbuffer);
+            stdlib_printf ("%s",  tracer->Logbuffer);
         }
         refresh();
         #endif

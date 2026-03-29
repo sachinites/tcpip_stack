@@ -43,7 +43,7 @@
 #include "libs/c-hashtable/hashtable.h"
 #include "Interface/InterfaceUApi.h"
 #include "libs/Tracer/tracer.h"
-#include "Layer3/ipv6/ipv6_utils.h"
+#include "libs/common/ipv6_utils.h"
 #include "dpal/cp2dp.h"
 #include "RTM/rtm.h"
 #include "RTM/rtm_nb_integ.h"

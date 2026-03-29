@@ -38,7 +38,7 @@
 #include "libs/c-hashtable/hashtable.h"
 #include "libs/c-hashtable/hashtable_itr.h"
 
-#include "Layer3/ipv6/ipv6_utils.h"
+#include "libs/common/ipv6_utils.h"
 #include "net.h"
 #include "utils.h"
 #include "tcpconst.h"

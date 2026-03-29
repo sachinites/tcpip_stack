@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include "../../../libs/common/l3_hdrs.h"
-#include "../../../Layer3/ipv6/ipv6_hdrs.h"
+#include "../../../libs/common/l3_hdrs.h"
 #include "../../Layer3/ipv6/ipv6-fwd.h"
 #include "../../../router_init.h"
 #include "../../../libs/pkt-block/pkt_block.h"

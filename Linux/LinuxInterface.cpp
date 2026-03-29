@@ -32,7 +32,7 @@
 #include "../RTM/rtm.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../libs/common/cmn_prefix.h"
-#include "../Layer3/ipv6/ipv6_utils.h"
+#include "../libs/common/ipv6_utils.h"
 #include "../libs/pkt-block/pkt_block.h"
 #include "../datapath/dp_uapi.h"
 #include "../libs/common/cmn_api.h"

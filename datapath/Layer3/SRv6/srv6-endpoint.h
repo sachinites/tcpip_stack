@@ -1,7 +1,7 @@
 #ifndef __INET_SRv6ENDPOINT_H
 #define __INET_SRv6ENDPOINT_H
 
-#include "../../../Layer3/ipv6/ipv6_hdrs.h"
+#include "../../../libs/common/ipv6_hdrs.h"
 #include "../../../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 typedef struct ipv6_hdr_ ipv6_hdr_t;

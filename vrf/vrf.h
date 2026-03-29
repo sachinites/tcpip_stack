@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "../libs/gluethread/glthread.h"
-#include "../Layer3/ipv6/ipv6_hdrs.h"
+#include "../libs/common/ipv6_hdrs.h"
 #include "../libs/common/mpls_lstack.h"
 #include "../Interface/InterfaceFwd.h"
 

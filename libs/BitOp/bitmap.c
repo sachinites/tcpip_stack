@@ -4,10 +4,6 @@
 #include <arpa/inet.h>
 #include "bitmap.h"
 
-//extern int cprintf (const char *fmt, ...);
-//#define printf cprintf 
-#define XFREE free
-
 void bitmap_init(bitmap_t *bitmap, uint16_t size) {
 
     assert(!(size % 32));
@@ -26,12 +22,12 @@ void bitmap_init2(bitmap_t **bitmap, uint16_t size) {
 }
 
 void bitmap_free_internal(bitmap_t *bitmap) {
-    XFREE(bitmap->bits);
+    free(bitmap->bits);
 }
 
 void bitmap_free(bitmap_t *bitmap) {
    bitmap_free_internal(bitmap);
-   XFREE(bitmap);
+   free(bitmap);
 }
 
 void bitmap_reset(bitmap_t *bitmap) {
@@ -388,7 +384,7 @@ prefix32bit_match(uint32_t input, uint32_t prefix,
 
 	uint32_t unwanted_bits = ~0;
 	unwanted_bits = RSHIFT(unwanted_bits , 32 - prefix_len);
-    unwanted_bits = LSHIFT(unwanted_bits , 32 - prefix_len);
+        unwanted_bits = LSHIFT(unwanted_bits , 32 - prefix_len);
 
 	if ((input & (~mask) & unwanted_bits) == (prefix & (~mask) & unwanted_bits)) {
 		return true;

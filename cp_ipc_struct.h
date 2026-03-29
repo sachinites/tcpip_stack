@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "Interface/InterfacEnums.h"
 #include "Interface/InterfaceFwd.h"
-#include "Layer3/ipv6/ipv6_hdrs.h"
+#include "libs/common/ipv6_hdrs.h"
 #include "Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 class TransportService;

@@ -107,7 +107,7 @@
 #include "rtm_presentation.h"
 #include "rtm_resolution.h"
 #include "../vrf/vrf.h"
-#include "../Layer3/ipv6/ipv6_hdrs.h"
+#include "../libs/common/ipv6_hdrs.h"
 
 /* ========================================================================
  * Static Helper Functions

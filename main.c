@@ -57,6 +57,7 @@ extern graph_t *evpn_spine_leaf(void) ;
 extern graph_t *Linux_Router_topology(void) ;
 
 extern void nw_init_cli();
+extern void std_lib_init (int (*)(const char *format, ...)) ;
 
 /* Memory Init Imports */
 extern void mm_init();
@@ -65,12 +66,14 @@ extern void mm_init();
 
 graph_t *topo = NULL;
 extern event_dispatcher_t gev_dis;
+extern int cprintf (const char* format, ...) ;
 
 static void
 tcp_ip_stack_pre_topology_create_initializations(void) {
 
     nw_init_cli();
     mm_init();
+
     srand((unsigned int) time(NULL));
 
     /* Initialize the Scheduler before topology creation, as node
@@ -78,30 +81,18 @@ tcp_ip_stack_pre_topology_create_initializations(void) {
     event_dispatcher_init(&gev_dis, "Global");
 }
 
-#if 0
-#include "../RDBMSImplementation/uapi/sql_api.h"
-#endif 
-
 int 
 main(int argc, char **argv){
     
     (void )argc; (void) argv;
+
     libcli_init ();
+    std_lib_init(cprintf);
+
     tcp_ip_stack_pre_topology_create_initializations();
-    //topo = Linux_Router_topology();
     topo = cross_link_topology();
     init_tcp_ip_stack();
     libcli_init_done ();
-
-    #if 0
-    sql_query_exec ("create table test (a int primary key, b int, c int)\n");
-    sql_query_exec ("insert into test values (1, 2, 3)\n");
-    sql_query_exec ("insert into test values (14 , 2, 3)\n");
-    sql_query_exec ("insert into test values (2, 2, 3)\n");
-    sql_query_exec ("select * from test\n");
-    sql_query_exec ("drop table test\n");
-    #endif 
-
     cli_start_shell(); 
     return 0;
 }

@@ -11,8 +11,7 @@
 
 static uint16_t node_id = 1;
 
-#define printf cprintf
-extern int cprintf(const char *fmt, ...);
+extern int (*stdlib_printf)(const char *format, ...);
 
 /* To generate unique Node IDs. No functional, only for debugging
 purpose. This fn is thread unsafe and may cause some surprises! Fix it. */
@@ -48,17 +47,17 @@ mtrie_print_node(mtrie_t *mtrie, mtrie_node_t *node, void *data) {
 
     (void) mtrie; (void) data;
 
-    printf ("ID : %d\n", node->node_id);
-    printf (" Prefix/Len : ");
+    stdlib_printf ("ID : %d\n", node->node_id);
+    stdlib_printf (" Prefix/Len : ");
     bitmap_prefix_print(&node->prefix, &node->wildcard, node->prefix_len);
-    printf ("/%d\n", node->prefix_len);
-    printf (" Parent Node = %d\n", node->parent ? node->parent->node_id : 0);
-    printf (" children = %d %d %d\n", 
+    stdlib_printf ("/%d\n", node->prefix_len);
+    stdlib_printf (" Parent Node = %d\n", node->parent ? node->parent->node_id : 0);
+    stdlib_printf (" children = %d %d %d\n", 
         node->child[ZERO] ? node->child[ZERO]->node_id : 0,
         node->child[ONE] ? node->child[ONE]->node_id : 0,
         node->child[DONT_CARE] ? node->child[DONT_CARE]->node_id : 0);
-    printf (" data = %p", node->data);
-    printf ("\nglthread(%p) : [%p %p]\n", &node->list_glue, node->list_glue.left, node->list_glue.right);
+    stdlib_printf (" data = %p", node->data);
+    stdlib_printf ("\nglthread(%p) : [%p %p]\n", &node->list_glue, node->list_glue.left, node->list_glue.right);
 }
 
 /* Delete and free the mtrie node */ 
@@ -234,7 +233,7 @@ mtrie_insert_prefix (mtrie_t *mtrie,
             return MTRIE_INSERT_DUPLICATE;
         }
         else {
-             //printf("Input TCAM entry exhausted\n");
+             //stdlib_printf("Input TCAM entry exhausted\n");
              /* All entries are of same size. Input entry cannot be of 
              any arbitrary size  */
              return MTRIE_INSERT_FAILED;

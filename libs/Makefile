@@ -9,7 +9,8 @@ TARGET = libstd.a
 
 # Install external dependent libs:  sudo apt-get install libpq-dev
 
-OBJS = BitOp/bitmap.o                     \
+OBJS = std_lib_init.o 						  \
+	   BitOp/bitmap.o                     \
        c-hashtable/hashtable.o            \
        c-hashtable/hashtable_itr.o        \
        EventDispatcher/event_dispatcher.o \
@@ -30,6 +31,9 @@ OBJS = BitOp/bitmap.o                     \
 $(TARGET): $(OBJS)
 	ar rcs $(TARGET) $(OBJS)
 	@echo "$(TARGET) Build Finished"
+
+std_lib_init.o:  std_lib_init.c 
+	$(CC) $(CFLAGS) -c std_lib_init.c -o std_lib_init.o
 
 # BitOp
 BitOp/bitmap.o: BitOp/bitmap.c
@@ -113,6 +117,7 @@ clean:
 	rm -f Tracer/*.o
 	rm -f Tree/*.o
 	rm -f common/*.o
+	rm -f *.o
 
 all:
 	make

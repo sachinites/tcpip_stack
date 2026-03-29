@@ -8,7 +8,7 @@
 
 #include "../../../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../../../libs/BitOp/bitmap.h"
-#include "../../../ipv6/ipv6_utils.h"
+#include "../../../../libs/common/ipv6_utils.h"
 #include "../../../../libs/Tree/libtree.h"
 #include "../../../../libs/mtrie/mtrie.h"
 #include "srv6_sid_pool.h"

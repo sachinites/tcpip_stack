@@ -14,7 +14,7 @@
 #include "../../../../Interface/InterfaceUApi.h"
 #include "../../../layer3.h"
 #include "../../../../tcpconst.h"
-#include "../../../ipv6/ipv6_utils.h"
+#include "../../../../libs/common/ipv6_utils.h"
 
 void
 srv6_rtm_route_install (vrf_t *vrf,

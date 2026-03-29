@@ -13,7 +13,7 @@ class TransportService;
 
 #include "../libs/common/cmn_prefix.h"
 #include "../Interface/InterfaceFwd.h"
-#include "../Layer3/ipv6/ipv6_hdrs.h"
+#include "../libs/common/ipv6_hdrs.h"
 #include "../Layer3/mpls_enums.h"
 #include "../RTM/rtm_fib_common.h"
 #include "../RTM/rtm_nh.h"

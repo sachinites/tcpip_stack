@@ -5,7 +5,7 @@
 #include "srv6_api.h"
 #include "srv6_struct.h"
 #include "srv6_rtr.h"
-#include "../../../ipv6/ipv6_utils.h"
+#include "../../../../libs/common/ipv6_utils.h"
 #include "srv6_sid_pool.h"
 
 extern graph_t *topo;

@@ -101,7 +101,7 @@
 #include "../utils.h"
 #include "../tcp_ip_trace.h"
 #include "../libs/Tracer/tracer.h"
-#include "../Layer3/ipv6/ipv6_utils.h"
+#include "../libs/common/ipv6_utils.h"
 #include "rtm_priv_api.h"
 #include "rtm_route.h"
 #include "rtm_nh.h"

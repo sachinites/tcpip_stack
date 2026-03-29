@@ -60,7 +60,9 @@
 
 #include "dpal/cp2dp.h"
 #include "libs/common/cmn_api.h"
-#include "Layer3/ipv6/ipv6_hdrs.h"
+#include "libs/common/ipv6_hdrs.h"
+#include "libs/common/ipv6_utils.h"
+
 #include "Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 #include "tcpconst.h"
@@ -74,7 +76,6 @@
 #include "Layer4/udp.h"
 #include "Layer5/layer5.h"
 #include "utils.h"
-#include "Layer3/ipv6/ipv6_utils.h"
 #include "tcp_ip_trace.h"
 #include "cmdcodes.h"
 #include "Layer5/app_handlers.h"

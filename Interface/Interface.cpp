@@ -39,7 +39,7 @@
 #include "InterfaceUApi.h"
 #include "../Layer2/transport_svc.h"
 #include "../libs/Tracer/tracer.h"
-#include "../Layer3/ipv6/ipv6_utils.h"
+#include "../libs/common/ipv6_utils.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../dpal/cp2dp.h"
 

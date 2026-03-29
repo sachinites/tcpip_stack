@@ -8,7 +8,7 @@
 #include "../libs/common/cmn_prefix.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 #include "../vrf/vrf.h"
-#include "../Layer3/ipv6/ipv6_hdrs.h"
+#include "../libs/common/ipv6_hdrs.h"
 
 typedef struct isis_node_info_ isis_node_info_t;
 typedef struct rtm_ rtm_t;
