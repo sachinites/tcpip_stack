@@ -17,9 +17,9 @@
 #include <string.h>
 #include <assert.h>
 #include "srgb.h"
-#include "../../../BitOp/bitmap.h"
-#include "../../../BitOp/bitsop.h"
-#include "../../../LinuxMemoryManager/uapi_mm.h"
+#include "../../../libs/BitOp/bitmap.h"
+#include "../../../libs/BitOp/bitsop.h"
+#include "../../../libs/LinuxMemoryManager/uapi_mm.h"
 
 /* External printf function used in the codebase */
 extern int cprintf(const char *format, ...);

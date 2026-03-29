@@ -42,17 +42,16 @@
 #include <stdint.h>
 #include <string.h>
 #include <string>
-#include "gluethread/glthread.h"
+#include "libs/gluethread/glthread.h"
 #include "net.h"
 #include "tcp_ip_trace.h"
 #include "Layer3/netfilter.h"
-#include "EventDispatcher/event_dispatcher.h"
-#include "PostgresLibpq/postgresLib.h"
+#include "libs/EventDispatcher/event_dispatcher.h"
 #include <unordered_map>
 #include "Interface/InterfaceFwd.h"
 #include "cp_ipc.h"
 #include "vrf/vrf.h"
-#include "BitOp/bitmap.h"
+#include "libs/BitOp/bitmap.h"
 
 /*Forward Declarations*/
 typedef struct node_ node_t;
@@ -123,8 +122,6 @@ struct node_ {
     std::unordered_map<std::string, InterfaceP> *intf_by_name;
     /* Interfaces in this VRF - hashmap keyed by interface index*/
     std::unordered_map<uint32_t, InterfaceP> *intf_by_ifindex;    
-    /* config DB connection */
-    PGconn* conn;
     /*bitmap_t for bounded ifindex generation*/
     bitmap_t if_index_bm;
 

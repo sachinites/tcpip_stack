@@ -1,9 +1,9 @@
 #include <netinet/in.h>  // for htonl
 #include "vxlan_dp.h"
-#include "../../../common/l2_hdrs.h"
-#include "../../../pkt_block.h"
-#include "../../../common/l4_hdrs.h"
-#include "../../../Tracer/tracer.h"
+#include "../../../libs/common/l2_hdrs.h"
+#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/common/l4_hdrs.h"
+#include "../../../libs/Tracer/tracer.h"
 #include "../../../Interface/InterfaceUApi.h"
 #include "../../Layer2/l2fwd/ipv4-l2fwd.h"
 #include "vlan_vni_ht.h"
@@ -26,15 +26,15 @@ vxlan_encapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
     pkt_size_t pkt_size;
 
     /* Vxlan is MAC/IP encapsulation inside VxLAN */
-    assert (pkt_block_get_starting_hdr (pkt_block) == ETH_HDR);
+    assert (pkt_block_get_starting_hdr (pkt_block) == ETHERNET_HEADER);
 
     /* Expland the size of the pkt by VxLAN HDR size */
     pkt_block_expand_buffer_left (pkt_block, sizeof (vxlan_hdr_t) + sizeof (udp_hdr_t)); 
-    pkt_block_set_starting_hdr_type (pkt_block, UDP_HDR);
+    pkt_block_set_starting_hdr_type (pkt_block, IP_PROTO_UDP);
 
     udp_hdr_t *udp_hdr = (udp_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
     udp_hdr->src_port_no = 0;
-    udp_hdr->dst_port_no = htons(VXLAN_PROTO);
+    udp_hdr->dst_port_no = htons(PORT_VXLAN);
     udp_hdr->udp_length = htons(sizeof (udp_hdr_t));
     udp_hdr->udp_checksum = 0;
 
@@ -69,11 +69,11 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_v
         return;
     }
 
-     assert ( pkt_block_get_starting_hdr(pkt_block) == UDP_HDR );
+     assert ( pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_UDP );
 
      udp_hdr_t *udp_hdr = (udp_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-     assert (ntohs(udp_hdr->dst_port_no) == VXLAN_PROTO);
+     assert (ntohs(udp_hdr->dst_port_no) == PORT_VXLAN);
 
      vxlan_hdr_t *vxlan_hdr = (vxlan_hdr_t *)(udp_hdr + 1);
 
@@ -92,7 +92,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_v
     pkt_size -= (pkt_size_t)((char *)eth_hdr - (char *)udp_hdr);
 
     pkt_block_set_new_pkt (pkt_block, (uint8_t *) eth_hdr, pkt_size);
-    pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
+    pkt_block_set_starting_hdr_type (pkt_block, ETHERNET_HEADER);
 
     uint16_t vlan_id = vlan_vni_ht_vni_to_vlan_lookup (dp_ctx, vni);
 

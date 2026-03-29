@@ -20,9 +20,9 @@
 #include "../router_init.h"
 #include "netfilter.h"
 #include "../Layer5/layer5.h"
-#include "../pkt_block.h"
-#include "../EventDispatcher/event_dispatcher.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../libs/pkt-block/pkt_block.h"
+#include "../libs/EventDispatcher/event_dispatcher.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../datapath/Interface/dp_intf.h"
 
 static inline void
@@ -75,7 +75,7 @@ nf_invoke_netfilter_hook(
 						 pkt_block_t *pkt_block,
 						 void *_node,
 						 dp_intf_t *intf,
-						 hdr_type_t hdr_code) {
+						 gen_proto_id_t hdr_code) {
 
 	char *pkt;
 	pkt_size_t pkt_size;

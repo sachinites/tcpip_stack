@@ -3,14 +3,14 @@
 #include "../../Interface/dp_intf.h"
 #include "../../Interface/dp_intf_store.h"
 #include "../../Vrfs/dp_vrf.h"
-#include "../../../pkt_block.h"
-#include "../../../common/l2_hdrs.h"
+#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/common/l2_hdrs.h"
 #include "ipv4-l2fwd.h"
 #include "../arp/arp.h"
-#include "../../../Tracer/tracer.h"
+#include "../../../libs/Tracer/tracer.h"
 #include "../../dp_utils.h"
 #include "../../dp_uapi.h"
-#include "../../../common/cmn_api.h"
+#include "../../../libs/common/cmn_api.h"
 
 extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
@@ -24,7 +24,7 @@ cp_punt_pkt_from_layer2_to_layer5(
 					  void *node,
 					  uint32_t recv_intf_ifindex,
         			  pkt_block_t *pkt_block,
-					  hdr_type_t hdr_code);
+					  gen_proto_id_t hdr_code);
 
 extern int
 dp_inject_packet (dp_ctx_t *dp_ctx,
@@ -51,7 +51,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
 
     /* Handling L2 forwarding for any payload other than ipv4. Sinply,
         encap the pkt within ethernet hdr with dst mac as broadcast mac */
-    if (ethernet_hdr->type != htons(ETH_IP)) {
+    if (ethernet_hdr->type != htons(ETH_TYPE_IPv4)) {
 
         layer2_fill_with_broadcast_mac (ethernet_hdr->dst_mac.mac);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
@@ -155,7 +155,7 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                           uint32_t next_hop_ip,
                           dp_intf_t *oif,
                           pkt_block_t *pkt_block,
-                          hdr_type_t hdr_type)
+                          gen_proto_id_t hdr_type)
 {
 
     tcp_ip_expand_buffer_ethernet_hdr(pkt_block);
@@ -163,7 +163,7 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
     ethernet_hdr_t *empty_ethernet_hdr =
         (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
 
-    empty_ethernet_hdr->type = htons(tcp_ip_convert_internal_proto_to_std_proto(hdr_type));
+    empty_ethernet_hdr->type = htons((uint16_t)hdr_type);
 
     l2_forward_ip_packet(dp_ctx,
                          vrf,
@@ -221,7 +221,7 @@ tag_pkt_with_vlan_id (
         ethernet_hdr_old.src_mac.mac, MAC_ADDR_SIZE);
 
     /*Come to 802.1Q vlan hdr*/
-    vlan_ethernet_hdr->vlan_8021q_hdr.tpid = htons(VLAN_8021Q_PROTO);
+    vlan_ethernet_hdr->vlan_8021q_hdr.tpid = htons(ETH_TYPE_VLAN_8021Q);
     vlan_ethernet_hdr->vlan_8021q_hdr.tci  = MAKE_TCI(0, 0, vlan_id);
 
     /*Type field*/
@@ -290,14 +290,14 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
     uint16_t eth_type;
     pkt_size_t pkt_size;
 
-    assert(pkt_block_verify_pkt(pkt_block, ETH_HDR));
+    assert(pkt_block_verify_pkt(pkt_block, ETHERNET_HEADER));
 
     /* Unconditionally distribute pkt-copy to interested applications */
     cp_punt_pkt_from_layer2_to_layer5(
                     dp_ctx->ctx_pvt_data, 
                     iif->port_id, 
                     pkt_block,
-                    ETH_HDR);
+                    ETHERNET_HEADER);
 
     ethernet_hdr_t *ethernet_hdr = 
         (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
@@ -306,7 +306,7 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
 
     switch(eth_type){
 
-        case PROTO_ARP:
+        case ETH_TYPE_ARP:
             {
                 /*Can be ARP Broadcast or ARP reply*/
                 arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
@@ -325,9 +325,9 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
             }
             break;
 
-        case ETH_IP:
-        case PROTO_IP_IN_IP:
-        case ETH_IP6:
+        case ETH_TYPE_IPv4:
+        case IP_PROTO_IP_IN_IP:
+        case ETH_TYPE_IPv6:
             dp_promote_pkt_to_layer3(
                     dp_ctx,
                     vrf, iif, 
@@ -542,7 +542,7 @@ is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx,
         proto = ntohs(ethernet_hdr->type);
     }
 
-    if (proto != PROTO_ARP) return false;
+    if (proto != ETH_TYPE_ARP) return false;
 
     arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
     
@@ -566,9 +566,9 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     pkt_size_t pkt_size;
     
     vlan_ethernet_hdr_t *vlan_eth_hdr;
-    dp_intf_t *interface = pkt_block->ingress_intf;
+    dp_intf_t *interface = (dp_intf_t *)pkt_block->ingress_intf;
     
-    assert(pkt_block_verify_pkt(pkt_block, ETH_HDR));
+    assert(pkt_block_verify_pkt(pkt_block, ETHERNET_HEADER));
 
     vlan_eth_hdr = ( vlan_ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
     uint16_t pkt_vlan_id = GET_802_1Q_VLAN_ID(&vlan_eth_hdr->vlan_8021q_hdr);
@@ -640,7 +640,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     vlan_ethernet_hdr_t *vlan_ethernet_hdr_reply =
         (vlan_ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(arp_reply_pkt_size);
 
-    vlan_ethernet_hdr_reply->vlan_8021q_hdr.tpid = htons(VLAN_8021Q_PROTO);
+    vlan_ethernet_hdr_reply->vlan_8021q_hdr.tpid = htons(ETH_TYPE_VLAN_8021Q);
     vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci  = MAKE_TCI(0, 0, pkt_vlan_id);
 
     l2_prepare_arp_reply_msg((ethernet_hdr_t *)vlan_ethernet_hdr_reply,
@@ -649,7 +649,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
 
     pkt_block_t *pkt_block2 = pkt_block_get_new(
             (uint8_t *)vlan_ethernet_hdr_reply, arp_reply_pkt_size);
-    pkt_block_set_starting_hdr_type(pkt_block2, ETH_HDR);
+    pkt_block_set_starting_hdr_type(pkt_block2, ETHERNET_HEADER);
 
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(
         (ethernet_hdr_t *)vlan_ethernet_hdr_reply));

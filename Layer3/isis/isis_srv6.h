@@ -1,7 +1,7 @@
 #ifndef __ISIS_SRV6__
 #define __ISIS_SRV6__
 
-#include "../../Tree/libtree.h"
+#include "../../libs/Tree/libtree.h"
 
 typedef struct isis_node_info_ isis_node_info_t;
 typedef struct ips_srv6_data_ ips_srv6_data_t;

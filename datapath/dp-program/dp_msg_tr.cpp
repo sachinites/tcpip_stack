@@ -3,9 +3,9 @@
 #include <cstring>
 
 #include "../dp_ctx.h"
-#include "../../Tracer/tracer.h"
+#include "../../libs/Tracer/tracer.h"
 #include "../../tcp_ip_trace.h"
-#include "../../common/cmn_prefix.h"
+#include "../../libs/common/cmn_prefix.h"
 #include "../../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 #include "../Interface/intf_cons.h"
 

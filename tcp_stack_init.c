@@ -35,7 +35,7 @@ extern void network_start_pkt_receiver_thread();
 extern void isis_one_time_registration();
 extern void ut_parser_init();
 
-#include "EventDispatcher/event_dispatcher.h"
+#include "libs/EventDispatcher/event_dispatcher.h"
 event_dispatcher_t gev_dis;
 
 extern void 

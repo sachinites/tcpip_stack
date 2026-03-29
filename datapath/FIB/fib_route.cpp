@@ -6,11 +6,11 @@
 #include "fib_error.h"
 #include "fib_nh.h"
 #include "../../lmm_enums.h"
-#include "../../mtrie/mtrie.h"
-#include "../../BitOp/bitmap.h"
-#include "../../Tracer/tracer.h"
-#include "../../common/cmn_prefix.h"
-#include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../../libs/mtrie/mtrie.h"
+#include "../../libs/BitOp/bitmap.h"
+#include "../../libs/Tracer/tracer.h"
+#include "../../libs/common/cmn_prefix.h"
+#include "../../libs/LinuxMemoryManager/uapi_mm.h"
 
 static inline void 
 fib_set_nh_idx(

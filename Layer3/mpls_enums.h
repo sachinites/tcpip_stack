@@ -37,9 +37,9 @@ labelled_rt_map_proto_id_to_nxthop_index(uint16_t proto_id) {
 
         case PROTO_STATIC:
             return lbl_proto_nxthop_static;
-        case PROTO_ISIS:
+        case IP_PROTO_ISIS:
             return lbl_proto_nxthop_isis;
-        case PROTO_LDP:
+        case IP_PROTO_LDP:
             return lbl_proto_nxthop_ldp;
         default:
         ;

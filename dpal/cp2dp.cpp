@@ -1,17 +1,17 @@
 #include <assert.h>
-#include "../common/cmn_prefix.h"
+#include "../libs/common/cmn_prefix.h"
 #include "../router_init.h"
-#include "../common/l3_hdrs.h"
+#include "../libs/common/l3_hdrs.h"
 #include "cp2dp.h"
-#include "../EventDispatcher/event_dispatcher.h"
+#include "../libs/EventDispatcher/event_dispatcher.h"
 
-#include "../LinuxMemoryManager/uapi_mm.h"
-#include "../pkt_block.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../libs/pkt-block/pkt_block.h"
 #include "../Interface/InterfaceUApi.h"
-#include "../Tracer/tracer.h"
+#include "../libs/Tracer/tracer.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
 #include "../lmm_enums.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../RTM/rtm_nh.h"
 #include "../Layer2/transport_svc.h"
@@ -61,7 +61,7 @@ cp2dp_send_ip_data ( node_t *node,
         pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t));
     }
 
-    pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
+    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv4);
 
     ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
     pkt_size_t pkt_size = pkt_block->pkt_size;
@@ -103,7 +103,7 @@ void cp2dp_send_ip6_data(node_t *node,
         pkt_block_expand_buffer_left (pkt_block, sizeof (ipv6_hdr_t));
     }
 
-    pkt_block_set_starting_hdr_type (pkt_block, IP6_HDR);
+    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv6);
 
     pkt_size_t pkt_size;
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt_block_get_pkt (pkt_block, &pkt_size);

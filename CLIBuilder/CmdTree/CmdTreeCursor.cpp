@@ -25,7 +25,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <semaphore.h>
-#include "../../stack/stack.h"
+#include "../../libs/stack/stack.h"
 #include "../cmdtlv.h"
 #include "../string_util.h"
 #include "CmdTree.h"

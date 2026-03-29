@@ -17,7 +17,7 @@
 
 #include <stdint.h>
 #include <cstddef>
-#include "../../common/cmn_prefix.h"
+#include "../../libs/common/cmn_prefix.h"
 
 typedef struct fib_ fib_t;
 typedef struct hashtable hashtable_t;

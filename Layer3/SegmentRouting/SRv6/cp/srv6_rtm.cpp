@@ -10,7 +10,7 @@
 #include "../../../../RTM/rtm_nb_integ.h"
 #include "../../../../RTM/rtm_proto.h"
 #include "../../../../RTM/rtm_fib_common.h"
-#include "../../../../common/cmn_prefix.h"
+#include "../../../../libs/common/cmn_prefix.h"
 #include "../../../../Interface/InterfaceUApi.h"
 #include "../../../layer3.h"
 #include "../../../../tcpconst.h"

@@ -7,9 +7,9 @@
 #include <string>
 #include <vector>
 
-#include "../gluethread/glthread.h"
+#include "../libs/gluethread/glthread.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
-#include "../common/mpls_lstack.h"
+#include "../libs/common/mpls_lstack.h"
 #include "../Interface/InterfaceFwd.h"
 
 typedef struct rtm_ rtm_t;

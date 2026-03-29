@@ -494,7 +494,7 @@ void
     }
 
     nxthop_proto_id_t nxthop_proto =
-        l3_rt_map_proto_id_to_nxthop_index(PROTO_ISIS);
+        l3_rt_map_proto_id_to_nxthop_index(IP_PROTO_ISIS);
 
     /* Reject routes which ISIS already knows */
     if (l3route->nexthops[nxthop_proto][0]) {

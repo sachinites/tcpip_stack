@@ -1,11 +1,11 @@
 #include <stdint.h>
 #include <assert.h>
-#include "../../../common/l3_hdrs.h"
+#include "../../../libs/common/l3_hdrs.h"
 #include "../../../Layer3/ipv6/ipv6_hdrs.h"
 #include "../../Layer3/ipv6/ipv6-fwd.h"
 #include "../../../router_init.h"
-#include "../../../pkt_block.h"
-#include "../../../Tracer/tracer.h"
+#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/Tracer/tracer.h"
 #include "../../../Interface/InterfaceUApi.h"
 #include "srv6-end-behavior.h"
 #include "srv6-endpoint.h"
@@ -19,9 +19,9 @@
 static void 
 srv6_shift (pkt_block_t *pkt_block) {
 
-    assert (pkt_block_get_starting_hdr(pkt_block) == IP6_HDR); 
+    assert (pkt_block_get_starting_hdr(pkt_block) == ETH_TYPE_IPv6); 
     ipv6_hdr_t *ipv6_hdr = pkt_block_get_ip6_hdr(pkt_block);
-    assert (ipv6_hdr->next_header == PROTO_SRH);
+    assert (ipv6_hdr->next_header == IP_PROTO_SRH);
     srh_hdr_t *srh = (srh_hdr_t *)(ipv6_hdr + 1);
     srh->segments_left--;
     Srv6_copy_current_sid_to_DA(srh, ipv6_hdr);
@@ -326,7 +326,7 @@ fn_template(srv6_END_DT4) {
 
     Srv6_decapsulate(pkt_block);
     
-    assert (pkt_block_get_starting_hdr (pkt_block) == IP_HDR);
+    assert (pkt_block_get_starting_hdr (pkt_block) == ETH_TYPE_IPv4);
 
     layer3_ip_route_pkt(dp_ctx, 
         nexthop->fwd_info->oif->srv6_data.steered_dt4_vrf,

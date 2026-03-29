@@ -1,7 +1,7 @@
 #ifndef __TED__
 #define __TED__
 
-#include "../Tree/libtree.h"
+#include "../libs/Tree/libtree.h"
 
 #define TEDN_MAX_INTF_PER_NODE   (MAX_INTF_PER_NODE + 1)
 #define TED_PROTO_MAX   3

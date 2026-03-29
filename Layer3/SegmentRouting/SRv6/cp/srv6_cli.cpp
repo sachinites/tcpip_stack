@@ -1,19 +1,19 @@
 #include <arpa/inet.h>
 #include "../../../../CLIBuilder/libcli.h"
-#include "../../../../LinuxMemoryManager/uapi_mm.h"
+#include "../../../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../../../router_init.h"
 #include "../../../../Interface/InterfaceUApi.h"
-#include "../../../../common/l3_hdrs.h"
+#include "../../../../libs/common/l3_hdrs.h"
 #include "../../../ipv6/ipv6_utils.h"
-#include "../../../ipv6/ipv6_hdrs.h"
-#include "../../../../pkt_block.h"
+#include "../../../../libs/common/ipv6_hdrs.h"
+#include "../../../../libs/pkt-block/pkt_block.h"
 #include "../../../../dpal/cp2dp.h"
 #include "srv6_sid_pool.h"
 #include "srv6_api.h" 
 #include "srv6_rtr.h"
 #include "srv6_cmds.h"
 #include "srv6_rtm.h"
-#include "../../../../mtrie/mtrie.h"
+#include "../../../../libs/mtrie/mtrie.h"
 
 extern graph_t *topo;
 
@@ -1272,10 +1272,10 @@ srv6_ping6_handler(int cmdcode,
 
         pkt_size_t srh_hdr_size = sizeof (srh_hdr_t ) + (i * 16);
         pkt_block = pkt_block_get_new_pkt_buffer (srh_hdr_size);
-        pkt_block_set_starting_hdr_type (pkt_block, SRH_HDR);
+        pkt_block_set_starting_hdr_type (pkt_block, IP_PROTO_IPv6_ROUTE);
         srh_hdr = (srh_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
 
-        srh_hdr->nexthdr = ICMP6_PROTO;
+        srh_hdr->nexthdr = IP_PROTO_ICMPv6;
         srh_hdr->hdrlen = srh_hdr_size;
         srh_hdr->type = 4;
         srh_hdr->segments_left = i -1;
@@ -1290,7 +1290,7 @@ srv6_ping6_handler(int cmdcode,
     ipv6_addr_t dest_addr;
     inet_pton6 ((char *)ipv6_addr_str[0], &dest_addr);
 
-    cp2dp_send_ip6_data (node, vrf, pkt_block, dest_addr, srh_hdr ? PROTO_SRH:ICMP6_PROTO );
+    cp2dp_send_ip6_data (node, vrf, pkt_block, dest_addr, srh_hdr ? IP_PROTO_SRH:IP_PROTO_ICMPv6 );
 
     if (pkt_block) pkt_block_dereference (pkt_block);
 

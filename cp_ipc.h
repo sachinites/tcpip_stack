@@ -1,7 +1,7 @@
 #ifndef __CP_IPC__
 #define __CP_IPC__
 
-#include "gluethread/glthread.h"
+#include "libs/gluethread/glthread.h"
 
 #include <stdint.h>
 #include <stdbool.h>

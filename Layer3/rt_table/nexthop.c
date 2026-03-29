@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "nexthop.h"
-#include "../../common/mpls_lstack.h"
+#include "../../libs/common/mpls_lstack.h"
 #include "../../utils.h"
 
 int nh_flush_nexthops(nexthop_t **nexthop)

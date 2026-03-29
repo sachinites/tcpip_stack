@@ -5,7 +5,7 @@ typedef struct rtm_route_ rtm_route;
 typedef struct rtm_nh_ rtm_nh;
 typedef struct rtm_ rtm_t;
 
-#include "../gluethread/glthread.h"
+#include "../libs/gluethread/glthread.h"
 
 #pragma pack(push, 8)
 

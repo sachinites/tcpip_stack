@@ -22,9 +22,9 @@
 #include <stdio.h>
 #include "vxlan.h"
 #include "../../../router_init.h"
-#include "../../../gluethread/glthread.h"
+#include "../../../libs/gluethread/glthread.h"
 #include "../../../utils.h"
-#include "../../../LinuxMemoryManager/uapi_mm.h"
+#include "../../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../../lmm_enums.h"
 
 void

@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "../gluethread/glthread.h"
-#include "../Tree/libtree.h"
+#include "../libs/gluethread/glthread.h"
+#include "../libs/Tree/libtree.h"
 #include "rtm_enums.h"
 #include "rtm_error.h"
 #include "rtm_fib_common.h"

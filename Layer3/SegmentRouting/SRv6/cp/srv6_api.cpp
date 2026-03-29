@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <ncurses.h>
-#include "../../../../LinuxMemoryManager/uapi_mm.h"
-#include "../../../../mtrie/mtrie.h"
+#include "../../../../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../../../../libs/mtrie/mtrie.h"
 #include "../../../../router_init.h"
 #include "../../../../net.h"
 #include "../../../../utils.h"
@@ -9,7 +9,7 @@
 #include "srv6_rtr.h"
 #include "srv6_api.h"
 #include "../../../../dpal/cp2dp.h"
-#include "../../../../Tracer/tracer.h"
+#include "../../../../libs/Tracer/tracer.h"
 #include "srv6_sid_pool.h"
 #include "../../../../lmm_enums.h"
 #include "../../../../Interface/InterfaceUApi.h"

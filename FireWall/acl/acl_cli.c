@@ -1,9 +1,9 @@
 #include "../../CLIBuilder/libcli.h"
-#include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../router_init.h"
 #include "../../Interface/InterfaceUApi.h"
 #include "acldb.h"
-#include "../../mtrie/mtrie.h"
+#include "../../libs/mtrie/mtrie.h"
 #include "../../utils.h"
 #include "../../tcpconst.h"
 #include "../object_network/objnw.h"
@@ -1288,7 +1288,7 @@ acl_print (acl_entry_t *acl_entry) {
     cprintf (" %u %s %s",
         acl_entry->seq_no,
         acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
-        proto_name_str( acl_entry->proto));
+        proto_id_str( acl_entry->proto));
 
     switch (acl_entry->src_addr.acl_addr_format)
     {

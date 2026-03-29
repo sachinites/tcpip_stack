@@ -1,5 +1,5 @@
 #include "tcp_public.h"
-#include "LinuxMemoryManager/mm.h"
+#include "libs/LinuxMemoryManager/mm.h"
 #include "lmm_enums.h"
 
 /* ISIS Hdr files */
@@ -45,9 +45,9 @@
 #include "datapath/Layer2/switching/mac_table.h"
 
 /* Lib Hdr files */
-#include "mtrie/mtrie.h"
-#include "pkt_block.h"
-#include "gluethread/glthread.h"
+#include "libs/mtrie/mtrie.h"
+#include "libs/pkt-block/pkt_block.h"
+#include "libs/gluethread/glthread.h"
 
 /* Notification files */
 #include "Layer3/rt_notif.h"
@@ -64,7 +64,7 @@
 #include "datapath/Layer2/vxlan/vlan_vni_ht.h"
 
 /* MPLS files */
-#include "common/mpls_lstack.h"
+#include "libs/common/mpls_lstack.h"
 
 /* VRF files */
 #include "vrf/vrf.h"

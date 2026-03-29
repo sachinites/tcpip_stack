@@ -20,23 +20,18 @@ LIBS= ${ISIS_LIB_PATH} \
 			${SRV6_LIB_PATH} \
 			${LFA_LIB_PATH} \
 			-LCLIBuilder -lclibuilder \
-       		-LLinuxMemoryManager -lmm \
 			-LFSMImplementation -lfsm \
 			-LFireWall -lasa \
 			-Ldatapath -ldp \
+			-Llibs -lstd \
 			-LRTM -lrtm \
 			-lpthread \
-   		    -lrt \
+   		    	-lrt \
 			-lfl \
 			-lm \
 			-lncurses \
 
-OBJS=gluethread/glthread.o \
-		  BitOp/bitmap.o \
-		  stack/stack.o \
-		  Tree/avl.o	   \
-		  mtrie/mtrie.o	   \
-		  router_init.o 		   \
+OBJS=router_init.o   \
 		  cli_interface.o \
 		  topologies.o	   \
 		  net.o			   \
@@ -51,37 +46,22 @@ OBJS=gluethread/glthread.o \
 		  Layer3/rt_table/nexthop.o \
 		  Layer3/netfilter.o \
 		  Layer3/ipv6/ipv6cli.o \
-		  Layer3/ipv6/ipv6_utils.o \
 		  Layer4/layer4.o  \
 		  Layer4/udp.o  \
 		  Layer5/layer5.o  \
 		  nwcli.o		   \
 		  utils.o		   \
 		  cp_ipc.o \
-          libtimer/WheelTimer.o   \
-          libtimer/timerlib.o   \
-		  libtimer/timedef.o \
-		  Tracer/tracer.o \
 		  tcp_stack_init.o	\
-		  pkt_block.o \
 		  tcp_ip_trace.o	\
  		  tcpip_notif.o \
-		  configdb.o \
-		  notif.o	\
-		  EventDispatcher/event_dispatcher.o \
 		  tcp_ip_default_traps.o \
 		  ted/ted.o \
-		  packet-tracer/pkt_tracer.o \
-		  prefix-list/prefixlst.o \
-		  c-hashtable/hashtable.o \
-		  c-hashtable/hashtable_itr.o \
-		  Threads/refcount.o \
+		  pfxlst-cli.o \
 		  Interface/Interface.o \
 		  Interface/InterfaceUApi.o \
 		  Interface/InterfaceCli.o \
 		  dpal/cp2dp.o \
-		  common/cmn_prefix.o \
-		  common/cmn_api.o \
 		  lmm_reg.o \
 		  Linux/LinuxInterface.o \
 		  RTM/rtm_nb_integ.o \
@@ -99,9 +79,6 @@ Layer2/vxlan/cp/vlan_vni_mapping.o:Layer2/vxlan/cp/vlan_vni_mapping.c
 Layer2/vxlan/cp/vxlan_cli.o:Layer2/vxlan/cp/vxlan_cli.c 
 	${CC} ${CFLAGS} -c -I . Layer2/vxlan/cp/vxlan_cli.c -o Layer2/vxlan/cp/vxlan_cli.o
 
-Tracer/tracer.o:Tracer/tracer.cpp
-	${CC} ${CFLAGS} -I Tracer -c Tracer/tracer.cpp -o Tracer/tracer.o
-
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
 
@@ -111,14 +88,11 @@ cp_ipc.o:cp_ipc.cpp
 ips_pub_sub_init.o:ips_pub_sub_init.c
 	${CC} ${CFLAGS} -c -I . ips_pub_sub_init.c -o ips_pub_sub_init.o
 
-prefix-list/prefixlst.o:prefix-list/prefixlst.c
-	${CC} ${CFLAGS} -c -I . prefix-list/prefixlst.c -o prefix-list/prefixlst.o
+pfxlst-cli.o:pfxlst-cli.c
+	${CC} ${CFLAGS} -c -I . pfxlst-cli.c -o pfxlst-cli.o
 
 tcp_ip_default_traps.o:tcp_ip_default_traps.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_default_traps.c -o tcp_ip_default_traps.o
-
-EventDispatcher/event_dispatcher.o:EventDispatcher/event_dispatcher.c
-	${CC} ${CFLAGS} -c -I EventDispatcher -I gluethread EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o
 
 pkt_gen.exe:pkt_gen.o utils.o
 	${CC} ${CFLAGS} -I tcp_public.h pkt_gen.o utils.o -o pkt_gen.exe
@@ -127,34 +101,15 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a LinuxMemoryManager/libmm.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a
 	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
-
-notif.o:notif.c
-	${CC} ${CFLAGS} -c -I gluethread -I . notif.c -o notif.o
 
 tcpip_notif.o:tcpip_notif.c
 	${CC} ${CFLAGS} -c -I gluethread -I . tcpip_notif.c -o tcpip_notif.o
 
 main.o:main.c
 	${CC} ${CFLAGS} -c main.c -o main.o
-
-gluethread/glthread.o:gluethread/glthread.c
-	${CC} ${CFLAGS} -c -I gluethread gluethread/glthread.c -o gluethread/glthread.o
-
-Tree/avl.o:Tree/avl.c
-	${CC} ${CFLAGS} -c -I Tree Tree/avl.c -o Tree/avl.o
-
-mtrie/mtrie.o:mtrie/mtrie.c
-	${CC} ${CFLAGS} -c -I mtrie mtrie/mtrie.c -o mtrie/mtrie.o
-
-libtimer/WheelTimer.o:libtimer/WheelTimer.c
-	${CC} ${CFLAGS} -c -I gluethread -I libtimer libtimer/WheelTimer.c -o libtimer/WheelTimer.o
-libtimer/timerlib.o:libtimer/timerlib.c
-	${CC} ${CFLAGS} -c -I gluethread -I libtimer libtimer/timerlib.c -o libtimer/timerlib.o
-libtimer/timedef.o:libtimer/timedef.c
-	${CC} ${CFLAGS} -c -I libtimer libtimer/timedef.c -o libtimer/timedef.o	
 
 tcp_stack_init.o:tcp_stack_init.c
 	${CC} ${CFLAGS} -c tcp_stack_init.c -o tcp_stack_init.o
@@ -165,12 +120,6 @@ router_init.o:router_init.c
 dpal/cp2dp.o:dpal/cp2dp.cpp
 	${CC} ${CFLAGS} -c -I . dpal/cp2dp.cpp -o dpal/cp2dp.o
 
-common/cmn_prefix.o:common/cmn_prefix.cpp
-	${CC} ${CFLAGS} -c -I . common/cmn_prefix.cpp -o common/cmn_prefix.o
-
-common/cmn_api.o:common/cmn_api.cpp
-	${CC} ${CFLAGS} -c -I . common/cmn_api.cpp -o common/cmn_api.o
-
 cli_interface.o:cli_interface.c
 	${CC} ${CFLAGS} -c -I . cli_interface.c -o cli_interface.o
 
@@ -179,12 +128,6 @@ topologies.o:topologies.c
 
 net.o:net.c
 	${CC} ${CFLAGS} -c -I . net.c -o net.o
-
-configdb.o:configdb.cpp
-	${CC} ${CFLAGS} -c -I . configdb.cpp -o configdb.o
-
-pkt_block.o:pkt_block.c
-	${CC} ${CFLAGS} -c -I . pkt_block.c -o pkt_block.o
 
 comm.o:comm.c
 	${CC} ${CFLAGS} -c -I . comm.c -o comm.o
@@ -222,22 +165,6 @@ nwcli.o:nwcli.c
 utils.o:utils.c
 	${CC} ${CFLAGS} -c -I . utils.c -o utils.o
 
-BitOp/bitmap.o:BitOp/bitmap.c
-	${CC} ${CFLAGS} -c BitOp/bitmap.c -o BitOp/bitmap.o
-
-stack/stack.o:stack/stack.c
-	${CC} ${CFLAGS} -c stack/stack.c -o stack/stack.o
-
-packet-tracer/pkt_tracer.o:packet-tracer/pkt_tracer.c
-	${CC} ${CFLAGS} -c packet-tracer/pkt_tracer.c -o packet-tracer/pkt_tracer.o
-
-#hasTable Files
-c-hashtable/hashtable.o:c-hashtable/hashtable.c
-	${CC} ${CFLAGS} -c c-hashtable/hashtable.c -o c-hashtable/hashtable.o
-
-c-hashtable/hashtable_itr.o:c-hashtable/hashtable_itr.c
-	${CC} ${CFLAGS} -c c-hashtable/hashtable_itr.c -o c-hashtable/hashtable_itr.o
-
 #GRE files
 Layer3/gre-tunneling/grecli.o:Layer3/gre-tunneling/grecli.cpp
 	${CC} ${CFLAGS} -c -I CLIBuilder -I Layer3/gre-tunneling Layer3/gre-tunneling/grecli.cpp -o Layer3/gre-tunneling/grecli.o
@@ -262,8 +189,6 @@ vrf/vrf.o:vrf/vrf.cpp
 #ipv6 files 
 Layer3/ipv6/ipv6cli.o:Layer3/ipv6/ipv6cli.cpp
 	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6cli.cpp -o Layer3/ipv6/ipv6cli.o
-Layer3/ipv6/ipv6_utils.o:Layer3/ipv6/ipv6_utils.cpp
-	${CC} ${CFLAGS} -c Layer3/ipv6/ipv6_utils.cpp -o Layer3/ipv6/ipv6_utils.o
 
 Linux/LinuxInterface.o:Linux/LinuxInterface.cpp
 	${CC} ${CFLAGS} -c Linux/LinuxInterface.cpp -o Linux/LinuxInterface.o
@@ -278,8 +203,6 @@ Layer3/SegmentRouting/SR-MPLS/srgb.o:Layer3/SegmentRouting/SR-MPLS/srgb.cpp
 
 CLIBuilder/clibuilder.a:
 	(cd CLIBuilder; make)
-LinuxMemoryManager/libmm.a:
-	(cd LinuxMemoryManager; make)
 FSMImplementation/libfsm.a:
 	(cd FSMImplementation; make)
 FireWall/libasa.a:
@@ -294,12 +217,10 @@ RTM/librtm.a:
 	(cd RTM; make)
 datapath/libdp.a:
 	(cd datapath; make)
-
+libs/libstd.a:
+	(cd libs; make)
 clean:
 	rm -f *.o
-	rm -f gluethread/glthread.o
-	rm -f Tree/avl.o
-	rm -f mtrie/*.o
 	rm -f *exe
 	rm -f ted/*.o
 	rm -f Layer2/*.o
@@ -312,20 +233,8 @@ clean:
 	(cd Layer3/isis; make clean)
 	(cd Layer3/SegmentRouting/SRv6; make clean)
 	(cd Layer3/LFA; make clean)
-	rm -f libtimer/*.o
-	rm -f EventDispatcher/*.o
-	rm -f BitOp/*.o
-	rm -f stack/*.o
-	rm -f hashmap/*.o
-	rm -f packet-tracer/*.o
-	rm -f prefix-list/*.o
-	rm -f Threads/*.o
-	(cd c-hashtable; make clean)
 	rm -f Layer3/gre-tunneling/*.o
 	rm -f Interface/*.o
-	rm -f postgresLib/*.o
-	rm -f Tracer/*.o
-	rm -f common/*.o
 	rm -f dpdk/layer3/*.o
 	rm -f dpdk/layer2/*.o
 	rm -f Layer3/ipv6/*.o
@@ -341,8 +250,8 @@ all:
 cleanall:
 	make clean
 	(cd CLIBuilder; make clean)
-	(cd LinuxMemoryManager; make clean)
 	(cd FSMImplementation; make clean)
 	(cd FireWall; make clean)
 	(cd RTM; make clean)
 	(cd datapath; make clean)
+	(cd libs; make clean)

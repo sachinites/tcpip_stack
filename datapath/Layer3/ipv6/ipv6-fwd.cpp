@@ -4,13 +4,13 @@
 #include "ipv6-fwd.h"
 #include "../layer3.h"
 #include "../../../tcpconst.h"
-#include "../../../pkt_block.h"
+#include "../../../libs/pkt-block/pkt_block.h"
 
 #include "../../FIB/fib_nh.h"
 #include "../../Interface/dp_intf.h"
 #include "../../dp_ctx.h"
 
-#include "../../../Tracer/tracer.h"
+#include "../../../libs/Tracer/tracer.h"
 #include "../../Interface/dp_intf_log.h"
 #include "../../Vrfs/dp_vrf.h"
 #include "../SRv6/srv6-endpoint.h"
@@ -21,7 +21,7 @@ dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                      uint32_t next_hop_ip,
                      dp_intf_t *outgoing_intf,
                      pkt_block_t *pkt_block,
-                     hdr_type_t hdr_type);
+                     gen_proto_id_t hdr_type);
 
 
 void 
@@ -66,7 +66,7 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
             0,
             oif,
             pkt_block,
-            IP6_HDR);
+            ETH_TYPE_IPv6);
 
     nexthop->hit_count++;
 }
@@ -86,7 +86,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
     #if 0
     /* L3VPN case, on Ingress router pkt_block can be IPv4 
         pkt with SRv6 Nexthop */
-    if (pkt_block_get_starting_hdr(pkt_block) == IP_HDR && 
+    if (pkt_block_get_starting_hdr(pkt_block) == ETH_TYPE_IPv4 && 
             (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_SRv6_FORWARD)) &&
              nh->fwd_info->u.v6_fwd.endfn == END_DT4) {
 
@@ -99,7 +99,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
     unsigned char *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
     /* Should be ipv6 pkt*/
-    assert (pkt_block_get_starting_hdr(pkt_block) == IP6_HDR);
+    assert (pkt_block_get_starting_hdr(pkt_block) == ETH_TYPE_IPv6);
 
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
 
@@ -158,7 +158,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
                             NULL,
                             pkt_block,
                             ipv6_hdr,
-                            ipv6_hdr->next_header == PROTO_SRH ? (srh_hdr_t *)(ipv6_hdr + 1) : NULL,
+                            ipv6_hdr->next_header == IP_PROTO_SRH ? (srh_hdr_t *)(ipv6_hdr + 1) : NULL,
                             nh);
         return;
     }
@@ -169,7 +169,7 @@ dp_send_ip6_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
 
-    assert (pkt_block_verify_pkt (pkt_block, IP6_HDR));
+    assert (pkt_block_verify_pkt (pkt_block, ETH_TYPE_IPv6));
 
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt_block_get_pkt (pkt_block,  &pkt_size);
 

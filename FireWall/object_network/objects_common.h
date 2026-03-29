@@ -1,7 +1,7 @@
 #ifndef __OBJECTS_COMMON__
 #define __OBJECTS_COMMON__
 
-#include "../../gluethread/glthread.h"
+#include "../../libs/gluethread/glthread.h"
 
 typedef struct acl_entry_ acl_entry_t;
 

@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include "../../tcp_ip_trace.h"
 #include "intf_cons.h"
-#include "../../common/cmn_struct.h"
+#include "../../libs/common/cmn_struct.h"
 
 typedef struct pkt_block_ pkt_block_t;
 typedef struct dp_vrf_ dp_vrf_t;

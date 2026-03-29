@@ -9,7 +9,7 @@ tcp_dump_recv_logger(
               dp_ctx_t *dp_ctx,
               dp_intf_t *intf,
               pkt_block_t *pkt_block,
-              hdr_type_t hdr_type){
+              gen_proto_id_t hdr_type){
 
     int rc = 0 ;
     acl_action_t acl_action;
@@ -95,7 +95,7 @@ void
 tcp_dump_send_logger(dp_ctx_t *dp_ctx,
               dp_intf_t *intf,
               pkt_block_t *pkt_block,
-              hdr_type_t hdr_type){
+              gen_proto_id_t hdr_type){
 
     int rc = 0;
     acl_action_t acl_action;

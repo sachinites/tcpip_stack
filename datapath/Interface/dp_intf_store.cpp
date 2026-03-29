@@ -2,11 +2,11 @@
 #include <string.h>
 #include <assert.h>
 
-#include "../../BitOp/bitmap.h"
+#include "../../libs/BitOp/bitmap.h"
 
 #include "dp_intf.h"
-#include "../../c-hashtable/hashtable.h"
-#include "../../c-hashtable/hashtable_itr.h"
+#include "../../libs/c-hashtable/hashtable.h"
+#include "../../libs/c-hashtable/hashtable_itr.h"
 
 
 /* Hash function for port_id (uint32_t) keys */

@@ -19,7 +19,7 @@
 #ifndef __TCPIP_NOTIF_C
 #define __TCPIP_NOTIF_C
 
-#include "notif.h"
+#include "libs/notifc/notif.h"
 
 #include "Interface/InterfaceUApi.h"
 typedef struct pkt_block_ pkt_block_t;

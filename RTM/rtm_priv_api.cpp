@@ -92,7 +92,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include "../lmm_enums.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../router_init.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../RTM/rtm_nb_integ.h"
@@ -100,7 +100,7 @@
 #include "../CLIBuilder/cmdtlv.h"
 #include "../utils.h"
 #include "../tcp_ip_trace.h"
-#include "../Tracer/tracer.h"
+#include "../libs/Tracer/tracer.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
 #include "rtm_priv_api.h"
 #include "rtm_route.h"
@@ -109,7 +109,7 @@
 #include "rtm_proto.h"
 #include "rtm_resolution.h"
 #include "rtm_presentation.h"
-#include "../common/mpls_lstack.h"
+#include "../libs/common/mpls_lstack.h"
 #include "../vrf/vrf.h"
 #include "../cmdcodes.h"
 
@@ -181,7 +181,7 @@ rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto)
             } else {
                 return RTM_ADMIN_DIST_BGP_EXT;
             }
-        case RTM_PROTO_ISIS:
+        case RTM_IP_PROTO_ISIS:
             switch (sub_proto) {
                 case  RTM_PROTO_L1_ISIS_INT:
                 case RTM_PROTO_L2_ISIS_INT: 

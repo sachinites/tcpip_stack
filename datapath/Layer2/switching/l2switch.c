@@ -33,12 +33,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <arpa/inet.h>
-#include "../../../common/l2_hdrs.h"
-#include "../../../gluethread/glthread.h"
-#include "../../../LinuxMemoryManager/uapi_mm.h"
-#include "../../../pkt_block.h"
+#include "../../../libs/common/l2_hdrs.h"
+#include "../../../libs/gluethread/glthread.h"
+#include "../../../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../../../libs/pkt-block/pkt_block.h"
 #include "../../../tcpconst.h"
-#include "../../../Tracer/tracer.h"
+#include "../../../libs/Tracer/tracer.h"
 #include "mac_table.h"
 #include "../../Layer2/vxlan/vlan_vni_ht.h"
 #include "../../../lmm_enums.h"
@@ -212,7 +212,7 @@ l2_switch_forward_frame(
         pkt_block_str (pkt_block), 
         GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
 
-     pkt_block->ingress_intf = recv_intf;
+     pkt_block->ingress_intf = (uintptr_t)recv_intf;
      vlan_id = (uint16_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
 
     mac_table_entry = mac_table_lookup(dp_ctx->mac_table, 
@@ -290,7 +290,7 @@ void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
 {
     pkt_size_t pkt_size;
 
-    if (pkt_block_get_starting_hdr (pkt_block) != ETH_HDR){
+    if (pkt_block_get_starting_hdr (pkt_block) != ETHERNET_HEADER){
         return;
     }
 

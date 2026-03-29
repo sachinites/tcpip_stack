@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include "rtm_enums.h"
 #include "rtm_error.h"
-#include "../Tree/libtree.h"
-#include "../common/cmn_prefix.h"
+#include "../libs/Tree/libtree.h"
+#include "../libs/common/cmn_prefix.h"
 
 typedef struct rtm_ rtm_t;
 typedef struct vrf_ vrf_t;

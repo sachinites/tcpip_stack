@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include "../../../libtimer/WheelTimer.h"
-#include "../../../common/cmn_struct.h"
+#include "../../../libs/libtimer/WheelTimer.h"
+#include "../../../libs/common/cmn_struct.h"
 #include "../../../utils.h"
 #include "../../enums/l2_enums.h"
 

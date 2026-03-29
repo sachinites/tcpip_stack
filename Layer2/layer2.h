@@ -36,9 +36,9 @@
 #include <stdlib.h>  /*for calloc*/
 #include <stdint.h>
 #include "../net.h"
-#include "../gluethread/glthread.h"
+#include "../libs/gluethread/glthread.h"
 #include "../tcpconst.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../Interface/InterfacEnums.h"
 
 typedef struct node_ node_t;

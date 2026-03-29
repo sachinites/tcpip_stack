@@ -1,13 +1,13 @@
-#include "../gluethread/glthread.h"
-#include "../BitOp/bitsop.h"
+#include "../libs/gluethread/glthread.h"
+#include "../libs/BitOp/bitsop.h"
 #include "../Threads/refcount.h"
 #include "../router_init.h"
-#include "../notif.h"
+#include "../libs/notifc/notif.h"
 #include "rt_notif.h"
 #include "rt_table/nexthop.h"
 #include "layer3.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
-#include "../Tracer/tracer.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../libs/Tracer/tracer.h"
 #include "../lmm_enums.h"
 
 void

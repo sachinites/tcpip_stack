@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <memory.h>
-#include "../../LinuxMemoryManager/uapi_mm.h"
-#include "../../c-hashtable/hashtable.h"
-#include "../../c-hashtable/hashtable_itr.h"
+#include "../../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../../libs/c-hashtable/hashtable.h"
+#include "../../libs/c-hashtable/hashtable_itr.h"
 #include "../../FireWall/acl/acldb.h"
 #include "../../utils.h"
 #include "objnw.h"

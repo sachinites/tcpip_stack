@@ -36,57 +36,9 @@
 #include <stdint.h>
 #include <assert.h>
 
-/* Internal Hdr representation */
-typedef enum{
-
-    ETH_HDR,
-    IP_HDR,
-    IP6_HDR,
-    ARP_HDR,
-    ICMP_HDR,
-    ICMP6_HDR,
-    TCP_HDR,
-    UDP_HDR,
-    IP_IN_IP_HDR,
-    GRE_HDR,
-    SRH_HDR,
-    VXLAN_HDR,
-    MPLS_HDR,
-    MISC_APP_HDR
-} hdr_type_t;
-
-typedef uint16_t pkt_size_t;
-
-/*Specified in ethernet_hdr->type*/
-#define ARP_BROAD_REQ   0x1
-#define ARP_REPLY       0x2
-#define PROTO_ARP       0x806
-#define ETH_IP          0x0800
-#define ETH_IP6         0x29
-#define ICMP_PROTO        1
-#define ICMP6_PROTO    58
-#define PROTO_SRH    43
-#define TCP_PROTO 0x6
-#define UDP_PROTO   0x11
-#define GRE_PROTO 47
-#define ICMP_ECHO_REQ   8
-#define ICMP_ECHO_REP   0
-#define EIGRP_PROTO   80
-#define MTCP            20
-#define USERAPP1        21
-#define VLAN_8021Q_PROTO    0x8100
-#define VXLAN_PROTO     4789
-#define MPLS_PROTO 0x8847
-#define PROTO_IP_IN_IP        4
-#define PROTO_IP6_IN_IP6    41
-#define NMP_HELLO_MSG_CODE	13 /*Randomly chosen*/
-#define INTF_MAX_METRIC     16777215 /*Choosen as per the standard = 2^24 -1*/
-#define INTF_METRIC_DEFAULT 1
-#define TCP_LOG_BUFFER_LEN	512
-#define PROTO_GRE_ENCAP_ETHERNET  0x6558
+#include "libs/common/protoIds.h"
 
 #define MAX_MTU 1500
-#define MAX_PACKET_BUFFER_SIZE   2048
 
 #define NODE_NAME_SIZE   32
 #define IF_NAME_SIZE     16
@@ -95,69 +47,15 @@ typedef uint16_t pkt_size_t;
  /* Should be less than or equal to UT_PARSER_BUFF_MAX_SIZE */
 #define NODE_PRINT_BUFF_LEN (1024 * 1024)
 
-/*Add DDCP Protocol Numbers*/
-#define DDCP_MSG_TYPE_FLOOD_QUERY    1  /*Randomly chosen, should not exceed 2^16 -1*/
-#define DDCP_MSG_TYPE_UCAST_REPLY    2  /*Randomly chosen, must not exceed 255*/
-#define PKT_BUFFER_RIGHT_ROOM        128   
+#define INTF_MAX_METRIC     16777215 /*Choosen as per the standard = 2^24 -1*/
+#define INTF_METRIC_DEFAULT 1
+#define TCP_LOG_BUFFER_LEN  512
+
 #define MAX_NXT_HOPS        4
 #define VRF_NAME_LEN 32
 
-/* Protocol IDs*/
-#define PROTO_STATIC 101
-#define PROTO_ISIS       0x83
-#define PROTO_LDP        0xFF
-#define PROTO_ISIS_SRv6  0x84  // not standard
-#define PROTO_SRv6 115
-#define PROTO_ANY       (0xFFFF - 1)
-
 static const char *BROADCAST_MAC = "\xff\xff\xff\xff\xff\xff";
 
-static inline unsigned char *
-proto_name_str (uint16_t proto) {
-
-    switch(proto) {
-        case PROTO_ISIS:
-            return (unsigned char *)"isis";
-        case PROTO_STATIC:
-            return (unsigned char *)"static";
-        case PROTO_ARP:
-            return (unsigned char *)"arp";
-        case ETH_IP:
-            return (unsigned char *)"ip";
-        case ETH_IP6:
-            return (unsigned char *)"ip6";
-        case ICMP_PROTO:
-            return (unsigned char *)"icmp";
-        case ICMP6_PROTO:
-            return (unsigned char *)"icmp6";
-        case TCP_PROTO:
-            return (unsigned char *)"tcp";
-        case UDP_PROTO:
-            return (unsigned char *)"udp";
-        case PROTO_ANY:
-            return (unsigned char *)"any";
-        case EIGRP_PROTO:
-            return (unsigned char *)"eigrp";
-        case GRE_PROTO:
-            return (unsigned char *)"gre";
-        case PROTO_GRE_ENCAP_ETHERNET:
-            return (unsigned char *)"gre-en-ethernet";
-        case PROTO_IP_IN_IP:
-            return (unsigned char *)"ip-in-ip";
-        case PROTO_SRv6:
-            return (unsigned char *)"srv6";
-        case PROTO_ISIS_SRv6:
-            return (unsigned char *)"isis-srv6";
-        case PROTO_SRH:
-            return (unsigned char *)"srh";
-        case VXLAN_PROTO:
-            return (unsigned char *)"vxlan";
-        case MPLS_PROTO:
-            return (unsigned char *)"mpls";
-        default:
-            return (unsigned char *)"Unknown";
-    }
-}
 
 #define APPLICATION_LAYER   5
 #define TRANSPORT_LAYER 4
@@ -171,16 +69,16 @@ tcpip_protocol_classification(uint16_t proto) {
 
     switch(proto) {
 
-        case ETH_IP:
-        case ETH_IP6:
+        case ETH_TYPE_IPv4:
+        case ETH_TYPE_IPv6:
             return NETWORK_LAYER;
-        case ICMP_PROTO:
+        case IP_PROTO_ICMP:
             return APPLICATION_LAYER;
-        case PROTO_ISIS:
-        case PROTO_ISIS_SRv6:
+        case IP_PROTO_ISIS:
+        case IP_PROTO_ISIS_SRv6:
             return LINK_LAYER;
-        case TCP_PROTO:
-        case UDP_PROTO:
+        case IP_PROTO_TCP:
+        case IP_PROTO_UDP:
             return TRANSPORT_LAYER;
         case PROTO_STATIC:
             return NETWORK_LAYER;
@@ -189,110 +87,14 @@ tcpip_protocol_classification(uint16_t proto) {
     }
 }
 
-static inline uint16_t 
-tcp_ip_convert_internal_proto_to_std_proto (hdr_type_t hdr_type) {
 
-    switch (hdr_type)
-    {
-    case ETH_HDR:
-        return PROTO_GRE_ENCAP_ETHERNET;
-    case IP_HDR:
-        return ETH_IP;
-    case IP6_HDR:
-        return ETH_IP6;
-    case ARP_HDR:
-        return PROTO_ARP;
-    case ICMP_HDR:
-        return ICMP_PROTO;
-    case ICMP6_HDR:
-        return ICMP6_PROTO;
-    case TCP_HDR:
-        return TCP_PROTO;
-    case UDP_HDR:
-        return UDP_PROTO;
-    case IP_IN_IP_HDR:
-        return PROTO_IP_IN_IP;
-    case GRE_HDR:
-        return GRE_PROTO;
-    case VXLAN_HDR:
-        return VXLAN_PROTO;
-    case MPLS_HDR:
-        return MPLS_PROTO;
-    default:;
-    }
-    return 0;
-}
-
-#define RMAC_INTF_NAME  "rmacif"
-#define VLAN_FLOOD_INTF_NAME "vfif"
-#define NVE_INTF_NAME "nve"
-#define DEFAULT_VLAN_ID 0
-#define MAC_ENTRY_EXP_TIME   1800 /*Seconds*/
-#define DEFAULT_VRF 0
-#define DEF_VRF_NAME "Default-vrf"
-#define MAX_INTF_IFINDEX 1023 
-
-
-static inline uint8_t 
-srh_internal_hdr_type_to_srh_nxthdr(uint16_t hdr_type) {
-
-    switch (hdr_type) {
-
-        case IP_HDR:
-            return 4;
-        case IP6_HDR:
-            return 41;
-        case UDP_HDR:
-            return 17;
-        case TCP_HDR:
-            return 6;
-        case SRH_HDR:
-            return 43;
-        case ICMP_HDR:
-            return ICMP_PROTO;
-        case ICMP6_HDR:
-            return ICMP6_PROTO;
-    default:
-        assert(0);
-    }
-    return 0;
-}
-
-
-static inline uint16_t 
-srh_nxthdr_to_internal_hdr_type(uint8_t srh_nxthdr) {
-
-    switch (srh_nxthdr) {
-
-        case 4:           return IP_HDR;
-        case 41:          return IP6_HDR;
-        case 17:          return UDP_HDR;
-        case 6:           return TCP_HDR;
-        case 43:          return SRH_HDR;
-        case 1:           return ICMP_HDR;
-        case 58:          return ICMP6_HDR;
-        default:
-            assert(0);
-    }
-    return 0;
-}
-
-static inline const char *
-srh_nexthdr_proto_name_str (uint8_t srh_nxthdr) {
-
-        switch (srh_nxthdr) {
-
-        case 4:           return "IPv4";
-        case 41:          return "IPv6";
-        case 17:          return "udp";
-        case 6:           return "tcp";
-        case 43:          return "srh";
-        case 1:           return "icmp";
-        case 58:          return "icmp6";
-        default:
-            assert(0);
-    }
-    return "Unknown";
-}
+#define RMAC_INTF_NAME          "rmacif"
+#define VLAN_FLOOD_INTF_NAME    "vfif"
+#define NVE_INTF_NAME           "nve"
+#define DEFAULT_VLAN_ID         0
+#define MAC_ENTRY_EXP_TIME      1800 /*Seconds*/
+#define DEFAULT_VRF             0
+#define DEF_VRF_NAME            "Default-vrf"
+#define MAX_INTF_IFINDEX        1023 
 
 #endif /* __TCPCONST__ */

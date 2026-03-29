@@ -15,7 +15,7 @@
 #include <errno.h>
 #include <semaphore.h>
 #include "../libcli.h"
-#include "../gluethread/glthread.h"
+#include "../libs/gluethread/glthread.h"
 #include "../string_util.h"
 #include "../CmdTree/cmdcodes_def.h"
 

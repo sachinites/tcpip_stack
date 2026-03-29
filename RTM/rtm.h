@@ -39,11 +39,11 @@
 #define __RTM__
 
 #include <stdint.h>
-#include "../Tree/libtree.h"
-#include "../gluethread/glthread.h"
+#include "../libs/Tree/libtree.h"
+#include "../libs/gluethread/glthread.h"
 #include "rtm_enums.h"
 #include "rtm_error.h"
-#include "../common/cmn_prefix.h"
+#include "../libs/common/cmn_prefix.h"
 #include "rtm_priv_api.h"
 
 /* ========================================================================

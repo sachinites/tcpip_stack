@@ -6,11 +6,11 @@
 #include "../../Interface/dp_intf.h"
 #include "../../dp_ctx.h"
 #include "../../Interface/dp_intf_store.h"
-#include "../../../EventDispatcher/event_dispatcher.h"
-#include "../../../Tracer/tracer.h"
-#include "../../../gluethread/glthread.h"
+#include "../../../libs/EventDispatcher/event_dispatcher.h"
+#include "../../../libs/Tracer/tracer.h"
+#include "../../../libs/gluethread/glthread.h"
 #include "../../dp_uapi.h"
-#include "../../../common/cmn_api.h"
+#include "../../../libs/common/cmn_api.h"
 
 void
 init_mac_table(mac_table_t **mac_table){

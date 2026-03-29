@@ -43,7 +43,7 @@ typedef struct pkt_notif_data_{
 	node_t *recv_node;
 	uint32_t recv_intf_index;
 	pkt_block_t *pkt_block;
-	hdr_type_t hdr_code;
+	gen_proto_id_t hdr_code;
 	int8_t return_code;
 } pkt_notif_data_t;
 
@@ -52,13 +52,13 @@ cp_punt_pkt_from_layer2_to_layer5(
 					  void *node,
 					  uint32_t recv_intf_ifindex,
         			  pkt_block_t *pkt_block,
-					  hdr_type_t hdr_code);
+					  gen_proto_id_t hdr_code);
 
 void
 dp2cp_punt_pkt_to_layer5(void *node,
 					  uint32_t recv_intf_ifindex,
         			  pkt_block_t *pkt_block,
-					  hdr_type_t hdr_code);
+					  gen_proto_id_t hdr_code);
 
 void
 tcp_stack_register_l2_pkt_trap_rule(

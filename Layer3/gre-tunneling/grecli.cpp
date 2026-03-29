@@ -6,7 +6,7 @@
 #include "greuapi.h"
 #include "../../dpal/cp2dp.h"
 #include "../../cmdcodes.h"
-#include "../../BitOp/bitsop.h"
+#include "../../libs/BitOp/bitsop.h"
 
 extern graph_t *topo;
 

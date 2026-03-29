@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <arpa/inet.h>
-#include "../../../pkt_block.h"
-#include "../../../Tracer/tracer.h"
+#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/Tracer/tracer.h"
 #include "../../dp_ctx.h"
 #include "../../Interface/dp_intf.h"
 #include "../../Vrfs/dp_vrf.h"
@@ -22,17 +22,16 @@ void
 gre_encasulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
-    hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
-    uint16_t gre_inner_hdr_type = tcp_ip_convert_internal_proto_to_std_proto (hdr_type);
-    
-    /* Expland the size of the pkt by GRE HDR size */
+    gen_proto_id_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
+
+    /* Expand the size of the pkt by GRE HDR size */
     pkt_block_expand_buffer_left (pkt_block, sizeof (gre_hdr_t) ); 
     gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
     /* Fill GRE packet Hdr contents*/
     memset (gre_hdr, 0, sizeof (gre_hdr_t));
-    gre_hdr->protocol_type = htons(gre_inner_hdr_type);
-    pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);        
+    gre_hdr->protocol_type = htons(hdr_type);
+    pkt_block_set_starting_hdr_type (pkt_block, IP_PROTO_GRE);        
     tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
         "GRE Encapsulation %s\n", pkt_block_str (pkt_block));    
 }
@@ -46,7 +45,7 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
     uint8_t *pkt;
     pkt_size_t pkt_size;
 
-    assert (pkt_block_get_starting_hdr(pkt_block) == GRE_HDR);
+    assert (pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_GRE);
 
     if (!gre_intf) {
          tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
@@ -72,18 +71,18 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
 
     switch (htons(gre_hdr->protocol_type)) {
 
-        case ETH_IP:
+        case ETH_TYPE_IPv4:
         {
-            pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
+            pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv4);
             tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_block_str (pkt_block));    
             layer3_ip_route_pkt (dp_ctx, vrf, gre_intf, pkt_block);
         }
         break;
 
-        case PROTO_GRE_ENCAP_ETHERNET:
+        case ETH_TYPE_GRE:
         {
-             pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
+             pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv4);
             tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_block_str (pkt_block));                    
              //dp_pkt_receive(dp_ctx, vrf, gre_intf, pkt_block);

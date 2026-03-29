@@ -58,11 +58,11 @@
 
 #include "../router_init.h"
 #include "../tcp_ip_trace.h"
-#include "../Tracer/tracer.h"
-#include "../mtrie/mtrie.h"
-#include "../BitOp/bitmap.h"
+#include "../libs/Tracer/tracer.h"
+#include "../libs/mtrie/mtrie.h"
+#include "../libs/BitOp/bitmap.h"
 #include "../lmm_enums.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
 
 #include "rtm_route.h"
 #include "rtm_nh.h"

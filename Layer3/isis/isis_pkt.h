@@ -4,11 +4,13 @@
 #include "isis_events.h"
 #include "isis_const.h"
 #include "isis_struct.h"
+#include "../../libs/pkt-block/pkt_block.h"
 
 typedef uint16_t isis_pkt_type_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
 typedef struct isis_fragment_ isis_fragment_t;
 typedef struct isis_node_info_ isis_node_info_t;
+
 
 typedef struct isis_pkt_ {
 
@@ -128,7 +130,7 @@ isis_ref_isis_pkt(isis_lsp_pkt_t *lsp_pkt);
 
 uint16_t
 isis_count_tlv_occurrences (byte *tlv_buffer,
-                                              uint16_t tlv_buff_size, uint8_t tlv_no) ;
+                            pkt_size_t tlv_buff_size, uint8_t tlv_no) ;
 
 const c_string 
 isis_pkt_type_str (isis_pkt_type_t pkt_type) ;
@@ -199,7 +201,7 @@ isis_lan_hello_pkt_hdr_t *
 isis_init_lan_hello_pkt_hdr (isis_lan_hello_pkt_hdr_t *hdr, Interface *intf);
 
 byte *
-isis_get_pkt_tlv_buffer (isis_common_hdr_t *cmn_hdr, uint16_t *tlv_size);
+isis_get_pkt_tlv_buffer (isis_common_hdr_t *cmn_hdr, pkt_size_t *tlv_size);
 
 /* LSP Hdr processing fns */
 static inline ISIS_LVL

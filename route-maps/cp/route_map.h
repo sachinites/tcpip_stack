@@ -17,7 +17,7 @@
  */
 #include <stdint.h>
 #include <stdbool.h>
-#include "../../gluethread/glthread.h"
+#include "../../libs/gluethread/glthread.h"
 
 #define RMAP_MAX_NAME_LENGTH 64
 class Interface;

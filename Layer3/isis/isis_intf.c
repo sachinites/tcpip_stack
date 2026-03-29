@@ -56,7 +56,7 @@ isis_transmit_hello(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
     Interface *egress_intf = isis_timer_data->intf;
     pkt_block = (pkt_block_t *)isis_timer_data->data;
     ISIS_INTF_INCREMENT_STATS(egress_intf, hello_pkt_sent);
-    assert ( pkt_block_get_starting_hdr(pkt_block) == ETH_HDR );
+    assert ( pkt_block_get_starting_hdr(pkt_block) == ETHERNET_HEADER );
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
     memcpy(eth_hdr->src_mac.mac, IF_MAC(egress_intf), sizeof(eth_hdr->src_mac.mac));
     pkt_block_set_no_modify (pkt_block, true);
@@ -87,14 +87,14 @@ isis_send_hello_immediately (Interface *intf) {
 
         hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
         pkt_block = pkt_block_get_new(hello_pkt, hello_pkt_size);
-        pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
+        pkt_block_set_starting_hdr_type(pkt_block, ETHERNET_HEADER);
         new_hello = true;
     }
 
      if (hello_pkt && hello_pkt_size) {
 
             ISIS_INTF_INCREMENT_STATS(intf, hello_pkt_sent);
-            assert(pkt_block_get_starting_hdr(pkt_block) == ETH_HDR);
+            assert(pkt_block_get_starting_hdr(pkt_block) == ETHERNET_HEADER);
             ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
             memcpy(eth_hdr->src_mac.mac, IF_MAC(intf), sizeof(eth_hdr->src_mac.mac));
             pkt_block_set_no_modify (pkt_block, true);
@@ -127,6 +127,7 @@ isis_start_sending_hellos (Interface *intf) {
     isis_timer_data->node_info = node_info;
     isis_timer_data->intf = intf;
     pkt_block_t *pkt_block = pkt_block_get_new(hello_pkt, hello_pkt_size);
+    pkt_block_set_starting_hdr_type(pkt_block, ETHERNET_HEADER);
     isis_timer_data->data = (void *)pkt_block;
     isis_timer_data->data_size = sizeof(pkt_block_t);
 

@@ -242,7 +242,7 @@ isis_update_interface_adjacency_from_hello(
     char ip_addr[IPV4_ADDR_LEN_STR];
     byte lan_id_str[32];
     byte sys_id_str[32];
-    uint16_t tlv_buff_size;
+    pkt_size_t tlv_buff_size;
     uint8_t tlv_data_len;
     bool new_adj = false;
     bool regen_lsp = false;

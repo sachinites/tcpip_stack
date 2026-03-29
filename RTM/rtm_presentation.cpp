@@ -67,11 +67,11 @@
 #include "rtm_gc.h"
 #include "rtm_priv_api.h"
 #include "rtm_fib_interface.h"
-#include "../prefix-list/prefixlst.h"
-#include "../EventDispatcher/event_dispatcher.h"
-#include "../Tracer/tracer.h"
+#include "../libs/prefix-list/prefixlst.h"
+#include "../libs/EventDispatcher/event_dispatcher.h"
+#include "../libs/Tracer/tracer.h"
 #include "../lmm_enums.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
 
 #define RTM_ADVT_COUNT_PREEMPTION_LIMIT 100
 

@@ -16,8 +16,9 @@
 #ifndef __ARP__HDR__
 #define __ARP__HDR__
 
-#include "../../../common/cmn_struct.h"
-#include "../../../gluethread/glthread.h"
+#include "../../../libs/common/cmn_struct.h"
+#include "../../../libs/gluethread/glthread.h"
+#include "../../../tcpconst.h"
 
 typedef struct pkt_block_ pkt_block_t;
 typedef struct arp_hdr_ arp_hdr_t;
@@ -58,6 +59,7 @@ GLTHREAD_TO_STRUCT(arp_pending_entry_glue_to_arp_pending_entry, \
     arp_pending_entry_t, arp_pending_entry_glue);
 
 
+#pragma pack(push, 8)
 struct arp_entry_{
 
     glthread_t arp_glue;
@@ -74,7 +76,8 @@ struct arp_entry_{
      * this ARP resolution*/
     long long unsigned int hit_count;
 	
-} __attribute__((aligned(8)));
+};
+#pragma pack(pop)
 GLTHREAD_TO_STRUCT(arp_glue_to_arp_entry, arp_entry_t, arp_glue);
 GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list);
 

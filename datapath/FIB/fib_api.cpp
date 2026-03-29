@@ -19,11 +19,11 @@
 #include "fib.h"
 #include "fib_route.h"
 #include "fib_nh.h"
-#include "../../common/mpls_lstack.h"
-#include "../../pkt_block.h"
-#include "../../common/l3_hdrs.h"
+#include "../../libs/common/mpls_lstack.h"
+#include "../../libs/pkt-block/pkt_block.h"
+#include "../../libs/common/l3_hdrs.h"
 #include "../../tcpconst.h"
-#include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../Interface/dp_intf.h"
 
 extern void
@@ -32,17 +32,17 @@ dp_demote_pkt_to_layer2 (dp_ctx_t *dp_ctx,
                       uint32_t next_hop_ip,
                       dp_intf_t *outgoing_intf,
                       pkt_block_t *pkt_block,
-                      hdr_type_t hdr_type);
+                      gen_proto_id_t hdr_type);
 
 /* Extract destination address from packet based on header type */
 bool fib_extract_dest_from_pkt(pkt_block_t *pkt, cmn_prefix_t *dest) {
     
-    hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt);
+    gen_proto_id_t hdr_type = pkt_block_get_starting_hdr(pkt);
     pkt_size_t pkt_size;
     
     switch (hdr_type) {
-        case IP_HDR:
-        case IP_IN_IP_HDR: {
+        case ETH_TYPE_IPv4:
+        case IP_PROTO_IP_IN_IP: {
             ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt);
             if (!ip_hdr) return false;
             
@@ -52,12 +52,12 @@ bool fib_extract_dest_from_pkt(pkt_block_t *pkt, cmn_prefix_t *dest) {
             return true;
         }
         
-        case IP6_HDR: {
+        case ETH_TYPE_IPv6: {
             /* IPv6 support would go here */
             return false;
         }
         
-        case MPLS_HDR: {
+        case ETH_TYPE_MPLS_UC: {
             /* Extract MPLS label from packet */
             uint32_t *label_ptr = (uint32_t *)pkt_block_get_pkt(pkt, &pkt_size);
             if (!label_ptr || pkt_size < 4) return false;
@@ -69,7 +69,7 @@ bool fib_extract_dest_from_pkt(pkt_block_t *pkt, cmn_prefix_t *dest) {
             return true;
         }
         
-        case ETH_HDR: {
+        case ETHERNET_HEADER: {
             /* MAC destination would be extracted here */
             return false;
         }
@@ -115,11 +115,11 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
         switch (lstack->labels[i].op ) {
 
             case MPLS_OP_POP:
-                if (pkt_block_get_starting_hdr (pkt_block) == MPLS_HDR) {
+                if (pkt_block_get_starting_hdr (pkt_block) == ETH_TYPE_MPLS_UC) {
                     pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
                     if (mpls_label_is_stack_bottom (*pkt_label)) s_bit = true;
                     pkt_block_set_new_pkt (pkt_block, (uint8_t *)(pkt_label + 1), pkt_size - sizeof (mpls_label_val_t));
-                    if (s_bit) pkt_block_set_starting_hdr_type (pkt_block,  MISC_APP_HDR);
+                    if (s_bit) pkt_block_set_starting_hdr_type (pkt_block,  PROTO_MISC_APP);
                 }
             break;
 
@@ -128,8 +128,8 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
                 pkt_block_expand_buffer_left (pkt_block, sizeof (mpls_label_val_t));
                 pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
                 mpls_label_set_value (pkt_label, mpls_label_get_value (lstack->labels[i].label_val ));
-                if (pkt_block_get_starting_hdr (pkt_block) != MPLS_HDR) {
-                    pkt_block_set_starting_hdr_type (pkt_block, MPLS_HDR);
+                if (pkt_block_get_starting_hdr (pkt_block) != ETH_TYPE_MPLS_UC) {
+                    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_MPLS_UC);
                     mpls_label_set_stack_bottom (pkt_label);
                 }
             break;
@@ -137,7 +137,7 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
 
             case MPLS_OP_SWAP:
                 s_bit = false;
-                if (pkt_block_get_starting_hdr (pkt_block) == MPLS_HDR) {
+                if (pkt_block_get_starting_hdr (pkt_block) == ETH_TYPE_MPLS_UC) {
                     pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
                     if (mpls_label_is_stack_bottom (*pkt_label)) s_bit = true;
                     mpls_label_set_value (pkt_label, mpls_label_get_value (lstack->labels[i].label_val ));
@@ -162,9 +162,9 @@ fib_forward_pkt_to_nh(dp_ctx_t *dp_ctx,
     }
     
     /* Decrement TTL if IP packet */
-    hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
+    gen_proto_id_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
 
-    if (hdr_type == IP_HDR || hdr_type == IP_IN_IP_HDR) {
+    if (hdr_type == ETH_TYPE_IPv4 || hdr_type == IP_PROTO_IP_IN_IP) {
 
         ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
 
@@ -187,7 +187,7 @@ fib_forward_pkt_to_nh(dp_ctx_t *dp_ctx,
     dp_demote_pkt_to_layer2(
         dp_ctx,
         vrf,
-        hdr_type == IP6_HDR ? 0 : nh->fwd_info->nh_addr.u.v4_addr,
+        hdr_type == ETH_TYPE_IPv6 ? 0 : nh->fwd_info->nh_addr.u.v4_addr,
         nh->fwd_info->oif,
         pkt_block, hdr_type);
 

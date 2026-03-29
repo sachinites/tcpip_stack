@@ -24,17 +24,17 @@
 #include <string.h>
 #include <stdlib.h>
 #include "../../lmm_enums.h"
-#include "../../common/mpls_lstack.h"
+#include "../../libs/common/mpls_lstack.h"
 #include "../Vrfs/dp_vrf.h"
 #include "fib.h"
-#include "../../pkt_block.h"
-#include "../../mtrie/mtrie.h"
+#include "../../libs/pkt-block/pkt_block.h"
+#include "../../libs/mtrie/mtrie.h"
 #include "fib_api.h"
 #include "fib_route.h"
 #include "fib_nh.h"
 #include "../../RTM/rtm_fib_common.h"
 #include "../../RTM/rtm_priv_api.h"
-#include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../Interface/InterfaceUApi.h"
 #include "../Interface/dp_intf.h"
 

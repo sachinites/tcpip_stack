@@ -26,9 +26,9 @@
 #include <assert.h>
 #include "vlan_vni_ht.h"
 #include "../../dp_ctx.h"
-#include "../../../LinuxMemoryManager/uapi_mm.h"
+#include "../../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../../lmm_enums.h"
-#include "../../../Tracer/tracer.h"
+#include "../../../libs/Tracer/tracer.h"
 
 /* Hash function for VLAN ID keys */
 unsigned int 

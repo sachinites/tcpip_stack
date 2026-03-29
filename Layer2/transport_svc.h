@@ -5,7 +5,7 @@
 #include <unordered_set>
 #include <stdbool.h>
 #include <vector>
-#include "../BitOp/bitmap.h"
+#include "../libs/BitOp/bitmap.h"
 
 #define DEFAULT_TSP "DEFAULT_TSP"
 

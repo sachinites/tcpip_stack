@@ -11,7 +11,7 @@ typedef struct dp_msg_ dp_msg_t;
 
 class TransportService;
 
-#include "../common/cmn_prefix.h"
+#include "../libs/common/cmn_prefix.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
 #include "../Layer3/mpls_enums.h"

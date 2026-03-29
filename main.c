@@ -38,7 +38,7 @@
 #include <stdlib.h> 
 #include "router_init.h"
 #include "CLIBuilder/libcli.h"
-#include "EventDispatcher/event_dispatcher.h"
+#include "libs/EventDispatcher/event_dispatcher.h"
 
 extern void init_tcp_ip_stack();
 
@@ -89,7 +89,7 @@ main(int argc, char **argv){
     libcli_init ();
     tcp_ip_stack_pre_topology_create_initializations();
     //topo = Linux_Router_topology();
-    topo = build_inter_vlan_routing_topo();
+    topo = cross_link_topology();
     init_tcp_ip_stack();
     libcli_init_done ();
 

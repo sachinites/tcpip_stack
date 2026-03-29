@@ -735,7 +735,7 @@ isis_srv6_config_handler (int cmdcode,
                                         0, 0,
                                         NULL, 0, 
                                         endpCode,
-                                        PROTO_ISIS_SRv6);
+                                        IP_PROTO_ISIS_SRv6);
                     #endif
 
                 break;
@@ -750,7 +750,7 @@ isis_srv6_config_handler (int cmdcode,
                             &prefix_sid,
                             128,
                             0, 0,
-                            PROTO_ISIS_SRv6);
+                            IP_PROTO_ISIS_SRv6);
                     #endif
                 
                     /* Release pfx sid from pool*/

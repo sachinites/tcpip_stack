@@ -17,14 +17,14 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include "../../../common/l3_hdrs.h"
+#include "../../../libs/common/l3_hdrs.h"
 #include "srv6-endpoint.h"
 #include "../../../Layer3/ipv6/ipv6_hdrs.h"
 #include "../../Layer3/layer3.h"
 #include "../../Layer3/ipv6/ipv6-fwd.h"
 #include "../../../router_init.h"
-#include "../../../pkt_block.h"
-#include "../../../Tracer/tracer.h"
+#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/Tracer/tracer.h"
 #include "../../../Interface/InterfaceUApi.h"
 #include "srv6-end-behavior.h"
 #include "../../FIB/fib_nh.h"
@@ -60,7 +60,7 @@ dp_demote_pkt_to_layer2(
     uint32_t next_hop_ip,
     dp_intf_t *outgoing_intf,
     pkt_block_t *pkt_block,
-    hdr_type_t hdr_type);
+    gen_proto_id_t hdr_type);
 
 extern void
 layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
@@ -144,7 +144,7 @@ Srv6_apply_flavor(
                 pkt_block_t *orig_pkt,
                 uint8_t flavor)
 {
-    assert(pkt_block_verify_pkt(orig_pkt, IP6_HDR));
+    assert(pkt_block_verify_pkt(orig_pkt, ETH_TYPE_IPv6));
 
     /* PSP (Penultimate Segment Pop) Flavor Processing */
     if (flavor & PSP) {
@@ -174,7 +174,7 @@ Srv6_apply_flavor(
         pkt_block_expand_buffer_left(orig_pkt, sizeof(ipv6_hdr_t));
         pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
         memcpy(pkt, &ipv6_hdr_copy, sizeof(ipv6_hdr_t));
-        pkt_block_update_new_hdr_type(orig_pkt, ETH_IP6);
+        pkt_block_update_new_hdr_type(orig_pkt, ETH_TYPE_IPv6);
         
         return orig_pkt;
     }
@@ -186,7 +186,7 @@ Srv6_apply_flavor(
         ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
         
         /* Only process if SRH is present */
-        if (ipv6_hdr->next_header != PROTO_SRH) {
+        if (ipv6_hdr->next_header != IP_PROTO_SRH) {
             return orig_pkt;
         }
         
@@ -208,7 +208,7 @@ Srv6_apply_flavor(
         ipv6_hdr_copy.next_header = srh_next_hdr;
         ipv6_hdr_copy.payload_length -= srh->hdrlen;
         memcpy(pkt, &ipv6_hdr_copy, sizeof(ipv6_hdr_t));
-        pkt_block_set_starting_hdr_type(orig_pkt, IP6_HDR);
+        pkt_block_set_starting_hdr_type(orig_pkt, ETH_TYPE_IPv6);
         
         return orig_pkt;
     }
@@ -261,7 +261,7 @@ Srv6_decapsulate(pkt_block_t *pkt_block) {
     pkt_size_t pkt_size = 0;
     
     /* Only process IPv6 packets */
-    if (pkt_block_get_starting_hdr(pkt_block) != IP6_HDR) {
+    if (pkt_block_get_starting_hdr(pkt_block) != ETH_TYPE_IPv6) {
         return;
     }
     
@@ -269,7 +269,7 @@ Srv6_decapsulate(pkt_block_t *pkt_block) {
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
     
     /* Case 1: No SRH present - remove only IPv6 header */
-    if (ipv6_hdr->next_header != PROTO_SRH) {
+    if (ipv6_hdr->next_header != IP_PROTO_SRH) {
         pkt_block_set_new_pkt(pkt_block, 
                               (uint8_t *)(ipv6_hdr + 1), 
                               pkt_size - sizeof(ipv6_hdr_t));
@@ -284,9 +284,7 @@ Srv6_decapsulate(pkt_block_t *pkt_block) {
                           payload, 
                           pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
     
-    hdr_type_t internal_hdr = (hdr_type_t)srh_nxthdr_to_internal_hdr_type(srh->nexthdr);
-    uint16_t std_proto = tcp_ip_convert_internal_proto_to_std_proto(internal_hdr);
-    pkt_block_update_new_hdr_type(pkt_block, std_proto);
+    pkt_block_update_new_hdr_type(pkt_block, srh->nexthdr);
 }
 
 /**
@@ -332,40 +330,40 @@ ipv6_process_v6_payload(dp_ctx_t *dp_ctx,
                         dp_vrf_t *vrf, 
                         pkt_block_t *pkt_block) {
 
-    hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
+    gen_proto_id_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
 
     /* Re-inject the packet into the appropriate data path pipeline */
     switch (hdr_type) {
-        case IP_HDR:
+        case ETH_TYPE_IPv4:
             /* Inner packet is IPv4 - route it */
             layer3_ip_route_pkt(dp_ctx, vrf,  NULL, pkt_block);
             return;
             
-        case IP6_HDR:
+        case ETH_TYPE_IPv6:
             /* Inner packet is IPv6 - route it */
             layer3_ipv6_route_pkt(dp_ctx, vrf,  NULL, pkt_block, NULL);
             return;
             
-        case ICMP6_HDR:
+        case IP_PROTO_ICMPv6:
             /* ICMPv6 packet - typically ping response */
             cprintf("ipv6 ping success\n");
             break;
             
-        case TCP_HDR:
+        case IP_PROTO_TCP:
             /* Promote to Layer 4 TCP processing */
-            dp2cp_punt_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, TCP_HDR);
+            dp2cp_punt_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, IP_PROTO_TCP);
             return;
             
-        case UDP_HDR:
+        case IP_PROTO_UDP:
             /* Promote to Layer 4 UDP processing */
-            dp2cp_punt_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, UDP_HDR);
+            dp2cp_punt_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, IP_PROTO_UDP);
             return;
             
-        case GRE_HDR:
+        case IP_PROTO_GRE:
             /* GRE tunnel - handler not yet implemented */
             break;
             
-        case SRH_HDR:
+        case IP_PROTO_IPv6_ROUTE:
             /* SRH received at non-SRv6 capable node - drop */
             cprintf("%s : SRv6 incapable node received SRH header packet, dropped\n",
                     dp_ctx->ctx_name);
@@ -462,15 +460,15 @@ Srv6_encapsulate(pkt_block_t *pkt_block, srh_hdr_t *srh) {
     pkt_size_t pkt_size = 0;
 
     /* Step 1: Add SRH header first */
-    hdr_type_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
+    gen_proto_id_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
     pkt_block_expand_buffer_left(pkt_block, srh->hdrlen);
     byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
     memcpy(pkt, srh, srh->hdrlen);
     
     /* Update SRH's next_header to point to the encapsulated packet type */
     srh_hdr_t *new_srh = (srh_hdr_t *)pkt;
-    new_srh->nexthdr = srh_internal_hdr_type_to_srh_nxthdr((uint16_t)hdr_type);
-    pkt_block_update_new_hdr_type(pkt_block, PROTO_SRH);
+    new_srh->nexthdr = (uint8_t)hdr_type;
+    pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_SRH);
 
     /* Step 2: Add IPv6 header */
     pkt_block_expand_buffer_left(pkt_block, sizeof(ipv6_hdr_t));
@@ -479,7 +477,7 @@ Srv6_encapsulate(pkt_block_t *pkt_block, srh_hdr_t *srh) {
     
     /* Initialize IPv6 header with default values */
     initialize_ipv6_hdr(ipv6_hdr);
-    ipv6_hdr->next_header = PROTO_SRH;
+    ipv6_hdr->next_header = IP_PROTO_SRH;
     ipv6_hdr->payload_length = pkt_size - sizeof(ipv6_hdr_t);
     
     /* Source address: Not known at this point, filled with zeros */
@@ -493,7 +491,7 @@ Srv6_encapsulate(pkt_block_t *pkt_block, srh_hdr_t *srh) {
            16);
 
     /* Update packet header type to indicate IPv6 packet */
-    pkt_block_update_new_hdr_type(pkt_block, ETH_IP6);
+    pkt_block_update_new_hdr_type(pkt_block, ETH_TYPE_IPv6);
 }
 
 

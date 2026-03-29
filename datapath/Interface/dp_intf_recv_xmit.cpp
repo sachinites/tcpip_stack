@@ -1,14 +1,14 @@
 #include <stdlib.h>
 #include <memory.h>
-#include "../../pkt_block.h"
+#include "../../libs/pkt-block/pkt_block.h"
 #include "../../net.h"
 #include "dp_intf.h"
 #include "dp_intf_store.h"
 #include "../../FireWall/acl/acldb.h"
-#include "../../Tracer/tracer.h"
+#include "../../libs/Tracer/tracer.h"
 #include "../Layer2/l2fwd/ipv4-l2fwd.h"
-#include "../../common/l2_hdrs.h"
-#include "../../common/l3_hdrs.h"
+#include "../../libs/common/l2_hdrs.h"
+#include "../../libs/common/l3_hdrs.h"
 #include "../Layer3/layer3.h"
 #include "../Layer2/vxlan/vxlan_dp.h"
 #include "dp_intf_log.h"
@@ -16,9 +16,9 @@
 #include "../dp_uapi.h"
 #include "../Layer3/Gre/gre-fwd.h"
 #include "../Layer3/SRv6/srv6-endpoint.h"
-#include "../../common/cmn_api.h"
-#include "../../c-hashtable/hashtable.h"
-#include "../../c-hashtable/hashtable_itr.h"
+#include "../../libs/common/cmn_api.h"
+#include "../../libs/c-hashtable/hashtable.h"
+#include "../../libs/c-hashtable/hashtable_itr.h"
 #include "../Layer2/switching/mac_table.h"
 
 typedef int (*SendPacketOut_fptr)(
@@ -294,12 +294,12 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t 
 
     /* Now attach outer IP Hdr and send the pkt*/
     assert (pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t)));
-    pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
+    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv4);
     ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr (pkt_block);
     initialize_ip_hdr (ip_hdr);
     ip_hdr->src_ip = htonl(dp_ctx->rtr_id);
     ip_hdr->dst_ip = htonl(intf->gre_tunnel_dst_ip);
-    ip_hdr->protocol = GRE_PROTO;
+    ip_hdr->protocol = IP_PROTO_GRE;
     ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
     dp_send_ip_data (dp_ctx, intf->vrf, pkt_block);
     intf->pkt_sent++;
@@ -323,7 +323,7 @@ VirtualPort_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_bl
         return 0;
     }
     
-    assert (pkt_block_get_starting_hdr(pkt_block) == ETH_HDR);
+    assert (pkt_block_get_starting_hdr(pkt_block) == ETHERNET_HEADER);
 
     ethernet_hdr_t *ethernet_hdr = 
         ( ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
@@ -349,7 +349,7 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
     pkt_size_t pkt_size;
     vlan_8021q_hdr_t *vlan_8021q_hdr;
 
-    assert(pkt_block_verify_pkt(pkt_block, ETH_HDR));
+    assert(pkt_block_verify_pkt(pkt_block, ETHERNET_HEADER));
 
     ethernet_hdr_t *eth_hdr = 
         ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
@@ -419,12 +419,12 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
 
  /* Now attach outer IP Hdr and send the pkt*/
     assert (pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t)));
-    pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
+    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv4);
     ip_hdr_t *ip_hdr = (ip_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
     initialize_ip_hdr (ip_hdr);
     ip_hdr->src_ip = htonl(dp_ctx->rtr_id);
     ip_hdr->dst_ip = htonl(pkt_block->encap_data->u.vxlan.remote_vtep_ip);
-    ip_hdr->protocol = UDP_PROTO;
+    ip_hdr->protocol = IP_PROTO_UDP;
     ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
 
     tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
@@ -444,11 +444,11 @@ VlanFloodInterface_SendPacketOut(
                                     dp_intf_t *vfif_intf, 
                                     pkt_block_t *pkt_block) {
 
-    dp_intf_t *exempt_intf = pkt_block->ingress_intf;
+    dp_intf_t *exempt_intf = (dp_intf_t *)pkt_block->ingress_intf;
 
     assert (exempt_intf);
 
-    assert (pkt_block_get_starting_hdr(pkt_block) == ETH_HDR);
+    assert (pkt_block_get_starting_hdr(pkt_block) == ETHERNET_HEADER);
 
     ethernet_hdr_t *eth_hdr = pkt_block_get_ethernet_hdr(pkt_block);
 
@@ -486,20 +486,20 @@ SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
     pkt_size_t pkt_size;
 
     /* Step 1: Strip outer ethernet header if the data layer included it */
-    if (pkt_block_get_starting_hdr(pkt_block) == ETH_HDR) {
+    if (pkt_block_get_starting_hdr(pkt_block) == ETHERNET_HEADER) {
         uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
         ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
         uint32_t eth_hdr_size = GET_ETH_HDR_SIZE_EXCL_PAYLOAD(eth_hdr);
         uint8_t *payload = GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
         pkt_block_set_new_pkt(pkt_block, payload, pkt_size - eth_hdr_size);
-        pkt_block_set_starting_hdr_type(pkt_block, IP6_HDR);
+        pkt_block_set_starting_hdr_type(pkt_block, ETH_TYPE_IPv6);
     }
 
     /* Step 2: Decapsulate: strip the outer IPv6 header and SRH */
     Srv6_decapsulate(pkt_block);
 
     /* Step 3: Inner payload must be IPv4; drop anything else */
-    if (pkt_block_get_starting_hdr(pkt_block) != IP_HDR) {
+    if (pkt_block_get_starting_hdr(pkt_block) != ETH_TYPE_IPv4) {
         tracer(dp_ctx->dptr, DL3FWD | DERR,
             "SRv6 END.DT4: inner packet is not IPv4, dropping\n");
         return 0;
@@ -565,7 +565,7 @@ dp_pkt_receive(dp_ctx_t *dp_ctx,
     }
     
     interface->pkt_recv++;
-    tcp_dump_recv_logger(dp_ctx, interface, pkt_block, ETH_HDR);
+    tcp_dump_recv_logger(dp_ctx, interface, pkt_block, ETHERNET_HEADER);
 
     /* Access List Evaluation at Layer 2 Entry point*/ 
     #if 0
@@ -598,7 +598,7 @@ dp_pkt_receive(dp_ctx_t *dp_ctx,
     if ((interface->switchport &&
             interface->l2_mode != DP_LAN_MODE_NONE)) {
 
-        pkt_block->ingress_intf = interface;
+        pkt_block->ingress_intf = (uintptr_t)interface;
 
         if (vlan_id_to_tag) {
            
@@ -626,7 +626,7 @@ dp_pkt_receive(dp_ctx_t *dp_ctx,
     /* If packet is Recvd on GRE interface and pkt is vlan tagged, 
         it means GRE is being used for VLAN extension */
     else if (interface->if_type == DP_INTF_TYPE_GRE_TUNNEL &&
-                pkt_block_verify_pkt (pkt_block, ETH_HDR) &&
+                pkt_block_verify_pkt (pkt_block, ETHERNET_HEADER) &&
                 is_pkt_vlan_tagged (pkt_block_get_ethernet_hdr(pkt_block))) {
 
         tracer (dp_ctx->dptr, DL2FWD | DFLOW, "Pkt : %s : Being recieved on GRE Interface %s\n", 
@@ -641,7 +641,7 @@ dp_pkt_receive(dp_ctx_t *dp_ctx,
             "Pkt : %s : Recvd on L3 Interface %s, being protmoted to L3Fwding\n", 
             pkt_block_str(pkt_block), interface->if_name);
             
-        pkt_block->ingress_intf = interface;
+        pkt_block->ingress_intf = (uintptr_t)interface;
         promote_pkt_to_layer2(dp_ctx, interface->vrf, interface, pkt_block);
     }
 
@@ -679,7 +679,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 		pkt = ev_dis_pkt_data->pkt;		
 
         pkt_block = pkt_block_get_new((uint8_t *)pkt, ev_dis_pkt_data->pkt_size);
-        pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
+        pkt_block_set_starting_hdr_type(pkt_block, ETHERNET_HEADER);
 
 		dp_pkt_receive(dp_ctx, recv_intf->vrf,
                     recv_intf, 

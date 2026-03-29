@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include "rtm_enums.h"
 #include "rtm_error.h"
-#include "../common/mpls_lstack.h"
-#include "../common/cmn_prefix.h"
+#include "../libs/common/mpls_lstack.h"
+#include "../libs/common/cmn_prefix.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 #include "../vrf/vrf.h"
 #include "../Layer3/ipv6/ipv6_hdrs.h"
@@ -122,7 +122,7 @@ config node H1 rtm-route prefix 2001::/120 0 0 0 2 10 gateway 2002::1 interface 
 # Route with MPLS labels
 config node H1 rtm-route prefix 100100 0 0 0 2 10 gateway 192.168.0.12 interface eth1 label-stack 100 200 300
 
-RTM_PROTO_ISIS
+RTM_IP_PROTO_ISIS
 RTM_PROTO_L1_ISIS_INT
 instance 0
 action : forward 

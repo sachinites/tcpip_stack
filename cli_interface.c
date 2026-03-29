@@ -30,18 +30,6 @@ typedef struct unified_cli_data_
 
 } unified_cli_data_t;
 
-extern void 
-parser_config_commit_internal (void *node, 
-                               Stack_t  *tlv_stack, 
-                               op_mode enable_or_disable);
-
-static void
-parser_config_commit(void *node, Stack_t  *tlv_stack, op_mode enable_or_disable) {
-
-    if (!node) return; // for global commands such as config global stdout
-    parser_config_commit_internal (node, tlv_stack, enable_or_disable);
-}
-
 static void
 task_cbk_handler_internal (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size){
 
@@ -54,12 +42,6 @@ task_cbk_handler_internal (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_s
         unified_cli_data->cmdcode,
         unified_cli_data->tlv_stack,
         unified_cli_data->enable_or_disable);
-
-    /* Config Commit now*/
-    if (!unified_cli_data->rc && unified_cli_data->enable_or_disable != OPERATIONAL) {
-
-        parser_config_commit(ev_dis->app_data, unified_cli_data->tlv_stack, unified_cli_data->enable_or_disable);
-    }
 
 #ifndef ASYNC_MODE_DISABLED
     if ((unified_cli_data->enable_or_disable == CONFIG_ENABLE ||

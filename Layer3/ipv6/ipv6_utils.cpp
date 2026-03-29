@@ -2,8 +2,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include "ipv6_utils.h"
-#include "../../tcpconst.h"
-#include "../../BitOp/bitmap.h"
+#include "../../libs/libs/BitOp/bitmap.h"
 
 char *
 inet_ntop6 (ipv6_addr_t *addr, char *buffer) {

@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "../../router_init.h"
-#include "../../gluethread/glthread.h"
-#include "../../c-hashtable/hashtable.h"
+#include "../../libs/gluethread/glthread.h"
+#include "../../libs/c-hashtable/hashtable.h"
 #include "objects_common.h"
 
 typedef struct node_ node_t;

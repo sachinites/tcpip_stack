@@ -42,7 +42,7 @@
 #include <errno.h>
 #include "router_init.h"
 #include "datapath/dp_uapi.h"
-#include "pkt_block.h"
+#include "libs/pkt-block/pkt_block.h"
 
 extern graph_t *topo;
 
@@ -106,7 +106,7 @@ _pkt_receive(dp_ctx_t *dp_ctx,
                           (uint8_t *)pkt_with_aux_data + sizeof(uint32_t),
                           pkt_size - sizeof(uint32_t));
 
-    pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
+    pkt_block_set_starting_hdr_type (pkt_block, ETHERNET_HEADER);
 
     dp_uapi_inject_packet (dp_ctx, 
                            pkt_block, port_id);

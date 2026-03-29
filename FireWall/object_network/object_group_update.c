@@ -1,8 +1,8 @@
 #include <assert.h>
 #include <stdlib.h>
-#include "../../gluethread/glthread.h"
-#include "../../LinuxMemoryManager/uapi_mm.h"
-#include "../../EventDispatcher/event_dispatcher.h"
+#include "../../libs/gluethread/glthread.h"
+#include "../../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../../libs/EventDispatcher/event_dispatcher.h"
 #include "object_group.h"
 #include "object_grp_update.h"
 #include "../acl/acldb.h"

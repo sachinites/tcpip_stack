@@ -65,16 +65,16 @@
 #include <memory.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "../gluethread/glthread.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../libs/gluethread/glthread.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "rtm.h"
 #include "rtm_route.h"
 #include "rtm_proto.h"
 #include "rtm_nh.h"
 #include "rtm_presentation.h"
 #include "../lmm_enums.h"
-#include "../mtrie/mtrie.h"
-#include "../Tracer/tracer.h"
+#include "../libs/mtrie/mtrie.h"
+#include "../libs/Tracer/tracer.h"
 #include "../router_init.h"
 
 /* ========================================================================

@@ -56,11 +56,11 @@
 #include <assert.h>
 #include <memory.h>
 #include <stdlib.h>
-#include "../Tree/libtree.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
-#include "../EventDispatcher/event_dispatcher.h"
+#include "../libs/Tree/libtree.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../libs/EventDispatcher/event_dispatcher.h"
 #include "../router_init.h"
-#include "../Tracer/tracer.h"
+#include "../libs/Tracer/tracer.h"
 #include "rtm_resolution.h"
 #include "rtm.h"
 #include "rtm_nh.h"

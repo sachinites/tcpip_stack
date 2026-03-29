@@ -22,8 +22,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "../../utils.h"
-#include "../../c-hashtable/hashtable.h"
-#include "../../c-hashtable/hashtable_itr.h"
+#include "../../libs/c-hashtable/hashtable.h"
+#include "../../libs/c-hashtable/hashtable_itr.h"
 
 
 typedef struct object_group_ object_group_t;

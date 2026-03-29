@@ -4,22 +4,22 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ncurses.h>
-#include "../../../LinuxMemoryManager/uapi_mm.h"
-#include "../../../common/l2_hdrs.h"
+#include "../../../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../../../libs/common/l2_hdrs.h"
 #include "arp.h"
 #include "../l2fwd/ipv4-l2fwd.h"
 #include "../../../tcp_ip_trace.h"
-#include "../../../libtimer/WheelTimer.h"
-#include "../../../pkt_block.h"
+#include "../../../libs/libtimer/WheelTimer.h"
+#include "../../../libs/pkt-block/pkt_block.h"
 #include "../../../utils.h"
-#include "../../../Tracer/tracer.h"
+#include "../../../libs/Tracer/tracer.h"
 #include "../../../lmm_enums.h"
 #include "../../Vrfs/dp_vrf.h"
 #include "../../dp_ctx.h"
 #include "../../Interface/dp_intf.h"
 #include "../../dp_utils.h"
 #include "../../dp_uapi.h"
-#include "../../../common/cmn_api.h"
+#include "../../../libs/common/cmn_api.h"
 #include "../../../CLIBuilder/cmdtlv.h"
 #include "../../../CLIBuilder/libcli.h"
 #include "../../../cmdcodes.h"
@@ -85,12 +85,12 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     /*STEP 1 : Prepare ethernet hdr*/
     layer2_fill_with_broadcast_mac(ethernet_hdr->dst_mac.mac);
     memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
-    SET_COMMON_ETH_HDR_TYPE(ethernet_hdr, PROTO_ARP);
+    SET_COMMON_ETH_HDR_TYPE(ethernet_hdr, ETH_TYPE_ARP);
 
     /*Step 2 : Prepare ARP Broadcast Request Msg out of oif*/
     arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
     arp_hdr->hw_type = htons(0x1);
-    arp_hdr->proto_type = htons(ETH_IP);
+    arp_hdr->proto_type = htons(ETH_TYPE_IPv4);
     arp_hdr->hw_addr_len = MAC_ADDR_SIZE;
     arp_hdr->proto_addr_len = 4;
 
@@ -103,7 +103,7 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     SET_COMMON_ETH_FCS(ethernet_hdr, sizeof(arp_hdr_t), 0); /*Not used*/
 
     /*STEP 3 : Now dispatch the ARP Broadcast Request Packet out of interface*/
-    pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
+    pkt_block_set_starting_hdr_type(pkt_block, ETHERNET_HEADER);
     tracer(dp_ctx->dptr, DARP, 
         "VRF:%s: Sending ARP Broadcast Request for IP : %s out of interface %s\n",
         vrf->vrf_name, ip_addr_str, oif->if_name);
@@ -119,10 +119,10 @@ l2_prepare_arp_reply_msg(
 
     memcpy(ethernet_hdr_reply->dst_mac.mac, dst_mac->mac, sizeof(mac_addr_t));
     memcpy(ethernet_hdr_reply->src_mac.mac, src_mac->mac, sizeof(mac_addr_t));
-    SET_COMMON_ETH_HDR_TYPE(ethernet_hdr_reply, PROTO_ARP);
+    SET_COMMON_ETH_HDR_TYPE(ethernet_hdr_reply, ETH_TYPE_ARP);
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_reply));
     arp_hdr_reply->hw_type = htons(0x1);
-    arp_hdr_reply->proto_type = htons(ETH_IP);
+    arp_hdr_reply->proto_type = htons(ETH_TYPE_IPv4);
     arp_hdr_reply->hw_addr_len = sizeof(mac_addr_t);
     arp_hdr_reply->proto_addr_len = 4;
     arp_hdr_reply->op_code = htons(ARP_REPLY);
@@ -318,7 +318,7 @@ bool arp_table_entry_add(dp_ctx_t *dp_ctx,
         glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
 		assert(arp_entry->exp_timer_wt_elem == NULL);
 
-		if (arp_entry->proto == PROTO_ARP) {
+		if (arp_entry->proto == ETH_TYPE_ARP) {
             arp_entry->exp_timer_wt_elem =
 			    arp_entry_create_expiration_timer(
 				       dp_ctx, arp_entry, ARP_ENTRY_EXP_TIME); 
@@ -355,15 +355,15 @@ bool arp_table_entry_add(dp_ctx_t *dp_ctx,
     /*Case 2 : If there already exists full ARP table entry, then replace it*/
     if(arp_entry_old && !arp_entry_sane(arp_entry_old) &&
         ( (arp_entry_old->proto == arp_entry->proto) ||  /* Proto can update its own entry */
-           (arp_entry_old->proto == PROTO_ARP &&   /* Proto overwrites ARP's entry */
-           arp_entry->proto != PROTO_ARP))) {
+           (arp_entry_old->proto == ETH_TYPE_ARP &&   /* Proto overwrites ARP's entry */
+           arp_entry->proto != ETH_TYPE_ARP))) {
 
         delete_arp_entry(arp_entry_old);
         init_glthread(&arp_entry->arp_glue);
         glthread_add_next(&arp_table->arp_entries, &arp_entry->arp_glue);
 		assert(arp_entry->exp_timer_wt_elem == NULL);
 
-        if (arp_entry->proto == PROTO_ARP) {
+        if (arp_entry->proto == ETH_TYPE_ARP) {
 		    arp_entry->exp_timer_wt_elem =
 			    arp_entry_create_expiration_timer(
 				    dp_ctx, arp_entry, ARP_ENTRY_EXP_TIME); 	
@@ -470,7 +470,7 @@ void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
     memcpy(arp_entry->mac_addr.mac, arp_hdr->src_mac.mac, MAC_ADDR_SIZE);
     string_copy(arp_entry->oif_name, iif->if_name, IF_NAME_SIZE);
     arp_entry->is_sane = false;
-    arp_entry->proto = PROTO_ARP;
+    arp_entry->proto = ETH_TYPE_ARP;
 
     char ip_addr_str[IPV4_ADDR_LEN_STR];
     tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
@@ -560,7 +560,7 @@ show_arp_table(arp_table_t *arp_table){
             arp_entry->oif_name,
             arp_entry_sane(arp_entry) ? "false" : "true",
 			arp_entry_get_exp_time_left(arp_entry),
-            proto_name_str(arp_entry->proto),
+            proto_id_str(arp_entry->proto),
             arp_entry->hit_count);
         }
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
@@ -650,7 +650,7 @@ void create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
     arp_entry->ip_addr = ip_addr;
     init_glthread(&arp_entry->arp_pending_list);
     arp_entry->is_sane = true;
-    arp_entry->proto = PROTO_ARP;
+    arp_entry->proto = ETH_TYPE_ARP;
     add_arp_pending_entry(dp_ctx, arp_entry, 
                           pending_arp_processing_callback_function, 
                           pkt_block);

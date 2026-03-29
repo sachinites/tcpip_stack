@@ -1,12 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include "../../common/cmn_prefix.h"
-#include "../../c-hashtable/hashtable.h"
-#include "../../c-hashtable/hashtable_itr.h"
+#include "../../libs/c-hashtable/hashtable.h"
+#include "../../libs/c-hashtable/hashtable_itr.h"
 #include "dp_vrf.h"
 #include "../FIB/fib.h"
-#include "../../EventDispatcher/event_dispatcher.h"
+#include "../../libs/EventDispatcher/event_dispatcher.h"
 #include "../../net.h"
 #include "../Layer2/arp/arp.h"
 #include "../dp_uapi.h"

@@ -7,16 +7,18 @@
 #include "fib_show.h"
 #include "fib_route.h"
 #include "fib_nh.h"
-#include "../../common/cmn_prefix.h"
-#include "../../common/cmn_api.h"
-#include "../../mtrie/mtrie.h"
-#include "../../c-hashtable/hashtable.h"
-#include "../../c-hashtable/hashtable_itr.h"
-#include "../../common/mpls_lstack.h"
+#include "../../libs/common/cmn_prefix.h"
+#include "../../libs/common/cmn_api.h"
+#include "../../libs/mtrie/mtrie.h"
+#include "../../libs/c-hashtable/hashtable.h"
+#include "../../libs/c-hashtable/hashtable_itr.h"
+#include "../../libs/common/mpls_lstack.h"
 #include "../../RTM/rtm_fib_common.h"
 #include "../../utils.h"
 #include "../../datapath/Interface/dp_intf.h"
 #include "../../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
+
+extern int cprintf (const char* format, ...) ;
 
 /* Helper function to format prefix for display */
 static void

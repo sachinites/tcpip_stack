@@ -1,5 +1,5 @@
 
-#include "../Tracer/tracer.h"
+#include "../libs/Tracer/tracer.h"
 #include "../router_init.h"
 #include "rtm.h"
 #include "rtm_route.h"
@@ -8,7 +8,7 @@
 #include "rtm_priv_api.h"
 #include "rtm_presentation.h"
 #include "rtm_fib_common.h"
-#include "../common/mpls_lstack.h"
+#include "../libs/common/mpls_lstack.h"
 #include "../datapath/FIB/fib_error.h"
 #include "../datapath/FIB/fib.h"
 #include "../dpal/cp2dp.h"
@@ -202,7 +202,7 @@ rtm_get_target_fib (rtm_t *rtm,
 
     /* ISIS - SR routes */
     if (!inh &&
-        (nh->proto == RTM_PROTO_ISIS || nh->proto == RTM_PROTO_OSPF) && 
+        (nh->proto == RTM_IP_PROTO_ISIS || nh->proto == RTM_PROTO_OSPF) && 
         nh->sub_proto == RTM_SUB_PROTO_SR) {
 
         /* SR Transit routes will go in global mpls.0 fib*/

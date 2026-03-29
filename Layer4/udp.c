@@ -2,7 +2,7 @@
 #include <arpa/inet.h>
 #include "udp.h"
 #include "../tcpconst.h"
-#include "../common/l2_hdrs.h"
+#include "../libs/common/l2_hdrs.h"
 #include "../tcp_ip_trace.h"
 
 uint16_t 
@@ -18,7 +18,7 @@ tcp_dump_transport_udp_protocol (
 
     switch (htons(udp_hdr->dst_port_no)) {
 
-        case VXLAN_PROTO:
+        case PORT_VXLAN:
             {
                 // Extract VNI from VXLAN header that follows UDP header
                 vxlan_hdr_t *vxlan_hdr = (vxlan_hdr_t *)(udp_hdr + 1);

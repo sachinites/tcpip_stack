@@ -49,12 +49,12 @@
 
 #include <stdint.h>
 #include <time.h>
-#include "../common/cmn_prefix.h"
-#include "../gluethread/glthread.h"
-#include "../Tree/libtree.h"
+#include "../libs/common/cmn_prefix.h"
+#include "../libs/gluethread/glthread.h"
+#include "../libs/Tree/libtree.h"
 #include "rtm_enums.h"
 #include "rtm_error.h"
-#include "../common/mpls_lstack.h"
+#include "../libs/common/mpls_lstack.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 #include "../vrf/vrf.h"

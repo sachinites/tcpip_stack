@@ -61,8 +61,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
-#include "../Tree/libtree.h"
-#include "../gluethread/glthread.h"
+#include "../libs/Tree/libtree.h"
+#include "../libs/gluethread/glthread.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../router_init.h"
 #include "rtm_show.h"
@@ -73,8 +73,8 @@
 #include "rtm_enums.h"
 #include "rtm_priv_api.h"
 #include "rtm_presentation.h"
-#include "../prefix-list/prefixlst.h"
-#include "../common/mpls_lstack.h"
+#include "../libs/prefix-list/prefixlst.h"
+#include "../libs/common/mpls_lstack.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 extern int cprintf (const char * format, ...);
@@ -339,7 +339,7 @@ static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_pro
             }
         case RTM_PROTO_BGP:
             return "B";
-        case RTM_PROTO_ISIS:
+        case RTM_IP_PROTO_ISIS:
             switch(sub_proto) {
                 case RTM_PROTO_L1_ISIS_INT:
                     return "I L1";

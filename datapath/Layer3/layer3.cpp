@@ -2,10 +2,10 @@
 
 #include "layer3.h"
 #include "../../tcpconst.h"
-#include "../../pkt_block.h"
+#include "../../libs/pkt-block/pkt_block.h"
 
-#include "../../common/l2_hdrs.h"
-#include "../../Tracer/tracer.h"
+#include "../../libs/common/l2_hdrs.h"
+#include "../../libs/Tracer/tracer.h"
 
 #include "../dp_ctx.h"
 #include "ipv4/ipv4-fwd.h"
@@ -28,21 +28,21 @@ _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
     pkt_size_t pkt_size;
     char ip_addr_str[IPV4_ADDR_LEN_STR];
 
-    assert(pkt_block_verify_pkt (pkt_block, ETH_HDR));
+    assert(pkt_block_verify_pkt (pkt_block, ETHERNET_HEADER));
 
     pkt_block_get_pkt(pkt_block, &pkt_size);
 
     switch(L3_protocol_type){
         
-        case ETH_IP:
-        case PROTO_IP_IN_IP:
+        case ETH_TYPE_IPv4:
+        case IP_PROTO_IP_IN_IP:
 
             /* Remove the Data link Hdr from the pkt */
             pkt_block_set_new_pkt( pkt_block,
                     (uint8_t *)pkt_block_get_ip_hdr(pkt_block),
                     pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD + ETH_FCS_SIZE);
             pkt_block_set_starting_hdr_type(pkt_block, 
-                L3_protocol_type == ETH_IP ? IP_HDR : IP_IN_IP_HDR);
+                L3_protocol_type == ETH_TYPE_IPv4 ? ETH_TYPE_IPv4 : IP_PROTO_IP_IN_IP);
 
             tracer (dp_ctx->dptr, DL3FWD, "VRF:%s: Dest : %s :  Pkt Arrived in L3-land from Layer 2\n",
 	            vrf->vrf_name,
@@ -51,11 +51,11 @@ _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
             layer3_ip_route_pkt(dp_ctx, vrf, interface, pkt_block);
             break;
 
-        case ETH_IP6:
+        case ETH_TYPE_IPv6:
             pkt_block_set_new_pkt( pkt_block,
                     (uint8_t *)pkt_block_get_ip6_hdr(pkt_block),
                     pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD + ETH_FCS_SIZE);
-            pkt_block_set_starting_hdr_type(pkt_block, IP6_HDR);
+            pkt_block_set_starting_hdr_type(pkt_block, ETH_TYPE_IPv6);
             layer3_ipv6_route_pkt(dp_ctx, vrf, interface, pkt_block, NULL);            
             break;
 

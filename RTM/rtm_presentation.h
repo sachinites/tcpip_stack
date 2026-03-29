@@ -37,9 +37,9 @@
 #define __RTM_PRESENTATION__
 
 #include "rtm_enums.h"
-#include "../common/cmn_prefix.h"
-#include "../Tree/libtree.h"
-#include "../gluethread/glthread.h"
+#include "../libs/common/cmn_prefix.h"
+#include "../libs/Tree/libtree.h"
+#include "../libs/gluethread/glthread.h"
 
 /* ========================================================================
  * Forward Declarations

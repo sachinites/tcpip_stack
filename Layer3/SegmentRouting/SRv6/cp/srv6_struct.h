@@ -2,7 +2,7 @@
 #define __SRV6_STRUCT_H__
 
 #include "../common/srv6_const.h"
-#include "../../../ipv6/ipv6_hdrs.h"
+#include "../../../../libs/common/ipv6_hdrs.h"
 
 /* Locator do not have flavors, end point fn is
     default to shift and forward in remote nodes and

@@ -1,22 +1,24 @@
 
 #include <assert.h>
 #include <arpa/inet.h>
-#include "../../../Tracer/tracer.h"
+#include "../../../libs/Tracer/tracer.h"
 
-#include "../../../common/l3_hdrs.h"
-#include "../../../common/l2_hdrs.h"
-#include "../../../common/l4_hdrs.h"
+#include "../../../libs/common/l3_hdrs.h"
+#include "../../../libs/common/l2_hdrs.h"
+#include "../../../libs/common/l4_hdrs.h"
 
-#include "../../../common/cmn_api.h"
+#include "../../../libs/common/cmn_api.h"
 
 #include "../../dp_ctx.h"
 #include "../../Vrfs/dp_vrf.h"
 #include "../../Interface/dp_intf.h"
-#include "../../../pkt_block.h"
+#include "../../../libs/pkt-block/pkt_block.h"
 
 #include "../../FIB/fib_nh.h"
 #include "../Gre/gre-fwd.h"
 #include "../../Interface/dp_intf_log.h"
+
+extern int cprintf (const char* format, ...) ;
 
 extern void 
 vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx, 
@@ -34,7 +36,7 @@ extern void
 dp2cp_punt_pkt_to_layer5(void *_node,
                                   uint32_t recv_intf_ifindex,
                                   pkt_block_t *pkt_block,
-                                  hdr_type_t hdr_code);
+                                  gen_proto_id_t hdr_code);
 
 extern void
 dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
@@ -42,7 +44,7 @@ dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                      uint32_t next_hop_ip,
                      dp_intf_t *oif,
                      pkt_block_t *pkt_block,
-                     hdr_type_t hdr_type);
+                     gen_proto_id_t hdr_type);
 
 extern void
 layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
@@ -68,9 +70,9 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     uint32_t next_hop_ip= 0;
     char dest_ip_addr[IPV4_ADDR_LEN_STR];
 
-    /* We are in L3 IP land, so starting hdr type must be IP_HDR */
-    assert (pkt_block_get_starting_hdr(pkt_block) == IP_HDR ||
-                pkt_block_get_starting_hdr(pkt_block) == IP_IN_IP_HDR);
+    /* We are in L3 IP land, so starting hdr type must be ETH_TYPE_IPv4 */
+    assert (pkt_block_get_starting_hdr(pkt_block) == ETH_TYPE_IPv4 ||
+                pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_IP_IN_IP);
 
     ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr(pkt_block);
 
@@ -84,7 +86,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             pkt_block, 
             dp_ctx->ctx_pvt_data,
             interface,
-            IP_HDR);
+            ETH_TYPE_IPv4);
 
     switch(nf_result) {
         case NF_ACCEPT:
@@ -144,25 +146,18 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
             tracer (dp_ctx->dptr, DL3FWD, 
                 "VRF %s: Pkt : %s : Pkt is for Local Delivery, IP protocol = %s\n",   
-                vrf->vrf_name, dest_ip_addr, proto_name_str(ip_hdr->protocol));
+                vrf->vrf_name, dest_ip_addr, proto_id_str(ip_hdr->protocol));
 
             l4_hdr = (char *)INCREMENT_IPHDR(ip_hdr);
             l5_hdr = l4_hdr;
 
             switch(ip_hdr->protocol) {
 
-                case MTCP:
-                    /* TODO: dp2cp_punt_pkt_to_layer4 needs old Interface type */
-                    dp2cp_punt_pkt_to_layer4(dp_ctx->ctx_pvt_data, 
-                            NULL,
-							pkt_block, ip_hdr->protocol);
-                    return;
-
-                case ICMP_PROTO:
+                case IP_PROTO_ICMP:
                     cprintf("IP Address : %s, ping success\n", dest_ip_addr);
                     return;
 
-                case UDP_PROTO:
+                case IP_PROTO_UDP:
                     /* VxLAN Block !! */
                     {
                         /* Check if this is VxLAN pkt, then no need to punt to CP */
@@ -172,7 +167,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                         ip_hr_size = (pkt_size_t)((char *)udp_hdr - (char *)ip_hdr);
                         pkt_block_set_new_pkt(pkt_block, (uint8_t *)udp_hdr, 
                             pkt_block->pkt_size - ip_hr_size);
-                        pkt_block_set_starting_hdr_type(pkt_block, UDP_HDR);
+                        pkt_block_set_starting_hdr_type(pkt_block, IP_PROTO_UDP);
                         vxlan_decapsulate(dp_ctx, pkt_block, ntohl(ip_hdr->src_ip));
                         return;
                     }
@@ -182,18 +177,18 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                                             dp_ctx->ctx_pvt_data,
                                             (Interface *)NULL,
                                             pkt_block,
-                                            UDP_PROTO);
+                                            IP_PROTO_UDP);
 
                     return;
 
-                case PROTO_IP_IN_IP:
+                case IP_PROTO_IP_IN_IP:
                     /*Packet has reached ERO, now set the packet onto its new 
                       Journey from ERO to final destination*/
                     pkt_block_set_new_pkt(pkt_block, 
                                          (uint8_t *)INCREMENT_IPHDR(ip_hdr),
                                         pkt_block->pkt_size - IP_HDR_LEN_IN_BYTES(ip_hdr));
 
-                    pkt_block_set_starting_hdr_type (pkt_block, IP_IN_IP_HDR);
+                    pkt_block_set_starting_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
                      
                     tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s : Pkt is being subjected to L3 Routing again a per Inner Header\n",
                         vrf->vrf_name, dest_ip_addr);
@@ -203,7 +198,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                                         pkt_block);
                     return;
 
-                case GRE_PROTO:
+                case IP_PROTO_GRE:
                 {
                     char gre_t_src_addr[IPV4_ADDR_LEN_STR];
                     char gre_t_dst_addr[IPV4_ADDR_LEN_STR];
@@ -212,7 +207,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                                            (uint8_t *)INCREMENT_IPHDR(ip_hdr),
                                            pkt_block->pkt_size - IP_HDR_LEN_IN_BYTES(ip_hdr));
 
-                    pkt_block_set_starting_hdr_type (pkt_block, GRE_HDR);
+                    pkt_block_set_starting_hdr_type (pkt_block, IP_PROTO_GRE);
                     tcp_ip_covert_ip_n_to_p ( htonl (ip_hdr->dst_ip), (c_string)gre_t_src_addr);
                     tcp_ip_covert_ip_n_to_p ( htonl (ip_hdr->src_ip), (c_string)gre_t_dst_addr);
 
@@ -235,7 +230,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             dp2cp_punt_pkt_to_layer5(
                 dp_ctx->ctx_pvt_data, NULL,
                 pkt_block,
-                IP_HDR);
+                ETH_TYPE_IPv4);
 
             return;
         }
@@ -267,7 +262,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             htonl(ip_hdr->dst_ip),     /*next hop IP is dest itself as dest is present in local subnet*/
             nh->fwd_info->oif,           /*No oif as dest is present in local subnet*/
             pkt_block,  /*Network Layer payload and size*/
-            IP_HDR);        /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
+            ETH_TYPE_IPv4);        /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
 
         return;
     }
@@ -298,7 +293,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                         pkt_block,
                         dp_ctx->ctx_pvt_data,
                         nh->fwd_info->oif,
-                        IP_HDR);
+                        ETH_TYPE_IPv4);
 
     switch (nf_result) {
         case NF_ACCEPT:
@@ -320,7 +315,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 		            pkt_block,
 		            dp_ctx->ctx_pvt_data, 
                     nh->fwd_info->oif,
-                    IP_HDR);
+                    ETH_TYPE_IPv4);
 
     switch (nf_result) {
         case NF_ACCEPT:
@@ -339,7 +334,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             next_hop_ip,
             nh->fwd_info->oif,
             pkt_block,
-            IP_HDR); /*Network Layer need to tell Data link layer, 
+            ETH_TYPE_IPv4); /*Network Layer need to tell Data link layer, 
                                 what type of payload it is passing down*/
 }
 
@@ -348,7 +343,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
                              uint8_t vrf_id,
                              pkt_block_t *pkt_block,
-                             hdr_type_t protocol_number, /*L4 or L5 protocol type*/
+                             gen_proto_id_t protocol_number, /*L4 or L5 protocol type*/
                              uint32_t dest_ip_address)
 {
 
@@ -374,7 +369,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
     pkt = pkt_block_get_pkt(pkt_block,  &pkt_size);
 
     /*Now fill the non-default fields*/
-    iphdr.protocol = tcp_ip_convert_internal_proto_to_std_proto(protocol_number);
+    iphdr.protocol = (uint8_t)protocol_number;
 
     uint32_t addr_int =  dp_ctx->rtr_id;
     iphdr.src_ip = htonl(addr_int);
@@ -391,7 +386,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
     }
 
     new_pkt = pkt_block_get_pkt (pkt_block,  &new_pkt_size);
-    pkt_block_set_starting_hdr_type(pkt_block, IP_HDR);
+    pkt_block_set_starting_hdr_type(pkt_block, ETH_TYPE_IPv4);
 
     memcpy((char *)new_pkt, (char *)&iphdr, IP_HDR_LEN_IN_BYTES((&iphdr)));
 
@@ -415,7 +410,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
                 NF_IP_LOCAL_OUT,
 				pkt_block,
 				dp_ctx->ctx_pvt_data, NULL,
-                IP_HDR);
+                ETH_TYPE_IPv4);
 
         switch (nf_result)
         {
@@ -435,7 +430,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
                          dest_ip_address,
                          0,
                          pkt_block,
-                         IP_HDR);
+                         ETH_TYPE_IPv4);
         return;
     }
 
@@ -477,7 +472,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
 			pkt_block,
 			dp_ctx->ctx_pvt_data, 
             nh->fwd_info->oif,
-            IP_HDR);
+            ETH_TYPE_IPv4);
 
     switch (nf_result) 
     {
@@ -495,7 +490,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
             next_hop_ip,
             nh->fwd_info->oif,
             pkt_block,
-            IP_HDR);
+            ETH_TYPE_IPv4);
 
     nh->hit_count++;
 }
@@ -506,7 +501,7 @@ dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) {
 
     char ip_addr_str[IPV4_ADDR_LEN_STR];
 
-    assert (pkt_block_verify_pkt (pkt_block, IP_HDR));
+    assert (pkt_block_verify_pkt (pkt_block, ETH_TYPE_IPv4));
 
     ip_hdr_t *ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr(pkt_block);
 

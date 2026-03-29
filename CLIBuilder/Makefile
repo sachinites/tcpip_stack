@@ -3,11 +3,11 @@ CLILIB=libclibuilder.a
 TARGET:${CLILIB}
 OBJ=KeyProcessor/KeyProcessor.o \
 		 string_util.o \
-		 ../stack/stack.o \
+		 ../libs/stack/stack.o \
 		 CmdTree/CmdTree.o \
 		 CmdTree/clistd.o \
 		 CmdTree/CmdTreeCursor.o \
-		 ../gluethread/glthread.o \
+		 ../libs/gluethread/glthread.o \
 		 Filters/filters.o \
 		 Filters/A_B.o \
 		 utinfra/ut_parser.o \
@@ -17,13 +17,13 @@ KeyProcessor/KeyProcessor.o:KeyProcessor/KeyProcessor.cpp
 	@echo "Building KeyProcessor/KeyProcessor.o"
 	@ ${CC} ${CFLAGS} -c ${INCLUDES} KeyProcessor/KeyProcessor.cpp -o KeyProcessor/KeyProcessor.o
 
-../stack/stack.o:../stack/stack.c
-	@echo "Building ../stack/stack.o"
-	@ ${CC} ${CFLAGS} -c -I ../stack ../stack/stack.c -o ../stack/stack.o
+../libs/stack/stack.o:../libs/stack/stack.c
+	@echo "Building ../libs/stack/stack.o"
+	@ ${CC} ${CFLAGS} -c -I ../libs/stack ../libs/stack/stack.c -o ../libs/stack/stack.o
 
-../gluethread/glthread.o:../gluethread/glthread.c
-	@echo "Building ../gluethread/glthread.o"
-	@ ${CC} ${CFLAGS} -c -I ../gluethread ../gluethread/glthread.c -o ../gluethread/glthread.o
+../libs/gluethread/glthread.o:../libs/gluethread/glthread.c
+	@echo "Building ../libs/gluethread/glthread.o"
+	@ ${CC} ${CFLAGS} -c -I ../libs/gluethread ../libs/gluethread/glthread.c -o ../libs/gluethread/glthread.o
 
 string_util.o:string_util.c
 	@echo "Building string_util.o"

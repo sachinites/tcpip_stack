@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include "router_init.h"
 #include "cp_ipc.h"
-#include "EventDispatcher/event_dispatcher.h"
+#include "libs/EventDispatcher/event_dispatcher.h"
 
 void 
 cp_ips_join (node_t *node, 

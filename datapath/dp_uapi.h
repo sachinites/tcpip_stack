@@ -23,7 +23,7 @@ typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_msg_ dp_msg_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
 
-#include "../notif.h"
+#include "../libs/notifc/notif.h"
 
 #include <stdint.h>
 

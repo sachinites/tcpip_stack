@@ -28,7 +28,7 @@
 #include <pthread.h>
 #include <stdatomic.h>
 #include "../../../utils.h"
-#include "../../../c-hashtable/hashtable.h"
+#include "../../../libs/c-hashtable/hashtable.h"
 
 /* Forward declarations */
 typedef struct dp_ctx_ dp_ctx_t;

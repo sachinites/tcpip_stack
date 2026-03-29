@@ -36,20 +36,20 @@
 #include "CLIBuilder/libcli.h"
 #include "CLIBuilder/cmdtlv.h"
 #include "cmdcodes.h"
-#include "libtimer/WheelTimer.h"
+#include "libs/libtimer/WheelTimer.h"
 #include "Layer5/app_handlers.h"
-#include "BitOp/bitsop.h"
+#include "libs/BitOp/bitsop.h"
 #include "tcpip_notif.h"
 #include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
-#include "LinuxMemoryManager/uapi_mm.h"
-#include "prefix-list/prefixlst.h"
+#include "libs/LinuxMemoryManager/uapi_mm.h"
+#include "libs/prefix-list/prefixlst.h"
 #include "tcpconst.h"
 #include "datapath/Layer2/switching/mac_table.h"
 #include "RTM/rtm_nb_integ.h"
 #include "RTM/rtm_show.h"
 #include "RTM/rtm_priv_api.h"
-#include "mtrie/mtrie.h"
+#include "libs/mtrie/mtrie.h"
 #include "Layer3/layer3.h"
 #include "vrf/vrf.h"
 
@@ -70,7 +70,6 @@ extern void object_group_build_config_cli (param_t *root) ;
 extern void network_object_build_show_cli (param_t *root) ;
 extern void object_group_build_show_cli (param_t *root) ;
 extern void prefix_list_cli_show_tree(param_t *param) ;
-extern void time_range_config_cli_tree (param_t *root) ;
 extern void Interface_config_cli_tree (param_t *root);
 extern void access_list_print_bitmap(node_t *node, c_string access_list_name);
 extern void config_node_build_transport_svc_cli_tree (param_t *param) ;
@@ -617,10 +616,10 @@ clear_rt_handler(int cmdcode, Stack_t *tlv_stack,
 
     cp_rtm_uninstall_routes_by_proto  (
             rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV4, 0), 
-            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+            RTM_IP_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
     cp_rtm_uninstall_routes_by_proto  (
             rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV6, 0), 
-            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+            RTM_IP_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
     return 0;
 }
 
@@ -1442,9 +1441,6 @@ nw_init_cli(){
 
             /*Object Group Config CLIs */
             object_group_build_config_cli (&node_name);
-
-            /* Timer Range CLIs */
-            time_range_config_cli_tree (&node_name);
 
             /* Interface CLIs */
             Interface_config_cli_tree (&node_name);

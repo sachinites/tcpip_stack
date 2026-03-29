@@ -2,8 +2,8 @@
 #define __DP_PROG_STRUCT__
 
 #include <stdint.h>
-#include "../../common/mpls_lstack.h"
-#include "../../common/cmn_prefix.h"
+#include "../../libs/common/mpls_lstack.h"
+#include "../../libs/common/cmn_prefix.h"
 
 /* FIX ME : DP including control plane file ... */
 #include "../../Layer3/SegmentRouting/SRv6/common/srv6_const.h"

@@ -32,11 +32,11 @@
 
 #include <stdint.h>
 #include "../router_init.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
-#include "../pkt_block.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../libs/pkt-block/pkt_block.h"
 #include "../tcpconst.h"
-#include "../common/l4_hdrs.h"
-#include "../common/l3_hdrs.h"
+#include "../libs/common/l4_hdrs.h"
+#include "../libs/common/l3_hdrs.h"
 
 extern void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_vtep_ip);
 
@@ -58,7 +58,7 @@ dp2cp_punt_pkt_to_layer4(  void *_node,
     switch (L4_protocol_number)
     {
 
-        case UDP_PROTO:
+        case IP_PROTO_UDP:
         {
             udp_hdr = (udp_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
         }

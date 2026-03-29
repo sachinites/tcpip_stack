@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../CLIBuilder/libcli.h"
 #include "../../router_init.h"
 #include "object_group.h"

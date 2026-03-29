@@ -18,8 +18,8 @@
 #include <memory.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../libtimer/WheelTimer.h"
-#include "../Tracer/tracer.h"
+#include "../libs/libtimer/WheelTimer.h"
+#include "../libs/Tracer/tracer.h"
 #include "Layer2/switching/mac_table.h"
 #include "dp_ctx.h"
 

@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "../../utils.h"
-#include "../../gluethread/glthread.h"
-#include "../../c-hashtable/hashtable.h"
-#include "../../c-hashtable/hashtable_itr.h"
+#include "../../libs/gluethread/glthread.h"
+#include "../../libs/c-hashtable/hashtable.h"
+#include "../../libs/c-hashtable/hashtable_itr.h"
 #include "objects_common.h"
 
 #define OBJ_GRP_NAME_LEN    128

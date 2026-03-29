@@ -67,9 +67,9 @@
 #include "rtm.h"
 #include "rtm_error.h"
 #include "../lmm_enums.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "rtm_presentation.h"
-#include "../Tracer/tracer.h"
+#include "../libs/Tracer/tracer.h"
 #include "../vrf/vrf.h"
 
 /* ========================================================================
@@ -436,7 +436,7 @@ rtm_nh_proto_is_equal (
             return memcmp (&nh_proto1->u.connected, &nh_proto2->u.connected, sizeof (nh_proto1->u.connected));
         case RTM_PROTO_LOCAL:
             return memcmp (&nh_proto1->u.local, &nh_proto2->u.local, sizeof (nh_proto1->u.local));
-        case RTM_PROTO_ISIS:
+        case RTM_IP_PROTO_ISIS:
             return memcmp (&nh_proto1->u.isis, &nh_proto2->u.isis, sizeof (nh_proto1->u.isis));
         case RTM_PROTO_OSPF:
             return memcmp (&nh_proto1->u.ospf, &nh_proto2->u.ospf, sizeof (nh_proto1->u.ospf));
@@ -862,10 +862,10 @@ rtm_get_route_target_rtm(
      * ISIS Routes
      * ==================================================================== */
     /* ISIS routes can be in default VRF or customer VRFs */
-    /* Note: The condition below has a bug - it checks proto == RTM_PROTO_ISIS
+    /* Note: The condition below has a bug - it checks proto == RTM_IP_PROTO_ISIS
      * but then checks sub_proto against ISIS-specific values. This should be
      * checking sub_proto directly. However, keeping original logic. */
-    if (proto == RTM_PROTO_ISIS && 
+    if (proto == RTM_IP_PROTO_ISIS && 
             (sub_proto == RTM_PROTO_L1_ISIS_INT || 
              sub_proto == RTM_PROTO_L2_ISIS_INT || 
              sub_proto == RTM_PROTO_L1_ISIS_EXT || 
@@ -886,7 +886,7 @@ rtm_get_route_target_rtm(
     */
     switch (proto) {
 
-        case RTM_PROTO_ISIS:
+        case RTM_IP_PROTO_ISIS:
         case RTM_PROTO_OSPF:
         case RTM_PROTO_STATIC:
             switch (sub_proto) {

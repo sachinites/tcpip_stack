@@ -23,14 +23,14 @@
 #include <vector>
 #include <algorithm>
 #include <arpa/inet.h>
-#include "../common/l3_hdrs.h"
+#include "../libs/common/l3_hdrs.h"
 #include "../tcpconst.h"
 #include "../utils.h"
-#include "../BitOp/bitsop.h"
+#include "../libs/BitOp/bitsop.h"
 #include "../FireWall/acl/acldb.h"
 #include "../router_init.h"
-#include "../pkt_block.h"
-#include "../EventDispatcher/event_dispatcher.h"
+#include "../libs/pkt-block/pkt_block.h"
+#include "../libs/EventDispatcher/event_dispatcher.h"
 #include "../Layer2/layer2.h"
 #include "../Layer3/layer3.h"
 #include "../Layer3/gre-tunneling/gre.h"
@@ -38,7 +38,7 @@
 #include "Interface.h"
 #include "InterfaceUApi.h"
 #include "../Layer2/transport_svc.h"
-#include "../Tracer/tracer.h"
+#include "../libs/Tracer/tracer.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../dpal/cp2dp.h"

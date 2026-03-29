@@ -33,10 +33,10 @@
 
 #include <stdio.h>  /* for FILE* */
 #include "tcpconst.h"
-#include "BitOp/bitsop.h"
+#include "libs/BitOp/bitsop.h"
 #include "utils.h"
-
-typedef struct pkt_block_ pkt_block_t;
+#include "libs/common/protoIds.h"
+#include "libs/pkt-block/pkt_block.h"
 
 #define TCP_PRINT_BUFFER_SIZE 1528
 
@@ -63,7 +63,7 @@ tcp_dump(int sock_fd,
          FILE *log_file1,
          FILE *log_file2,
          pkt_block_t *pkt_block,
-         hdr_type_t hdr_type,
+         gen_proto_id_t hdr_type,
          c_string out_buff, 
          uint32_t write_OFFset,
          uint32_t out_buff_size);

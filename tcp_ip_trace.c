@@ -27,23 +27,15 @@ string_ethernet_hdr_type(unsigned short type, char *string_buffer){
 
     switch(type){
 
-        case ETH_IP:
-            string_copy((char *)string_buffer, "ETH_IP", strlen("ETH_IP"));
+        case ETH_TYPE_IPv4:
+            string_copy((char *)string_buffer, "ETH_TYPE_IPv4", strlen("ETH_TYPE_IPv4"));
             break;
-        case ETH_IP6:
-            string_copy((char *)string_buffer, "ETH_IP6", strlen("ETH_IP6"));
+        case ETH_TYPE_IPv6:
+            string_copy((char *)string_buffer, "ETH_TYPE_IPv6", strlen("ETH_TYPE_IPv6"));
             break;
-        case PROTO_ARP:
+        case ETH_TYPE_ARP:
             string_copy((char *)string_buffer, "ARP_MSG", strlen("ARP_MSG"));
             break;
-        case DDCP_MSG_TYPE_FLOOD_QUERY:
-            string_copy((char *)string_buffer, "DDCP_MSG_TYPE_FLOOD_QUERY", 
-                strlen("DDCP_MSG_TYPE_FLOOD_QUERY"));
-            break;
-		case NMP_HELLO_MSG_CODE:
-			string_copy((char *)string_buffer, "NMP_HELLO_MSG_CODE",
-				strlen("NMP_HELLO_MSG_CODE"));
-			break;
         default:
             sprintf((char *)string_buffer, "L2-Proto : %hu", type);
             break;
@@ -72,28 +64,24 @@ string_ip_hdr_protocol_val(uint16_t type,   c_string string_buffer){
 
     switch(type){
 
-        case ICMP_PROTO:
-            string_copy((char *)string_buffer, "ICMP_PROTO", strlen("ICMP_PROTO"));
+        case IP_PROTO_ICMP:
+            string_copy((char *)string_buffer, "IP_PROTO_ICMP", strlen("IP_PROTO_ICMP"));
             break;
-        case ICMP6_PROTO:
-            string_copy((char *)string_buffer, "ICMP6_PROTO", strlen("ICMP6_PROTO"));
+        case IP_PROTO_ICMPv6:
+            string_copy((char *)string_buffer, "IP_PROTO_ICMPv6", strlen("IP_PROTO_ICMPv6"));
             break;
-        case UDP_PROTO:
-             string_copy((char *)string_buffer, "UDP_PROTO", strlen("UDP_PROTO"));
+        case IP_PROTO_UDP:
+             string_copy((char *)string_buffer, "IP_PROTO_UDP", strlen("IP_PROTO_UDP"));
              break;
-        case TCP_PROTO:
-             string_copy((char *)string_buffer, "TCP_PROTO", strlen("TCP_PROTO"));
+        case IP_PROTO_TCP:
+             string_copy((char *)string_buffer, "IP_PROTO_TCP", strlen("IP_PROTO_TCP"));
              break;       
-        case GRE_PROTO:
-             string_copy((char *)string_buffer, "GRE_PROTO", strlen("GRE_PROTO"));
+        case IP_PROTO_GRE:
+             string_copy((char *)string_buffer, "IP_PROTO_GRE", strlen("IP_PROTO_GRE"));
              break;      
-        case PROTO_SRH:
-                string_copy((char *)string_buffer, "PROTO_SRH", strlen("PROTO_SRH"));
+        case IP_PROTO_SRH:
+                string_copy((char *)string_buffer, "IP_PROTO_SRH", strlen("IP_PROTO_SRH"));
                 break;
-        case DDCP_MSG_TYPE_UCAST_REPLY:
-            string_copy((char *)string_buffer, "DDCP_MSG_TYPE_UCAST_REPLY" , 
-                strlen("DDCP_MSG_TYPE_UCAST_REPLY"));
-            break;
         default:
             return NULL;
     }
@@ -116,24 +104,24 @@ tcp_dump_application_hdr (c_string buff, uint8_t proto, pkt_block_t *pkt_block) 
 
     switch(proto){
 
-        case ICMP_PROTO:
+        case IP_PROTO_ICMP:
             rc += tcp_dump_appln_hdr_protocol_icmp(
                         buff + rc,
                         (c_string)pkt, pkt_size);
             break;
-        case UDP_PROTO:
+        case IP_PROTO_UDP:
             rc += tcp_dump_transport_udp_protocol(
                         buff + rc,
                         (udp_hdr_t *)pkt, pkt_size);
             break;            
         break;
-        case TCP_PROTO:
+        case IP_PROTO_TCP:
         break;
-        case GRE_PROTO:
+        case IP_PROTO_GRE:
             rc += tcp_dump_gre_hdr(buff + rc, 
                         (gre_hdr_t *)pkt, pkt_size );
             break;
-        case PROTO_SRH:
+        case IP_PROTO_SRH:
             rc += tcp_dump_srh_hdr(buff + rc, 
                         (srh_hdr_t *)pkt, pkt_size);
             break;
@@ -278,17 +266,17 @@ tcp_dump_ethernet_hdr(char *buff,
 
     switch(type){
 
-        case ETH_IP:
+        case ETH_TYPE_IPv4:
             rc += tcp_dump_ip_hdr(buff + rc, 
                     (ip_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                      payload_size);
             break;
-        case ETH_IP6:
+        case ETH_TYPE_IPv6:
             rc += tcp_dump_ip6_hdr(buff + rc, 
                     (ipv6_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                     payload_size);
             break;
-        case PROTO_ARP:
+        case ETH_TYPE_ARP:
             rc += tcp_dump_arp_hdr(buff + rc,
                     (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                     payload_size);
@@ -297,7 +285,7 @@ tcp_dump_ethernet_hdr(char *buff,
             pkt_block = pkt_block_get_new(
                                             (uint8_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                                            (pkt_size_t)payload_size);
-            pkt_block_set_starting_hdr_type(pkt_block, MISC_APP_HDR);
+            pkt_block_set_starting_hdr_type(pkt_block, PROTO_MISC_APP);
             rc += nfc_pkt_trace_invoke_notif_to_sbscribers(
 					type,
 					pkt_block,
@@ -315,17 +303,17 @@ tcp_dump_gre_hdr(char *buff,
                         pkt_size_t pkt_size){
 
     int rc = 0;
-     rc += sprintf(buff + rc, "GRE Encap: %s\n", proto_name_str(htons(gre_hdr->protocol_type)));
+     rc += sprintf(buff + rc, "GRE Encap: %s\n", proto_id_str(htons(gre_hdr->protocol_type)));
 
     switch (htons(gre_hdr->protocol_type)) {
 
-        case ETH_IP:
+        case ETH_TYPE_IPv4:
             rc += tcp_dump_ip_hdr(buff + rc, 
                     (ip_hdr_t *)(gre_hdr + 1), 
                     pkt_size - sizeof(gre_hdr_t));
             break;
 
-        case PROTO_GRE_ENCAP_ETHERNET:
+        case ETH_TYPE_GRE:
             rc += tcp_dump_ethernet_hdr(buff + rc, 
                     (ethernet_hdr_t *)(gre_hdr + 1), 
                     pkt_size - sizeof(gre_hdr_t));
@@ -344,7 +332,7 @@ tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkt_size)
     char ipv6_addr_str[48];
 
     rc += sprintf((char *)buffer + rc,  "SRH Hdr : Nxt Hdr %s, Hdr_len %d, SL : %d\n", 
-                        srh_nexthdr_proto_name_str (srh_hdr->nexthdr), 
+                        proto_id_str (srh_hdr->nexthdr), 
                         srh_hdr->hdrlen, 
                         srh_hdr->segments_left);
 
@@ -355,31 +343,28 @@ tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkt_size)
         rc += sprintf((char *)buffer + rc, "Seg %d : %s\n", i, ipv6_addr_str);
     }
 
-    hdr_type_t internal_hdr = srh_nxthdr_to_internal_hdr_type(srh_hdr->nexthdr);
-
-    switch (internal_hdr)
+    switch (srh_hdr->nexthdr)
     {
-        case ETH_HDR:
-            rc += tcp_dump_ethernet_hdr(buffer + rc,
-                                        (ethernet_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen), 
-                                        pkt_size - srh_hdr->hdrlen);
-            break;
-        case IP_HDR:
-        case IP_IN_IP_HDR:
+        case IP_PROTO_IP_IN_IP:
             rc += tcp_dump_ip_hdr(buffer + rc,
-                                (ip_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen), 
+                                (ip_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen),
                                 pkt_size - srh_hdr->hdrlen);
             break;
-        case IP6_HDR:
+        case IP_PROTO_IPv6:
             rc += tcp_dump_ip6_hdr(buffer + rc,
-                                (ipv6_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen), 
+                                (ipv6_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen),
                                 pkt_size - srh_hdr->hdrlen);
             break;
-        case GRE_HDR:
+        case IP_PROTO_GRE:
             rc += tcp_dump_gre_hdr(buffer + rc,
-                                (gre_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen), 
-                                    pkt_size - srh_hdr->hdrlen);
+                                (gre_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen),
+                                pkt_size - srh_hdr->hdrlen);
             break;
+        case IP_PROTO_TCP:
+        case IP_PROTO_UDP:
+        case IP_PROTO_ICMP:
+        case IP_PROTO_ICMPv6:
+        case IP_PROTO_IPv6_ROUTE:
         default:
             break;
     }
@@ -424,7 +409,7 @@ tcp_dump(int sock_fd,
          FILE *log_file1,
          FILE *log_file2,
          pkt_block_t *pkt_block,
-         hdr_type_t hdr_type,
+         gen_proto_id_t hdr_type,
          c_string out_buff, 
          uint32_t write_OFFset,
          uint32_t out_buff_size){
@@ -437,19 +422,19 @@ tcp_dump(int sock_fd,
 
     switch(hdr_type){
 
-        case ETH_HDR:
+        case ETHERNET_HEADER:
             rc = tcp_dump_ethernet_hdr(out_buff + write_OFFset, 
                 (ethernet_hdr_t *)pkt, pkt_size);
             break;
-        case IP_HDR:
+        case ETH_TYPE_IPv4:
             rc = tcp_dump_ip_hdr(out_buff + write_OFFset, 
                 (ip_hdr_t *)pkt, pkt_size);
             break;
-        case IP6_HDR:
+        case ETH_TYPE_IPv6:
             rc = tcp_dump_ip6_hdr(out_buff + write_OFFset, 
                 (ipv6_hdr_t *)pkt, pkt_size);
             break;
-        case GRE_HDR:
+        case IP_PROTO_GRE:
             rc = tcp_dump_gre_hdr (out_buff + write_OFFset, 
                 (gre_hdr_t *)pkt, pkt_size);
             break;

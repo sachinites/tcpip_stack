@@ -17,9 +17,9 @@
 #define __FIB_NH__
 
 #include <stdint.h>
-#include "../../Tree/libtree.h"
+#include "../../libs/Tree/libtree.h"
 #include "../../RTM/rtm_fib_common.h"
-#include "../../common/mpls_lstack.h"
+#include "../../libs/common/mpls_lstack.h"
 
 typedef struct fib_ fib_t;
 typedef struct fib_nh_ fib_nh_t;

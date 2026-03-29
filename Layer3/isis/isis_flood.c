@@ -78,7 +78,7 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
     
             isis_assign_lsp_src_mac_addr(intf, lsp_pkt);
             pkt_block_set_new_pkt(pkt_block, (uint8_t *)lsp_pkt->pkt, lsp_pkt->pkt_size);
-            pkt_block_set_starting_hdr_type(pkt_block, ETH_HDR);
+            pkt_block_set_starting_hdr_type(pkt_block, ETHERNET_HEADER);
             /* This needs an optimization, but code changes will be too much !*/
             pkt_block_t *pkt_block2 = pkt_block_dup(pkt_block);
             cp2dp_xmit_pkt(intf->att_node, pkt_block2, intf);

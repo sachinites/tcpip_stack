@@ -34,17 +34,17 @@
 #include <stdint.h>
 #include "../router_init.h"
 #include "../tcpconst.h"
-#include "../gluethread/glthread.h"
+#include "../libs/gluethread/glthread.h"
 #include "layer5.h"
 #include "../Layer3/netfilter.h"
-#include "../pkt_block.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../libs/pkt-block/pkt_block.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
 
 void
 dp2cp_punt_pkt_to_layer5(void *_node,
 					uint32_t recv_intf_ifindex, 
 					pkt_block_t *pkt_block,
-					 hdr_type_t hdr_code) {
+					 gen_proto_id_t hdr_code) {
 
 	//nf_invoke_netfilter_hook(NF_IP_LOCAL_IN,
 	//				pkt_block, node, recv_intf, hdr_code);
@@ -55,7 +55,7 @@ cp_punt_pkt_from_layer2_to_layer5 (
 					 void *_node,
 					 uint32_t recv_intf_ifindex, 
                      pkt_block_t *pkt_block,
-					 hdr_type_t hdr_code) { 
+					 gen_proto_id_t hdr_code) { 
 
 	char *pkt;
 	pkt_size_t pkt_size;

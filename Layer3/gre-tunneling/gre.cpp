@@ -4,9 +4,9 @@
 #include "../layer3.h"
 #include "../../Interface/InterfaceUApi.h"
 #include "../../tcpip_notif.h"
-#include "../../pkt_block.h"
+#include "../../libs/pkt-block/pkt_block.h"
 #include "../../tcpconst.h"
-#include "../../Tracer/tracer.h"
+#include "../../libs/Tracer/tracer.h"
 #include "../../vrf/vrf.h"
 #include "../../dpal/cp2dp.h"
 

@@ -2,9 +2,9 @@
 #include <arpa/inet.h>
 
 /* Libs */
-#include "../../pkt_block.h"
-#include "../../Tracer/tracer.h"
-#include "../../LinuxMemoryManager/uapi_mm.h"
+#include "../../libs/pkt-block/pkt_block.h"
+#include "../../libs/Tracer/tracer.h"
+#include "../../libs/LinuxMemoryManager/uapi_mm.h"
 
 #include "../enums/l3_enums.h"
 #include "dp-prog-struct.h"
@@ -103,7 +103,7 @@ void
 np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
 {
     pkt_block_t *pkt_block;
-    hdr_type_t hdr_type;
+    gen_proto_id_t hdr_type;
     uint8_t vrf_id = dp_msg->vrf_id;
 
     dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, vrf_id);
@@ -118,10 +118,10 @@ np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
 
             switch (hdr_type)
             {
-            case IP_HDR:
+            case ETH_TYPE_IPv4:
                 dp_send_ip_data(dp_ctx, vrf, pkt_block);
                 break;
-            case IP6_HDR:
+            case ETH_TYPE_IPv6:
                 dp_send_ip6_data(dp_ctx, vrf, pkt_block);
                 break;
             default:

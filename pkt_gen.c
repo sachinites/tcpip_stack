@@ -15,9 +15,9 @@
 #include <errno.h>
 #include <netdb.h> /*for struct hostent*/
 
-#include "common/l2_hdrs.h"
-#include "common/l3_hdrs.h"
-#include "common/l4_hdrs.h"
+#include "libs/common/l2_hdrs.h"
+#include "libs/common/l3_hdrs.h"
+#include "libs/common/l4_hdrs.h"
 #include "tcpconst.h"
 #include "utils.h"
 #include "Layer2/layer2.h"
@@ -114,17 +114,17 @@ main(int argc, char **argv){
     layer2_fill_with_broadcast_mac(eth_hdr->src_mac.mac);
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
 
-    eth_hdr->type = ETH_IP;
+    eth_hdr->type = ETH_TYPE_IPv4;
     SET_COMMON_ETH_FCS(eth_hdr, IP_HDR_DEFAULT_SIZE, 0);
 
     /*Prepare pseudo IP hdr, Just set Src & Dest ip and protocol number*/
     ip_hdr_t *ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
     initialize_ip_hdr(ip_hdr);
 #ifdef INCLUDE_UDP_HDR
-     ip_hdr->protocol = UDP_PROTO;
+     ip_hdr->protocol = IP_PROTO_UDP;
      ip_hdr->total_length = htons(sizeof (ip_hdr_t) + sizeof(udp_hdr_t));
 #else
-    ip_hdr->protocol = ICMP_PROTO;
+    ip_hdr->protocol = IP_PROTO_ICMP;
     ip_hdr->total_length = htons(sizeof (ip_hdr_t));
 #endif
 

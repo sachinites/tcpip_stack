@@ -41,10 +41,10 @@
 #include "../CLIBuilder/cmdtlv.h"
 
 #include "../router_init.h"
-#include "../common/l3_hdrs.h"
+#include "../libs/common/l3_hdrs.h"
 #include "../utils.h"
 #include "../dpal/cp2dp.h"
-#include "../pkt_block.h"
+#include "../libs/pkt-block/pkt_block.h"
 #include "../cmdcodes.h"
 
 extern graph_t *topo;
@@ -64,7 +64,7 @@ layer3_ping_fn(node_t *node, c_string dst_ip_addr, vrf_t *vrf, uint32_t count){
     cprintf("\nSrc node : %s, Ping ip : %s", node->node_name, dst_ip_addr);
 
     for (i = 0; i < count ; i ++) {
-        cp2dp_send_ip_data (node, vrf, NULL, addr_int, ICMP_PROTO);
+        cp2dp_send_ip_data (node, vrf, NULL, addr_int, IP_PROTO_ICMP);
     }
 }
 
@@ -74,17 +74,17 @@ layer3_ero_ping_fn(node_t *node,
                     c_string ero_ip_address){
 
     pkt_block_t *pkt_block = pkt_block_get_new_pkt_buffer (sizeof (ip_hdr_t));
-    pkt_block_set_starting_hdr_type (pkt_block, IP_HDR);
+    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv4);
     ip_hdr_t *inner_ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr (pkt_block);
     initialize_ip_hdr(inner_ip_hdr);
     inner_ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE);
-    inner_ip_hdr->protocol = ICMP_PROTO;
+    inner_ip_hdr->protocol = IP_PROTO_ICMP;
     uint32_t addr_int = tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node));
     inner_ip_hdr->src_ip = htonl(addr_int);
     addr_int =  tcp_ip_convert_ip_p_to_n(dst_ip_addr);
     inner_ip_hdr->dst_ip = htonl(addr_int);
     addr_int = tcp_ip_convert_ip_p_to_n(ero_ip_address);
-    cp2dp_send_ip_data (node, NODE_DEF_VRF(node), pkt_block, addr_int, PROTO_IP_IN_IP);
+    cp2dp_send_ip_data (node, NODE_DEF_VRF(node), pkt_block, addr_int, IP_PROTO_IP_IN_IP);
     pkt_block_dereference(pkt_block);
 }
 

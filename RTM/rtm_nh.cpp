@@ -73,7 +73,7 @@
 #include <assert.h>
 #include <atomic>
 #include "../lmm_enums.h"
-#include "../Tree/libtree.h"
+#include "../libs/Tree/libtree.h"
 #include "rtm_nh.h"
 #include "rtm_route.h"
 #include "rtm_proto.h"
@@ -82,10 +82,10 @@
 #include "rtm_priv_api.h"
 #include "../router_init.h"
 #include "../tcp_ip_trace.h"
-#include "../Tracer/tracer.h"
+#include "../libs/Tracer/tracer.h"
 #include "rtm_presentation.h"
 #include "rtm_gc.h"
-#include "../common/mpls_lstack.h"
+#include "../libs/common/mpls_lstack.h"
 
 /* ========================================================================
  * Nexthop ID Generation

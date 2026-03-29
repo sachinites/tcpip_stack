@@ -2,7 +2,7 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <ncurses.h>
-#include "../../stack/stack.h"
+#include "../../libs/stack/stack.h"
 #include "clistd.h"
 #include "CmdTree.h"
 #include "../KeyProcessor/KeyProcessor.h"

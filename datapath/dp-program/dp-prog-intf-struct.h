@@ -124,7 +124,7 @@ typedef struct dp_intf_cp2dp_msg_ {
     uint32_t vlan_id;
     uint32_t iftype;
     uint8_t  mac_addr[6];
-    char intf_name[IF_NAME_SIZE];
+    char intf_name[DP_INTF_NAME];
     uint16_t update_code;
 
 } dp_intf_cp2dp_msg_hdr_t;

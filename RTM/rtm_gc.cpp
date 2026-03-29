@@ -6,10 +6,10 @@
 #include "rtm_route.h"
 #include "rtm_nh.h"
 #include "../net.h"
-#include "../EventDispatcher/event_dispatcher.h"
+#include "../libs/EventDispatcher/event_dispatcher.h"
 #include "../lmm_enums.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
-#include "../Tracer/tracer.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../libs/Tracer/tracer.h"
 
 static void
 rtm_gc_job_cbk(

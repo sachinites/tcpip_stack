@@ -16,7 +16,7 @@
 #include "dp_ctx.h"
 #include "dp-program/dp-prog-struct.h"
 
-#include "../pkt_block.h"
+#include "../libs/pkt-block/pkt_block.h"
 
 #include "dp_uapi.h"
 #include "dp_ctx.h"

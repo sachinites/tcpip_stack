@@ -27,7 +27,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <signal.h>
-#include "../../stack/stack.h"
+#include "../../libs/stack/stack.h"
 #include "../cli_const.h"
 #include "cmdtlv.h"
 #include "KeyProcessor.h"

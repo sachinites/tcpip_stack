@@ -3,7 +3,7 @@
 
 #include "../../layer2.h"
 #include "../../../router_init.h"
-#include "../../../gluethread/glthread.h"
+#include "../../../libs/gluethread/glthread.h"
 
 /* Forward declarations */
 typedef struct node_ node_t;

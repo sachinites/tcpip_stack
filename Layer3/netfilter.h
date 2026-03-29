@@ -21,7 +21,7 @@
 
 #include <stdint.h>
 #include "../tcpconst.h"
-#include "../notif.h"
+#include "../libs/notifc/notif.h"
 
 typedef enum {
 
@@ -59,7 +59,7 @@ nf_invoke_netfilter_hook(
 						 pkt_block_t *pkt_block,
 						 void *node,
 						 dp_intf_t *intf,
-						 hdr_type_t hdr_code);
+						 gen_proto_id_t hdr_code);
 
 void
 nf_register_netfilter_hook(nf_hook_db_t *nf_hook_db,

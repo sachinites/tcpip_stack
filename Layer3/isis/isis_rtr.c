@@ -177,15 +177,15 @@ isis_schedule_route_delete_task(isis_node_info_t *node_info,
 
     cp_rtm_uninstall_routes_by_proto  (
             vrf->inet0,
-            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+            RTM_IP_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
 
     cp_rtm_uninstall_routes_by_proto  (
             vrf->inet6,
-            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+            RTM_IP_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
     
     cp_rtm_uninstall_routes_by_proto  (
             vrf->inet6,
-            RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6, 0);
+            RTM_IP_PROTO_ISIS, RTM_SUB_PROTO_SRv6, 0);
 
     isis_check_and_shutdown_protocol_now(node_info,
             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);

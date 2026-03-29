@@ -33,7 +33,7 @@ isis_ted_update_or_install_lsp (isis_node_info_t *node_info, ted_db_t *ted_db, i
 
     uint16_t tlv_buff_size = eth_payload_size - sizeof(isis_pkt_hdr_t);
 
-    n_tlv22 = isis_count_tlv_occurrences(tlv_buffer, tlv_buff_size, ISIS_IS_REACH_TLV);
+    n_tlv22 = isis_count_tlv_occurrences(tlv_buffer, (pkt_size_t)tlv_buff_size, ISIS_IS_REACH_TLV);
 
     ted_template_node_data_t *node_data = (ted_template_node_data_t *)
         XCALLOC_BUFF(0, sizeof(ted_template_node_data_t) +

@@ -16,9 +16,9 @@
 #define __FIB__
 
 #include <stdint.h>
-#include "../../Tree/libtree.h"
-#include "../../c-hashtable/hashtable.h"
-#include "../../c-hashtable/hashtable_itr.h"
+#include "../../libs/Tree/libtree.h"
+#include "../../libs/c-hashtable/hashtable.h"
+#include "../../libs/c-hashtable/hashtable_itr.h"
 
 #include "fib_error.h"
 #include "../../RTM/rtm_fib_common.h"

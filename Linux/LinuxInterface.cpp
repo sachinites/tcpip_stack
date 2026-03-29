@@ -31,11 +31,11 @@
 #include "LinuxInterface.h"
 #include "../RTM/rtm.h"
 #include "../RTM/rtm_nb_integ.h"
-#include "../common/cmn_prefix.h"
+#include "../libs/common/cmn_prefix.h"
 #include "../Layer3/ipv6/ipv6_utils.h"
-#include "../pkt_block.h"
+#include "../libs/pkt-block/pkt_block.h"
 #include "../datapath/dp_uapi.h"
-#include "../common/cmn_api.h"
+#include "../libs/common/cmn_api.h"
 
 
 bool LinuxRtr = false;
@@ -423,7 +423,7 @@ linux_listener_thread(void* arg) {
                 
                 pkt_block = pkt_block_get_new(NULL, 0);
                 pkt_block_set_new_pkt(pkt_block, (uint8_t *)buffer, bytes_received);
-                pkt_block_set_starting_hdr_type (pkt_block, ETH_HDR);
+                pkt_block_set_starting_hdr_type (pkt_block, ETHERNET_HEADER);
                 dp_uapi_inject_packet (node->dp_ctx, pkt_block, intf->ifindex);
                 XFREE(pkt_block);
             }

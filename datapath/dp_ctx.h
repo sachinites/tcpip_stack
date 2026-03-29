@@ -35,11 +35,11 @@ typedef struct vlan_vni_ht_db_ vlan_vni_ht_db_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_vrf_ dp_vrf_t;
 
-#include "../EventDispatcher/event_dispatcher.h"
+#include "../libs/EventDispatcher/event_dispatcher.h"
 #include "../tcp_ip_trace.h"
 #include "../Layer3/netfilter.h"
-#include "../notif.h"
-#include "../common/cmn_struct.h"
+#include "../libs/notifc/notif.h"
+#include "../libs/common/cmn_struct.h"
 
 #pragma pack(push, 8)
 

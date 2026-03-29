@@ -35,17 +35,17 @@
 #include <memory.h>
 #include <arpa/inet.h>
 
-#include "c-hashtable/hashtable.h"
-#include "c-hashtable/hashtable_itr.h"
+#include "libs/c-hashtable/hashtable.h"
+#include "libs/c-hashtable/hashtable_itr.h"
 
 #include "Layer3/ipv6/ipv6_utils.h"
 #include "net.h"
 #include "utils.h"
 #include "tcpconst.h"
-#include "notif.h"
-#include "LinuxMemoryManager/uapi_mm.h"
+#include "libs/notifc/notif.h"
+#include "libs/LinuxMemoryManager/uapi_mm.h"
 #include "router_init.h"
-#include "Tracer/tracer.h"
+#include "libs/Tracer/tracer.h"
 #include "Layer3/layer3.h"
 #include "Layer2/layer2.h"
 #include "Layer2/transport_svc.h"

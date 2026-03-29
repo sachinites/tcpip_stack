@@ -76,7 +76,7 @@ isis_process_hello_pkt(isis_node_info_t *node_info,
    cmn_hdr = (isis_common_hdr_t  *)
         GET_ETHERNET_HDR_PAYLOAD(hello_eth_hdr);
     
-    hello_tlv_buffer = isis_get_pkt_tlv_buffer (cmn_hdr, &tlv_buff_size);
+    hello_tlv_buffer = isis_get_pkt_tlv_buffer (cmn_hdr, (pkt_size_t *)&tlv_buff_size);
     
     /* Check for corrupted packet */
     if (!hello_tlv_buffer) {
@@ -213,7 +213,7 @@ isis_lsp_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_size
     node_t *node;
     Interface *iif;
     pkt_size_t pkt_size;
-    hdr_type_t hdr_code;
+    gen_proto_id_t hdr_code;
     ethernet_hdr_t *eth_hdr;
     isis_pkt_hdr_t *pkt_hdr;
     pkt_block_t *pkt_block;
@@ -229,7 +229,7 @@ isis_lsp_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_size
     eth_hdr     = (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
 	hdr_code    = pkt_notif_data->hdr_code;	
     
-    if (hdr_code != ETH_HDR) goto done;
+    if (hdr_code != ETHERNET_HEADER) goto done;
     
     if (!node_info || !isis_is_protocol_enable_on_node(iif->vrf)) {
         goto done;
@@ -241,12 +241,8 @@ isis_lsp_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_size
 
     switch(isis_pkt_type) {
 
-        case ISIS_PTP_HELLO_PKT_TYPE:
-        case ISIS_LAN_L1_HELLO_PKT_TYPE:
-        case ISIS_LAN_L2_HELLO_PKT_TYPE:
-            isis_process_hello_pkt(node_info, iif, eth_hdr, pkt_size); 
-        break;
         case ISIS_L1_LSP_PKT_TYPE:
+        case ISIS_L2_LSP_PKT_TYPE:
             isis_process_lsp_pkt(node_info, iif, eth_hdr, pkt_size);
         break;
         default:; 
@@ -265,7 +261,7 @@ isis_hello_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_si
     node_t *node;
     Interface *iif;
     pkt_size_t pkt_size;
-    hdr_type_t hdr_code;
+    gen_proto_id_t hdr_code;
     ethernet_hdr_t *eth_hdr;
     pkt_block_t *pkt_block;
     isis_common_hdr_t *cmn_hdr;
@@ -281,7 +277,7 @@ isis_hello_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_si
     eth_hdr     = (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
 	hdr_code    = pkt_notif_data->hdr_code;	
    
-    if (hdr_code != ETH_HDR) goto done;
+    if (hdr_code != ETHERNET_HEADER) goto done;
     
     if (!node_info || !isis_is_protocol_enable_on_node(iif->vrf)) {
         goto done;
@@ -297,10 +293,6 @@ isis_hello_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_si
         case ISIS_LAN_L1_HELLO_PKT_TYPE:
         case ISIS_LAN_L2_HELLO_PKT_TYPE:
             isis_process_hello_pkt(node_info, iif, eth_hdr, pkt_size); 
-        break;
-        case ISIS_L1_LSP_PKT_TYPE:
-        case ISIS_L2_LSP_PKT_TYPE:
-            isis_process_lsp_pkt(node_info, iif, eth_hdr, pkt_size);
         break;
         default:; 
     }
@@ -547,7 +539,7 @@ isis_print_hello_pkt(byte *buff,
     rc += sprintf((char *)(buff + rc), "      ");
 
     pkt_size_t hello_tlv_buffer_size;
-    byte *hello_tlv_buffer = isis_get_pkt_tlv_buffer (cmn_hdr, &hello_tlv_buffer_size);
+    byte *hello_tlv_buffer = isis_get_pkt_tlv_buffer (cmn_hdr, (pkt_size_t *)&hello_tlv_buffer_size);
 
     ITERATE_TLV_BEGIN(hello_tlv_buffer , tlv_type,
                         tlv_len, tlv_value, hello_tlv_buffer_size){
@@ -796,7 +788,7 @@ isis_lsp_pkt_get_flags(isis_lsp_pkt_t *lsp_pkt) {
 
 uint16_t
 isis_count_tlv_occurrences (byte *tlv_buffer,
-                                              pkt_size_t tlv_buff_size, uint8_t tlv_no) {
+                            pkt_size_t tlv_buff_size, uint8_t tlv_no) {
 
     uint16_t rc = 0;
     byte tlv_type, tlv_len, *tlv_value = NULL;

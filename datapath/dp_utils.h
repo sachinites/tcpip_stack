@@ -24,7 +24,7 @@ typedef struct dp_intf_ dp_intf_t;
 #include <cstddef>
 
 #include "../tcpconst.h"
-#include "../LinuxMemoryManager/uapi_mm.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
 
 /**
  * dp_intf_get_matching_subnet_interface - Find interface whose subnet contains ip_addr

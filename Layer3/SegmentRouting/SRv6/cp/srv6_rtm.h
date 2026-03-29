@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "../../../ipv6/ipv6_hdrs.h"
+#include "../../../../libs/common/ipv6_hdrs.h"
 #include "../../../../RTM/rtm_enums.h"
 #include "../common/srv6_const.h"
 #include "../../../../CLIBuilder/libcli.h"

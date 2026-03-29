@@ -1,7 +1,7 @@
 #ifndef __RTM_FIB_COMMON__
 #define __RTM_FIB_COMMON__
 
-#include "../common/cmn_prefix.h"
+#include "../libs/common/cmn_prefix.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 #include "rtm_presentation.h"   

@@ -41,11 +41,11 @@
 #include <pthread.h>
 #include <stdatomic.h>
 #include <atomic>
-#include "common/cmn_struct.h"
+#include "libs/common/cmn_struct.h"
 #include "utils.h"
-#include "LinuxMemoryManager/uapi_mm.h"
-#include "libtimer/WheelTimer.h"
-#include "Tree/libtree.h"
+#include "libs/LinuxMemoryManager/uapi_mm.h"
+#include "libs/libtimer/WheelTimer.h"
+#include "libs/Tree/libtree.h"
 #include "tcpconst.h"
 #include "tcp_ip_trace.h"
 #include "Interface/InterfaceFwd.h"

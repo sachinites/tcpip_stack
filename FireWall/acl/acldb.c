@@ -3,22 +3,21 @@
 #include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
-#include "../../LinuxMemoryManager/uapi_mm.h"
-#include "../../Tracer/tracer.h"
-#include "../../Threads/refcount.h"
+#include "../../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../../libs/Tracer/tracer.h"
 #include "../../router_init.h"
 #include "../../Interface/Interface.h"
-#include "../../common/l2_hdrs.h"
-#include "../../common/l3_hdrs.h"
+#include "../../libs/common/l2_hdrs.h"
+#include "../../libs/common/l3_hdrs.h"
 #include "acldb.h"
-#include "../../mtrie/mtrie.h"
+#include "../../libs/mtrie/mtrie.h"
 #include "../../Layer2/layer2.h"
 #include "../../Layer3/rt_table/nexthop.h"
 #include "../../Layer3/layer3.h"
-#include "../../pkt_block.h"
+#include "../../libs/pkt-block/pkt_block.h"
 #include "../../Layer4/udp.h"
 #include "../object_network/objnw.h"
-#include "../../EventDispatcher/event_dispatcher.h"
+#include "../../libs/EventDispatcher/event_dispatcher.h"
 #include "../object_network/object_group.h"
 #include "../fwall_trace_const.h"
 #include "../object_network/objects_common.h"
@@ -835,7 +834,7 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
     ip_hdr_t *ip_hdr = NULL;
     ethernet_hdr_t *eth_hdr = NULL;
 
-    hdr_type_t starting_hdr = pkt_block_get_starting_hdr (pkt_block);
+    gen_proto_id_t starting_hdr = pkt_block_get_starting_hdr (pkt_block);
 
     uint16_t l4proto = 0;
     uint32_t src_ip = 0,
@@ -846,11 +845,11 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
 
     switch (starting_hdr)
     {
-    case ETH_HDR:
+    case ETHERNET_HEADER:
     {
         eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-        if (htons(eth_hdr->type) == ETH_IP)
+        if (htons(eth_hdr->type) == ETH_TYPE_IPv4)
         {
             ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
             src_ip = htonl(ip_hdr->src_ip);
@@ -859,19 +858,19 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
 
             switch (l4proto)
             {
-            case UDP_PROTO:
+            case IP_PROTO_UDP:
             {
                 udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
                 src_port = htons(udp_hdr->src_port_no);
                 dst_port = htons(udp_hdr->dst_port_no);
             }
             break;
-            case TCP_PROTO:
+            case IP_PROTO_TCP:
                 break;
             }
 
             return access_list_evaluate(access_list, 
-                                                ETH_IP, 
+                                                ETH_TYPE_IPv4, 
                                                 l4proto,
                                                 src_ip,
                                                 dst_ip,
@@ -880,7 +879,7 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
         }
     }
     break;
-    case IP_HDR:
+    case ETH_TYPE_IPv4:
         {
             ip_hdr =  (ip_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
             src_ip = htonl(ip_hdr->src_ip);
@@ -889,19 +888,19 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
 
             switch (l4proto)
             {
-            case UDP_PROTO:
+            case IP_PROTO_UDP:
             {
                 udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
                 src_port = htons(udp_hdr->src_port_no);
                 dst_port = htons(udp_hdr->dst_port_no);
             }
             break;
-            case TCP_PROTO:
+            case IP_PROTO_TCP:
                 break;
             }
 
             return access_list_evaluate(access_list, 
-                                                ETH_IP, 
+                                                ETH_TYPE_IPv4, 
                                                 l4proto,
                                                 src_ip,
                                                 dst_ip,
@@ -939,19 +938,19 @@ access_list_evaluate_ip_packet (node_t *node,
     l4proto = htons(ip_hdr->protocol);
 
     switch (l4proto) {
-        case UDP_PROTO:
+        case IP_PROTO_UDP:
             {
                 udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
                 src_port = htons(udp_hdr->src_port_no);
                 dst_port = htons(udp_hdr->dst_port_no);
             }
             break;
-        case TCP_PROTO:
+        case IP_PROTO_TCP:
             break;
     }
 
     return access_list_evaluate(access_list, 
-                                                ETH_IP, 
+                                                ETH_TYPE_IPv4, 
                                                 l4proto,
                                                 src_ip,
                                                 dst_ip,

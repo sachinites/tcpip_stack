@@ -1,10 +1,10 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "../../../pkt_block.h"
+#include "../../../libs/pkt-block/pkt_block.h"
 #include "../../../Layer3/ipv6/ipv6_hdrs.h"
-#include "../../../common/l3_hdrs.h"
-#include "../../../LinuxMemoryManager/uapi_mm.h"
+#include "../../../libs/common/l3_hdrs.h"
+#include "../../../libs/LinuxMemoryManager/uapi_mm.h"
 
 #include "../../../tcpconst.h"
 #include "l3vpn.h"
@@ -77,7 +77,7 @@ vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx,
     assert(srv6_nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV6_STCK);
 
     /* Perform Srv6 Encapsulation of ipv4 pkt*/
-    assert (pkt_block_get_starting_hdr(pkt_block) == IP_HDR);
+    assert (pkt_block_get_starting_hdr(pkt_block) == ETH_TYPE_IPv4);
 
     srh_hdr = srh_hdr_prepare(
         (ipv6_addr_t *)srv6_nh->fwd_info->u.v6_fwd.v6segment_lst,

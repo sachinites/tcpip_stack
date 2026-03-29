@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <pthread.h>
-#include "../../gluethread/glthread.h"
-#include "../../BitOp/bitmap.h"
+#include "../../libs/gluethread/glthread.h"
+#include "../../libs/BitOp/bitmap.h"
 #include "../../tcpconst.h"
 #include "../../utils.h"
 
@@ -31,17 +31,17 @@ typedef struct object_group_update_info_ object_group_update_info_t;
 #define ACL_ENTRY_TCAM_COUNT_THRESHOLD 10000
 
 typedef enum {
-    ACL_IP = ETH_IP,
-    ACL_ICMP = ICMP_PROTO,
+    ACL_IP = ETH_TYPE_IPv4,
+    ACL_ICMP = IP_PROTO_ICMP,
     ACL_IGMP,
     ACL_GGP,
     ACL_IPENCAP,
     ACL_ST2,
     ACL_CBT,
     ACL_EGP,
-    ACL_ISIS = PROTO_ISIS,
-    ACL_TCP = TCP_PROTO,
-    ACL_UDP = UDP_PROTO,
+    ACL_ISIS = IP_PROTO_ISIS,
+    ACL_TCP = IP_PROTO_TCP,
+    ACL_UDP = IP_PROTO_UDP,
     ACL_PROTO_STATIC = PROTO_STATIC,
     ACL_GRE,
     ACL_EIGRP,

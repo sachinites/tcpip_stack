@@ -1,8 +1,8 @@
 #include <assert.h>
-#include "../../../LinuxMemoryManager/uapi_mm.h"
+#include "../../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../../lmm_enums.h"
 #include "../../../router_init.h"
-#include "../../../Tracer/tracer.h"
+#include "../../../libs/Tracer/tracer.h"
 
 #include "lfa.h"
 

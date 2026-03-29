@@ -40,17 +40,15 @@
 #include "router_init.h"
 #include "tcp_ip_trace.h"
 #include "FireWall/acl/acldb.h"
-#include "packet-tracer/packet_tracer.h"
-#include "c-hashtable/hashtable.h"
+#include "libs/c-hashtable/hashtable.h"
 #include "Interface/InterfaceUApi.h"
-#include "Tracer/tracer.h"
+#include "libs/Tracer/tracer.h"
 #include "Layer3/ipv6/ipv6_utils.h"
 #include "dpal/cp2dp.h"
 #include "RTM/rtm.h"
 #include "RTM/rtm_nb_integ.h"
-#include "common/cmn_prefix.h"
+#include "libs/common/cmn_prefix.h"
 #include "datapath/dp_uapi.h"
-#include "../RDBMSImplementation/uapi/sql_api.h"
 
 extern bool LinuxRtr;
 extern void cp_init_ipc_pub_sub(node_t *node);
@@ -225,8 +223,6 @@ Router_Create(graph_t *graph, const c_string node_name){
 
     /* Start IPC Message Queue of Control Plane*/
     init_pkt_q (&node->ev_dis, &node->cp_ipc_q, ipc_event_signal);
-
-    pkt_tracer_init (&node->pkt_tracer);
 
     //node_config_db_init (node);
 
