@@ -871,39 +871,6 @@ debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
    return 0;
 }
 
-static int 
-show_interface_handler(int cmdcode, Stack_t *tlv_stack,
-                       op_mode enable_or_disable){
-    
-    node_t *node;
-    c_string node_name;
-    c_string protocol_name = NULL;
-
-    tlv_struct_t *tlv = NULL;
-
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if     (parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "protocol-name"))
-            protocol_name = tlv->value;        
-    } TLV_LOOP_END;
-   
-    node = node_get_node_by_name(topo, node_name);
-
-    printw ("\n\r");
-
-    switch(cmdcode){
-
-        case CMDCODE_SHOW_INTF_STATS:
-            dump_node_interface_stats(node);
-            break;
-        default:
-            ;
-    }
-    return 0;
-}
-
 void
 nw_init_cli(){
 
@@ -1258,21 +1225,6 @@ nw_init_cli(){
                         }
                     }
                 }
-
-                 {
-                    /*show node <node-name> interface*/
-                    static param_t interface;
-                    init_param(&interface, CMD, "interface", 0, 0, INVALID, 0, "\"interface\" keyword");
-                    libcli_register_param(&node_name, &interface);
-
-                    {
-                        /*show node <node-name> interface statistics*/
-                        static param_t stats;
-                        init_param(&stats, CMD, "statistics", show_interface_handler, 0, INVALID, 0, "Interface Statistics");
-                        libcli_register_param(&interface, &stats);
-                        libcli_set_param_cmd_code(&stats, CMDCODE_SHOW_INTF_STATS);
-                    }
-                 }
 
              }
          } 

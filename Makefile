@@ -20,13 +20,12 @@ LIBS= ${ISIS_LIB_PATH} \
 			${SRV6_LIB_PATH} \
 			${LFA_LIB_PATH} \
 			-LCLIBuilder -lclibuilder \
-			-LFSMImplementation -lfsm \
 			-LFireWall -lasa \
 			-Ldatapath -ldp \
 			-Llibs -lstd \
 			-LRTM -lrtm \
 			-lpthread \
-   		    	-lrt \
+   		    -lrt \
 			-lfl \
 			-lm \
 			-lncurses \
@@ -101,7 +100,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FSMImplementation/libfsm.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a
 	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -203,8 +202,7 @@ Layer3/SegmentRouting/SR-MPLS/srgb.o:Layer3/SegmentRouting/SR-MPLS/srgb.cpp
 
 CLIBuilder/clibuilder.a:
 	(cd CLIBuilder; make)
-FSMImplementation/libfsm.a:
-	(cd FSMImplementation; make)
+
 FireWall/libasa.a:
 	(cd FireWall; make)
 ${ISIS_LIB}:
@@ -250,7 +248,6 @@ all:
 cleanall:
 	make clean
 	(cd CLIBuilder; make clean)
-	(cd FSMImplementation; make clean)
 	(cd FireWall; make clean)
 	(cd RTM; make clean)
 	(cd datapath; make clean)

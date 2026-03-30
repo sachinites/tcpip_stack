@@ -696,8 +696,8 @@ arp_entry_create_expiration_timer(
     {
         char ip_addr_str[IPV4_ADDR_LEN_STR];
         tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
-    tracer(dp_ctx->dptr, DARP_DET | DTIMER, 
-        "ARP-entry %s :  Expiration Timer Created\n", ip_addr_str);
+        tracer(dp_ctx->dptr, DARP_DET | DTIMER, 
+            "ARP-entry %s :  Expiration Timer Created\n", ip_addr_str);
     }
 
     return arp_entry->exp_timer_wt_elem;
