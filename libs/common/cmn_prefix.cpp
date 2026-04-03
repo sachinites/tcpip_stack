@@ -42,9 +42,11 @@ char *
 cmn_prefix_to_string(cmn_prefix_t *prefix, char (*buffer)[48]) {
 
     char addr_str[128] = {0};
-    
+    uint32_t ip_addr_int = 0;
+
     switch (prefix->afi) {
         case AF_IPV4:
+            ip_addr_int = htonl(prefix->u.v4_addr);
             inet_ntop(AF_INET, (void *)&prefix->u.v4_addr, addr_str, sizeof(addr_str));
             snprintf(*buffer, 48, "%s/%d", addr_str, prefix->prefix_len);
             break;

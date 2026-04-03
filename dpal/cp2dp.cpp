@@ -1,4 +1,6 @@
 #include <assert.h>
+#include <semaphore.h>
+
 #include "../libs/common/cmn_prefix.h"
 #include "../router_init.h"
 #include "../libs/common/l3_hdrs.h"
@@ -20,7 +22,7 @@
 #include "../datapath/dp-program/dp-prog-struct.h"
 #include "../datapath/dp-program/dp-prog-api.h"
 #include "../datapath/dp_uapi.h"
-
+#include "../datapath/Layer3/ping.h"
 
 /*  Fix me : cp2dp_xmit_pkt is allocated by CP but freed by DP. This is not a desirable thing to do.
     For now its not a problem, but in future when CP and DP will have separate memory mgr, 
@@ -778,4 +780,23 @@ cp2dp_send_vlan_add_access_port (node_t *node,
     cp2dp_submit(node, dp_msg, true);
 }
 
+void 
+cp2dp_ping_request(node_t *node, 
+                   ping_ctx_t *pctx) {
 
+    dp_msg_t *dp_msg;
+    dp_generic_msg_t *gen_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = DP_GENERICS;
+    dp_msg->opr_type = DP_CREATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_generic_msg_t);
+    dp_msg->vrf_id = pctx->vrf_id;
+
+    gen_msg = (dp_generic_msg_t *)dp_msg->data;
+    gen_msg->opcode = DP_PING_REQ;
+    gen_msg->u.ping.pctx = (uintptr_t)pctx;
+
+    cp2dp_submit(node, dp_msg, true);
+}

@@ -36,7 +36,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdint.h>
-
+#include <semaphore.h>
 #include "../CLIBuilder/libcli.h"
 #include "../CLIBuilder/cmdtlv.h"
 
@@ -46,6 +46,7 @@
 #include "../dpal/cp2dp.h"
 #include "../libs/pkt-block/pkt_block.h"
 #include "../cmdcodes.h"
+#include "../datapath/Layer3/ping.h"
 
 extern graph_t *topo;
 
@@ -164,10 +165,64 @@ ping_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
     switch(cmdcode){
 
         case CMDCODE_PING:
-            layer3_ping_fn(node, ip_addr, vrf, count);
-            break;
+        {
+            struct timespec ts;
+            uint32_t ip_addr_int;
+
+            ip_addr_int = tcp_ip_convert_ip_p_to_n(ip_addr);
+
+            ping_ctx_t *pctx = (ping_ctx_t *)calloc (1, sizeof (ping_ctx_t ));
+
+            pctx->vrf_id = vrf->vrf_id;
+            cmn_prefix_initialize_v4(&pctx->dst, ip_addr_int, 32);
+            sem_init(&pctx->cli_unblock_sem, 0, 0);
+            pctx->count = count;
+
+            cp2dp_ping_request (node, pctx);
+
+            clock_gettime(CLOCK_REALTIME, &ts);
+            ts.tv_sec += 5;
+            int rc = sem_timedwait(&pctx->cli_unblock_sem, &ts);
+            
+            if (rc == -1 && errno == ETIMEDOUT) {
+
+                cprintf ("Ping Timeout ....\n");
+
+                if (pctx->ping_thread) {
+                    pthread_cancel (*pctx->ping_thread);
+                    pthread_join (*pctx->ping_thread, NULL);
+                    free (pctx->ping_thread);
+                    pctx->ping_thread = NULL;
+                    sem_destroy(&pctx->reply_sem);
+                }
+            }
+
+            sem_destroy(&pctx->cli_unblock_sem);
+
+            /* Summary */
+            uint32_t lost = pctx->sent - pctx->received;
+            uint32_t loss_pct = pctx->sent ? (lost * 100 / pctx->sent) : 0;
+
+            cprintf("\n--- %s ping statistics ---\n", ip_addr);
+            cprintf("%u packets transmitted, %u received, %u%% packet loss\n",
+                    pctx->sent, pctx->received, loss_pct);
+
+            if (pctx->received > 0)
+            {
+                cprintf("RTT min/avg/max = %u/%u/%u us\n",
+                        pctx->rtt_min,
+                        (uint32_t)(pctx->rtt_sum / pctx->received),
+                        pctx->rtt_max);
+            }
+
+            assert (!pctx->ping_thread);
+            free(pctx);
+        }
+        break;
+        
         case CMDCODE_ERO_PING:
             layer3_ero_ping_fn(node, ip_addr, ero_ip_addr);
+            break;
         default:
             ;
     }

@@ -1299,7 +1299,7 @@ nw_init_cli(){
                     init_param(&ip_addr, LEAF, 0, ping_handler, 0, IPV4, "ip-address", "Ipv4 Address");
                     libcli_register_param(&ping, &ip_addr);
                     libcli_set_param_cmd_code(&ip_addr, CMDCODE_PING);
-                    libcli_param_synchronous  (&ip_addr);
+                    libcli_set_inbuilt_param  (&ip_addr);
                     {
                         /*run node <node-name> ping <ip-address> -c */
                             static param_t _c;
@@ -1310,6 +1310,7 @@ nw_init_cli(){
                                  init_param(&count, LEAF, 0, ping_handler, 0, INT, "count", "No of Pings to send");
                                  libcli_register_param(&_c, &count);
                                  libcli_set_param_cmd_code(&count, CMDCODE_PING);
+                                 libcli_set_inbuilt_param  (&count);
                             }
                     }
                     {
@@ -1321,7 +1322,7 @@ nw_init_cli(){
                             init_param(&ero_ip_addr, LEAF, 0, ping_handler, 0, IPV4, "ero-ip-address", "ERO Ipv4 Address");
                             libcli_register_param(&ero, &ero_ip_addr);
                             libcli_set_param_cmd_code(&ero_ip_addr, CMDCODE_ERO_PING);
-                            libcli_param_synchronous  (&ero_ip_addr);
+                            libcli_set_inbuilt_param  (&ero_ip_addr);
                         }
                     }
                 }

@@ -51,6 +51,9 @@ void
 libcli_param_synchronous (param_t *param);
 
 void 
+libcli_param_cli_synchronous (param_t *param) ;
+
+void 
 libcli_param_list(param_t *param);
 void 
 libcli_param_match_regex(param_t *param, char *reg_ex);

@@ -44,6 +44,7 @@ typedef struct dp_vrf_intf_update_msg_ {
 
 #define DP_GENERIC_RMAC 1
 #define DP_GENERIC_RTR_ID 2
+#define DP_PING_REQ 3
 
 typedef struct dp_generic_msg_ {
 
@@ -53,6 +54,12 @@ typedef struct dp_generic_msg_ {
 
         uint8_t mac_addr[6];
         uint32_t rtr_id;
+
+        struct {
+
+            uintptr_t pctx;
+            
+        } ping;
 
     } u;
 

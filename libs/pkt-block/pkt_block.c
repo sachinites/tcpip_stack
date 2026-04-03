@@ -393,7 +393,8 @@ pkt_ip (pkt_block_t *pkt_block, char *buffer) {
 
     ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
     memset (buffer, 0, sizeof (buffer));
-    inet_ntop(AF_INET, &ip_hdr->dst_ip, buffer, sizeof(buffer));
+    uint32_t ip_addr = ip_hdr->dst_ip;
+    inet_ntop(AF_INET, &ip_addr, buffer, sizeof(buffer));
     return buffer;
 } 
 
@@ -403,7 +404,8 @@ pkt_ip_str (pkt_block_t *pkt_block, char *buffer) {
     ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
     memset (buffer, 0, sizeof (buffer));
     strcpy(buffer, "IP:");
-    inet_ntop(AF_INET, &ip_hdr->dst_ip, buffer + 3, sizeof(buffer) - 3);
+    uint32_t ip_addr = ip_hdr->dst_ip;
+    inet_ntop(AF_INET, &ip_addr, buffer + 3, sizeof(buffer) - 3);
     return buffer;
 } 
 

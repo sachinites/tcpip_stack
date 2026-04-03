@@ -34,6 +34,7 @@ typedef struct mac_table_ mac_table_t;
 typedef struct vlan_vni_ht_db_ vlan_vni_ht_db_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_vrf_ dp_vrf_t;
+struct ping_ctx_;
 
 #include "../libs/EventDispatcher/event_dispatcher.h"
 #include "../tcp_ip_trace.h"
@@ -106,6 +107,9 @@ typedef struct dp_ctx_ {
     /* Logging buffers (send/recv packet dump) */
     unsigned char *send_log_buffer;
     unsigned char *recv_log_buffer;
+
+    /* Active ping session; set by ping_send4, cleared when done, read by DP ICMP handler */
+    struct ping_ctx_ *active_ping_ctx;
 
 } dp_ctx_t;
 

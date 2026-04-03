@@ -8,9 +8,11 @@ typedef struct pkt_block_ pkt_block_t;
 typedef struct mac_table_entry_ mac_table_entry_t; 
 typedef struct rtm_nh_fwd_info_ rtm_nh_fwd_info_t;
 typedef struct dp_msg_ dp_msg_t;
+typedef struct ping_ctx_ ping_ctx_t;
 
 class TransportService;
 
+#include <semaphore.h>
 #include "../libs/common/cmn_prefix.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../libs/common/ipv6_hdrs.h"
@@ -126,5 +128,8 @@ cp2dp_send_vlan_add_access_port (node_t *node,
 
 void
 cp2dp_srv6_dt4_intf_steered_vrf (node_t *node, Interface *intf, bool add);
+
+void 
+cp2dp_ping_request(node_t *node, ping_ctx_t *pctx);
 
 #endif 

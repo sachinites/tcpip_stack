@@ -82,7 +82,7 @@ layer2_fill_with_broadcast_mac(unsigned char *mac_array){
 
 unsigned char *
 tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 
-                                        c_string output_buffer){
+                        c_string output_buffer){
 
     memset(output_buffer, 0, 16);
     ip_addr = htonl(ip_addr);
@@ -96,8 +96,7 @@ tcp_ip_convert_ip_p_to_n(c_string ip_addr){
 
     uint32_t binary_prefix = 0;
     inet_pton(AF_INET, (const char *)ip_addr, &binary_prefix);
-    binary_prefix = htonl(binary_prefix);
-    return binary_prefix;
+    return ntohl(binary_prefix);
 }
 
 byte *

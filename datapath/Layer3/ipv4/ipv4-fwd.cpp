@@ -17,6 +17,7 @@
 #include "../../FIB/fib_nh.h"
 #include "../Gre/gre-fwd.h"
 #include "../../Interface/dp_intf_log.h"
+#include "../ping.h"
 
 extern int cprintf (const char* format, ...) ;
 
@@ -76,7 +77,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr(pkt_block);
 
-    tcp_ip_covert_ip_n_to_p(htonl(ip_hdr->dst_ip), (c_string)dest_ip_addr);
+    tcp_ip_covert_ip_n_to_p(ntohl(ip_hdr->dst_ip), (c_string)dest_ip_addr);
 
     tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s : Trying to route ... \n", 
         vrf->vrf_name, dest_ip_addr);
@@ -101,7 +102,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         "VRF %s: Dest : %s : Pkt Qualified L3 ACL Test\n", vrf->vrf_name, dest_ip_addr);
 
     cmn_prefix_t prefix;
-    cmn_prefix_initialize_v4(&prefix, htonl(ip_hdr->dst_ip), 32);
+    cmn_prefix_initialize_v4(&prefix, ntohl(ip_hdr->dst_ip), 32);
     
     fib_nh_t *nh = fib_get_forwarding_nh(vrf->fib_inet0, &prefix);
 
@@ -154,8 +155,44 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             switch(ip_hdr->protocol) {
 
                 case IP_PROTO_ICMP:
-                    cprintf("IP Address : %s, ping success\n", dest_ip_addr);
+                {
+                    icmp_hdr_t *icmp_hdr = (icmp_hdr_t *)l4_hdr;
+
+                    if (icmp_hdr->type == ICMP_ECHO_REQ) {
+
+                        /* Build an ICMP echo reply and route it back to the sender */
+                        pkt_size_t icmp_size = (pkt_size_t)(pkt_block->pkt_size -
+                                                    IP_HDR_LEN_IN_BYTES(ip_hdr));
+
+                        pkt_block_t *reply = pkt_block_get_new_pkt_buffer(
+                                                sizeof(ip_hdr_t) + icmp_size);
+                        pkt_block_set_starting_hdr_type(reply, ETH_TYPE_IPv4);
+
+                        ip_hdr_t *rip = (ip_hdr_t *)pkt_block_get_ip_hdr(reply);
+                        initialize_ip_hdr(rip);
+                        rip->src_ip       = ip_hdr->dst_ip;   /* our local address */
+                        rip->dst_ip       = ip_hdr->src_ip;   /* reply to the sender */
+                        rip->protocol     = IP_PROTO_ICMP;
+                        rip->total_length = htons((uint16_t)(sizeof(ip_hdr_t) + icmp_size));
+
+                        icmp_hdr_t *ricmp = (icmp_hdr_t *)INCREMENT_IPHDR(rip);
+                        memcpy(ricmp, icmp_hdr, icmp_size);
+                        ricmp->type = ICMP_ECHO_REP;
+                        ricmp->code = 0;
+
+                        layer3_ip_route_pkt(dp_ctx, vrf, interface, reply);
+                        pkt_block_dereference(reply);
+
+                    } else if (icmp_hdr->type == ICMP_ECHO_REP) {
+
+                        if (dp_ctx->active_ping_ctx) {
+                            ping_echo_reply_recvd(dp_ctx->active_ping_ctx, pkt_block);
+                        } else {
+                            cprintf("IP Address : %s, ping success\n", dest_ip_addr);
+                        }
+                    }
                     return;
+                }
 
                 case IP_PROTO_UDP:
                     /* VxLAN Block !! */
@@ -514,8 +551,8 @@ dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) {
     assert (ip_hdr->dst_ip);
     assert (ip_hdr->total_length);
 
-    tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s : NP Recvd Routing Request\n",
-        vrf->vrf_name, pkt_ip(pkt_block, ip_addr_str));
+    tracer (dp_ctx->dptr, DL3FWD, "VRF:%s Dest:%s  NP Recvd Routing Request\n",
+            vrf->vrf_name, pkt_ip(pkt_block, ip_addr_str));
 
     layer3_ip_route_pkt (dp_ctx, vrf, (dp_intf_t *)NULL, pkt_block); 
 }

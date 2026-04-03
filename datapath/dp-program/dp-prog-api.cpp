@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <semaphore.h>
 
 /* Libs */
 #include "../../libs/pkt-block/pkt_block.h"
@@ -12,6 +13,7 @@
 
 #include "../dp_ctx.h"
 #include "../Layer3/layer3.h"
+#include "../Layer3/ping.h"
 
 #include "../Layer2/switching/mac_table.h"
 #include "../Layer2/vxlan/vlan_vni_ht.h"
@@ -30,6 +32,9 @@
 
 extern void
 dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg);
+
+extern void 
+dp_handle_ping_request (dp_ctx_t *dp_ctx, ping_ctx_t *pctx);
 
 static inline bool 
 dp_bitmap_at(uint8_t *bit_array, uint16_t index) {
@@ -745,6 +750,14 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                         0, 
                         dp_ctx->dp_rmac_intf->port_id, 0, 0);
                 break;
+
+
+                case DP_PING_REQ:
+                {
+                    dp_handle_ping_request (dp_ctx, (ping_ctx_t *)gen_msg->u.ping.pctx);
+                }
+                break;
+
             }
             break;
 
