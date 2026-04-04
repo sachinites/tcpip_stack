@@ -101,6 +101,10 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     tracer (dp_ctx->dptr, DL3FWD_DET, 
         "VRF %s: Dest : %s : Pkt Qualified L3 ACL Test\n", vrf->vrf_name, dest_ip_addr);
 
+    /* Re-fetch ip_hdr: the NF hook above may have expanded/reallocated the
+     * packet buffer, invalidating the pointer cached before the hook call. */
+    ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr(pkt_block);
+
     cmn_prefix_t prefix;
     cmn_prefix_initialize_v4(&prefix, ntohl(ip_hdr->dst_ip), 32);
     
@@ -108,7 +112,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     if(!nh){
         tracer (dp_ctx->dptr, DL3FWD | DERR, 
-            "VRF %s: Pkt : %s :  Pkt Dropped :  No L3 Route\n", vrf->vrf_name, pkt_block_str(pkt_block));
+            "VRF %s: Pkt : %s :  Pkt Dropped :  No L3 Route\n", vrf->vrf_name, dest_ip_addr);
         return;
     }
 

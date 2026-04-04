@@ -948,6 +948,11 @@ Interface_config_cli_common_subtree (param_t *if_name,
                     int (*cbk) (int , Stack_t *, op_mode ), 
                     uint64_t unsupported_configs)
 {
+    /* Each interface type (ethernet, GRE, vlan, loopback, ...) needs its own
+     * independent set of param_t nodes carrying the correct callback. Using
+     * static locals would cause init_param() to silently skip re-initialisation
+     * on subsequent calls, locking in the first caller's callback for every
+     * interface type. Heap-allocate so every call produces fresh nodes. */
 
     {
         /* config node <node-name> interface . . . <if-name> */
@@ -966,126 +971,126 @@ Interface_config_cli_common_subtree (param_t *if_name,
         if (!(unsupported_configs & INTF_CONFIG_NOT_SUPPORTED_SWITCHPORT))
         {
             /*config node <node-name> interface <if-name> switchport */
-            static param_t switchport;
-            init_param(&switchport, CMD, "switchport", cbk, 0, INVALID, 0, "\"switchport\" keyword");
-            libcli_register_param(if_name, &switchport);
-            libcli_set_param_cmd_code(&switchport, CMDCODE_INTF_CONFIG_SWITCHPORT);
+            param_t *switchport = (param_t *)calloc (1, sizeof (param_t));
+            init_param(switchport, CMD, "switchport", cbk, 0, INVALID, 0, "\"switchport\" keyword");
+            libcli_register_param(if_name, switchport);
+            libcli_set_param_cmd_code(switchport, CMDCODE_INTF_CONFIG_SWITCHPORT);
             {
                 /* config node <node-name> interface . . . <if-name> switchport access ...*/
-                static param_t access;
-                init_param(&access, CMD, "access", cbk, 0, INVALID, 0, "\"switchport\" keyword");
-                libcli_register_param(&switchport, &access);
+                param_t *access = (param_t *)calloc (1, sizeof (param_t));
+                init_param(access, CMD, "access", cbk, 0, INVALID, 0, "\"switchport\" keyword");
+                libcli_register_param(switchport, access);
                 {
                     /* config node <node-name> interface . . . <if-name> switchport access vlan <vlan-id>*/
-                    static param_t vlan;
-                    init_param(&vlan, CMD, "vlan", 0, 0, INVALID, 0, "vlan keyword");
-                    libcli_register_param(&access, &vlan);
+                    param_t *vlan = (param_t *)calloc (1, sizeof (param_t));
+                    init_param(vlan, CMD, "vlan", 0, 0, INVALID, 0, "vlan keyword");
+                    libcli_register_param(access, vlan);
                     {
                         /*config node <node-name> interface . . . <if-name> switchport access vlan <vlan-id>*/
-                        static param_t vlan_id;
-                        init_param(&vlan_id, LEAF, 0, cbk, validate_vlan_id, INT, "vlan-id", "vlan id(1-4095)");
-                        libcli_register_param(&vlan, &vlan_id);
-                        libcli_set_param_cmd_code(&vlan_id, CMDCODE_INTF_CONFIG_VLAN);
+                        param_t *vlan_id = (param_t *)calloc (1, sizeof (param_t));
+                        init_param(vlan_id, LEAF, 0, cbk, validate_vlan_id, INT, "vlan-id", "vlan id(1-4095)");
+                        libcli_register_param(vlan, vlan_id);
+                        libcli_set_param_cmd_code(vlan_id, CMDCODE_INTF_CONFIG_VLAN);
                     }
                 }
             }
         }
 
-         if (!(unsupported_configs & INTF_CONFIG_NOT_SUPPORTED_UP_DOWN))
+        if (!(unsupported_configs & INTF_CONFIG_NOT_SUPPORTED_UP_DOWN))
         {
             /* config node <node-name> interface . . . <if-name>  <up|down>*/
-            static param_t if_up_down_status;
-            init_param(&if_up_down_status, LEAF, 0, cbk, validate_if_up_down_status, STRING, "if-up-down", "<up | down>");
-            libcli_register_param(if_name, &if_up_down_status);
-            libcli_set_param_cmd_code(&if_up_down_status, CMDCODE_CONF_INTF_UP_DOWN);
+            param_t *if_up_down_status = (param_t *)calloc (1, sizeof (param_t));
+            init_param(if_up_down_status, LEAF, 0, cbk, validate_if_up_down_status, STRING, "if-up-down", "<up | down>");
+            libcli_register_param(if_name, if_up_down_status);
+            libcli_set_param_cmd_code(if_up_down_status, CMDCODE_CONF_INTF_UP_DOWN);
         }
 
         if (!(unsupported_configs & INTF_CONFIG_NOT_SUPPORTED_METRIC))
         {
             /*config node <node-name> interface . . . <if-name> metric <metric-val> */
-            static param_t metric;
-            init_param(&metric, CMD, "metric", 0, 0, INVALID, 0, "Interface Metric");
-            libcli_register_param(if_name, &metric);
+            param_t *metric = (param_t *)calloc (1, sizeof (param_t));
+            init_param(metric, CMD, "metric", 0, 0, INVALID, 0, "Interface Metric");
+            libcli_register_param(if_name, metric);
             {
-                static param_t metric_val;
-                init_param(&metric_val, LEAF, 0, cbk, validate_interface_metric_val, INT, "metric-val", "Metric Value(1-16777215)");
-                libcli_register_param(&metric, &metric_val);
-                libcli_set_param_cmd_code(&metric_val, CMDCODE_INTF_CONFIG_METRIC);
+                param_t *metric_val = (param_t *)calloc (1, sizeof (param_t));
+                init_param(metric_val, LEAF, 0, cbk, validate_interface_metric_val, INT, "metric-val", "Metric Value(1-16777215)");
+                libcli_register_param(metric, metric_val);
+                libcli_set_param_cmd_code(metric_val, CMDCODE_INTF_CONFIG_METRIC);
             }
         }
 
         if (!(unsupported_configs & INTF_CONFIG_NOT_SUPPORTED_IP_ADDRESS))
         {
             /* config node <node-name> interface . . . <if-name> ip-address <ip-addr> <mask>*/
-            static param_t ip_addr;
-            init_param(&ip_addr, CMD, "ip-address", 0, 0, INVALID, 0, "Interface IP Address");
-            libcli_register_param(if_name, &ip_addr);
+            param_t *ip_addr = (param_t *)calloc (1, sizeof (param_t));
+            init_param(ip_addr, CMD, "ip-address", 0, 0, INVALID, 0, "Interface IP Address");
+            libcli_register_param(if_name, ip_addr);
             {
-                static param_t ip_addr_val;
-                init_param(&ip_addr_val, LEAF, 0, 0, 0, IPV4, "intf-ip-address", "IPV4 address");
-                libcli_register_param(&ip_addr, &ip_addr_val);
+                param_t *ip_addr_val = (param_t *)calloc (1, sizeof (param_t));
+                init_param(ip_addr_val, LEAF, 0, 0, 0, IPV4, "intf-ip-address", "IPV4 address");
+                libcli_register_param(ip_addr, ip_addr_val);
                 {
-                    static param_t mask;
-                    init_param(&mask, LEAF, 0, cbk, validate_mask_value, INT, "mask", "mask [0-32]");
-                    libcli_register_param(&ip_addr_val, &mask);
-                    libcli_set_param_cmd_code(&mask, CMDCODE_INTF_CONFIG_IP_ADDR);
+                    param_t *mask = (param_t *)calloc (1, sizeof (param_t));
+                    init_param(mask, LEAF, 0, cbk, validate_mask_value, INT, "mask", "mask [0-32]");
+                    libcli_register_param(ip_addr_val, mask);
+                    libcli_set_param_cmd_code(mask, CMDCODE_INTF_CONFIG_IP_ADDR);
                 }
             }
 
             /* config node <node-name> interface . . . <if-name> ipv6-address <ipv6-addr/prefix-len>*/
-            static param_t ipv6_addr;
-            init_param(&ipv6_addr, CMD, "ipv6-address", 0, 0, INVALID, 0, "Interface IPv6 Address");
-            libcli_register_param(if_name, &ipv6_addr);
+            param_t *ipv6_addr = (param_t *)calloc (1, sizeof (param_t));
+            init_param(ipv6_addr, CMD, "ipv6-address", 0, 0, INVALID, 0, "Interface IPv6 Address");
+            libcli_register_param(if_name, ipv6_addr);
             {
-                static param_t ipv6_addr_val;
-                init_param(&ipv6_addr_val, LEAF, 0, cbk, 0, STRING, "intf-ipv6-address", "IPv6 address with prefix (e.g., 2001:db8::1/64)");
-                libcli_register_param(&ipv6_addr, &ipv6_addr_val);
-                libcli_set_param_cmd_code(&ipv6_addr_val, CMDCODE_INTF_CONFIG_IPV6_ADDR);
+                param_t *ipv6_addr_val = (param_t *)calloc (1, sizeof (param_t));
+                init_param(ipv6_addr_val, LEAF, 0, cbk, 0, STRING, "intf-ipv6-address", "IPv6 address with prefix (e.g., 2001:db8::1/64)");
+                libcli_register_param(ipv6_addr, ipv6_addr_val);
+                libcli_set_param_cmd_code(ipv6_addr_val, CMDCODE_INTF_CONFIG_IPV6_ADDR);
             }
         }
 
         if (!(unsupported_configs & INTF_CONFIG_NOT_SUPPORTED_VLAN))
         {
             /*config node <node-name> interface . . . <if-name> vlan . . .*/
-            static param_t vlan;
-            init_param(&vlan, CMD, "vlan", 0, 0, INVALID, 0, "\"vlan\" keyword");
-            libcli_register_param(if_name, &vlan);
+            param_t *vlan = (param_t *)calloc (1, sizeof (param_t));
+            init_param(vlan, CMD, "vlan", 0, 0, INVALID, 0, "\"vlan\" keyword");
+            libcli_register_param(if_name, vlan);
             {
                 /*config node <node-name> interface . . . <if-name> vlan <vlan-id>*/
-                static param_t vlan_id;
-                init_param(&vlan_id, LEAF, 0, cbk, validate_vlan_id, INT, "vlan-id", "vlan id(1-4096)");
-                libcli_register_param(&vlan, &vlan_id);
-                libcli_set_param_cmd_code(&vlan_id, CMDCODE_INTF_CONFIG_VLAN);
+                param_t *vlan_id = (param_t *)calloc (1, sizeof (param_t));
+                init_param(vlan_id, LEAF, 0, cbk, validate_vlan_id, INT, "vlan-id", "vlan id(1-4096)");
+                libcli_register_param(vlan, vlan_id);
+                libcli_set_param_cmd_code(vlan_id, CMDCODE_INTF_CONFIG_VLAN);
             }
         }
 
         if (!(unsupported_configs & INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL))
         {
             /*config node <node-name> interface virtual-port <if-name> overlay-tunnel . . .*/
-            static param_t overlay_tunnel;
-            init_param(&overlay_tunnel, CMD, "overlay-tunnel", 0, 0, INVALID, 0, "overlay-tunnel keyword");
-            libcli_register_param(if_name, &overlay_tunnel);
+            param_t *overlay_tunnel = (param_t *)calloc (1, sizeof (param_t));
+            init_param(overlay_tunnel, CMD, "overlay-tunnel", 0, 0, INVALID, 0, "overlay-tunnel keyword");
+            libcli_register_param(if_name, overlay_tunnel);
             {
                 /*config node <node-name> interface virtual-port <if-name> overlay-tunnel <tunnel-name>*/
-                static param_t tunnel_name;
-                init_param(&tunnel_name, LEAF, 0, cbk, 0, STRING, "tunnel-name", "Tunnel Name");
-                libcli_register_param(&overlay_tunnel, &tunnel_name);
-                libcli_set_param_cmd_code(&tunnel_name, CMDCODE_INTF_CONFIG_BIND_OVERLAY_TUNNEL);
+                param_t *tunnel_name = (param_t *)calloc (1, sizeof (param_t));
+                init_param(tunnel_name, LEAF, 0, cbk, 0, STRING, "tunnel-name", "Tunnel Name");
+                libcli_register_param(overlay_tunnel, tunnel_name);
+                libcli_set_param_cmd_code(tunnel_name, CMDCODE_INTF_CONFIG_BIND_OVERLAY_TUNNEL);
             }
         }
 
-         if (!(unsupported_configs & INTF_CONFIG_NOT_SUPPORTED_VRF))
+        if (!(unsupported_configs & INTF_CONFIG_NOT_SUPPORTED_VRF))
         {
             /* config node <node-name> interface . . . <if-name> vrf*/
-            static param_t vrf;
-            init_param(&vrf, CMD, "vrf", NULL, NULL, INVALID, NULL, "Enable VRF on this interface");
-            libcli_register_param(if_name, &vrf);
+            param_t *vrf = (param_t *)calloc (1, sizeof (param_t));
+            init_param(vrf, CMD, "vrf", NULL, NULL, INVALID, NULL, "Enable VRF on this interface");
+            libcli_register_param(if_name, vrf);
             {
                 /* config node <node-name> interface . . . <if-name> vrf <vrf-name> */
-                static param_t vrf_name;
-                init_param(&vrf_name, LEAF, 0, cbk, 0, STRING, "vrf-name", "VRF Name");
-                libcli_register_param(&vrf, &vrf_name);
-                libcli_set_param_cmd_code(&vrf_name, CMDCODE_CONF_INTF_VRF);
+                param_t *vrf_name = (param_t *)calloc (1, sizeof (param_t));
+                init_param(vrf_name, LEAF, 0, cbk, 0, STRING, "vrf-name", "VRF Name");
+                libcli_register_param(vrf, vrf_name);
+                libcli_set_param_cmd_code(vrf_name, CMDCODE_CONF_INTF_VRF);
             }
         }
 
