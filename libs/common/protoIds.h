@@ -17,7 +17,7 @@
 typedef uint16_t gen_proto_id_t;
 typedef uint8_t  ip_proto_id_t;
 
-#define ETHERNET_HEADER         0x0000
+#define ETHERNET_HEADER         0x3
 
 /* =========================================================================
  * EtherType values  (carried in Ethernet II / 802.1Q type field, 16-bit)
@@ -62,7 +62,6 @@ typedef uint8_t  ip_proto_id_t;
 #define IP_PROTO_OSPF           89      /* Open Shortest Path First      */
 #define IP_PROTO_IPIP           94      /* IP-within-IP Encapsulation    */
 #define IP_PROTO_PIM            103     /* Protocol Independent Multicast*/
-#define IP_PROTO_SCTP           132     /* Stream Control Transmission   */
 #define IP_PROTO_MPLS_IN_IP     137     /* MPLS-in-IP                    */
 #define IP_PROTO_IPv6_ROUTE     43      /* IPv6 routing header / SRH     */
 #define IP_PROTO_RSVP           46      /* Resource Reservation Protocol */
@@ -162,7 +161,6 @@ proto_id_str(uint16_t proto)
     case IP_PROTO_OSPF:             return "OSPF";
     case IP_PROTO_IPIP:             return "IPIP";
     case IP_PROTO_PIM:              return "PIM";
-    case IP_PROTO_SCTP:             return "SCTP";
     case IP_PROTO_MPLS_IN_IP:       return "MPLS-in-IP";
     case IP_PROTO_RSVP:             return "RSVP";
     case IP_PROTO_IPv6_ROUTE:       return "SRH/IPv6-Route";

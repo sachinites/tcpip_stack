@@ -63,7 +63,7 @@ cp2dp_send_ip_data ( node_t *node,
         pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t));
     }
 
-    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv4);
+    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
 
     ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
     pkt_size_t pkt_size = pkt_block->pkt_size;
@@ -105,7 +105,7 @@ void cp2dp_send_ip6_data(node_t *node,
         pkt_block_expand_buffer_left (pkt_block, sizeof (ipv6_hdr_t));
     }
 
-    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv6);
+    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IPv6);
 
     pkt_size_t pkt_size;
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt_block_get_pkt (pkt_block, &pkt_size);

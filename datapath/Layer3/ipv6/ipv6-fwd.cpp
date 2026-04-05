@@ -86,7 +86,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
     #if 0
     /* L3VPN case, on Ingress router pkt_block can be IPv4 
         pkt with SRv6 Nexthop */
-    if (pkt_block_get_starting_hdr(pkt_block) == ETH_TYPE_IPv4 && 
+    if (pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_IP_IN_IP && 
             (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_SRv6_FORWARD)) &&
              nh->fwd_info->u.v6_fwd.endfn == END_DT4) {
 
@@ -99,7 +99,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
     unsigned char *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
     /* Should be ipv6 pkt*/
-    assert (pkt_block_get_starting_hdr(pkt_block) == ETH_TYPE_IPv6);
+    assert (pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_IPv6);
 
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
 

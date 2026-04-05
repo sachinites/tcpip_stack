@@ -31,8 +31,7 @@ extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface, 
-                      pkt_block_t *pkt_block, 
-                      int L3_protocol_number) ;
+                      pkt_block_t *pkt_block);
 
 /**
  * Payload for recv/send path: packet pointer, interface index, and size.
@@ -294,7 +293,7 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t 
 
     /* Now attach outer IP Hdr and send the pkt*/
     assert (pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t)));
-    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv4);
+    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
     ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr (pkt_block);
     initialize_ip_hdr (ip_hdr);
     ip_hdr->src_ip = htonl(dp_ctx->rtr_id);
@@ -379,10 +378,11 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
     }
 
     untag_pkt_with_vlan_id(pkt_block);
-    eth_hdr = ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
-
-    dp_promote_pkt_to_layer3 (dp_ctx, intf->vrf, intf,
-            pkt_block,  ntohs(eth_hdr->type));
+    assert (eth_hdr->type == ntohs (ETH_TYPE_IPv4));
+    pkt_block_set_new_pkt(
+        pkt_block, (uint8_t *)(GET_ETHERNET_HDR_PAYLOAD(eth_hdr)),
+        pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD);
+    dp_promote_pkt_to_layer3 (dp_ctx, intf->vrf, intf, pkt_block);
 
     return 0;
 }
@@ -419,7 +419,7 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
 
  /* Now attach outer IP Hdr and send the pkt*/
     assert (pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t)));
-    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv4);
+    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
     ip_hdr_t *ip_hdr = (ip_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
     initialize_ip_hdr (ip_hdr);
     ip_hdr->src_ip = htonl(dp_ctx->rtr_id);
@@ -492,14 +492,14 @@ SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
         uint32_t eth_hdr_size = GET_ETH_HDR_SIZE_EXCL_PAYLOAD(eth_hdr);
         uint8_t *payload = GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
         pkt_block_set_new_pkt(pkt_block, payload, pkt_size - eth_hdr_size);
-        pkt_block_set_starting_hdr_type(pkt_block, ETH_TYPE_IPv6);
+        pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IPv6);
     }
 
     /* Step 2: Decapsulate: strip the outer IPv6 header and SRH */
     Srv6_decapsulate(pkt_block);
 
     /* Step 3: Inner payload must be IPv4; drop anything else */
-    if (pkt_block_get_starting_hdr(pkt_block) != ETH_TYPE_IPv4) {
+    if (pkt_block_get_starting_hdr(pkt_block) != IP_PROTO_IP_IN_IP) {
         tracer(dp_ctx->dptr, DL3FWD | DERR,
             "SRv6 END.DT4: inner packet is not IPv4, dropping\n");
         return 0;
@@ -542,7 +542,10 @@ void
 dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block) {
 
     tracer(dp_ctx->dptr, DL3FWD_DET | DL2FWD_DET | DL2SW_DET,
-        "Sending out frame %s out of interface %s\n", pkt_block_str(pkt_block), intf->if_name);
+        "Sending out frame %s out of interface %s\n", 
+        pkt_block_str(pkt_block), intf->if_name);
+
+    assert (pkt_block);
 
     (intf_xmit_cbk[intf->if_type])(dp_ctx, intf, pkt_block);
 }
@@ -679,7 +682,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 		pkt = ev_dis_pkt_data->pkt;		
 
         pkt_block = pkt_block_get_new((uint8_t *)pkt, ev_dis_pkt_data->pkt_size);
-        pkt_block_set_starting_hdr_type(pkt_block, ETHERNET_HEADER);
+        pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
 
 		dp_pkt_receive(dp_ctx, recv_intf->vrf,
                     recv_intf, 

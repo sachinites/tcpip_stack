@@ -114,7 +114,7 @@ main(int argc, char **argv){
     layer2_fill_with_broadcast_mac(eth_hdr->src_mac.mac);
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
 
-    eth_hdr->type = ETH_TYPE_IPv4;
+    eth_hdr->type = htons(ETH_TYPE_IPv4);
     SET_COMMON_ETH_FCS(eth_hdr, IP_HDR_DEFAULT_SIZE, 0);
 
     /*Prepare pseudo IP hdr, Just set Src & Dest ip and protocol number*/

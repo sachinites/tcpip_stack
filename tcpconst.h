@@ -69,8 +69,8 @@ tcpip_protocol_classification(uint16_t proto) {
 
     switch(proto) {
 
-        case ETH_TYPE_IPv4:
-        case ETH_TYPE_IPv6:
+        case IP_PROTO_IP_IN_IP:
+        case IP_PROTO_IPv6:
             return NETWORK_LAYER;
         case IP_PROTO_ICMP:
             return APPLICATION_LAYER;

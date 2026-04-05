@@ -103,7 +103,7 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     SET_COMMON_ETH_FCS(ethernet_hdr, sizeof(arp_hdr_t), 0); /*Not used*/
 
     /*STEP 3 : Now dispatch the ARP Broadcast Request Packet out of interface*/
-    pkt_block_set_starting_hdr_type(pkt_block, ETHERNET_HEADER);
+    pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
     tracer(dp_ctx->dptr, DARP, 
         "VRF:%s: Sending ARP Broadcast Request for IP : %s out of interface %s\n",
         vrf->vrf_name, ip_addr_str, oif->if_name);

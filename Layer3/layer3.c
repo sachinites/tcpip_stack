@@ -75,7 +75,7 @@ layer3_ero_ping_fn(node_t *node,
                     c_string ero_ip_address){
 
     pkt_block_t *pkt_block = pkt_block_get_new_pkt_buffer (sizeof (ip_hdr_t));
-    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_IPv4);
+    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
     ip_hdr_t *inner_ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr (pkt_block);
     initialize_ip_hdr(inner_ip_hdr);
     inner_ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE);

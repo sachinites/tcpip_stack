@@ -123,10 +123,10 @@ np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
 
             switch (hdr_type)
             {
-            case ETH_TYPE_IPv4:
+            case IP_PROTO_IP_IN_IP:
                 dp_send_ip_data(dp_ctx, vrf, pkt_block);
                 break;
-            case ETH_TYPE_IPv6:
+            case IP_PROTO_IPv6:
                 dp_send_ip6_data(dp_ctx, vrf, pkt_block);
                 break;
             default:

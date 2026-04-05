@@ -16,8 +16,7 @@ extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface, 
-                      pkt_block_t *pkt_block, 
-                      int L3_protocol_number) ;
+                      pkt_block_t *pkt_block);
 
 extern void
 cp_punt_pkt_from_layer2_to_layer5(
@@ -120,7 +119,13 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
     /*If the destination ip address is exact match to self loopback address, 
      * rebounce the pkt to Network Layer again*/
     if(next_hop_ip == dp_ctx->rtr_id) {
-        dp_promote_pkt_to_layer3(dp_ctx, vrf, 0, pkt_block, ethernet_hdr->type);
+
+        pkt_block_set_new_pkt (pkt_block, 
+            (uint8_t *)pkt_block_get_ip_hdr(pkt_block), 
+            ethernet_payload_size);
+        pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
+        
+        dp_promote_pkt_to_layer3(dp_ctx, vrf, 0, pkt_block);
         return;
     }
 
@@ -163,7 +168,18 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
     ethernet_hdr_t *empty_ethernet_hdr =
         (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
 
-    empty_ethernet_hdr->type = htons((uint16_t)hdr_type);
+    switch (hdr_type) {
+        case IP_PROTO_IP_IN_IP:
+            SET_COMMON_ETH_HDR_TYPE(empty_ethernet_hdr, ETH_TYPE_IPv4);
+            break;
+        case IP_PROTO_IPv6:
+            SET_COMMON_ETH_HDR_TYPE(empty_ethernet_hdr, ETH_TYPE_IPv6);
+            break;
+        default:
+            assert(0);
+    }
+
+    pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
 
     l2_forward_ip_packet(dp_ctx,
                          vrf,
@@ -302,7 +318,7 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
     ethernet_hdr_t *ethernet_hdr = 
         (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-    eth_type = htons(ethernet_hdr->type);
+    eth_type = ntohs(ethernet_hdr->type);
 
     switch(eth_type){
 
@@ -311,8 +327,8 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                 /*Can be ARP Broadcast or ARP reply*/
                 arp_hdr_t *arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
 
-                switch(htons(arp_hdr->op_code)){
-
+                switch(htons(arp_hdr->op_code))
+                {
                     case ARP_BROAD_REQ:
                         process_arp_broadcast_request(dp_ctx, vrf, iif, ethernet_hdr);
                         return;
@@ -326,14 +342,28 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
             break;
 
         case ETH_TYPE_IPv4:
-        case IP_PROTO_IP_IN_IP:
-        case ETH_TYPE_IPv6:
+
+            pkt_block_set_new_pkt (
+                    pkt_block, (uint8_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr)), 
+                    pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD);
+            pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IP_IN_IP);
             dp_promote_pkt_to_layer3(
                     dp_ctx,
                     vrf, iif, 
-                    pkt_block,
-                    eth_type);
+                    pkt_block);
             break;
+
+        case ETH_TYPE_IPv6:
+            pkt_block_set_new_pkt (
+                    pkt_block, (uint8_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr)), 
+                    pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD);
+            pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IPv6);
+            dp_promote_pkt_to_layer3(
+                    dp_ctx,
+                    vrf, iif, 
+                    pkt_block);
+            break;
+
         default: ;
     }
 }
@@ -649,7 +679,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
 
     pkt_block_t *pkt_block2 = pkt_block_get_new(
             (uint8_t *)vlan_ethernet_hdr_reply, arp_reply_pkt_size);
-    pkt_block_set_starting_hdr_type(pkt_block2, ETHERNET_HEADER);
+    pkt_block_update_new_hdr_type(pkt_block2, ETHERNET_HEADER);
 
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(
         (ethernet_hdr_t *)vlan_ethernet_hdr_reply));

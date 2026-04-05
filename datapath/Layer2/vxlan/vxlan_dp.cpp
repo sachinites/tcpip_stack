@@ -30,7 +30,7 @@ vxlan_encapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
 
     /* Expland the size of the pkt by VxLAN HDR size */
     pkt_block_expand_buffer_left (pkt_block, sizeof (vxlan_hdr_t) + sizeof (udp_hdr_t)); 
-    pkt_block_set_starting_hdr_type (pkt_block, IP_PROTO_UDP);
+    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_UDP);
 
     udp_hdr_t *udp_hdr = (udp_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
     udp_hdr->src_port_no = 0;
@@ -92,7 +92,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_v
     pkt_size -= (pkt_size_t)((char *)eth_hdr - (char *)udp_hdr);
 
     pkt_block_set_new_pkt (pkt_block, (uint8_t *) eth_hdr, pkt_size);
-    pkt_block_set_starting_hdr_type (pkt_block, ETHERNET_HEADER);
+    pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
 
     uint16_t vlan_id = vlan_vni_ht_vni_to_vlan_lookup (dp_ctx, vni);
 

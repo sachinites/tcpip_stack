@@ -35,6 +35,8 @@ typedef struct ethernet_hdr_ ethernet_hdr_t;
 
 typedef uint32_t pkt_size_t;
 
+#pragma pack(push, 8)
+
 typedef struct encap_meta_data_
 {
     union
@@ -57,6 +59,7 @@ typedef struct encap_meta_data_
 struct pkt_block_ {
 
     uint8_t *pkt;
+    uintptr_t alloc_ptr;
     pkt_size_t pkt_size;
     gen_proto_id_t hdr_type;
     uintptr_t ingress_intf;
@@ -67,6 +70,8 @@ struct pkt_block_ {
     uint8_t ref_count;
     bool no_modify;
 } ;
+
+#pragma pack(pop)
 
 gen_proto_id_t
 pkt_block_get_starting_hdr(pkt_block_t *pkt_block);
@@ -87,7 +92,7 @@ pkt_block_t *
 pkt_block_get_new_pkt_buffer2(pkt_size_t pkt_size, const char *fn_name, uint16_t lineno);
 
 void
-pkt_block_set_starting_hdr_type(pkt_block_t *pkt_block, gen_proto_id_t hdr_type) ;
+pkt_block_update_new_hdr_type(pkt_block_t *pkt_block, gen_proto_id_t hdr_type) ;
 
 ethernet_hdr_t *
 pkt_block_get_ethernet_hdr(pkt_block_t *pkt_block);

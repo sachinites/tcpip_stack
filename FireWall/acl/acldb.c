@@ -849,7 +849,7 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
     {
         eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-        if (htons(eth_hdr->type) == ETH_TYPE_IPv4)
+        if (ntohs(eth_hdr->type) == IP_PROTO_IP_IN_IP)
         {
             ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
             src_ip = htonl(ip_hdr->src_ip);
@@ -870,7 +870,7 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
             }
 
             return access_list_evaluate(access_list, 
-                                                ETH_TYPE_IPv4, 
+                                                IP_PROTO_IP_IN_IP, 
                                                 l4proto,
                                                 src_ip,
                                                 dst_ip,
@@ -879,7 +879,7 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
         }
     }
     break;
-    case ETH_TYPE_IPv4:
+    case IP_PROTO_IP_IN_IP:
         {
             ip_hdr =  (ip_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
             src_ip = htonl(ip_hdr->src_ip);
@@ -900,7 +900,7 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
             }
 
             return access_list_evaluate(access_list, 
-                                                ETH_TYPE_IPv4, 
+                                                IP_PROTO_IP_IN_IP, 
                                                 l4proto,
                                                 src_ip,
                                                 dst_ip,
@@ -950,7 +950,7 @@ access_list_evaluate_ip_packet (node_t *node,
     }
 
     return access_list_evaluate(access_list, 
-                                                ETH_TYPE_IPv4, 
+                                                IP_PROTO_IP_IN_IP, 
                                                 l4proto,
                                                 src_ip,
                                                 dst_ip,

@@ -26,8 +26,7 @@ void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,               /*Current node on which the pkt is received*/
                       dp_intf_t *interface,        /*ingress interface*/
-                      pkt_block_t *pkt_block,      /*L3 payload*/
-                      int L3_protocol_number) ;
+                      pkt_block_t *pkt_block);      /*L3 payload*/
 
 
 void layer3_ip_route_pkt(dp_ctx_t *dp_ctx,

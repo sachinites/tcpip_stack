@@ -101,7 +101,7 @@ ping_send4 (void *_pctx)
         icmp_hdr->identifier = htons (pctx->identifier);
         icmp_hdr->seq_no     = htons (seq);
 
-        pkt_block_set_starting_hdr_type(pkt_block, ETH_TYPE_IPv4);
+        pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IP_IN_IP);
         
         /* Timestamp before handing off to the DP so RTT includes queuing time */
         pctx->send_time[seq % PING_MAX_SEQ] = ping_get_time_us ();
@@ -198,7 +198,7 @@ ping_echo_reply_recvd (ping_ctx_t *pctx, pkt_block_t *pkt_block)
     ip_hdr   = pkt_block_get_ip_hdr (pkt_block);
     icmp_hdr = (icmp_hdr_t *)INCREMENT_IPHDR (ip_hdr);
 
-    tcp_ip_covert_ip_n_to_p (htonl (ip_hdr->src_ip), src_str);
+    tcp_ip_covert_ip_n_to_p (ntohl (ip_hdr->src_ip), src_str);
 
     if (icmp_hdr->type == ICMP_ECHO_REP) {
 

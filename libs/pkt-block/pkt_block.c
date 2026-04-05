@@ -68,12 +68,6 @@ pkt_block_get_pkt(pkt_block_t *pkt_block, pkt_size_t *pkt_size) {
 }
 
 void
-pkt_block_set_starting_hdr_type(pkt_block_t *pkt_block, gen_proto_id_t hdr_type) {
-
-    pkt_block->hdr_type = hdr_type;
-}
-
-void
 pkt_block_reference(pkt_block_t *pkt_block) {
 
     pkt_block->ref_count++;
@@ -121,7 +115,7 @@ pkt_block_get_ethernet_hdr(pkt_block_t *pkt_block) {
         return (ethernet_hdr_t *) (pkt_block->pkt);
     else if (pkt_block->hdr_type == IP_PROTO_GRE) {
         gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt_block->pkt;
-        if (htons(gre_hdr->protocol_type) == ETH_TYPE_GRE) {
+        if (ntohs(gre_hdr->protocol_type) == ETH_TYPE_GRE) {
             return (ethernet_hdr_t *)(gre_hdr + 1);
         }
     }
@@ -138,15 +132,14 @@ pkt_block_get_ip_hdr (pkt_block_t *pkt_block) {
 
          eth_hdr = pkt_block_get_ethernet_hdr(pkt_block);
 
-         if (htons(eth_hdr->type) == ETH_TYPE_IPv4 ||
-                htons(eth_hdr->type) == IP_PROTO_IP_IN_IP ) {
+         if (ntohs(eth_hdr->type) == ETH_TYPE_IPv4) {
 
              return (ip_hdr_t *)eth_hdr->payload;
          }
          return NULL;
      }
 
-     else if (pkt_block->hdr_type == ETH_TYPE_IPv4) {
+     else if (pkt_block->hdr_type == IP_PROTO_IP_IN_IP) {
 
          return (ip_hdr_t *) (pkt_block->pkt);
      }
@@ -155,7 +148,7 @@ pkt_block_get_ip_hdr (pkt_block_t *pkt_block) {
 
          gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt_block->pkt;
 
-         if (htons(gre_hdr->protocol_type) == ETH_TYPE_IPv4) {
+         if (ntohs(gre_hdr->protocol_type) == IP_PROTO_IP_IN_IP) {
              return (ip_hdr_t *)(gre_hdr + 1);
          }
      }
@@ -173,14 +166,14 @@ pkt_block_get_ip6_hdr (pkt_block_t *pkt_block) {
 
          eth_hdr = pkt_block_get_ethernet_hdr(pkt_block);
 
-         if (htons(eth_hdr->type) == ETH_TYPE_IPv6) {
+         if (ntohs(eth_hdr->type) == ETH_TYPE_IPv6) {
 
              return (ipv6_hdr_t *)eth_hdr->payload;
          }
          return NULL;
      }
 
-     else if (pkt_block->hdr_type == ETH_TYPE_IPv6) {
+     else if (pkt_block->hdr_type == IP_PROTO_IPv6) {
 
          return (ipv6_hdr_t *) (pkt_block->pkt);
      }
@@ -189,7 +182,7 @@ pkt_block_get_ip6_hdr (pkt_block_t *pkt_block) {
 
          gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt_block->pkt;
 
-         if (htons(gre_hdr->protocol_type) == ETH_TYPE_IPv6) {
+         if (ntohs(gre_hdr->protocol_type) == IP_PROTO_IPv6) {
              return (ipv6_hdr_t *)(gre_hdr + 1);
          }
      }
@@ -214,7 +207,7 @@ pkt_block_get_arp_hdr (pkt_block_t *pkt_block) {
 
                 vlan_eth_hdr = (vlan_ethernet_hdr_t *)eth_hdr;
 
-                if (htons(vlan_eth_hdr->type) == ETH_TYPE_ARP) {
+                if (ntohs(vlan_eth_hdr->type) == ETH_TYPE_ARP) {
                     return (arp_hdr_t *)vlan_eth_hdr->payload;
                 }
                 else
@@ -225,7 +218,7 @@ pkt_block_get_arp_hdr (pkt_block_t *pkt_block) {
 
             else
             {
-                if (htons(eth_hdr->type) == ETH_TYPE_ARP)
+                if (ntohs(eth_hdr->type) == ETH_TYPE_ARP)
                 {
                     return (arp_hdr_t *)eth_hdr->payload;
                 }
@@ -315,33 +308,7 @@ pkt_block_verify_pkt (pkt_block_t *pkt_block, gen_proto_id_t hdr_type) {
 void 
 pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint16_t proto) {
 
-            switch (proto) {
-                case IP_PROTO_UDP:
-                    pkt_block_set_starting_hdr_type(pkt_block, IP_PROTO_UDP);
-                    break;
-                case IP_PROTO_TCP:
-                    pkt_block_set_starting_hdr_type(pkt_block, IP_PROTO_TCP);
-                    break;
-                case IP_PROTO_ICMP:
-                    pkt_block_set_starting_hdr_type(pkt_block, IP_PROTO_ICMP);
-                    break;
-                case IP_PROTO_ICMPv6:
-                    pkt_block_set_starting_hdr_type(pkt_block, IP_PROTO_ICMPv6);
-                    break;
-                case ETH_TYPE_IPv4:
-                case IP_PROTO_IP_IN_IP:
-                    pkt_block_set_starting_hdr_type(pkt_block, ETH_TYPE_IPv4);
-                    break;
-                case IP_PROTO_IPv6_ROUTE:
-                    pkt_block_set_starting_hdr_type(pkt_block, IP_PROTO_IPv6_ROUTE);
-                    break;
-                case IP_PROTO_IPv6:         /* nexthdr = 41 (SRH / IP-in-IP context) */
-                case ETH_TYPE_IPv6:         /* EtherType = 0x86DD (Ethernet context) */
-                    pkt_block_set_starting_hdr_type(pkt_block, ETH_TYPE_IPv6);
-                    break;
-                default:
-                    assert(0);
-            }
+    pkt_block->hdr_type = proto;
 }
 
 void
@@ -360,7 +327,7 @@ tcp_ip_expand_buffer_ethernet_hdr(pkt_block_t *pkt_block) {
     memcpy(eth_hdr->payload, temp, pkt_size);
     SET_COMMON_ETH_FCS(eth_hdr, pkt_size, 0);
     free(temp);
-    pkt_block_set_starting_hdr_type(pkt_block , ETHERNET_HEADER);
+    pkt_block_update_new_hdr_type(pkt_block , ETHERNET_HEADER);
 }
 
 void 
@@ -439,7 +406,7 @@ pkt_block_str (pkt_block_t *pkt_block) {
         }
         break;
 
-        case ETH_TYPE_IPv6:
+        case IP_PROTO_IPv6:
         {
             int rc;
             pkt_size_t old_pkt_size;
@@ -453,7 +420,7 @@ pkt_block_str (pkt_block_t *pkt_block) {
             return (char *)ipv6_addr_str;
         }
         break;
-        case ETH_TYPE_IPv4:
+
         case IP_PROTO_IP_IN_IP:
         {
             ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
@@ -472,7 +439,9 @@ pkt_block_str (pkt_block_t *pkt_block) {
             pkt_size_t old_pkt_size;
             uint8_t *old_pkt = pkt_block_get_pkt(pkt_block, &old_pkt_size);
             gre_hdr_t *gre_hdr = (gre_hdr_t *)old_pkt;
-            switch (htons(gre_hdr->protocol_type)) {
+
+            switch (ntohs(gre_hdr->protocol_type)) {
+                
                 case ETH_TYPE_GRE:
                 {
                     pkt_block_expand_buffer_left (pkt_block, 7 + 4 + 17 + 1);
@@ -483,7 +452,8 @@ pkt_block_str (pkt_block_t *pkt_block) {
                     pkt_mac_str (pkt_block, (char *)buffer + 7);
                     return (char *)buffer;
                 }
-                case ETH_TYPE_IPv4:
+
+                case IP_PROTO_IP_IN_IP:
                 {
                     pkt_block_expand_buffer_left (pkt_block, 7 + 3 + 16 + 1);
                     uint8_t *buffer = pkt_block_get_pkt(pkt_block, NULL);

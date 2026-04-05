@@ -59,8 +59,7 @@ extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface, 
-                      pkt_block_t *pkt_block, 
-                      int L3_protocol_number) ;
+                      pkt_block_t *pkt_block);
 
 extern int
 linux_send_xmit_out (Interface *intf, pkt_block_t *pkt_block);

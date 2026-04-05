@@ -326,7 +326,7 @@ fn_template(srv6_END_DT4) {
 
     Srv6_decapsulate(pkt_block);
     
-    assert (pkt_block_get_starting_hdr (pkt_block) == ETH_TYPE_IPv4);
+    assert (pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_IP_IN_IP);
 
     layer3_ip_route_pkt(dp_ctx, 
         nexthop->fwd_info->oif->srv6_data.steered_dt4_vrf,

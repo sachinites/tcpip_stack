@@ -106,7 +106,7 @@ _pkt_receive(dp_ctx_t *dp_ctx,
                           (uint8_t *)pkt_with_aux_data + sizeof(uint32_t),
                           pkt_size - sizeof(uint32_t));
 
-    pkt_block_set_starting_hdr_type (pkt_block, ETHERNET_HEADER);
+    pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
 
     dp_uapi_inject_packet (dp_ctx, 
                            pkt_block, port_id);

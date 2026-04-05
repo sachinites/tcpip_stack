@@ -1272,7 +1272,7 @@ srv6_ping6_handler(int cmdcode,
 
         pkt_size_t srh_hdr_size = sizeof (srh_hdr_t ) + (i * 16);
         pkt_block = pkt_block_get_new_pkt_buffer (srh_hdr_size);
-        pkt_block_set_starting_hdr_type (pkt_block, IP_PROTO_IPv6_ROUTE);
+        pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IPv6_ROUTE);
         srh_hdr = (srh_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
 
         srh_hdr->nexthdr = IP_PROTO_ICMPv6;

@@ -423,7 +423,7 @@ linux_listener_thread(void* arg) {
                 
                 pkt_block = pkt_block_get_new(NULL, 0);
                 pkt_block_set_new_pkt(pkt_block, (uint8_t *)buffer, bytes_received);
-                pkt_block_set_starting_hdr_type (pkt_block, ETHERNET_HEADER);
+                pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
                 dp_uapi_inject_packet (node->dp_ctx, pkt_block, intf->ifindex);
                 XFREE(pkt_block);
             }

@@ -257,7 +257,6 @@ isis_lsp_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_size
 void
 isis_hello_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
 
-    isis_node_info_t *node_info;
     node_t *node;
     Interface *iif;
     pkt_size_t pkt_size;
@@ -265,6 +264,7 @@ isis_hello_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_si
     ethernet_hdr_t *eth_hdr;
     pkt_block_t *pkt_block;
     isis_common_hdr_t *cmn_hdr;
+    isis_node_info_t *node_info;
     isis_pkt_type_t isis_pkt_type;
     pkt_notif_data_t *pkt_notif_data;
 
@@ -273,7 +273,7 @@ isis_hello_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_si
     node        = pkt_notif_data->recv_node;
     iif         = node_get_intf_by_ifindex(node, pkt_notif_data->recv_intf_index);
     node_info   = iif->vrf->isis_node_info;
-    pkt_block = pkt_notif_data->pkt_block;
+    pkt_block   = pkt_notif_data->pkt_block;
     eth_hdr     = (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
 	hdr_code    = pkt_notif_data->hdr_code;	
    
@@ -807,9 +807,10 @@ isis_common_hdr_t *
 isis_init_common_hdr (isis_common_hdr_t *hdr, uint8_t pdu_type) {
 
     hdr->desc = 0x83;
-    hdr->length_indicator = sizeof (isis_common_hdr_t ) + 
-                                            (pdu_type == ISIS_PTP_HELLO_PKT_TYPE) ?     \
-                                            sizeof(isis_p2p_hello_pkt_hdr_t) : sizeof (isis_lan_hello_pkt_hdr_t);
+    hdr->length_indicator = sizeof (isis_common_hdr_t ) +               \
+                            (pdu_type == ISIS_PTP_HELLO_PKT_TYPE) ?     \
+                            sizeof(isis_p2p_hello_pkt_hdr_t) :          \
+                            sizeof (isis_lan_hello_pkt_hdr_t);
     hdr->protocol = 1;
     hdr->id_len = sizeof(isis_system_id_t);
     hdr->pdu_type = pdu_type;

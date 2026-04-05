@@ -31,7 +31,7 @@ typedef struct object_group_update_info_ object_group_update_info_t;
 #define ACL_ENTRY_TCAM_COUNT_THRESHOLD 10000
 
 typedef enum {
-    ACL_IP = ETH_TYPE_IPv4,
+    ACL_IP = IP_PROTO_IP_IN_IP,
     ACL_ICMP = IP_PROTO_ICMP,
     ACL_IGMP,
     ACL_GGP,

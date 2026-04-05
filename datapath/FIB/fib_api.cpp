@@ -41,8 +41,9 @@ bool fib_extract_dest_from_pkt(pkt_block_t *pkt, cmn_prefix_t *dest) {
     pkt_size_t pkt_size;
     
     switch (hdr_type) {
-        case ETH_TYPE_IPv4:
-        case IP_PROTO_IP_IN_IP: {
+
+        case IP_PROTO_IP_IN_IP: 
+        {
             ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt);
             if (!ip_hdr) return false;
             
@@ -51,8 +52,8 @@ bool fib_extract_dest_from_pkt(pkt_block_t *pkt, cmn_prefix_t *dest) {
             dest->u.v4_addr = ntohl(ip_hdr->dst_ip);
             return true;
         }
-        
-        case ETH_TYPE_IPv6: {
+
+        case IP_PROTO_IPv6: {
             /* IPv6 support would go here */
             return false;
         }
@@ -119,7 +120,7 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
                     pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
                     if (mpls_label_is_stack_bottom (*pkt_label)) s_bit = true;
                     pkt_block_set_new_pkt (pkt_block, (uint8_t *)(pkt_label + 1), pkt_size - sizeof (mpls_label_val_t));
-                    if (s_bit) pkt_block_set_starting_hdr_type (pkt_block,  PROTO_MISC_APP);
+                    if (s_bit) pkt_block_update_new_hdr_type (pkt_block,  PROTO_MISC_APP);
                 }
             break;
 
@@ -129,7 +130,7 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
                 pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
                 mpls_label_set_value (pkt_label, mpls_label_get_value (lstack->labels[i].label_val ));
                 if (pkt_block_get_starting_hdr (pkt_block) != ETH_TYPE_MPLS_UC) {
-                    pkt_block_set_starting_hdr_type (pkt_block, ETH_TYPE_MPLS_UC);
+                    pkt_block_update_new_hdr_type (pkt_block, ETH_TYPE_MPLS_UC);
                     mpls_label_set_stack_bottom (pkt_label);
                 }
             break;
@@ -164,7 +165,7 @@ fib_forward_pkt_to_nh(dp_ctx_t *dp_ctx,
     /* Decrement TTL if IP packet */
     gen_proto_id_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
 
-    if (hdr_type == ETH_TYPE_IPv4 || hdr_type == IP_PROTO_IP_IN_IP) {
+    if (hdr_type == ETHERNET_HEADER || hdr_type == IP_PROTO_IP_IN_IP) {
 
         ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
 

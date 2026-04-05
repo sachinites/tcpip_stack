@@ -87,7 +87,7 @@ isis_send_hello_immediately (Interface *intf) {
 
         hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
         pkt_block = pkt_block_get_new(hello_pkt, hello_pkt_size);
-        pkt_block_set_starting_hdr_type(pkt_block, ETHERNET_HEADER);
+        pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
         new_hello = true;
     }
 
@@ -127,7 +127,7 @@ isis_start_sending_hellos (Interface *intf) {
     isis_timer_data->node_info = node_info;
     isis_timer_data->intf = intf;
     pkt_block_t *pkt_block = pkt_block_get_new(hello_pkt, hello_pkt_size);
-    pkt_block_set_starting_hdr_type(pkt_block, ETHERNET_HEADER);
+    pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
     isis_timer_data->data = (void *)pkt_block;
     isis_timer_data->data_size = sizeof(pkt_block_t);
 

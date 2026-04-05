@@ -174,7 +174,7 @@ Srv6_apply_flavor(
         pkt_block_expand_buffer_left(orig_pkt, sizeof(ipv6_hdr_t));
         pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
         memcpy(pkt, &ipv6_hdr_copy, sizeof(ipv6_hdr_t));
-        pkt_block_update_new_hdr_type(orig_pkt, ETH_TYPE_IPv6);
+        pkt_block_update_new_hdr_type(orig_pkt, IP_PROTO_IPv6);
         
         return orig_pkt;
     }
@@ -208,7 +208,7 @@ Srv6_apply_flavor(
         ipv6_hdr_copy.next_header = srh_next_hdr;
         ipv6_hdr_copy.payload_length -= srh->hdrlen;
         memcpy(pkt, &ipv6_hdr_copy, sizeof(ipv6_hdr_t));
-        pkt_block_set_starting_hdr_type(orig_pkt, ETH_TYPE_IPv6);
+        pkt_block_update_new_hdr_type(orig_pkt, IP_PROTO_IPv6);
         
         return orig_pkt;
     }
@@ -334,12 +334,13 @@ ipv6_process_v6_payload(dp_ctx_t *dp_ctx,
 
     /* Re-inject the packet into the appropriate data path pipeline */
     switch (hdr_type) {
-        case ETH_TYPE_IPv4:
+        
+        case IP_PROTO_IP_IN_IP:
             /* Inner packet is IPv4 - route it */
             layer3_ip_route_pkt(dp_ctx, vrf,  NULL, pkt_block);
             return;
             
-        case ETH_TYPE_IPv6:
+        case IP_PROTO_IPv6:
             /* Inner packet is IPv6 - route it */
             layer3_ipv6_route_pkt(dp_ctx, vrf,  NULL, pkt_block, NULL);
             return;
@@ -491,7 +492,7 @@ Srv6_encapsulate(pkt_block_t *pkt_block, srh_hdr_t *srh) {
            16);
 
     /* Update packet header type to indicate IPv6 packet */
-    pkt_block_update_new_hdr_type(pkt_block, ETH_TYPE_IPv6);
+    pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IPv6);
 }
 
 

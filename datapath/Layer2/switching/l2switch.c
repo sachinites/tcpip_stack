@@ -51,8 +51,7 @@ extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface, 
-                      pkt_block_t *pkt_block, 
-                      int L3_protocol_number) ;
+                      pkt_block_t *pkt_block);
 
 void
 l2_switch_perform_mac_learning (dp_ctx_t *dp_ctx,

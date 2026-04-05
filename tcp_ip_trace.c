@@ -7,6 +7,7 @@
 #include "tcp_public.h"
 #include "datapath/Interface/dp_intf.h"
 #include "datapath/Interface/dp_intf_store.h"
+#include "datapath/Layer3/ping.h"
 
 extern graph_t *topo;
 
@@ -92,7 +93,46 @@ string_ip_hdr_protocol_val(uint16_t type,   c_string string_buffer){
 static int
 tcp_dump_appln_hdr_protocol_icmp(c_string buff, c_string appln_data, uint32_t pkt_size){
 
-    return 0;
+    int rc = 0;
+
+    if (pkt_size < sizeof(icmp_hdr_t)) return 0;
+
+    icmp_hdr_t *icmp_hdr = (icmp_hdr_t *)appln_data;
+
+    switch (icmp_hdr->type) {
+
+        case ICMP_ECHO_REQ:
+            rc += sprintf((char *)buff + rc,
+                "ICMP Hdr : Type : Echo-Request(%u)  Code : %u  "
+                "Checksum : 0x%04x  Id : %u  Seq : %u\n",
+                icmp_hdr->type,
+                icmp_hdr->code,
+                ntohs(icmp_hdr->checksum),
+                ntohs(icmp_hdr->identifier),
+                ntohs(icmp_hdr->seq_no));
+            break;
+
+        case ICMP_ECHO_REP:
+            rc += sprintf((char *)buff + rc,
+                "ICMP Hdr : Type : Echo-Reply(%u)  Code : %u  "
+                "Checksum : 0x%04x  Id : %u  Seq : %u\n",
+                icmp_hdr->type,
+                icmp_hdr->code,
+                ntohs(icmp_hdr->checksum),
+                ntohs(icmp_hdr->identifier),
+                ntohs(icmp_hdr->seq_no));
+            break;
+
+        default:
+            rc += sprintf((char *)buff + rc,
+                "ICMP Hdr : Type : %u  Code : %u  Checksum : 0x%04x\n",
+                icmp_hdr->type,
+                icmp_hdr->code,
+                ntohs(icmp_hdr->checksum));
+            break;
+    }
+
+    return rc;
 }
 
 static int 
@@ -283,9 +323,9 @@ tcp_dump_ethernet_hdr(char *buff,
             break;
         default:
             pkt_block = pkt_block_get_new(
-                                            (uint8_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
-                                           (pkt_size_t)payload_size);
-            pkt_block_set_starting_hdr_type(pkt_block, PROTO_MISC_APP);
+                        (uint8_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
+                        (pkt_size_t)payload_size);
+            pkt_block_update_new_hdr_type(pkt_block, type);
             rc += nfc_pkt_trace_invoke_notif_to_sbscribers(
 					type,
 					pkt_block,
@@ -358,6 +398,11 @@ tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkt_size)
         case IP_PROTO_GRE:
             rc += tcp_dump_gre_hdr(buffer + rc,
                                 (gre_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen),
+                                pkt_size - srh_hdr->hdrlen);
+            break;
+        case ETHERNET_HEADER:
+            rc += tcp_dump_ethernet_hdr (buffer + rc,
+                                (ethernet_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen),
                                 pkt_size - srh_hdr->hdrlen);
             break;
         case IP_PROTO_TCP:
