@@ -1122,7 +1122,7 @@ isis_fragment_alloc_new_lsp_pkt (isis_fragment_t *fragment) {
     fragment->lsp_pkt->fragment = fragment;
     isis_fragment_lock(fragment);
     fragment->lsp_pkt->flood_eligibility = true;
-    fragment->lsp_pkt->pkt = (byte *)tcp_ip_get_new_pkt_buffer(fragment->bytes_filled);
+    fragment->lsp_pkt->pkt = (byte *)XCALLOC_BUFF(0, fragment->bytes_filled);
     fragment->lsp_pkt->alloc_size = fragment->bytes_filled;
     fragment->lsp_pkt->pkt_size = 0;
 }

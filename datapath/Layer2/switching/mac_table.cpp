@@ -10,7 +10,6 @@
 #include "../../../libs/Tracer/tracer.h"
 #include "../../../libs/gluethread/glthread.h"
 #include "../../dp_uapi.h"
-#include "../../../libs/common/cmn_api.h"
 #include "../../../libs/c-hashtable/hashtable_itr.h"
 
 /* -----------------------------------------------------------------------

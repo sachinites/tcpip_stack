@@ -10,7 +10,6 @@
 #include "../../../libs/Tracer/tracer.h"
 #include "../../dp_utils.h"
 #include "../../dp_uapi.h"
-#include "../../../libs/common/cmn_api.h"
 
 extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
@@ -178,8 +177,6 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
         default:
             assert(0);
     }
-
-    pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
 
     l2_forward_ip_packet(dp_ctx,
                          vrf,
@@ -667,8 +664,10 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     pkt_size_t arp_reply_pkt_size = VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD +
                                     (pkt_size_t)sizeof(arp_hdr_t);
 
+    pkt_block_t *pkt_block2 = pkt_block_get_new_pkt_buffer(arp_reply_pkt_size);
+
     vlan_ethernet_hdr_t *vlan_ethernet_hdr_reply =
-        (vlan_ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(arp_reply_pkt_size);
+        (vlan_ethernet_hdr_t *)pkt_block_get_pkt(pkt_block2, 0);
 
     vlan_ethernet_hdr_reply->vlan_8021q_hdr.tpid = htons(ETH_TYPE_VLAN_8021Q);
     vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci  = MAKE_TCI(0, 0, pkt_vlan_id);
@@ -677,8 +676,6 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
                              &arp_hdr_in->src_mac, ntohl(arp_hdr_in->src_ip),
                              &vlan_intf->mac_add, svi_ip_addr);
 
-    pkt_block_t *pkt_block2 = pkt_block_get_new(
-            (uint8_t *)vlan_ethernet_hdr_reply, arp_reply_pkt_size);
     pkt_block_update_new_hdr_type(pkt_block2, ETHERNET_HEADER);
 
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(

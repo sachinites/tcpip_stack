@@ -103,6 +103,10 @@ _pkt_receive(dp_ctx_t *dp_ctx,
     pkt_block = pkt_block_get_new(NULL, 0);
 
     pkt_block_set_new_pkt(pkt_block,
+                          (uint8_t *)pkt_with_aux_data,
+                          pkt_size);
+
+    pkt_block_set_new_pkt(pkt_block,
                           (uint8_t *)pkt_with_aux_data + sizeof(uint32_t),
                           pkt_size - sizeof(uint32_t));
 

@@ -7,8 +7,6 @@
 #include "../../../libs/common/l2_hdrs.h"
 #include "../../../libs/common/l4_hdrs.h"
 
-#include "../../../libs/common/cmn_api.h"
-
 #include "../../dp_ctx.h"
 #include "../../Vrfs/dp_vrf.h"
 #include "../../Interface/dp_intf.h"

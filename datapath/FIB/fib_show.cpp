@@ -8,7 +8,6 @@
 #include "fib_route.h"
 #include "fib_nh.h"
 #include "../../libs/common/cmn_prefix.h"
-#include "../../libs/common/cmn_api.h"
 #include "../../libs/mtrie/mtrie.h"
 #include "../../libs/c-hashtable/hashtable.h"
 #include "../../libs/c-hashtable/hashtable_itr.h"

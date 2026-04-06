@@ -16,7 +16,6 @@
 #include "../dp_uapi.h"
 #include "../Layer3/Gre/gre-fwd.h"
 #include "../Layer3/SRv6/srv6-endpoint.h"
-#include "../../libs/common/cmn_api.h"
 #include "../../libs/c-hashtable/hashtable.h"
 #include "../../libs/c-hashtable/hashtable_itr.h"
 #include "../Layer2/switching/mac_table.h"
@@ -79,7 +78,7 @@ send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
     ev_dis_pkt_data = (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
 
     ev_dis_pkt_data->ifindex = peer_end->port_id;
-    ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
+    ev_dis_pkt_data->pkt = (unsigned char *)XCALLOC_BUFF(0, pkt_size);
     memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
     ev_dis_pkt_data->pkt_size = pkt_size;
 
@@ -91,7 +90,7 @@ send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
                        (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t)))
     {
         cprintf("%s : Fatal : Ingress Pkt QueueExhausted\n", peer_dp_ctx->ctx_name);
-        tcp_ip_free_pkt_buffer(ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
+        XFREE(ev_dis_pkt_data->pkt);
         free (ev_dis_pkt_data);
     }
 
@@ -716,7 +715,7 @@ dp_inject_packet (dp_ctx_t *dp_ctx,
 	ev_dis_pkt_data =  (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
 
 	ev_dis_pkt_data->ifindex = peer_intf->port_id;
-	ev_dis_pkt_data->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
+	ev_dis_pkt_data->pkt = (unsigned char *)XCALLOC_BUFF(0, pkt_size);
 	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
 	ev_dis_pkt_data->pkt_size = pkt_size;
 

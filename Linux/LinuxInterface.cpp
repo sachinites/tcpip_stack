@@ -35,7 +35,6 @@
 #include "../libs/common/ipv6_utils.h"
 #include "../libs/pkt-block/pkt_block.h"
 #include "../datapath/dp_uapi.h"
-#include "../libs/common/cmn_api.h"
 
 
 bool LinuxRtr = false;

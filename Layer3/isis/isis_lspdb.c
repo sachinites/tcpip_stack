@@ -22,7 +22,7 @@ isis_get_dummy_lsp_pkt_with_key(isis_node_info_t *node_info, uint32_t rtr_id, pn
     
         node_info->lsp_dummy_pkt = (isis_lsp_pkt_t *)XCALLOC2(0, 1, isis_lsp_pkt_t);
         pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + ISIS_LSP_HDR_SIZE;
-        node_info->lsp_dummy_pkt->pkt = tcp_ip_get_new_pkt_buffer ( pkt_size);
+        node_info->lsp_dummy_pkt->pkt = (unsigned char *)XCALLOC_BUFF(0,  pkt_size);
         isis_mark_isis_lsp_pkt_flood_ineligible(0, node_info->lsp_dummy_pkt);
         node_info->lsp_dummy_pkt->pkt_size = pkt_size;
 	    node_info->lsp_dummy_pkt->alloc_size = pkt_size;

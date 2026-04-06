@@ -59,7 +59,6 @@
 #include "libs/common/protoIds.h"
 
 #include "dpal/cp2dp.h"
-#include "libs/common/cmn_api.h"
 #include "libs/common/ipv6_hdrs.h"
 #include "libs/common/ipv6_utils.h"
 

@@ -60,12 +60,12 @@ struct pkt_block_ {
 
     uint8_t *pkt;
     uintptr_t alloc_ptr;
-    pkt_size_t pkt_size;
-    gen_proto_id_t hdr_type;
     uintptr_t ingress_intf;
     encap_meta_data_t *encap_data;
     char *fn_name;
     uint64_t pkt_id;
+    pkt_size_t pkt_size;
+    gen_proto_id_t hdr_type;
     uint16_t lineno;
     uint8_t ref_count;
     bool no_modify;
@@ -157,4 +157,10 @@ pkt_mac_str (pkt_block_t *pkt_block, char *buffer) ;
 char *
 pkt_block_str (pkt_block_t *pkt_block);
 
+void 
+pkt_block_slide (pkt_block_t *pkt_block, 
+                 int8_t lorr1, 
+                 int8_t lorr2, 
+                 uint16_t space);
+                 
 #endif

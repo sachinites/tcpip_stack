@@ -191,7 +191,7 @@ isis_process_lsp_pkt(isis_node_info_t *node_info,
 
     new_lsp_pkt = XCALLOC2(0, 1, isis_lsp_pkt_t);
     new_lsp_pkt->flood_eligibility = true;
-    new_lsp_pkt->pkt = tcp_ip_get_new_pkt_buffer(pkt_size);
+    new_lsp_pkt->pkt = XCALLOC_BUFF(0, pkt_size);
     memcpy(new_lsp_pkt->pkt, (byte *)lsp_eth_hdr, pkt_size);
     new_lsp_pkt->pkt_size = pkt_size;
     new_lsp_pkt->alloc_size = pkt_size;
@@ -346,7 +346,7 @@ isis_prepare_hello_pkt(Interface *intf, pkt_size_t *hello_pkt_size) {
                                   eth_hdr_playload_size;
 
     ethernet_hdr_t *hello_eth_hdr =
-        (ethernet_hdr_t *)tcp_ip_get_new_pkt_buffer(*hello_pkt_size);
+        (ethernet_hdr_t *)XCALLOC_BUFF(0, *hello_pkt_size);
 
     memset(hello_eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
     layer2_fill_with_broadcast_mac(hello_eth_hdr->dst_mac.mac);
@@ -746,7 +746,7 @@ isis_deref_isis_pkt(isis_node_info_t *node_info, isis_lsp_pkt_t *lsp_pkt) {
     }
 
     /* release the resources held by this pkt buffer */
-    tcp_ip_free_pkt_buffer(lsp_pkt->pkt, lsp_pkt->alloc_size);
+    XFREE(lsp_pkt->pkt);
     /* Stop the associated timers */
     isis_lsp_pkt_flood_timer_stop(lsp_pkt);
 

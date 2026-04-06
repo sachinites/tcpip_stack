@@ -50,25 +50,6 @@
 
 extern graph_t *topo;
 
-
-/* This fn sends a dummy packet to test L3 and L2 routing
- * in the project. We send dummy Packet starting from Network
- * Layer on node 'node' to destination address 'dst_ip_addr'
- * using below fn*/
-static void
-layer3_ping_fn(node_t *node, c_string dst_ip_addr, vrf_t *vrf, uint32_t count){
-
-    uint32_t i;
-    uint32_t addr_int;
-
-    addr_int = tcp_ip_convert_ip_p_to_n(dst_ip_addr);
-    cprintf("\nSrc node : %s, Ping ip : %s", node->node_name, dst_ip_addr);
-
-    for (i = 0; i < count ; i ++) {
-        cp2dp_send_ip_data (node, vrf, NULL, addr_int, IP_PROTO_ICMP);
-    }
-}
-
 static void
 layer3_ero_ping_fn(node_t *node, 
                     c_string dst_ip_addr, 
