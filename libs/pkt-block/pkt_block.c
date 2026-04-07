@@ -52,7 +52,7 @@ pkt_block_get_new_pkt_buffer2(pkt_size_t pkt_size, const char *fn_name, uint16_t
 
     pkt_block_t *pkt_block = (pkt_block_t *)calloc( 1, sizeof(pkt_block_t));
     pkt_block->pkt_id = 0;
-    pkt_block->alloc_ptr = (uintptr_t )XCALLOC_BUFF(0, pkt_size);
+    pkt_block->alloc_ptr = (uintptr_t )XCALLOC_BUFF(0, MAX_PACKET_BUFFER_SIZE);
     pkt_block->pkt = (uint8_t *)
         (pkt_block->alloc_ptr + 
          MAX_PACKET_BUFFER_SIZE - (pkt_size + PKT_BUFFER_RIGHT_ROOM));
@@ -90,13 +90,9 @@ pkt_block_dereference(pkt_block_t *pkt_block) {
 
     uint8_t ref_count = pkt_block->ref_count;
 
-    if (pkt_block->ref_count == 0) {
-        if (pkt_block->encap_data) free(pkt_block->encap_data);
-        pkt_block->encap_data = NULL;
-        if (pkt_block->ingress_intf) pkt_block->ingress_intf = 0;
-        pkt_block_free(pkt_block);
-        return 0;
-    }
+    /* Dereferencing an already-zeroed block is a double-free bug in the
+     * caller; catch it here rather than silently freeing again. */
+    assert(pkt_block->ref_count != 0);
 
     pkt_block->ref_count--;
 

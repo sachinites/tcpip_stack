@@ -116,8 +116,6 @@ ping_send4 (void *_pctx)
 
         cprintf ("\nPING %s --> %s\n", src_addr_str, dst_addr_str);
         refresh();
-
-        pkt_block_debug(pkt_block);
         
         dp_send_ip_data(pctx->dp_ctx, vrf, pkt_block );
 

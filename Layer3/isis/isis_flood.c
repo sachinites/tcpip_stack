@@ -45,6 +45,7 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
     glthread_t *curr;
     Interface *intf;
     pkt_block_t *pkt_block;
+    pkt_block_t *pkt_block2;
     isis_lsp_pkt_t *lsp_pkt;
     bool has_up_adjacency;
     isis_lsp_xmit_elem_t *lsp_xmit_elem;
@@ -63,8 +64,6 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     has_up_adjacency = isis_any_adjacency_up_on_interface(intf);
 
-    pkt_block = pkt_block_get_new(NULL, 0);
-
     ITERATE_GLTHREAD_BEGIN(&intf_info->lsp_xmit_list_head, curr) {
 
         lsp_xmit_elem = glue_to_lsp_xmit_elem(curr);
@@ -73,20 +72,34 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
         assert(lsp_pkt->flood_queue_count);       
         XFREE(lsp_xmit_elem);
         
-        if (has_up_adjacency && lsp_pkt->flood_eligibility && 
+        if (has_up_adjacency && 
+            lsp_pkt->flood_eligibility && 
             !node_info->lsdb_advt_block){
     
             isis_assign_lsp_src_mac_addr(intf, lsp_pkt);
-            pkt_block_set_new_pkt(pkt_block, (uint8_t *)lsp_pkt->pkt, lsp_pkt->pkt_size);
+
+            pkt_block = pkt_block_get_new((uint8_t *)lsp_pkt->pkt, lsp_pkt->pkt_size);
             pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
+            
             /* This needs an optimization, but code changes will be too much !*/
-            pkt_block_t *pkt_block2 = pkt_block_dup(pkt_block);
+            pkt_block2 = pkt_block_dup(pkt_block);
+
             cp2dp_xmit_pkt(intf->att_node, pkt_block2, intf);
+
             ISIS_INTF_INCREMENT_STATS(intf, lsp_pkt_sent);
-            tracer (ISIS_TR(node_info), TR_ISIS_LSDB, "%s : LSP %s pushed out of interface %s\n",
-                ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str());
+
+            tracer (ISIS_TR(node_info), TR_ISIS_LSDB, 
+                "%s : LSP %s pushed out of interface %s\n",
+                ISIS_LSPDB_MGMT, 
+                isis_print_lsp_id(lsp_pkt, lsp_id_str), 
+                intf->if_name.c_str());
+
             pkt_block_dereference(pkt_block2);
+
+            XFREE(pkt_block);
+
         } else {
+
             tracer (ISIS_TR(node_info), TR_ISIS_LSDB, 
                 "%s : LSP %s discarded from output flood Queue of interface %s, %d %d\n",
                 ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str(),
@@ -104,18 +117,16 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
     } ITERATE_GLTHREAD_END(&intf_info->lsp_xmit_list_head, curr);
 
-    XFREE(pkt_block);
-
     /* If there are no more LSPs to be pushed out for flooding, and
         we are shutting down then, check and delete protocol configuration
     */
-    if ( node_info->pending_lsp_flood_count ==0                &&
+    if ( node_info->pending_lsp_flood_count == 0 &&
          isis_is_protocol_shutdown_in_progress(node_info)) {
         
         isis_check_and_shutdown_protocol_now(node_info,
             ISIS_PRO_SHUTDOWN_GEN_PURGE_LSP_WORK);
     }
-    
+
 }
 
 void
@@ -236,8 +247,12 @@ isis_schedule_lsp_flood(isis_node_info_t *node_info,
 
         if (ISIS_INTF_INFO(intf)->intf_grp) continue;
 
-         tracer (ISIS_TR(node_info), TR_ISIS_LSDB, "%s : LSP %s scheduled for flood out of intf %s\n",
-            ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), intf->if_name.c_str());
+         tracer (ISIS_TR(node_info), TR_ISIS_LSDB, 
+            "%s : LSP %s scheduled for flood out of intf %s\n",
+            ISIS_LSPDB_MGMT, 
+            isis_print_lsp_id(lsp_pkt, lsp_id_str), 
+            intf->if_name.c_str());
+
         isis_queue_lsp_pkt_for_transmission(intf, lsp_pkt);
         is_lsp_queued = true;
 
@@ -250,9 +265,12 @@ isis_schedule_lsp_flood(isis_node_info_t *node_info,
 
         if (exempt_iif && ISIS_INTF_INFO(exempt_iif)->intf_grp == intf_grp) { 
         
-             tracer (ISIS_TR(node_info), TR_ISIS_LSDB, "%s : LSP %s flood skip out of intf %s, Reason : reciepient intf grp %s\n",
-                        ISIS_LSPDB_MGMT, isis_print_lsp_id(lsp_pkt, lsp_id_str), exempt_iif->if_name.c_str(),
-                        ISIS_INTF_INFO(exempt_iif)->intf_grp->name);
+             tracer (ISIS_TR(node_info), TR_ISIS_LSDB, 
+                    "%s : LSP %s flood skip out of intf %s, Reason : reciepient intf grp %s\n",
+                    ISIS_LSPDB_MGMT, 
+                    isis_print_lsp_id(lsp_pkt, lsp_id_str), 
+                    exempt_iif->if_name.c_str(),
+                    ISIS_INTF_INFO(exempt_iif)->intf_grp->name);
             continue;
         }
         

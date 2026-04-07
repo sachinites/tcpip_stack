@@ -261,9 +261,7 @@ Srv6_decapsulate(pkt_block_t *pkt_block) {
     pkt_size_t pkt_size = 0;
     
     /* Only process IPv6 packets */
-    if (pkt_block_get_starting_hdr(pkt_block) != ETH_TYPE_IPv6) {
-        return;
-    }
+    assert (pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_IPv6);
     
     byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
@@ -479,7 +477,7 @@ Srv6_encapsulate(pkt_block_t *pkt_block, srh_hdr_t *srh) {
     /* Initialize IPv6 header with default values */
     initialize_ipv6_hdr(ipv6_hdr);
     ipv6_hdr->next_header = IP_PROTO_SRH;
-    ipv6_hdr->payload_length = pkt_size - sizeof(ipv6_hdr_t);
+    ipv6_hdr->payload_length = htons(pkt_size - sizeof(ipv6_hdr_t));
     
     /* Source address: Not known at this point, filled with zeros */
     /* Will be set by routing layer based on outgoing interface */

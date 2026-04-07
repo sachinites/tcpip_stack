@@ -49,12 +49,14 @@ dp_uapi_inject_packet(dp_ctx_t *dp_ctx,
                       pkt_block_t *pkt_block,
                       uint32_t ifindex) {
 
-    dp_intf_t *recv_intf = dp_look_up_interface(dp_ctx->dp_vrf_ht, ifindex);
+    dp_intf_t *recv_intf = dp_look_up_interface(dp_ctx->dp_intf_ht, ifindex);
 
     if (!recv_intf) return -1;
 
     dp_inject_packet (dp_ctx, 
                       pkt_block, recv_intf);
+                      
+    return 0;
 }
 
 extern void 

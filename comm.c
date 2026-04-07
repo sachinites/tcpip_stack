@@ -100,17 +100,21 @@ _pkt_receive(dp_ctx_t *dp_ctx,
     pkt_block_t *pkt_block;
     uint32_t port_id = *(uint32_t *)pkt_with_aux_data;
 
-    pkt_block = pkt_block_get_new(NULL, 0);
-
-    pkt_block_set_new_pkt(pkt_block,
-                          (uint8_t *)pkt_with_aux_data,
-                          pkt_size);
-
-    pkt_block_set_new_pkt(pkt_block,
-                          (uint8_t *)pkt_with_aux_data + sizeof(uint32_t),
-                          pkt_size - sizeof(uint32_t));
-
+#if 0
+    pkt_block = pkt_block_get_new((uint8_t *)pkt_with_aux_data, pkt_size);
+    pkt_block_slide(pkt_block, -1, 1, sizeof(uint32_t));
     pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
+#else 
+     pkt_block = pkt_block_get_new(NULL, 0);
+ 
+     pkt_block_set_new_pkt(pkt_block,
+                           (uint8_t *)pkt_with_aux_data,
+                           pkt_size);
+ 
+     pkt_block_set_new_pkt(pkt_block,
+                           (uint8_t *)pkt_with_aux_data + sizeof(uint32_t),
+                           pkt_size - sizeof(uint32_t));
+#endif
 
     dp_uapi_inject_packet (dp_ctx, 
                            pkt_block, port_id);

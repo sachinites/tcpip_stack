@@ -660,6 +660,7 @@ extern void
 dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
     dp_ctx_t *dp_ctx;
+    uint8_t *pkt_start;
     pkt_block_t *pkt_block;
 	dp_intf_t *recv_intf;
 
@@ -680,7 +681,9 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
 		pkt = ev_dis_pkt_data->pkt;		
 
-        pkt_block = pkt_block_get_new((uint8_t *)pkt, ev_dis_pkt_data->pkt_size);
+        pkt_block = pkt_block_get_new_pkt_buffer(ev_dis_pkt_data->pkt_size);
+        pkt_start = (uint8_t *)pkt_block_get_pkt(pkt_block, 0);
+        memcpy (pkt_start, ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
         pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
 
 		dp_pkt_receive(dp_ctx, recv_intf->vrf,
@@ -688,6 +691,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
                     pkt_block);
 
         pkt_block_dereference(pkt_block);
+        free (ev_dis_pkt_data->pkt);
 		free (ev_dis_pkt_data);
 		ev_dis_pkt_data = NULL;
 	}
@@ -767,23 +771,20 @@ void dp_pkt_xmit_intf_job_cbk(event_dispatcher_t *ev_dis,
     ev_dis_pkt_data_t *ev_dis_pkt_data =
         (ev_dis_pkt_data_t *)task_get_next_pkt(ev_dis, &pkt_size);
 
-    if (!ev_dis_pkt_data)
-    {
-        return;
-    }
-
+    if (!ev_dis_pkt_data) return;
+    
     for (; ev_dis_pkt_data;
          ev_dis_pkt_data = (ev_dis_pkt_data_t *)task_get_next_pkt(ev_dis, &pkt_size))
     {
-
         dp_intf = dp_look_up_interface(dp_ctx->dp_intf_ht, ev_dis_pkt_data->ifindex);
+        pkt_block = (pkt_block_t *)ev_dis_pkt_data->pkt;
 
         if (!dp_intf)
         {
+            pkt_block_dereference(pkt_block);
             free(ev_dis_pkt_data);
             continue;
         }
-        pkt_block = (pkt_block_t *)ev_dis_pkt_data->pkt;
         dp_send_pkt_out(dp_ctx, dp_intf, pkt_block);
         pkt_block_dereference(pkt_block);
         free(ev_dis_pkt_data);

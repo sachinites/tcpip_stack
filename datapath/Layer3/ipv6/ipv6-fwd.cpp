@@ -66,7 +66,7 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
             0,
             oif,
             pkt_block,
-            ETH_TYPE_IPv6);
+            IP_PROTO_IPv6);
 
     nexthop->hit_count++;
 }
