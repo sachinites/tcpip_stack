@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -417,37 +418,70 @@ tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkt_size)
     return rc;
 }
 
+/* Format: DD-MM-YYYY HH:MM:SS.uuuuuu (local time, microsecond field). */
+static size_t
+tcp_format_log_timestamp(char *tsbuf, size_t tsbuf_sz)
+{
+    struct timespec ts;
+    struct tm tm_local;
 
-void 
-tcp_write_data(int sock_fd, 
-               FILE *log_file1, FILE *log_file2, 
-               char *out_buff, uint32_t buff_size){
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+        ts.tv_sec = time(NULL);
+        ts.tv_nsec = 0;
+    }
+    if (!localtime_r(&ts.tv_sec, &tm_local))
+        return 0;
+    int n = snprintf(tsbuf, tsbuf_sz,
+                       "%02d-%02d-%04d %02d:%02d:%02d.%06ld ",
+                       tm_local.tm_mday,
+                       tm_local.tm_mon + 1,
+                       tm_local.tm_year + 1900,
+                       tm_local.tm_hour,
+                       tm_local.tm_min,
+                       tm_local.tm_sec,
+                       (long)(ts.tv_nsec / 1000L));
+    if (n <= 0 || (size_t)n >= tsbuf_sz)
+        return 0;
+    return (size_t)n;
+}
 
-    int rc; 
-    char error_msg[64];
+void
+tcp_write_data(int sock_fd,
+               FILE *log_file1, FILE *log_file2,
+               char *out_buff, uint32_t buff_size)
+{
+    char ts_prefix[40];
+    size_t ts_len = 0;
+    int log_to_file = (log_file1 != NULL || log_file2 != NULL || (sock_fd != -1));
 
     assert(out_buff);
 
-    if(log_file1){
-        rc = fwrite(out_buff, sizeof(char), buff_size, log_file1);
+    if (log_to_file)
+        ts_len = tcp_format_log_timestamp(ts_prefix, sizeof(ts_prefix));
+
+    if (log_file1) {
+        if (ts_len)
+            fwrite(ts_prefix, sizeof(char), ts_len, log_file1);
+        fwrite(out_buff, sizeof(char), buff_size, log_file1);
         /* The below fflush may impact performance as it will flush the
          * data from internal buffer memory onto the disk immediately*/
         fflush(log_file1);
     }
 
-    if(log_file2){
-        rc = fwrite(out_buff, sizeof(char), buff_size, log_file2);
+    if (log_file2) {
+        if (ts_len)
+            fwrite(ts_prefix, sizeof(char), ts_len, log_file2);
+        fwrite(out_buff, sizeof(char), buff_size, log_file2);
         /* The below fflush may impact performance as it will flush the
          * data from internal buffer memory onto the disk immediately*/
         fflush(log_file2);
     }
-    
-    if(sock_fd == -1)
-        return; 
 
+    if (sock_fd == -1) return;
+
+    write(sock_fd, ts_prefix, ts_len);
     write(sock_fd, out_buff, buff_size);
 }
-
 
 void
 tcp_dump(int sock_fd, 

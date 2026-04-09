@@ -210,7 +210,7 @@ ping_echo_reply_recvd (ping_ctx_t *pctx, pkt_block_t *pkt_block)
         pctx->received++;
 
         if (pctx->received == 1 || rtt_us < pctx->rtt_min) pctx->rtt_min = rtt_us;
-        if (rtt_us > pctx->rtt_max)                         pctx->rtt_max = rtt_us;
+        if (rtt_us > pctx->rtt_max) pctx->rtt_max = rtt_us;
         pctx->rtt_sum += rtt_us;
 
         cprintf ("Reply from %s: icmp_seq=%u ttl=%d time=%u us\n", 

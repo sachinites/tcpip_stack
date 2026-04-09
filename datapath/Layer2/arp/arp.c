@@ -748,51 +748,6 @@ arp_entry_add(dp_ctx_t *dp_ctx,
     return true;
 }
 
-#if 0
-static int
-show_arp_handler(int cmdcode, Stack_t *tlv_stack, 
-                    op_mode enable_or_disable){
-
-    node_t *node;
-    c_string node_name;
-    c_string vrf_name = NULL;
-    tlv_struct_t *tlv = NULL;
-    
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
-            vrf_name = tlv->value;
-
-    }TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-    dp_vrf_t *vrf = dp_look_up_vrf(node->dp_ctx, vrf_name);
-
-    show_arp_table(vrf->arp_table);
-
-    return 0;
-}
-#endif
-
-static int
-show_arp_handler(int cmdcode, Stack_t *tlv_stack, 
-                    op_mode enable_or_disable) {return 0;}
-
-int show_arp_cli_tree(param_t *param)
-{
-    {
-        /*show node <node-name> protocol arp*/
-        static param_t arp;
-        init_param(&arp, CMD, "arp", show_arp_handler, 0, INVALID, 0, "Dump Arp Table");
-        libcli_register_param(param, &arp);
-        libcli_set_param_cmd_code(&arp, CMDCODE_SHOW_NODE_ARP_TABLE);
-    }
-
-    return 0;
-}
-
 void 
 arp_entry_delete_by_interface (arp_table_t *arp_table, dp_intf_t *intf) {
 

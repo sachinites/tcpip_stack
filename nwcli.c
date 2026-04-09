@@ -160,7 +160,6 @@ static cli_register_cb
         isis_show_cli_tree,
         srv6_build_cli_show_tree,
         lfa_show_cli_tree,
-        show_arp_cli_tree,
 
         /* Add more CB here */
 
@@ -387,35 +386,6 @@ show_mac_handler(int cmdcode, Stack_t *tlv_stack,
     }
 
     show_mac_table(node->dp_ctx->mac_table, vlan_id);
-    return 0;
-}
-
-
-extern arp_table_t *dp_vrf_get_arp_cache (dp_ctx_t *dp_ctx, char *vrf);
-extern void show_arp_table(arp_table_t *arp_table);
-
-static int
-show_arp_handler(int cmdcode, Stack_t *tlv_stack, 
-                    op_mode enable_or_disable){
-
-    node_t *node;
-    c_string node_name;
-    c_string vrf_name = NULL;
-    tlv_struct_t *tlv = NULL;
-    
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-        else if(parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
-            vrf_name = tlv->value;
-
-    }TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-    show_arp_table(dp_vrf_get_arp_cache(
-            node->dp_ctx, vrf_name ? vrf_name : DEF_VRF_NAME));
-
     return 0;
 }
 

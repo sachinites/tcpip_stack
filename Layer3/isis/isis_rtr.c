@@ -263,8 +263,7 @@ isis_show_node_protocol_state(vrf_t *vrf) {
     Interface *intf;
     is_enabled = isis_is_protocol_enable_on_node(vrf);
 
-    cprintf("ISIS Protocol : %sabled %p\n", 
-        is_enabled ? "En" : "Dis", vrf->isis_node_info);
+    cprintf("ISIS Protocol : %sabled\n", is_enabled ? "En" : "Dis");
 
     if(!is_enabled) return;
 

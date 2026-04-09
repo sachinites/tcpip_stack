@@ -561,7 +561,7 @@ config node R5 protocol isis interface all
 
 config node R0 no protocol isis interface eth1
 config node R0 no interface ethernet eth1 ip-address 192.168.0.2 24
-config node R0 no interface ethernet eth1 vrf Default-vrf
+config node R0 no interface ethernet eth1 vrf 0
 config node R0 vrf red route-distinguisher 1:1
 config node R0 interface ethernet eth1 vrf red
 config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
@@ -571,7 +571,7 @@ config node R0 vrf red rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0
 
 config node R3 no protocol isis interface eth1
 config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
-config node R3 no interface ethernet eth1 vrf Default-vrf
+config node R3 no interface ethernet eth1 vrf 0
 config node R3 vrf red route-distinguisher 1:1
 config node R3 interface ethernet eth1 vrf red
 config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
@@ -597,7 +597,7 @@ config node CE2 rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.2 inte
                                 |          |                                  /      |                  |    R3    |eth1     192.168.0.1|       |
 +------+192.168.0.1         eth1|   R0     |                                 /       |                  | 122.1.1.3+--------------------+       |
 |      +------------------------+122.1.1.0 |                                /        |                  |          |192.168.0.2     eth0|  CE2  |
-| CE1  | eth0        192.168.0.2|          |                               /         |                  +----+-----+                    |       |
+| CE1  | eth0        192.168.0.2|          |                               /         |                  +----+-----+                    |10.0.0.2|
 |10.0.0.1|                      +---+---+--|               ---------------/          |                       |eth10                     +---+---+
 +--+---+                            |eth14                /                          |                       |60.1.1.1/24                   |eth1
    |eth1                            |80.1.1.1/24         /                           |                       |                              |172.168.0.1/24
