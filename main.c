@@ -68,6 +68,7 @@ extern void mm_init();
 graph_t *topo = NULL;
 extern event_dispatcher_t gev_dis;
 extern int cprintf (const char* format, ...) ;
+extern bool LinuxRtr;
 
 static void
 tcp_ip_stack_pre_topology_create_initializations(void) {
@@ -93,7 +94,10 @@ main(int argc, char **argv){
     std_lib_init(cprintf);
 
     tcp_ip_stack_pre_topology_create_initializations();
-    topo = cross_link_topology();
+
+    topo = LinuxRtr ? Linux_Router_topology() : \
+                      cross_link_topology();
+                      
     init_tcp_ip_stack();
     libcli_init_done ();
     cli_start_shell(); 

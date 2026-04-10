@@ -37,7 +37,7 @@
 #include "../datapath/dp_uapi.h"
 
 
-bool LinuxRtr = false;
+bool LinuxRtr = true;
 
 // Structure to hold interface socket information
 typedef struct linux_intf_socket_ {
@@ -251,7 +251,7 @@ LinuxLoadInterfaces (node_t *node) {
         intf_shared->SetSharedPtr(intf_shared);
         Interface *intf = intf_shared.get();
         intf->att_node = node;
-        
+                
         // Assign MAC address
         if (has_mac) {
             mac_addr_t mac_addr_struct = {0};
@@ -269,10 +269,24 @@ LinuxLoadInterfaces (node_t *node) {
         intf->ifindex = ifr.ifr_ifindex;
         assert (intf->ifindex <= MAX_INTF_IFINDEX );
 
+        cp2dp_interface_create(node, intf);
+        cp2dp_send_intf_admin_status_update(node, intf->ifindex, !is_up);
+
         // Set IP address and add route if available
         if (has_ip) {
+
             intf->InterfaceSetIpAddressMask(ip_addr, prefix_len);
-            interface_install_local_v4_routes  (node, intf);
+            
+            cp2dp_send_intf_ipv4_addr_update(
+                node, intf->ifindex, ip_addr, prefix_len);            
+
+            rtm_t *rtm = rtm_get(node, RTM_DEFAULT_VRF, AF_IPV4, 0);
+            intf->rtm_local_rt_idx = 
+                cp_rtm_install_local_or_connected_v4_routes (
+                    rtm, ip_addr, 32, intf->GetSharedPtr());
+            intf->rtm_connected_rt_idx = 
+                cp_rtm_install_local_or_connected_v4_routes (
+                    rtm, apply_mask2 (ip_addr, prefix_len), prefix_len, intf->GetSharedPtr());
         }
         
         mac_addr_t *mac_addr_ptr = intf->GetMacAddr();
@@ -285,30 +299,23 @@ LinuxLoadInterfaces (node_t *node) {
             /* Install IPv6 link-local address route using new RTM API */
             rtm_t *rtm = rtm_get(node, RTM_DEFAULT_VRF, AF_IPV6, 0);
 
-            cmn_prefix_t prefix_key;
-
-            /* Initialize prefix for link-local address (host route /128) */
-            cmn_prefix_initialize_v6(&prefix_key, &v6_addr.addr, 128);
-
-            /* Install static route using simplified API */
-            uint32_t nhidx = cp_rtm_install_static_route(
-                rtm,
-                &prefix_key,
-                NULL,        /* No gateway for local route */
-                intf, /* Output interface */
-                0            /* Default cost */
-            );
-
-            if (nhidx == 0)
+            intf->rtm_link_local_rt6_idx =
+                cp_rtm_install_local_or_connected_v6_routes(
+                    rtm, &v6_addr, 128, intf->GetSharedPtr());
+        
+            if (intf->rtm_link_local_rt6_idx == 0)
             {
                 char ipv6_str[48];
                 inet_ntop(AF_INET6, &v6_addr.addr, ipv6_str, sizeof(ipv6_str));
                 cprintf("Warning: Failed to install IPv6 link-local route %s/128 on interface %s\n",
                         ipv6_str, intf->if_name.c_str());
             }
+            else {
+                cp2dp_send_intf_ipv6_addr_update(
+                    node, intf->ifindex, v6_addr.addr, 128);
+            }
         }
-
-        intf->ifindex = interface_get_new_ifindex(node);
+        
         bool inserted = node_global_intf_map_insert(node, intf);
         assert (inserted);
     }
