@@ -748,7 +748,7 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                         dp_ctx->mac_table, 
                         dp_ctx->rmac.mac, 
                         0, 
-                        dp_ctx->dp_rmac_intf->port_id, 0, 0);
+                        dp_ctx->dp_rmac_intf->port_id, MAC_STATIC, 0);
                 break;
 
 

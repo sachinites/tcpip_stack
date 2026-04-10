@@ -56,6 +56,7 @@ graph_t *standalone_node_topology(void) {
 
     graph_t *topo = create_new_graph("Stand-Alone Topo");
     node_t *R0 = Router_Create(topo, (const c_string)"R0");
+    return topo;
     node_set_rtr_id(R0, "122.1.1.1");
     node_t *R1 = Router_Create(topo, (const c_string)"R1");
     node_set_rtr_id(R1, "122.1.1.2");
@@ -988,7 +989,13 @@ config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.12
 config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.13
 config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.14
 
- */
+Test : 
+run node Host1 ping 192.168.10.40
+run node Host1 ping 192.168.10.30
+run node Host1 ping 192.168.10.20
+
+*/
+
 graph_t *
 evpn_spine_leaf(void) {
 

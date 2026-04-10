@@ -269,7 +269,7 @@ tcp_dump_ethernet_hdr(char *buff,
 
     int rc = 0;
     pkt_block_t *pkt_block;
-     char string_buffer[32];
+    char string_buffer[32] = {0};
 
     vlan_ethernet_hdr_t *vlan_eth_hdr = NULL;
 
@@ -281,8 +281,8 @@ tcp_dump_ethernet_hdr(char *buff,
         vlan_eth_hdr = (vlan_ethernet_hdr_t *)eth_hdr;
     }
 
-    unsigned short type = vlan_8021q_hdr ? htons(vlan_eth_hdr->type) :\
-                            htons(eth_hdr->type);
+    unsigned short type = vlan_8021q_hdr ? ntohs(vlan_eth_hdr->type) :\
+                            ntohs(eth_hdr->type);
 
     rc += sprintf (buff + rc, "Eth hdr : ");
     rc += sprintf (buff + rc, "%02x:%02x:%02x:%02x:%02x:%02x -> "
