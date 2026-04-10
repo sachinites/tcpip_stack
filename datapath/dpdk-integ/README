@@ -1,0 +1,26 @@
+Install dependencies : 
+=========================
+sudo apt update
+sudo apt install build-essential meson ninja-build libnuma-dev python3-pyelftools pkg-config
+
+
+Build DPDK:
+===========================
+cd ~/OpenSrc-Codes/dpdk
+meson setup build
+ninja -C build
+
+
+Install System wide
+=========================
+sudo ninja -C build install
+sudo ldconfig
+
+
+Link your program:
+===========================
+gcc my_app.c -o my_app \
+-I$HOME/OpenSrc-Codes/dpdk/build/include \
+-L$HOME/OpenSrc-Codes/dpdk/build/lib \
+-lrte_eal -lrte_mbuf -lrte_ring -lrte_mempool -lrte_ethdev \
+-lpthread -ldl -lnuma -lm

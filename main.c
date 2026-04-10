@@ -36,6 +36,7 @@
 
 #include <stdio.h>
 #include <stdlib.h> 
+#include <rte_eal.h>
 #include "router_init.h"
 #include "CLIBuilder/libcli.h"
 #include "libs/EventDispatcher/event_dispatcher.h"
@@ -85,6 +86,8 @@ int
 main(int argc, char **argv){
     
     (void )argc; (void) argv;
+
+    rte_eal_init(argc, argv);
 
     libcli_init ();
     std_lib_init(cprintf);

@@ -16,6 +16,11 @@ SRV6_LIB_PATH=-LLayer3/SegmentRouting/SRv6 -lsrv6
 LFA_LIB=Layer3/LFA/liblfa.a
 LFA_LIB_PATH=-LLayer3/LFA -llfa
 
+DPDK=-I$HOME/OpenSrc-Codes/dpdk/build/include \
+	 -L$HOME/OpenSrc-Codes/dpdk/build/lib \
+	 -lrte_eal -lrte_mbuf -lrte_ring -lrte_mempool -lrte_ethdev \
+	-lpthread -ldl -lnuma -lm
+
 LIBS= ${ISIS_LIB_PATH} \
 			${SRV6_LIB_PATH} \
 			${LFA_LIB_PATH} \
@@ -101,7 +106,7 @@ pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
 tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a
-	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} -o tcpstack.exe
+	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} ${DPDK} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
 tcpip_notif.o:tcpip_notif.c
