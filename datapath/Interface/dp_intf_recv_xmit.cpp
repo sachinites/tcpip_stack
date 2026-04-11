@@ -1,5 +1,17 @@
 #include <stdlib.h>
 #include <memory.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <linux/if_packet.h>
+#include <net/ethernet.h>
+#include <fcntl.h>
+
 #include "../../libs/pkt-block/pkt_block.h"
 #include "../../net.h"
 #include "dp_intf.h"
@@ -520,6 +532,52 @@ SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
     return 0;
 }
 
+static int
+linux_send_xmit_out (dp_ctx_t *dp_ctx, dp_intf_t *dp_intf, pkt_block_t *pkt_block) {
+
+    pkt_size_t pkt_size;
+
+    assert (LinuxRtr);
+        
+    int sockfd = dp_intf->LinuxRtr_sockfd;
+
+    if (sockfd < 0) {
+
+        cprintf ("%s : Error : Failed to create raw socket for Intf %s: errno : %d\n",
+            dp_ctx->ctx_name,
+            dp_intf->if_name, strerror(errno));
+
+        return -1;
+    }
+
+    char *pkt = (char *)pkt_block_get_pkt (pkt_block, &pkt_size);
+
+    if (pkt_size <= 0 || pkt_size > MAX_MTU) { 
+
+        cprintf ("%s : Error : Invalid packet length recvd on Intf %s : %dB\n",
+            dp_ctx->ctx_name, 
+            dp_intf->if_name, pkt_size);
+
+        return -1;
+    }
+    
+    struct sockaddr_ll sll;
+    memset(&sll, 0, sizeof(sll));
+    sll.sll_family = AF_PACKET;
+    sll.sll_protocol = htons(ETH_P_ALL);
+    sll.sll_ifindex = dp_intf->port_id;
+    sll.sll_halen = 6; // MAC address length
+
+    memcpy(sll.sll_addr, dp_intf->mac_add.mac, 6);
+    
+    ssize_t bytes_sent = sendto(sockfd, pkt, pkt_size, 0, 
+                               (struct sockaddr*)&sll, sizeof(sll));
+    
+    assert (bytes_sent > 0);
+    dp_intf->pkt_sent++;
+    return (int)bytes_sent;
+}
+
 
 /* This array is arranged in sequence of these enums : InterfaceType_t */
 static SendPacketOut_fptr intf_xmit_cbk[] = 
@@ -533,6 +591,7 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
         VlanFloodInterface_SendPacketOut,
         NVEInterface_SendPacketOut,
         SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut,
+        linux_send_xmit_out,
         0,
         0
     };
@@ -806,4 +865,137 @@ dp_uapi_xmit_pkt(dp_ctx_t *dp_ctx, uint32_t ifindex, pkt_block_t *pkt_block) {
     pkt_q_enqueue(EV_DP(dp_ctx),
                   &dp_ctx->cp_to_dp_xmit_intf_pkt_q,
                   (char *)ev_dis_pkt_data, sizeof(ev_dis_pkt_data_t));
+}
+
+/*================== LinuxInterface ========================*/
+
+/*  Start a single thread which will listen on all interfaces for the 
+    Raw packet in infinite loop. Use select ( ) to multiplex on all interface
+    sockets. When pkt is recvd successfully, create a new pkt_block
+    structure and post the packet using dp_pkt_receive( ) */
+
+static bool listener_running = false;
+static pthread_t listener_thread;
+static char buffer[2048];
+
+static void* 
+linux_listener_thread(void* arg) {
+
+    int sock_fd;
+    int max_fd = 0;
+    fd_set read_fds;
+    dp_intf_t *dp_intf;
+    hashtable_itr *itr;
+    pkt_block_t *pkt_block;
+
+    dp_ctx_t *dp_ctx = (dp_ctx_t *)arg;
+    hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
+    
+    itr = hashtable_iterator(dp_intf_ht);
+
+    while (listener_running) {
+
+        FD_ZERO(&read_fds);
+
+        max_fd = 0;
+        
+        while (hashtable_iterator_advance(itr)) {
+            
+            dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
+            sock_fd = dp_intf->LinuxRtr_sockfd;
+
+            if (sock_fd > 0) {
+
+                FD_SET(sock_fd , &read_fds);
+                if (sock_fd > max_fd) max_fd = sock_fd;
+            }
+        }
+        free (itr);
+        
+        select(max_fd + 1, &read_fds, NULL, NULL, NULL);
+        
+        itr = hashtable_iterator(dp_intf_ht);
+
+        while (hashtable_iterator_advance(itr)) {
+            
+            dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
+
+            sock_fd = dp_intf->LinuxRtr_sockfd;
+
+            if (sock_fd > 0 && FD_ISSET(sock_fd, &read_fds)) {
+                
+                struct sockaddr_ll from_addr;
+                socklen_t from_len = sizeof(from_addr);
+
+                ssize_t bytes_received = recvfrom(sock_fd, 
+                        buffer,
+                        sizeof(buffer), 0,
+                        (struct sockaddr*)&from_addr, &from_len);
+                
+                if (bytes_received <= 0) {
+                    continue;
+                }
+                
+                pkt_block = pkt_block_get_new(NULL, 0);
+                pkt_block_set_new_pkt(pkt_block, (uint8_t *)buffer, bytes_received);
+                pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
+                dp_uapi_inject_packet (dp_ctx, pkt_block, dp_intf->port_id);
+                XFREE(pkt_block);
+            }
+        } 
+        free (itr);
+    }
+
+    return NULL;
+}
+
+void
+Linux_listen_interfaces (dp_ctx_t *dp_ctx) {
+    
+    dp_intf_t *dp_intf;
+    hashtable_itr *itr;
+
+    hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
+
+    if (listener_running) {
+        return;
+    }
+
+    itr = hashtable_iterator(dp_intf_ht);
+
+    while (hashtable_iterator_advance(itr)) {
+
+        dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
+
+        if (dp_intf->if_type != DP_INTF_TYPE_PHY) {
+            continue;
+        }
+
+        dp_intf->LinuxRtr_sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+        
+        struct sockaddr_ll sll;
+        memset(&sll, 0, sizeof(sll));
+        sll.sll_family = AF_PACKET;
+        sll.sll_protocol = htons(ETH_P_ALL);
+        sll.sll_ifindex = dp_intf->port_id;
+        
+        if (bind(dp_intf->LinuxRtr_sockfd, 
+                (struct sockaddr*)&sll, sizeof(sll)) < 0) {
+
+            cprintf ("%s : Error : Failed to bind socket : "
+                     "if-name : %s , errno : %s\n", 
+                      __FUNCTION__, dp_intf->if_name, strerror(errno));
+            close(dp_intf->LinuxRtr_sockfd);
+            continue;
+        }
+    }
+    
+    free(itr);
+    listener_running = true;
+
+    if (listener_running) {
+        pthread_create(&listener_thread, 
+                       NULL, 
+                       linux_listener_thread, dp_ctx);
+    }
 }

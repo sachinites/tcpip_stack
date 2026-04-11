@@ -103,12 +103,13 @@ typedef struct dp_ctx_ {
     dp_intf_t *dp_vlan_flood_intf;
     dp_intf_t *dp_host_path_intf;
     dp_intf_t *dp_nve_intf;
-
+    
     /* Logging buffers (send/recv packet dump) */
     unsigned char *send_log_buffer;
     unsigned char *recv_log_buffer;
 
-    /* Active ping session; set by ping_send4, cleared when done, read by DP ICMP handler */
+    /* Active ping session; set by ping_send4, 
+    cleared when done, read by DP ICMP handler */
     struct ping_ctx_ *active_ping_ctx;
 
 } dp_ctx_t;

@@ -97,6 +97,8 @@ typedef struct dp_intf_ {
     /* Logging */
     log_t log_info;
 
+    int LinuxRtr_sockfd;
+
     /* Wire connection Simulation */
     dp_ctx_t *dp_ctx;
     struct dp_intf_ *nbr_intf;

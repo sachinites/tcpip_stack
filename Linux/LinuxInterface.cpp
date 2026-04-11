@@ -22,19 +22,20 @@
 #include <pthread.h>
 #include <sys/select.h>
 
+#include "LinuxInterface.h"
+
+#include "../libs/c-hashtable/hashtable.h"
+#include "../libs/c-hashtable/hashtable_itr.h"
+
 #include "../router_init.h"
-#include "../net.h"
-#include "../tcpconst.h"
-#include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
+
 #include "../dpal/cp2dp.h"
 #include "../Interface/InterfaceUApi.h"
-#include "LinuxInterface.h"
+
 #include "../RTM/rtm.h"
 #include "../RTM/rtm_nb_integ.h"
-#include "../libs/common/cmn_prefix.h"
-#include "../libs/common/ipv6_utils.h"
+
 #include "../libs/pkt-block/pkt_block.h"
-#include "../datapath/dp_uapi.h"
 
 
 bool LinuxRtr = true;
@@ -331,156 +332,4 @@ LinuxLoadInterfaces (node_t *node) {
     LinuxRtr = true;
 }
 
-int
-linux_send_xmit_out (Interface *intf, pkt_block_t *pkt_block) {
 
-    assert (LinuxRtr);
-        
-    int sockfd = intf->GetSockfd();
-
-    if (sockfd < 0) {
-
-        cprintf ("%s : %s : linux_send_xmit_out() : Failed to create raw socket: errno : %d\n",
-                intf->att_node->node_name, 
-                intf->if_name.c_str(), strerror(errno));
-
-        return -1;
-    }
-    
-    int ifindex = intf->ifindex;
-    char *pkt_data = (char*)pkt_block->pkt;
-    int pkt_len = pkt_block->pkt_size;
-
-    if (pkt_len <= 0 || pkt_len > MAX_MTU) { 
-
-        cprintf ("%s : %s : linux_send_xmit_out() : Invalid packet length: %dB\n",
-            intf->att_node->node_name, 
-            intf->if_name.c_str(), pkt_len);
-
-        return -1;
-    }
-    
-    struct sockaddr_ll sll;
-    memset(&sll, 0, sizeof(sll));
-    sll.sll_family = AF_PACKET;
-    sll.sll_protocol = htons(ETH_P_ALL);
-    sll.sll_ifindex = ifindex;
-    sll.sll_halen = 6; // MAC address length
-    
-    mac_addr_t *src_mac = intf->GetMacAddr();
-    memcpy(sll.sll_addr, src_mac->mac, 6);
-    
-    ssize_t bytes_sent = sendto(sockfd, pkt_data, pkt_len, 0, 
-                               (struct sockaddr*)&sll, sizeof(sll));
-    
-    assert (bytes_sent > 0);
-    intf->pkt_sent++;
-    return (int)bytes_sent;
-}
-
-// Global variables for the listener thread
-static bool listener_running = false;
-static pthread_t listener_thread;
-
-static void* 
-linux_listener_thread(void* arg) {
-
-    int sock_fd;
-    int max_fd = 0;
-    fd_set read_fds;
-    node_t *node = (node_t*)arg;
-    pkt_block_t *pkt_block;
-    char buffer[LINUX_PKT_SKT_BUFFER_SIZE];
-    
-    while (listener_running) {
-
-        FD_ZERO(&read_fds);
-
-        max_fd = 0;
-
-        Interface *intf;
-        ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-            
-            sock_fd = intf->GetSockfd() ;
-
-            if (sock_fd > 0) {
-
-                FD_SET(sock_fd , &read_fds);
-
-                if (sock_fd > max_fd) {
-                    max_fd = sock_fd;
-                }
-            }
-        } ITERATE_NODE_INTERFACES_END(node, intf);
-        
-        select(max_fd + 1, &read_fds, NULL, NULL, NULL);
-        
-        ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-
-            sock_fd = intf->GetSockfd() ;
-
-            if (sock_fd > 0 &&  FD_ISSET(sock_fd, &read_fds)) {
-                
-                struct sockaddr_ll from_addr;
-                socklen_t from_len = sizeof(from_addr);
-
-                ssize_t bytes_received = recvfrom(sock_fd, 
-                        buffer,
-                        sizeof(buffer), 0,
-                        (struct sockaddr*)&from_addr, &from_len);
-                
-                if (bytes_received <= 0) {
-                    continue;
-                }
-                
-                pkt_block = pkt_block_get_new(NULL, 0);
-                pkt_block_set_new_pkt(pkt_block, (uint8_t *)buffer, bytes_received);
-                pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
-                dp_uapi_inject_packet (node->dp_ctx, pkt_block, intf->ifindex);
-                XFREE(pkt_block);
-            }
-        } ITERATE_NODE_INTERFACES_END(node, intf);
-    }
-
-    return NULL;
-}
-
-/* Start a single thread which will listen on all interfaces for the 
-    Raw packet in infinite loop. Use select ( ) to multiplex on all interface
-    sockets. When pkt is recvd successfully, create a new pkt_block
-    structure and post the packet using dp_pkt_receive( )*/
-void
-Linux_listen_interfaces (node_t *node) {
-    
-    if (listener_running) {
-        return;
-    }
-    
-    // Create sockets for all interfaces
-    Interface *intf;
-    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
-            
-        // Create raw socket for packet capture
-        int sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-        int ifindex = intf->ifindex;
-        intf->SetSockfd (sockfd);
-        
-        // Bind socket to specific interface
-        struct sockaddr_ll sll;
-        memset(&sll, 0, sizeof(sll));
-        sll.sll_family = AF_PACKET;
-        sll.sll_protocol = htons(ETH_P_ALL);
-        sll.sll_ifindex = ifindex;
-        
-        if (bind(sockfd, (struct sockaddr*)&sll, sizeof(sll)) < 0) {
-            cprintf ("Error : Linux_listen_interfaces: Failed to bind socket : if-name : %s , errno : %s\n", 
-                      intf->if_name.c_str(), strerror(errno));
-            close(sockfd);
-            continue;
-        }
-    } ITERATE_NODE_INTERFACES_END(node, intf);
-    
-    listener_running = true;
-    
-    if (listener_running) pthread_create(&listener_thread, NULL, linux_listener_thread, node);
-}

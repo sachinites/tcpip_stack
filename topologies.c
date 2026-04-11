@@ -1112,7 +1112,8 @@ evpn_spine_leaf(void) {
 }
 
 extern void  LinuxLoadInterfaces (node_t *node) ;
-extern void Linux_listen_interfaces (node_t *node);
+typedef struct dp_ctx_ dp_ctx_t;
+extern void Linux_listen_interfaces (dp_ctx_t *dp_ctx);
 
 graph_t *
 Linux_Router_topology(void) {
@@ -1120,6 +1121,6 @@ Linux_Router_topology(void) {
     graph_t *topo = create_new_graph("Linux-Router-Topology");
     node_t *linux_rtr = Router_Create(topo, (const c_string)"LR");
     LinuxLoadInterfaces (linux_rtr);
-    Linux_listen_interfaces (linux_rtr);
+    Linux_listen_interfaces (linux_rtr->dp_ctx);
     return topo;
 }

@@ -65,4 +65,7 @@ void dp_de_register_l2_pkt_trap_rule(
 event_dispatcher_t *
 dp_uapi_get_dp_scheduler (dp_ctx_t *dp_ctx);
 
+void
+Linux_listen_interfaces (dp_ctx_t *dp_ctx);
+
 #endif /* __DP_UAPI__ */

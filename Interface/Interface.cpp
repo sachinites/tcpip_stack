@@ -61,9 +61,6 @@ dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_intf_t *interface, 
                       pkt_block_t *pkt_block);
 
-extern int
-linux_send_xmit_out (Interface *intf, pkt_block_t *pkt_block);
-
 extern bool LinuxRtr;
 
 Interface::Interface(std::string if_name, InterfaceType_t iftype)
