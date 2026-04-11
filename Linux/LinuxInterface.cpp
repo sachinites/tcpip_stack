@@ -268,8 +268,14 @@ LinuxLoadInterfaces (node_t *node) {
         assert (ioctl(af_packet_sock_fd, SIOCGIFINDEX, &ifr) == 0);
         intf->ifindex = ifr.ifr_ifindex;
         assert (intf->ifindex <= MAX_INTF_IFINDEX );
+        /* Reserve this ifindex*/
+        interface_reserve_ifindex (node, intf->ifindex);
+
+        cprintf ("\nLinuxRouter Detected NIC : ifname = %s, ifindex = %u", 
+            intf->if_name.c_str(), intf->ifindex);
 
         cp2dp_interface_create(node, intf);
+        vrf_add_interface(NODE_DEF_VRF(node), intf);
         cp2dp_send_intf_admin_status_update(node, intf->ifindex, !is_up);
 
         // Set IP address and add route if available
@@ -315,7 +321,7 @@ LinuxLoadInterfaces (node_t *node) {
                     node, intf->ifindex, v6_addr.addr, 128);
             }
         }
-        
+
         bool inserted = node_global_intf_map_insert(node, intf);
         assert (inserted);
     }

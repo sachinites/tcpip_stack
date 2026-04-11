@@ -184,5 +184,7 @@ uint16_t
 interface_get_new_ifindex (node_t *node);
 void 
 interface_release_index(node_t *node, uint16_t ifindex);
+void 
+interface_reserve_ifindex (node_t *node, uint32_t ifindex);
 
 #endif /* __NET__ */

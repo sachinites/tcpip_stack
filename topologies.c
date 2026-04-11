@@ -1119,7 +1119,6 @@ Linux_Router_topology(void) {
 
     graph_t *topo = create_new_graph("Linux-Router-Topology");
     node_t *linux_rtr = Router_Create(topo, (const c_string)"LR");
-    node_set_rtr_id(linux_rtr, "100.0.0.1");
     LinuxLoadInterfaces (linux_rtr);
     Linux_listen_interfaces (linux_rtr);
     return topo;

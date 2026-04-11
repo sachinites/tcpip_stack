@@ -88,6 +88,14 @@ interface_release_index(node_t *node, uint16_t ifindex) {
 }
 
 void 
+interface_reserve_ifindex (node_t *node, uint32_t ifindex) {
+
+    assert (ifindex <= MAX_INTF_IFINDEX );
+    assert (!bitmap_at (&node->if_index_bm, ifindex));
+    bitmap_set_bit_at(&node->if_index_bm, ifindex);
+}
+
+void 
 node_assign_router_mac (node_t *node) {
 
     mac_table_entry_t *mac_table_entry = NULL;
@@ -100,7 +108,8 @@ node_assign_router_mac (node_t *node) {
     node->node_nw_prop.rmac_interface->SetSharedPtr(
                 node->node_nw_prop.rmac_interface);
     node->node_nw_prop.rmac_interface->att_node = node;
-    node->node_nw_prop.rmac_interface->ifindex = interface_get_new_ifindex(node);
+    node->node_nw_prop.rmac_interface->ifindex = RMAC_INTF_INDEX;
+    interface_reserve_ifindex(node, RMAC_INTF_INDEX);
     node->node_nw_prop.rmac_interface->vrf = NODE_DEF_VRF(node);
     cp2dp_interface_create(node, node->node_nw_prop.rmac_interface.get());
     cp2dp_send_rmac(node, &node->node_nw_prop.rmac.mac);
@@ -114,7 +123,8 @@ node_create_vlan_flood_interface(node_t *node) {
     node->node_nw_prop.vlan_flood_interface->SetSharedPtr(
                 node->node_nw_prop.vlan_flood_interface);
     node->node_nw_prop.vlan_flood_interface->att_node = node;
-    node->node_nw_prop.vlan_flood_interface->ifindex = interface_get_new_ifindex(node);
+    node->node_nw_prop.vlan_flood_interface->ifindex = VLAN_FLOOD_INDEX;
+    interface_reserve_ifindex(node, VLAN_FLOOD_INDEX);
     node->node_nw_prop.vlan_flood_interface->vrf = NODE_DEF_VRF(node);
     cp2dp_interface_create(node, node->node_nw_prop.vlan_flood_interface.get());
 }
@@ -127,7 +137,8 @@ node_create_host_path_interface (node_t *node) {
     node->node_nw_prop.host_path_interface->SetSharedPtr(
                 node->node_nw_prop.host_path_interface);
     node->node_nw_prop.host_path_interface->att_node = node;
-    node->node_nw_prop.host_path_interface->ifindex = interface_get_new_ifindex(node);
+    node->node_nw_prop.host_path_interface->ifindex = HOST_PATH_IFINDEX;
+    interface_reserve_ifindex(node, HOST_PATH_IFINDEX);
     node->node_nw_prop.host_path_interface->vrf = NODE_DEF_VRF(node);
     cp2dp_interface_create(node, node->node_nw_prop.host_path_interface.get());
 }
@@ -260,6 +271,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     node_nw_prop->flags = 0;
     memset(node_nw_prop->rtr_id.ip_addr, 0, 16);
     node_nw_prop->nve = nullptr;  /* Initialize NVE interface pointer */
+
     node_nw_prop->def_vrf = vrf_def_init(node);
     cp2dp_vrf_create(node, DEF_VRF_NAME, RTM_DEFAULT_VRF);
     node_assign_router_mac (node);

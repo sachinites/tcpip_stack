@@ -50,7 +50,7 @@
 #include "libs/common/cmn_prefix.h"
 #include "datapath/dp_uapi.h"
 
-extern bool LinuxRtr;
+
 extern void cp_init_ipc_pub_sub(node_t *node);
 
 void
