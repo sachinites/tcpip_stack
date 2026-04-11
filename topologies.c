@@ -33,6 +33,7 @@
  * www.csepracticals.com
  * if above URL dont work, then try visit : https://www.csepracticals.com*/
 
+#include <unistd.h>
 #include "utils.h"
 #include "router_init.h"
 #include "Layer2/layer2.h"
@@ -1121,6 +1122,8 @@ Linux_Router_topology(void) {
     graph_t *topo = create_new_graph("Linux-Router-Topology");
     node_t *linux_rtr = Router_Create(topo, (const c_string)"LR");
     LinuxLoadInterfaces (linux_rtr);
+    /* Wait for all Interfaces to reconcile with Data-path */
+    sleep(2);
     Linux_listen_interfaces (linux_rtr->dp_ctx);
     return topo;
 }

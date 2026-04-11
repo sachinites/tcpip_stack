@@ -19,7 +19,6 @@ enum InterfaceType_t {
     INTF_TYPE_VLAN_FLOOD,
     INTF_TYPE_NVE,
     INTF_TYPE_SRv6_DT4,
-    INTF_TYPE_LINUX_INTF,
     INTF_TYPE_HOST_PATH,
     INTF_TYPE_UNKNOWN
 };
@@ -39,7 +38,6 @@ intf_type_str (InterfaceType_t iftype) {
         case INTF_TYPE_NVE: return "NVE";
         case INTF_TYPE_SRv6_DT4: return "SRv6-DT4";
         case INTF_TYPE_HOST_PATH: return "HostPath";
-        case INTF_TYPE_LINUX_INTF: return "LinuxInterface";
         case INTF_TYPE_UNKNOWN: return "Unknown";
         default: return "Invalid";
     }

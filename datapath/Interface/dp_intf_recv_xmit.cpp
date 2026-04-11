@@ -56,6 +56,49 @@ typedef struct ev_dis_pkt_data_ {
 
 } ev_dis_pkt_data_t;
 
+static int
+linux_send_xmit_out (dp_intf_t *dp_intf, pkt_block_t *pkt_block) {
+
+    pkt_size_t pkt_size;
+
+    assert (LinuxRtr);
+        
+    int sockfd = dp_intf->LinuxRtr_sockfd;
+
+    if (sockfd < 0) {
+
+        cprintf ("%s : Error : Failed to create raw socket for Intf %s: errno : %d\n",
+            dp_intf->if_name, strerror(errno));
+
+        return -1;
+    }
+
+    char *pkt = (char *)pkt_block_get_pkt (pkt_block, &pkt_size);
+
+    if (pkt_size <= 0 || pkt_size > MAX_MTU) { 
+
+        cprintf ("%s : Error : Invalid packet length recvd on Intf %s : %dB\n",
+            dp_intf->if_name, pkt_size);
+
+        return -1;
+    }
+    
+    struct sockaddr_ll sll;
+    memset(&sll, 0, sizeof(sll));
+    sll.sll_family = AF_PACKET;
+    sll.sll_protocol = htons(ETH_P_ALL);
+    sll.sll_ifindex = dp_intf->port_id;
+    sll.sll_halen = 6; // MAC address length
+
+    memcpy(sll.sll_addr, dp_intf->mac_add.mac, 6);
+    
+    ssize_t bytes_sent = sendto(sockfd, pkt, pkt_size, 0, 
+                               (struct sockaddr*)&sll, sizeof(sll));
+    
+    assert (bytes_sent > 0);
+    dp_intf->pkt_sent++;
+    return (int)bytes_sent;
+}
 
 /* Helper APIs */
 
@@ -66,11 +109,7 @@ send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
     ev_dis_pkt_data_t *ev_dis_pkt_data;
 
     dp_ctx_t *local_dp_ctx = intf->dp_ctx;
-    dp_ctx_t *peer_dp_ctx = intf->nbr_intf->dp_ctx;
-    dp_intf_t *peer_end = intf->nbr_intf;
-
-    uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
-
+    
     if (!(intf->is_up))
     {
         intf->xmit_pkt_dropped++;
@@ -81,11 +120,20 @@ send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
     {
         cprintf("Error : DCTX :%s, Pkt Size exceeded\n", local_dp_ctx->ctx_name);
         return -1;
-    }
+    }    
 
     tracer (local_dp_ctx->dptr, DFLOW_DET, 
         "Pkt : %s Wired out of interface %s\n", 
         pkt_block_str (pkt_block), intf->if_name);
+        
+    if (LinuxRtr) {
+        return linux_send_xmit_out (intf, pkt_block);
+    }
+
+    dp_ctx_t *peer_dp_ctx = intf->nbr_intf->dp_ctx;
+    dp_intf_t *peer_end = intf->nbr_intf;
+
+    uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
 
     ev_dis_pkt_data = (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
 
@@ -532,53 +580,6 @@ SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
     return 0;
 }
 
-static int
-linux_send_xmit_out (dp_ctx_t *dp_ctx, dp_intf_t *dp_intf, pkt_block_t *pkt_block) {
-
-    pkt_size_t pkt_size;
-
-    assert (LinuxRtr);
-        
-    int sockfd = dp_intf->LinuxRtr_sockfd;
-
-    if (sockfd < 0) {
-
-        cprintf ("%s : Error : Failed to create raw socket for Intf %s: errno : %d\n",
-            dp_ctx->ctx_name,
-            dp_intf->if_name, strerror(errno));
-
-        return -1;
-    }
-
-    char *pkt = (char *)pkt_block_get_pkt (pkt_block, &pkt_size);
-
-    if (pkt_size <= 0 || pkt_size > MAX_MTU) { 
-
-        cprintf ("%s : Error : Invalid packet length recvd on Intf %s : %dB\n",
-            dp_ctx->ctx_name, 
-            dp_intf->if_name, pkt_size);
-
-        return -1;
-    }
-    
-    struct sockaddr_ll sll;
-    memset(&sll, 0, sizeof(sll));
-    sll.sll_family = AF_PACKET;
-    sll.sll_protocol = htons(ETH_P_ALL);
-    sll.sll_ifindex = dp_intf->port_id;
-    sll.sll_halen = 6; // MAC address length
-
-    memcpy(sll.sll_addr, dp_intf->mac_add.mac, 6);
-    
-    ssize_t bytes_sent = sendto(sockfd, pkt, pkt_size, 0, 
-                               (struct sockaddr*)&sll, sizeof(sll));
-    
-    assert (bytes_sent > 0);
-    dp_intf->pkt_sent++;
-    return (int)bytes_sent;
-}
-
-
 /* This array is arranged in sequence of these enums : InterfaceType_t */
 static SendPacketOut_fptr intf_xmit_cbk[] = 
     {
@@ -591,7 +592,6 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
         VlanFloodInterface_SendPacketOut,
         NVEInterface_SendPacketOut,
         SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut,
-        linux_send_xmit_out,
         0,
         0
     };
@@ -877,6 +877,10 @@ dp_uapi_xmit_pkt(dp_ctx_t *dp_ctx, uint32_t ifindex, pkt_block_t *pkt_block) {
 static bool listener_running = false;
 static pthread_t listener_thread;
 static char buffer[2048];
+extern int
+dp_inject_packet (dp_ctx_t *dp_ctx,
+                  pkt_block_t *pkt_block,
+                  dp_intf_t *interface);
 
 static void* 
 linux_listener_thread(void* arg) {
@@ -885,21 +889,22 @@ linux_listener_thread(void* arg) {
     int max_fd = 0;
     fd_set read_fds;
     dp_intf_t *dp_intf;
-    hashtable_itr *itr;
+    struct hashtable_itr *itr;
     pkt_block_t *pkt_block;
 
     dp_ctx_t *dp_ctx = (dp_ctx_t *)arg;
     hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
     
-    itr = hashtable_iterator(dp_intf_ht);
+    if (!dp_intf_ht->entrycount) return NULL;
 
     while (listener_running) {
 
         FD_ZERO(&read_fds);
 
         max_fd = 0;
+        itr = hashtable_iterator(dp_intf_ht);
         
-        while (hashtable_iterator_advance(itr)) {
+        while (1) {
             
             dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
             sock_fd = dp_intf->LinuxRtr_sockfd;
@@ -909,6 +914,7 @@ linux_listener_thread(void* arg) {
                 FD_SET(sock_fd , &read_fds);
                 if (sock_fd > max_fd) max_fd = sock_fd;
             }
+            if (!hashtable_iterator_advance(itr)) break;
         }
         free (itr);
         
@@ -916,7 +922,7 @@ linux_listener_thread(void* arg) {
         
         itr = hashtable_iterator(dp_intf_ht);
 
-        while (hashtable_iterator_advance(itr)) {
+        while (1) {
             
             dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
 
@@ -933,16 +939,18 @@ linux_listener_thread(void* arg) {
                         (struct sockaddr*)&from_addr, &from_len);
                 
                 if (bytes_received <= 0) {
+                    if (!hashtable_iterator_advance(itr)) break;
                     continue;
                 }
                 
                 pkt_block = pkt_block_get_new(NULL, 0);
                 pkt_block_set_new_pkt(pkt_block, (uint8_t *)buffer, bytes_received);
                 pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
-                dp_uapi_inject_packet (dp_ctx, pkt_block, dp_intf->port_id);
+                dp_inject_packet (dp_ctx, pkt_block, dp_intf); 
                 XFREE(pkt_block);
             }
-        } 
+            if (!hashtable_iterator_advance(itr)) break;
+        }
         free (itr);
     }
 
@@ -953,7 +961,7 @@ void
 Linux_listen_interfaces (dp_ctx_t *dp_ctx) {
     
     dp_intf_t *dp_intf;
-    hashtable_itr *itr;
+    struct hashtable_itr *itr;
 
     hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
 
@@ -961,13 +969,16 @@ Linux_listen_interfaces (dp_ctx_t *dp_ctx) {
         return;
     }
 
+    if (!dp_intf_ht->entrycount) return;
+
     itr = hashtable_iterator(dp_intf_ht);
 
-    while (hashtable_iterator_advance(itr)) {
+    while(1) {
 
         dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
 
         if (dp_intf->if_type != DP_INTF_TYPE_PHY) {
+            if (!hashtable_iterator_advance(itr)) break;
             continue;
         }
 
@@ -986,8 +997,11 @@ Linux_listen_interfaces (dp_ctx_t *dp_ctx) {
                      "if-name : %s , errno : %s\n", 
                       __FUNCTION__, dp_intf->if_name, strerror(errno));
             close(dp_intf->LinuxRtr_sockfd);
+            if (!hashtable_iterator_advance(itr)) break;
             continue;
         }
+        
+        if (!hashtable_iterator_advance(itr)) break;
     }
     
     free(itr);
