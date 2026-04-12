@@ -13,23 +13,25 @@
 #include <fcntl.h>
 
 #include "../../libs/pkt-block/pkt_block.h"
-#include "../../net.h"
-#include "dp_intf.h"
-#include "dp_intf_store.h"
-#include "../../FireWall/acl/acldb.h"
+#include "../../libs/c-hashtable/hashtable.h"
+#include "../../libs/c-hashtable/hashtable_itr.h"
 #include "../../libs/Tracer/tracer.h"
-#include "../Layer2/l2fwd/ipv4-l2fwd.h"
 #include "../../libs/common/l2_hdrs.h"
 #include "../../libs/common/l3_hdrs.h"
+
+#include "dp_intf.h"
+#include "dp_intf_log.h"
+#include "dp_intf_store.h"
+
+#include "../Layer2/l2fwd/ipv4-l2fwd.h"
 #include "../Layer3/layer3.h"
 #include "../Layer2/vxlan/vxlan_dp.h"
-#include "dp_intf_log.h"
+
+#include "../dp_ctx.h"
 #include "../dp_utils.h"
 #include "../dp_uapi.h"
 #include "../Layer3/Gre/gre-fwd.h"
 #include "../Layer3/SRv6/srv6-endpoint.h"
-#include "../../libs/c-hashtable/hashtable.h"
-#include "../../libs/c-hashtable/hashtable_itr.h"
 #include "../Layer2/switching/mac_table.h"
 
 typedef int (*SendPacketOut_fptr)(
@@ -37,6 +39,7 @@ typedef int (*SendPacketOut_fptr)(
             dp_intf_t *, pkt_block_t *);
 
 extern bool LinuxRtr;
+extern int cprintf (const char* format, ...);
 
 extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
@@ -613,7 +616,7 @@ dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block) {
 /* Pkt Reception APIs */
 
 static void 
-dp_pkt_receive(dp_ctx_t *dp_ctx, 
+dp_pkt_entry_point(dp_ctx_t *dp_ctx, 
                     dp_vrf_t *vrf,
                     dp_intf_t *interface,
                     pkt_block_t *pkt_block)
@@ -693,7 +696,9 @@ dp_pkt_receive(dp_ctx_t *dp_ctx,
         tracer (dp_ctx->dptr, DL2FWD | DFLOW, "Pkt : %s : Being recieved on GRE Interface %s\n", 
             pkt_block_str(pkt_block), interface->if_name);  
 
-        dp_pkt_receive (dp_ctx, interface->virtual_port->vrf, interface->virtual_port, pkt_block);
+        dp_pkt_entry_point (dp_ctx, interface->virtual_port->vrf,
+                            interface->virtual_port, 
+                            pkt_block);
     }
 
     else if (interface->ip_addr){
@@ -754,7 +759,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
         memcpy (pkt_start, ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
         pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
 
-		dp_pkt_receive(dp_ctx, recv_intf->vrf,
+		dp_pkt_entry_point(dp_ctx, recv_intf->vrf,
                     recv_intf, 
                     pkt_block);
 
@@ -881,15 +886,11 @@ dp_uapi_xmit_pkt(dp_ctx_t *dp_ctx, uint32_t ifindex, pkt_block_t *pkt_block) {
 /*  Start a single thread which will listen on all interfaces for the 
     Raw packet in infinite loop. Use select ( ) to multiplex on all interface
     sockets. When pkt is recvd successfully, create a new pkt_block
-    structure and post the packet using dp_pkt_receive( ) */
+    structure and post the packet using dp_pkt_entry_point( ) */
 
 static bool listener_running = false;
 static pthread_t listener_thread;
 static char buffer[2048];
-extern int
-dp_inject_packet (dp_ctx_t *dp_ctx,
-                  pkt_block_t *pkt_block,
-                  dp_intf_t *interface);
 
 static void* 
 linux_listener_thread(void* arg) {
@@ -948,17 +949,28 @@ linux_listener_thread(void* arg) {
                         (struct sockaddr*)&from_addr, &from_len);
                 
                 if (bytes_received <= 0) {
-                    if (!hashtable_iterator_advance(itr)) break;
+
+                    if (!hashtable_iterator_advance(itr)) {
+                        free (itr);
+                        itr = hashtable_iterator(dp_intf_ht);
+                        continue;
+                    }
                     continue;
                 }
                 
                 pkt_block = pkt_block_get_new(NULL, 0);
                 pkt_block_set_new_pkt(pkt_block, (uint8_t *)buffer, bytes_received);
                 pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
+                cprintf ("pkt injected\n");
                 dp_inject_packet (dp_ctx, pkt_block, dp_intf); 
                 XFREE(pkt_block);
             }
-            if (!hashtable_iterator_advance(itr)) break;
+
+            if (!hashtable_iterator_advance(itr)) {
+                free (itr);
+                itr = hashtable_iterator(dp_intf_ht);
+                continue;
+            }
         }
         free (itr);
     }
@@ -1006,6 +1018,7 @@ Linux_listen_interfaces (dp_ctx_t *dp_ctx) {
                      "if-name : %s , errno : %s\n", 
                       __FUNCTION__, dp_intf->if_name, strerror(errno));
             close(dp_intf->LinuxRtr_sockfd);
+            dp_intf->LinuxRtr_sockfd = 0;
             if (!hashtable_iterator_advance(itr)) break;
             continue;
         }
