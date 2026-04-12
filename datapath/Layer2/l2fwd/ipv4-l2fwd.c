@@ -25,7 +25,7 @@ cp_punt_pkt_from_layer2_to_layer5(
 					  gen_proto_id_t hdr_code);
 
 extern int
-dp_inject_packet (dp_ctx_t *dp_ctx,
+dp_submit_packet (dp_ctx_t *dp_ctx,
                   pkt_block_t *pkt_block,
                   dp_intf_t *interface);
                   
@@ -111,7 +111,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         memset(ethernet_hdr->src_mac.mac, 0, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->dst_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        dp_inject_packet(dp_ctx, pkt_block, oif);
+        dp_submit_packet(dp_ctx, pkt_block, oif);
         return;
     }
 

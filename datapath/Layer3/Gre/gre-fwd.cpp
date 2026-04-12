@@ -14,7 +14,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 					pkt_block_t *pkt_block);
 
 extern int
-dp_inject_packet (dp_ctx_t *dp_ctx,
+dp_submit_packet (dp_ctx_t *dp_ctx,
                   pkt_block_t *pkt_block,
                   dp_intf_t *interface);
                   
@@ -85,7 +85,7 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
              pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
             tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_block_str (pkt_block));
-             dp_inject_packet(dp_ctx, pkt_block, gre_intf);
+             dp_submit_packet(dp_ctx, pkt_block, gre_intf);
         }
         break;
     }

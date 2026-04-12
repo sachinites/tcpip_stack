@@ -25,7 +25,7 @@
 
 
 extern int
-dp_inject_packet (dp_ctx_t *dp_ctx,
+dp_submit_packet (dp_ctx_t *dp_ctx,
                   pkt_block_t *pkt_block,
                   dp_intf_t *interface);
                   
@@ -53,7 +53,7 @@ dp_uapi_inject_packet(dp_ctx_t *dp_ctx,
 
     if (!recv_intf) return -1;
 
-    dp_inject_packet (dp_ctx, 
+    dp_submit_packet (dp_ctx, 
                       pkt_block, recv_intf);
                       
     return 0;
