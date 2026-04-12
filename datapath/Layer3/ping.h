@@ -7,6 +7,7 @@
 
 #define PING_MAX_SEQ        256     /* max simultaneously outstanding echo requests */
 #define PING_DEF_TIMEOUT_S  2       /* per-probe reply timeout in seconds */
+#define PING_PAYLOAD_LEN    56      /* data bytes appended after the ICMP header */
 
 /* ICMP message types */
 #define ICMP_ECHO_REP       0
@@ -88,6 +89,27 @@ typedef struct ping_ctx_ {
     pthread_t       *ping_thread;
 
 } ping_ctx_t;
+
+
+/* RFC 792 one's-complement checksum over an ICMP header (and any payload).
+ * The caller must zero the checksum field before calling this. */
+static inline uint16_t
+icmp_checksum (const icmp_hdr_t *hdr, size_t len)
+{
+    const uint16_t *word = (const uint16_t *)hdr;
+    uint32_t        sum  = 0;
+
+    for (; len > 1; len -= 2)
+        sum += *word++;
+
+    if (len == 1)
+        sum += *(const uint8_t *)word;
+
+    while (sum >> 16)
+        sum = (sum & 0xffff) + (sum >> 16);
+
+    return (uint16_t)~sum;
+}
 
 
 void 

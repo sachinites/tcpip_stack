@@ -2,6 +2,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "../../tcp_public.h"
 #include "../Vrfs/dp_vrf.h"
@@ -36,6 +37,9 @@ ping_send4 (void *_pctx)
     ping_ctx_t *pctx = (ping_ctx_t *)_pctx;
     dp_ctx_t *dp_ctx = pctx->dp_ctx;
 
+    /* Use the process ID as the ICMP identifier for all probes in this session */
+    pctx->identifier = (uint16_t)getpid();
+
     dp_vrf_t *vrf = dp_look_up_vrf (dp_ctx->dp_vrf_ht, pctx->vrf_id);
 
     for (i = 0; i < pctx->count; i++) {
@@ -43,15 +47,16 @@ ping_send4 (void *_pctx)
         seq = pctx->seq_no;
 
         pkt_block = pkt_block_get_new_pkt_buffer (
-                        sizeof (icmp_hdr_t) + 
-                        sizeof (ip_hdr_t));
+                        sizeof (ip_hdr_t) +
+                        sizeof (icmp_hdr_t) +
+                        PING_PAYLOAD_LEN);
 
         ip_hdr_t *ip_hdr  = (ip_hdr_t *)pkt_block_get_pkt (pkt_block, &ps);
 
         /* Prepare IPv4 header and send using dp_send_ip_data */
 
         initialize_ip_hdr(ip_hdr);
-        ip_hdr->total_length = htons(sizeof(ip_hdr_t) + sizeof(icmp_hdr_t));
+        ip_hdr->total_length = htons(sizeof(ip_hdr_t) + sizeof(icmp_hdr_t) + PING_PAYLOAD_LEN);
         ip_hdr->identification = htons(seq);
         ip_hdr->flags = 0;
         ip_hdr->ttl = 64;
@@ -92,7 +97,7 @@ ping_send4 (void *_pctx)
             }            
         }
 
-        ip_hdr->checksum = 0;
+        ip_hdr->checksum = ip_checksum (ip_hdr);
 
         icmp_hdr_t *icmp_hdr  = (icmp_hdr_t *)INCREMENT_IPHDR (ip_hdr);
         icmp_hdr->type       = ICMP_ECHO_REQ;
@@ -101,6 +106,13 @@ ping_send4 (void *_pctx)
         icmp_hdr->identifier = htons (pctx->identifier);
         icmp_hdr->seq_no     = htons (seq);
 
+        /* 56-byte payload: incrementing pattern 0x00..0x37 */
+        uint8_t *payload = (uint8_t *)(icmp_hdr + 1);
+        for (int b = 0; b < PING_PAYLOAD_LEN; b++)
+            payload[b] = (uint8_t)b;
+
+        icmp_hdr->checksum = icmp_checksum (icmp_hdr, sizeof (icmp_hdr_t) + PING_PAYLOAD_LEN);
+        
         pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IP_IN_IP);
         
         /* Timestamp before handing off to the DP so RTT includes queuing time */

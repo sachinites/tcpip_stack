@@ -181,11 +181,14 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                         rip->dst_ip       = ip_hdr->src_ip;   /* reply to the sender */
                         rip->protocol     = IP_PROTO_ICMP;
                         rip->total_length = htons((uint16_t)(sizeof(ip_hdr_t) + icmp_size));
+                        rip->checksum     = ip_checksum(rip);
 
                         icmp_hdr_t *ricmp = (icmp_hdr_t *)INCREMENT_IPHDR(rip);
                         memcpy(ricmp, icmp_hdr, icmp_size);
-                        ricmp->type = ICMP_ECHO_REP;
-                        ricmp->code = 0;
+                        ricmp->type     = ICMP_ECHO_REP;
+                        ricmp->code     = 0;
+                        ricmp->checksum = 0;
+                        ricmp->checksum = icmp_checksum(ricmp, icmp_size);
 
                         dp_send_ip_data(dp_ctx, vrf, reply);
                         pkt_block_dereference(reply);
@@ -234,7 +237,8 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
                     pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
                      
-                    tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s : Pkt is being subjected to L3 Routing again a per Inner Header\n",
+                    tracer (dp_ctx->dptr, DL3FWD, 
+                        "VRF %s: Pkt : %s : Pkt is being subjected to L3 Routing again a per Inner Header\n",
                         vrf->vrf_name, dest_ip_addr);
 
                     layer3_ip_route_pkt(dp_ctx, vrf,
@@ -282,6 +286,16 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         /* case 2 : It means, the dst ip address lies in direct connected
          * subnet of this router, time for l2 routing*/
 
+    /* Forwarded packet: decrement TTL regardless of whether the destination
+     * is directly connected or remote (RFC 1122 §3.2.1.7). */
+    ip_hdr->ttl--;
+
+    if (ip_hdr->ttl == 0) {
+        tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Pkt Dropped : TTL Expired\n",
+            vrf->vrf_name, dest_ip_addr);
+        return;
+    }
+
     tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s :  Nexthop found OIF %s, Gw : %s\n", 
         vrf->vrf_name, pkt_block_str (pkt_block), 
         nh->fwd_info->oif->if_name, 
@@ -295,7 +309,14 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt: %s : Using OIF IP as Src IP : %s\n", 
             vrf->vrf_name, pkt_block_str (pkt_block), 
             tcp_ip_covert_ip_n_to_p(htonl(ip_hdr->src_ip), (c_string)ip_addr_str)); 
+
     }
+
+    /* Checksum must be zeroed before recomputing: computing it over a packet
+     * that already has a valid checksum field yields 0 (verification identity),
+     * which would silently corrupt every forwarded packet. */
+    ip_hdr->checksum = 0;
+    ip_hdr->checksum = ip_checksum(ip_hdr);
 
     tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n",
         vrf->vrf_name, pkt_block_str (pkt_block));
@@ -321,6 +342,9 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             vrf->vrf_name, dest_ip_addr);
         return;
     }
+
+    ip_hdr->checksum = 0;
+    ip_hdr->checksum = ip_checksum(ip_hdr);
 
     tracer (dp_ctx->dptr, DL3FWD_DET, "VRF %s: Dest : %s :  TTL Reduced to %d\n",
         vrf->vrf_name, dest_ip_addr, ip_hdr->ttl);

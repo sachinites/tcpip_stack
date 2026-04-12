@@ -64,6 +64,26 @@ initialize_ip_hdr(ip_hdr_t *ip_hdr){
 #define IP_HDR_PAYLOAD_SIZE(ip_hdr_ptr) (IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr_ptr) - \
         IP_HDR_LEN_IN_BYTES(ip_hdr_ptr))
 
+/* RFC 791 one's-complement checksum over the IP header (no options assumed). */
+static inline uint16_t
+ip_checksum (const ip_hdr_t *ip_hdr)
+{
+    const uint16_t *word = (const uint16_t *)ip_hdr;
+    uint32_t        sum  = 0;
+    int             len  = IP_HDR_LEN_IN_BYTES(ip_hdr);
+
+    for (; len > 1; len -= 2)
+        sum += *word++;
+
+    if (len == 1)
+        sum += *(const uint8_t *)word;
+
+    while (sum >> 16)
+        sum = (sum & 0xffff) + (sum >> 16);
+
+    return (uint16_t)~sum;
+}
+
 #pragma pack (push,1)
 typedef struct srh_hdr_ {
 

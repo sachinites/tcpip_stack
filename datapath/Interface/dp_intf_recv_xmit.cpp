@@ -116,16 +116,16 @@ send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
         return 0;
     }
 
-    if (pkt_size > MAX_PACKET_BUFFER_SIZE)
+    if (pkt_block->pkt_size > MAX_PACKET_BUFFER_SIZE)
     {
-        cprintf("Error : DCTX :%s, Pkt Size exceeded\n", local_dp_ctx->ctx_name);
+        cprintf("Error : DCTX : %s, Pkt Size exceeded\n", local_dp_ctx->ctx_name);
         return -1;
     }    
 
     tracer (local_dp_ctx->dptr, DFLOW_DET, 
         "Pkt : %s Wired out of interface %s\n", 
         pkt_block_str (pkt_block), intf->if_name);
-        
+
     if (LinuxRtr) {
         return linux_send_xmit_out (intf, pkt_block);
     }
@@ -740,7 +740,16 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
 		pkt = ev_dis_pkt_data->pkt;		
 
-        pkt_block = pkt_block_get_new_pkt_buffer(ev_dis_pkt_data->pkt_size);
+        /* Raw sockets deliver the Ethernet frame without the trailing FCS
+         * (the kernel/NIC strips it on receive).  The rest of the stack uses
+         * ETH_HDR_SIZE_EXCL_PAYLOAD = 18 (header + 4-byte FCS) for all frame-
+         * size arithmetic, so allocate pkt_size + ETH_FCS_SIZE here to keep
+         * the accounting consistent.  The extra 4 bytes are zeroed by calloc
+         * and act as a zero-FCS placeholder, exactly as internally-built
+         * frames do. Without this, promote_pkt_to_layer2 subtracts 4 bytes
+         * too many, and SET_COMMON_ETH_FCS later overwrites the last 4 bytes
+         * of the ICMP payload, corrupting the ICMP checksum on forwarded pkts. */
+        pkt_block = pkt_block_get_new_pkt_buffer(ev_dis_pkt_data->pkt_size + (LinuxRtr ? ETH_FCS_SIZE : 0));
         pkt_start = (uint8_t *)pkt_block_get_pkt(pkt_block, 0);
         memcpy (pkt_start, ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
         pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
