@@ -4,7 +4,6 @@
 #include "../router_init.h"
 #include "../libs/notifc/notif.h"
 #include "rt_notif.h"
-#include "rt_table/nexthop.h"
 #include "layer3.h"
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../libs/Tracer/tracer.h"

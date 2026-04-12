@@ -12,7 +12,6 @@
 #include "acldb.h"
 #include "../../libs/mtrie/mtrie.h"
 #include "../../Layer2/layer2.h"
-#include "../../Layer3/rt_table/nexthop.h"
 #include "../../Layer3/layer3.h"
 #include "../../libs/pkt-block/pkt_block.h"
 #include "../../Layer4/udp.h"

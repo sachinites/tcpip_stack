@@ -19,7 +19,7 @@ LFA_LIB_PATH=-LLayer3/LFA -llfa
 DPDK=-I$HOME/OpenSrc-Codes/dpdk/build/include \
 	 -L$HOME/OpenSrc-Codes/dpdk/build/lib \
 	 -lrte_eal -lrte_mbuf -lrte_ring -lrte_mempool -lrte_ethdev \
-	-lpthread -ldl -lnuma -lm
+	 -lpthread -ldl -lnuma -lm
 
 LIBS= ${ISIS_LIB_PATH} \
 			${SRV6_LIB_PATH} \
@@ -40,6 +40,7 @@ OBJS=router_init.o   \
 		  topologies.o	   \
 		  net.o			   \
 		  comm.o		   \
+		  router.o \
 		  Layer2/layer2.o  \
 		  Layer2/transport_svc.o \
 		  Layer2/vxlan/cp/vlan_vni_mapping.o \
@@ -47,7 +48,6 @@ OBJS=router_init.o   \
 		  Layer3/layer3.o  \
 		  Layer3/gre-tunneling/grecli.o \
 		  Layer3/gre-tunneling/gre.o \
-		  Layer3/rt_table/nexthop.o \
 		  Layer3/netfilter.o \
 		  Layer3/ipv6/ipv6cli.o \
 		  Layer4/layer4.o  \
@@ -136,6 +136,9 @@ net.o:net.c
 comm.o:comm.c
 	${CC} ${CFLAGS} -c -I . comm.c -o comm.o
 
+router.o:router.cpp
+	${CC} ${CFLAGS} -c -I . router.cpp -o router.o
+
 tcp_ip_trace.o:tcp_ip_trace.c
 	${CC} ${CFLAGS} -c -I . tcp_ip_trace.c -o tcp_ip_trace.o
 
@@ -147,9 +150,6 @@ Layer2/transport_svc.o:Layer2/transport_svc.cpp
 
 Layer3/layer3.o:Layer3/layer3.c
 	${CC} ${CFLAGS} -c -I . Layer3/layer3.c -o Layer3/layer3.o
-
-Layer3/rt_table/nexthop.o:Layer3/rt_table/nexthop.c
-	${CC} ${CFLAGS} -c -I . Layer3/rt_table/nexthop.c -o Layer3/rt_table/nexthop.o
 
 Layer3/netfilter.o:Layer3/netfilter.c
 	${CC} ${CFLAGS} -c -I . Layer3/netfilter.c -o Layer3/netfilter.o

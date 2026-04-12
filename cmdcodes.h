@@ -35,7 +35,7 @@
 
 #define CMDCODE_SHOW_NW_TOPOLOGY    1   /*show topology*/
 #define CMDCODE_PING                2   /*run node <node-name> ping <ip-address> -c <count>*/
-
+#define CMDCODE_CONFIG_RTR_ID       3   /* config node <node-name> router-id <rtr-id>*/
 #define CMDCODE_RUN_ARP             4   /*run node <node-name> resolve-arp <ip-address>*/
 #define CMDCODE_INTF_CONFIG_SWITCHPORT 5   /*config node <node-name> interface <intf-name> l2mode <access|trunk>*/
 #define CMDCODE_INTF_CONFIG_IP_ADDR 6   /*config node <node-name> interface <intf-name> ip-address <ip-address> <mask>*/

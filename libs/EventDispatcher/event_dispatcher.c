@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <ncurses.h>
 #include <sched.h>
+#include <time.h>
 #include "event_dispatcher.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
@@ -115,8 +116,11 @@ event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 	if (task->app_cond_var) {
 
 		if(debug) printf("%p : Syn Task Waiting to return\n", ptr);
-		pthread_cond_wait(task->app_cond_var,
-						  &ev_dis->ev_dis_mutex);
+		struct timespec ts;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		ts.tv_sec += 10;
+		pthread_cond_timedwait(task->app_cond_var,
+						  &ev_dis->ev_dis_mutex, &ts);
 		EV_DIS_UNLOCK(ev_dis);
 		if(debug) printf("%p : Syn Task Returned\n", ptr);
 		/* Task finished, free now */

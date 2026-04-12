@@ -5,6 +5,7 @@
 #include "isis_policy.h"
 #include "isis_ted.h"
 #include "isis_utils.h"
+#include "isis_nxthop.h"
 #include "../../RTM/rtm_enums.h"
 #include "../../RTM/rtm_nb_integ.h"
 #include "../../RTM/rtm_route.h"

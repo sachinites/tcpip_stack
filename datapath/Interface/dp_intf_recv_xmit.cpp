@@ -115,13 +115,16 @@ send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
     
     if (!(intf->is_up))
     {
+        cprintf("Error : DCTX : %s, Interface %s is not up\n", 
+            local_dp_ctx->ctx_name, intf->if_name);
         intf->xmit_pkt_dropped++;
-        return 0;
+        return -1;
     }
 
     if (pkt_block->pkt_size > MAX_PACKET_BUFFER_SIZE)
     {
         cprintf("Error : DCTX : %s, Pkt Size exceeded\n", local_dp_ctx->ctx_name);
+        intf->xmit_pkt_dropped++;
         return -1;
     }    
 
@@ -897,8 +900,7 @@ linux_listener_thread(void* arg) {
 
     int sock_fd;
     int max_fd = 0;
-    fd_set base_fds;   /* built once; sockets never change after setup */
-    fd_set read_fds;   /* working copy handed to select() each iteration */
+    fd_set read_fds;
     dp_intf_t *dp_intf;
     struct hashtable_itr *itr;
     pkt_block_t *pkt_block;
@@ -908,33 +910,35 @@ linux_listener_thread(void* arg) {
     
     if (!dp_intf_ht->entrycount) return NULL;
 
-    /* One-time setup: build base_fds and max_fd from the interface table.
-     * Interface sockets are assigned before the thread starts and are never
-     * added or removed while the thread is running, so this never needs to
-     * be repeated. */
-    FD_ZERO(&base_fds);
-    itr = hashtable_iterator(dp_intf_ht);
-    while (1) {
-        dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
-        sock_fd = dp_intf->LinuxRtr_sockfd;
-        if (sock_fd > 0) {
-            FD_SET(sock_fd, &base_fds);
-            if (sock_fd > max_fd) max_fd = sock_fd;
-        }
-        if (!hashtable_iterator_advance(itr)) break;
-    }
-    free(itr);
-
     while (listener_running) {
 
-        /* select() overwrites read_fds, so restore from the stable base. */
-        read_fds = base_fds;
-        select(max_fd + 1, &read_fds, NULL, NULL, NULL);
-        
+        FD_ZERO(&read_fds);
+
+        max_fd = 0;
         itr = hashtable_iterator(dp_intf_ht);
+        
         while (1) {
             
             dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
+            sock_fd = dp_intf->LinuxRtr_sockfd;
+
+            if (sock_fd > 0) {
+
+                FD_SET(sock_fd , &read_fds);
+                if (sock_fd > max_fd) max_fd = sock_fd;
+            }
+            if (!hashtable_iterator_advance(itr)) break;
+        }
+        free (itr);
+        
+        select(max_fd + 1, &read_fds, NULL, NULL, NULL);
+        
+        itr = hashtable_iterator(dp_intf_ht);
+
+        while (1) {
+            
+            dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
+
             sock_fd = dp_intf->LinuxRtr_sockfd;
 
             if (sock_fd > 0 && FD_ISSET(sock_fd, &read_fds)) {
@@ -948,6 +952,7 @@ linux_listener_thread(void* arg) {
                         (struct sockaddr*)&from_addr, &from_len);
                 
                 if (bytes_received <= 0) {
+
                     if (!hashtable_iterator_advance(itr)) break;
                     continue;
                 }

@@ -69,7 +69,6 @@
 #include "Interface/InterfaceUApi.h"
 #include "net.h"
 #include "Layer2/layer2.h"
-#include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
 #include "Layer3/rt_notif.h"
 #include "Layer4/udp.h"

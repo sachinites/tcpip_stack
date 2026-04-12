@@ -32,6 +32,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include "router.h"
 #include "router_init.h"
 #include "CLIBuilder/libcli.h"
 #include "CLIBuilder/cmdtlv.h"
@@ -40,7 +41,6 @@
 #include "Layer5/app_handlers.h"
 #include "libs/BitOp/bitsop.h"
 #include "tcpip_notif.h"
-#include "Layer3/rt_table/nexthop.h"
 #include "Layer3/layer3.h"
 #include "libs/LinuxMemoryManager/uapi_mm.h"
 #include "libs/prefix-list/prefixlst.h"
@@ -635,6 +635,40 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
     uint32_t gw_ip_int = 0;
 
     switch(cmdcode){
+
+        case CMDCODE_CONFIG_RTR_ID:
+        {
+            uint32_t existing_rtr_id = NODE_LO_ADDR_INT(node);
+            uint32_t new_rtr_id = tcp_ip_convert_ip_p_to_n(dest);
+
+            switch(enable_or_disable){
+
+                case CONFIG_ENABLE:
+
+                    if (existing_rtr_id == 0) {
+                        strncpy (NODE_RTRID_ADDR(node), dest, 16);
+                        return 0;
+                    }
+
+                    if (existing_rtr_id == new_rtr_id) return 0;
+
+                    cprintf ("%s : Config Rejected : Remove the existing Router-id\n",
+                        node->node_name);
+                break;
+
+                case CONFIG_DISABLE:
+                    if (existing_rtr_id == 0) return 0;
+                    if (!rtr_eligible_to_remove_rtr_id(node)) {
+                        cprintf ("%s : Config Rejected : Remove L3 config first\n",
+                            node->node_name);
+                        return -1;
+                    }
+                    strncpy (NODE_RTRID_ADDR(node), dest, 16);
+                break;
+            }
+        }
+        break;
+
         case CMDCODE_CONF_NODE_L3ROUTE:
             switch(enable_or_disable){
                 case CONFIG_ENABLE:
@@ -1384,6 +1418,21 @@ nw_init_cli(){
             /* VRF CLI tree is mounted here*/
             vrf_config_name = vrf_build_config_tree(&node_name);
         }
+
+        {
+            /* config node <node-name> router-id <ipv4-addr> */
+            static param_t router_id;
+            init_param(&router_id, CMD, "router-id", 0, 0, INVALID, NULL, "IPV4 Router ID");
+            libcli_register_param(&node_name, &router_id);
+            {
+                static param_t rtr_id;
+                init_param(&rtr_id, LEAF, NULL, l3_config_handler, 
+                    0, IPV4, "ip-address", "IPV4 address");
+                libcli_register_param(&router_id, &rtr_id);
+                libcli_set_param_cmd_code(&rtr_id, CMDCODE_CONFIG_RTR_ID);
+            }
+        }
+
 
         {
             /* config node <node-name> rtm-route */

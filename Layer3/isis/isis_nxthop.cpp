@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
-#include "nexthop.h"
+#include "isis_nxthop.h"
 #include "../../libs/common/mpls_lstack.h"
 #include "../../utils.h"
 

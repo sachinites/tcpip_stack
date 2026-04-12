@@ -9,6 +9,8 @@
 #define ISIS_NODE_SPF_NXTHOPS ((tednodeptr)  \
      (((isis_spf_data_t *)(ISIS_NODE_SPF_DATA(tednodeptr)))->nexthops)
 
+typedef struct nexthop_ nexthop_t;
+
 typedef struct isis_spf_data_{
 
     /*Final spf result stored in this list*/
