@@ -132,7 +132,7 @@ typedef struct node_nw_prop_{
 #define NODE_NVE_INTF(node_ptr) (node_ptr->node_nw_prop.nve)
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)
-#define INTF_VRF_ID(intf_ptr) (intf_ptr->vrf ? intf_ptr->vrf->vrf_id : 0)
+#define INTF_VRF_ID(intf_ptr) (intf_ptr->vrf->vrf_id)
 
 /*APIs to set Network Node properties*/
 bool node_set_rtr_id(node_t *node, const char *ip_addr);

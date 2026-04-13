@@ -552,8 +552,10 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
             return;
     }
 
-    tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Pkt is being demoted to L2 Layer\n",
+    tracer (dp_ctx->dptr, DL3FWD, 
+        "VRF %s: Dest : %s :  Pkt is being demoted to L2 Layer\n",
         vrf->vrf_name, dst_ip_addr_str);
+        
     dp_demote_pkt_to_layer2(dp_ctx, vrf,
             next_hop_ip,
             nh->fwd_info->oif,

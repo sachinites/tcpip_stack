@@ -45,13 +45,13 @@
 #include "libs/LinuxMemoryManager/uapi_mm.h"
 #include "libs/prefix-list/prefixlst.h"
 #include "tcpconst.h"
-#include "datapath/Layer2/switching/mac_table.h"
 #include "RTM/rtm_nb_integ.h"
 #include "RTM/rtm_show.h"
 #include "RTM/rtm_priv_api.h"
 #include "libs/mtrie/mtrie.h"
 #include "Layer3/layer3.h"
 #include "vrf/vrf.h"
+#include "dpal/cp2dp.h"
 
 extern graph_t *topo;
 class Interface;
@@ -646,7 +646,7 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                 case CONFIG_ENABLE:
 
                     if (existing_rtr_id == 0) {
-                        strncpy (NODE_RTRID_ADDR(node), dest, 16);
+                        node_set_rtr_id (node, (const char *)dest);
                         return 0;
                     }
 
@@ -657,13 +657,17 @@ l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
                 break;
 
                 case CONFIG_DISABLE:
+
                     if (existing_rtr_id == 0) return 0;
+
                     if (!rtr_eligible_to_remove_rtr_id(node)) {
                         cprintf ("%s : Config Rejected : Remove L3 config first\n",
                             node->node_name);
                         return -1;
+                    
                     }
-                    strncpy (NODE_RTRID_ADDR(node), dest, 16);
+                    memset (NODE_RTRID_ADDR(node), 0, 16);
+                    cp2dp_send_rtr_id(node, 0);
                 break;
             }
         }
