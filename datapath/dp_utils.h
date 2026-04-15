@@ -26,6 +26,8 @@ typedef struct dp_intf_ dp_intf_t;
 #include "../tcpconst.h"
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
 
+#include "Interface/dp_intf.h"
+
 /**
  * dp_intf_get_matching_subnet_interface - Find interface whose subnet contains ip_addr
  * @dp_ctx:   Datapath context
@@ -39,5 +41,11 @@ dp_intf_t *
 dp_intf_get_matching_subnet_interface(dp_ctx_t *dp_ctx,
                                       dp_vrf_t *vrf,
                                       uint32_t ip_addr);
+
+static inline uint16_t 
+dp_intf_get_dpdk_port_id (dp_intf_t *dp_intf) {
+
+    return dp_intf->port_id - 1;
+}
 
 #endif /* __DP_UTILS__ */

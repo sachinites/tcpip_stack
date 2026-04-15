@@ -41,7 +41,7 @@
 #define MAX_MTU 1500
 
 #define NODE_NAME_SIZE   32
-#define IF_NAME_SIZE     16
+#define IF_NAME_SIZE     64
 #define MAX_INTF_PER_NODE   10
 
  /* Should be less than or equal to UT_PARSER_BUFF_MAX_SIZE */

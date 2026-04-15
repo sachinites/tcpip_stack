@@ -6,5 +6,6 @@
 typedef struct node_ node_t;
 
 void LinuxLoadInterfaces (node_t *node);
+void DPDK_LoadInterfaces(node_t *node);
 
 #endif 

@@ -11,6 +11,8 @@
 #include <linux/if_packet.h>
 #include <net/ethernet.h>
 #include <fcntl.h>
+#include <dirent.h>
+#include <assert.h>
 
 #include "../../libs/pkt-block/pkt_block.h"
 #include "../../libs/c-hashtable/hashtable.h"
@@ -18,6 +20,9 @@
 #include "../../libs/Tracer/tracer.h"
 #include "../../libs/common/l2_hdrs.h"
 #include "../../libs/common/l3_hdrs.h"
+
+#include <rte_ethdev.h>
+#include <rte_mbuf.h>
 
 #include "dp_intf.h"
 #include "dp_intf_log.h"
@@ -1028,4 +1033,518 @@ Linux_listen_interfaces (dp_ctx_t *dp_ctx) {
                        NULL, 
                        linux_listener_thread, dp_ctx);
     }
+}
+
+/* ================== DPDK CPU port mapping ========================*/
+/* 
+#define SYS_CPU_DIR "/sys/devices/system/cpu/cpu%u"
+#define CORE_ID_FILE "topology/core_id"
+#define NUMA_NODE_PATH "/sys/devices/system/node"
+
+CPU 2 exist if below path exist:
+/sys/devices/system/cpu/cpu2/topology/core_id
+
+CPU2 is present on socket 1 if below path exist :
+/sys/devices/system/node/node1/cpu2
+
+Numa Node 
+
+/sys/devices/system/node/node0
+/sys/devices/system/node/node1
+/sys/devices/system/node/node2
+etc ...
+
+*/
+
+#define MAX_CPUS_PER_NUMA   64
+#define MAX_PORTS_PER_CPU   16
+
+static uint8_t 
+system_get_max_numa_node_count () {
+
+    DIR *dir;
+    struct dirent *entry;
+    uint8_t max_numa_node_id = 0;
+
+    dir = opendir("/sys/devices/system/node");
+
+    if (dir != NULL) {
+
+        while ((entry = readdir(dir)) != NULL) {
+
+            // Look for entries of the form nodeX where X is a number
+            if (strncmp(entry->d_name, "node", 4) == 0) {
+
+                char *endptr;
+                long node_num = strtol(entry->d_name + 4, &endptr, 10);
+
+                if (*endptr == '\0' && node_num >= 0) {
+                    if ((uint16_t)node_num > max_numa_node_id)
+                        max_numa_node_id = (uint16_t)node_num;
+                }
+            }
+        }
+
+        closedir(dir);
+    }
+
+    return max_numa_node_id + 1;
+}
+
+static uint8_t
+system_get_cpus_per_numa_nodes(uint8_t numa_node_id, 
+                               uint8_t *cpu_array) {
+
+    DIR *dir;
+    struct dirent *entry;
+    uint8_t cpu_count = 0;
+    char path[256];
+
+    snprintf(path, sizeof(path),
+             "/sys/devices/system/node/node%u", numa_node_id);
+
+    dir = opendir(path);
+
+    if (dir == NULL) return 0;
+
+    while ((entry = readdir(dir)) != NULL) {
+
+        if (strncmp(entry->d_name, "cpu", 3) == 0) {
+
+            char *endptr;
+            long cpu_id = strtol(entry->d_name + 3, &endptr, 10);
+
+            if (*endptr == '\0' && cpu_id >= 0) {
+
+                if (cpu_count < MAX_CPUS_PER_NUMA) {
+                    cpu_array[cpu_count] = (uint8_t)cpu_id;
+                    cpu_count++;
+                }
+            }
+        }
+    }
+
+    closedir(dir);
+    return cpu_count;
+}
+
+static uint8_t 
+system_port_get_numa_node(uint32_t port_id) {
+
+    int socket_id = rte_eth_dev_socket_id((uint16_t)port_id);
+
+    /* rte_eth_dev_socket_id() returns -1 (SOCKET_ID_ANY) when
+       NUMA info is unavailable (e.g. single-socket machines).
+       Fall back to NUMA node 0 in that case. */
+    if (socket_id < 0) return 0;
+
+    return (uint8_t)socket_id;
+}
+
+typedef struct cpu_port_map_ {
+
+    uint8_t  cpu_id;
+    uint8_t  numa_node_id;
+    uint16_t port_ids[MAX_PORTS_PER_CPU];
+    uint8_t  port_count;
+
+} cpu_port_map_t;
+
+typedef struct numa_cpu_info_ {
+
+    uint8_t cpu_ids[MAX_CPUS_PER_NUMA];
+    uint8_t cpu_count;
+
+} numa_cpu_info_t;
+
+/*
+ * Build a mapping of CPU -> assigned port IDs.
+ *
+ * Algorithm:
+ *   1. Discover NUMA topology: which CPUs sit on which NUMA node.
+ *   2. Exclude core 0 (reserved for control plane) from port assignment.
+ *      On a single-core machine, core 0 is kept as a fallback since there
+ *      is no other core available.
+ *   3. For every physical port, look up its NUMA node.
+ *   4. Assign the port to the least-loaded CPU on that NUMA node
+ *      (fewest ports so far), guaranteeing uniform distribution.
+ *   5. Return the resulting cpu_port_map_t array (caller must free it).
+ *
+ * Out-params:
+ *   map_count_out  – number of entries in the returned array (one per CPU
+ *                    that has at least one port assigned).
+ *
+ * Returns NULL on allocation failure or when there are no physical ports.
+ */
+cpu_port_map_t *
+Linux_dpdk_build_cpu_port_map(dp_ctx_t *dp_ctx, uint8_t *map_count_out) {
+
+    *map_count_out = 0;
+
+    /* ---- 1. Discover NUMA topology ---- */
+    uint8_t numa_count = system_get_max_numa_node_count();
+    if (numa_count == 0) return NULL;
+
+    numa_cpu_info_t *numa_info =
+        (numa_cpu_info_t *)calloc(numa_count, sizeof(numa_cpu_info_t));
+    if (!numa_info) return NULL;
+
+    for (uint8_t n = 0; n < numa_count; n++) {
+        uint8_t cpus[MAX_CPUS_PER_NUMA];
+        numa_info[n].cpu_count =
+            system_get_cpus_per_numa_nodes(n, cpus);
+        memcpy(numa_info[n].cpu_ids, cpus, numa_info[n].cpu_count);
+    }
+
+    /* ---- 2. Count total CPUs to size the output map ---- */
+    uint16_t total_cpus = 0;
+    for (uint8_t n = 0; n < numa_count; n++)
+        total_cpus += numa_info[n].cpu_count;
+
+    if (total_cpus == 0) { free(numa_info); return NULL; }
+
+    /* Reserve core 0 for control plane unless this is a single-core machine */
+    if (total_cpus > 1) {
+        for (uint8_t n = 0; n < numa_count; n++) {
+            numa_cpu_info_t *ni = &numa_info[n];
+            for (uint8_t c = 0; c < ni->cpu_count; c++) {
+                if (ni->cpu_ids[c] == 0) {
+                    memmove(&ni->cpu_ids[c], &ni->cpu_ids[c + 1],
+                            (ni->cpu_count - c - 1) * sizeof(ni->cpu_ids[0]));
+                    ni->cpu_count--;
+                    total_cpus--;
+                    break;
+                }
+            }
+        }
+        if (total_cpus == 0) { free(numa_info); return NULL; }
+    }
+
+    cpu_port_map_t *map =
+        (cpu_port_map_t *)calloc(total_cpus, sizeof(cpu_port_map_t));
+    if (!map) { free(numa_info); return NULL; }
+
+    /* Pre-fill CPU IDs and their NUMA node into the map */
+    uint16_t idx = 0;
+    for (uint8_t n = 0; n < numa_count; n++) {
+        for (uint8_t c = 0; c < numa_info[n].cpu_count; c++) {
+            map[idx].cpu_id = numa_info[n].cpu_ids[c];
+            map[idx].numa_node_id = n;
+            map[idx].port_count = 0;
+            idx++;
+        }
+    }
+
+    /* Build a fast cpu_id -> map index lookup (sparse, indexed by cpu_id) */
+    uint8_t max_cpu_id = 0;
+    for (uint16_t i = 0; i < total_cpus; i++) {
+        if (map[i].cpu_id > max_cpu_id) max_cpu_id = map[i].cpu_id;
+    }
+    uint16_t *cpu_to_map_idx =
+        (uint16_t *)calloc(max_cpu_id + 1, sizeof(uint16_t));
+    if (!cpu_to_map_idx) { free(numa_info); free(map); return NULL; }
+    for (uint16_t i = 0; i < total_cpus; i++)
+        cpu_to_map_idx[map[i].cpu_id] = i;
+
+    /* ---- 3. Assign each physical port to the least-loaded CPU on its NUMA node ---- */
+    hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
+    struct hashtable_itr *itr = hashtable_iterator(dp_intf_ht);
+
+    if (itr && hashtable_count(dp_intf_ht) > 0) {
+
+        do {
+            dp_intf_t *dp_intf =
+                (dp_intf_t *)hashtable_iterator_value(itr);
+
+            if (dp_intf->if_type != DP_INTF_TYPE_PHY)
+                continue;
+
+            uint8_t port_numa = system_port_get_numa_node(dp_intf->port_id);
+            if (port_numa >= numa_count) continue;
+
+            numa_cpu_info_t *ni = &numa_info[port_numa];
+            if (ni->cpu_count == 0) continue;
+
+            /* Pick the CPU on this NUMA node that currently has the fewest ports */
+            uint16_t best_mi = cpu_to_map_idx[ni->cpu_ids[0]];
+            for (uint8_t c = 1; c < ni->cpu_count; c++) {
+                uint16_t candidate = cpu_to_map_idx[ni->cpu_ids[c]];
+                if (map[candidate].port_count < map[best_mi].port_count)
+                    best_mi = candidate;
+            }
+
+            if (map[best_mi].port_count < MAX_PORTS_PER_CPU) {
+                map[best_mi].port_ids[map[best_mi].port_count] = dp_intf->port_id;
+                map[best_mi].port_count++;
+            }
+
+        } while (hashtable_iterator_advance(itr));
+    }
+
+    free(itr);
+    free(cpu_to_map_idx);
+    free(numa_info);
+
+    /* ---- 4. Compact: keep only CPUs that have ports assigned ---- */
+    uint8_t used = 0;
+    for (uint16_t i = 0; i < total_cpus; i++) {
+        if (map[i].port_count > 0) {
+            if (i != used)
+                map[used] = map[i];
+            used++;
+        }
+    }
+
+    *map_count_out = used;
+    return map;  /* caller frees with free() */
+}
+
+#define BURST_SIZE 32
+
+typedef struct datapath_pkt_entry_thread_data_ {
+
+    uint8_t n_ports;
+    dp_intf_t **ports_array;
+
+} datapath_pkt_entry_thread_data_t;
+
+static void *
+datapath_pkt_entry_thread_function(void *arg){
+
+    uint8_t p;
+    uint16_t nb_rx, i;
+    dp_intf_t *dp_intf;
+    struct rte_mbuf *mbuf;
+    pkt_block_t *pkt_block;
+    struct rte_ether_hdr *eth;
+    
+    datapath_pkt_entry_thread_data_t *th_data = 
+        (datapath_pkt_entry_thread_data_t *)arg;
+    
+    struct rte_mbuf *bufs[BURST_SIZE];
+
+    while (1) {
+
+        for (p = 0; p < th_data->n_ports; p++) {
+
+            dp_intf = th_data->ports_array[p];
+
+            nb_rx = rte_eth_rx_burst(
+                        dp_intf->port_id - 1, 0,
+                        bufs, BURST_SIZE);
+            
+            if (unlikely(nb_rx == 0)) continue;
+
+            /* Now process the Burst of packets */
+            for (i = 0; i < nb_rx; i++) {
+                
+                mbuf = bufs[i];
+                pkt_block = pkt_block_new_with_mbuf(mbuf);
+                dp_pkt_entry_point (dp_intf->dp_ctx, dp_intf->vrf, dp_intf, pkt_block);
+                pkt_block_dereference(pkt_block);
+            }
+        }
+    }
+}
+
+void
+DPDK_PollInterfaces(dp_ctx_t *dp_ctx) {
+
+    dp_intf_t *dp_intf;
+    cpu_set_t cpu_set;
+    uint8_t map_count = 0;
+    cpu_port_map_t *entry;
+    pthread_attr_t thread_attr;
+    datapath_pkt_entry_thread_data_t *th_data;
+
+    cpu_port_map_t *map = Linux_dpdk_build_cpu_port_map(dp_ctx, &map_count);
+
+    if (!map || map_count == 0) return;
+
+    for (uint8_t i = 0; i < map_count; i++) {
+
+        entry = &map[i];
+
+        cprintf("NUMA %u : CPU %u  ->  port IDs: ",
+               entry->numa_node_id, entry->cpu_id);
+
+        for (uint8_t p = 0; p < entry->port_count; p++) {
+            cprintf("%u%s", entry->port_ids[p],
+                   (p + 1 < entry->port_count) ? ", " : "");
+        }
+        cprintf("\n");
+    }
+
+    pthread_attr_init(&thread_attr);
+    pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_DETACHED);
+    
+    for (uint8_t i = 0; i < map_count; i++) {
+
+        entry = &map[i];
+        
+        pthread_t *dp_thread = (pthread_t *)calloc (1, sizeof (pthread_t));
+        CPU_ZERO(&cpu_set);
+        CPU_SET(entry->cpu_id, &cpu_set);
+
+        pthread_attr_setaffinity_np(&thread_attr, sizeof(cpu_set_t), &cpu_set);
+
+        th_data = (datapath_pkt_entry_thread_data_t *)
+                    calloc (1, sizeof (datapath_pkt_entry_thread_data_t));
+        th_data->n_ports = entry->port_count;
+        th_data->ports_array = (dp_intf_t **)
+                    calloc (entry->port_count, sizeof (dp_intf_t *));
+
+        for (uint8_t p = 0; p < entry->port_count; p++) {
+
+            dp_intf = dp_look_up_interface(dp_ctx->dp_intf_ht, entry->port_ids[p] + 1);
+            assert(dp_intf);
+            th_data->ports_array[p] = dp_intf;
+        }
+        pthread_create(dp_thread, &thread_attr, 
+                datapath_pkt_entry_thread_function, (void *)th_data);
+    }
+
+    free(map);
+}
+
+#define NUM_MBUFS_PER_PORT 8191
+#define MBUF_CACHE_SIZE 250
+#define RX_RING_SIZE 1024
+#define TX_RING_SIZE 1024
+
+/*
+ * dpdk_port_configure - Initialize and start a single DPDK-managed Ethernet port.
+ *
+ * Follows the standard DPDK port initialization lifecycle:
+ *   1. Validate port existence
+ *   2. Query hardware capabilities (max queues, offloads, etc.)
+ *   3. Configure the device with the desired number of RX/TX queues
+ *   4. Clamp descriptor ring sizes to hardware-supported values
+ *   5. Resolve NUMA node affinity for memory allocation
+ *   6. Allocate RX queues (each backed by the shared mbuf_pool)
+ *   7. Allocate TX queues
+ *   8. Start the device (NIC begins receiving/transmitting)
+ *   9. Enable promiscuous mode so all wire traffic is visible
+ *
+ * @dp_intf   : datapath interface object (used for logging)
+ * @port_id   : DPDK port identifier
+ * @mbuf_pool : pre-allocated packet buffer pool shared across all RX queues
+ */
+static void 
+dpdk_port_configure(dp_intf_t *dp_intf,uint16_t port_id, rte_mempool *mbuf_pool) {
+
+    int rc;
+    uint16_t port_numa_node;
+    uint16_t nb_rxd = RX_RING_SIZE;
+    uint16_t nb_txd = TX_RING_SIZE;
+    struct rte_eth_conf port_conf;
+    struct rte_eth_dev_info dev_info;
+
+    cprintf ("%s: Configuring NIC:%s(%u) ...\n", __FUNCTION__, dp_intf->if_name, port_id);
+
+    /* Step 1: Sanity check — confirm port_id maps to a recognized DPDK device */
+    assert (rte_eth_dev_is_valid_port(port_id));
+
+    /* Zero-initialize configs; a zeroed port_conf selects driver defaults
+       (no RSS, no offloads, no VLAN filtering) */
+    memset (&port_conf, 0, sizeof(port_conf));
+    memset (&dev_info, 0, sizeof(dev_info));
+
+    /* Step 2: Query NIC/driver capabilities — we need max_rx_queues and
+       max_tx_queues to know how many queues the hardware supports */
+    rte_eth_dev_info_get(port_id, &dev_info);
+
+    /* Step 3: Device-level configuration. Tells the driver how many RX/TX
+       queues to allocate (we request the hardware maximum) and applies
+       the global port settings from port_conf. Must be called before any
+       queue setup. Transitions port state: UNUSED -> CONFIGURED */
+    rc = rte_eth_dev_configure(port_id, 
+                            dev_info.max_rx_queues, 
+                            dev_info.max_tx_queues, &port_conf);
+    assert (!rc);
+
+    /* Step 4: The requested ring sizes (RX_RING_SIZE / TX_RING_SIZE) may
+       not be exactly supported by the hardware. This call clamps nb_rxd
+       and nb_txd to the nearest valid values the driver accepts */
+    rc = rte_eth_dev_adjust_nb_rx_tx_desc(port_id, &nb_rxd, &nb_txd);
+    assert(!rc);
+    cprintf ("Intf : %s, Rx Ring Size : %u, Tx Ring Size : %u\n", 
+        dp_intf->if_name, nb_rxd, nb_txd);
+
+    /* Step 5: Determine NUMA node the NIC is attached to. Allocating ring
+       buffers on the same NUMA node avoids expensive cross-socket memory
+       access. Falls back to node 0 if the socket cannot be determined */
+    int socket_id = rte_eth_dev_socket_id(port_id);
+    port_numa_node = socket_id < 0 ? 0 : socket_id;
+
+    /* Step 6: Set up all RX queues. Each queue gets a descriptor ring of
+       nb_rxd entries on the port's NUMA node. The mbuf_pool supplies
+       packet buffers where the NIC will DMA incoming frames */
+    for (int i = 0; i < dev_info.max_rx_queues; i++)
+    {
+        rc = rte_eth_rx_queue_setup(port_id, i, nb_rxd,
+                                    port_numa_node, 
+                                    NULL, mbuf_pool);
+        assert(!rc);
+    }
+
+    /* Step 7: Set up all TX queues. Same NUMA-aware allocation, but no
+       mbuf_pool is needed — the application provides mbufs at send time */
+    for (int i = 0; i < dev_info.max_tx_queues; i++)
+    {
+        rc = rte_eth_tx_queue_setup(port_id, i, nb_txd,
+                                    port_numa_node, 
+                                    NULL);
+        assert(!rc);
+    }
+
+    /* Step 8: Start the device. Programs the hardware with all queue and
+       config info from above. After this the NIC is live — it can receive
+       and transmit packets. Transitions port state: CONFIGURED -> STARTED */
+    rc = rte_eth_dev_start(port_id);
+    assert(!rc);
+
+    /* Step 9: Enable promiscuous mode — NIC accepts all packets on the
+       wire, not just those matching its MAC address. Required for a
+       TCP/IP stack that may handle traffic for multiple addresses,
+       perform bridging, or need full wire visibility for debugging */
+    rc = rte_eth_promiscuous_enable(port_id);
+    assert(!rc);
+}
+
+void
+DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
+
+    dp_intf_t *dp_intf;
+    struct hashtable_itr *itr;
+    hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
+
+    uint16_t port_cnt = dp_intf_ht->entrycount;
+
+    if (!port_cnt) return;
+
+    itr = hashtable_iterator(dp_intf_ht);
+
+    struct rte_mempool *mbuf_pool = rte_pktmbuf_pool_create(
+                    "MBUF_POOL", 
+                    NUM_MBUFS_PER_PORT *  port_cnt,
+                    MBUF_CACHE_SIZE, 0, 
+                    RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
+
+    assert (mbuf_pool);
+
+    while(1) {
+
+        dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
+
+        if (dp_intf->if_type != DP_INTF_TYPE_PHY) {
+            if (!hashtable_iterator_advance(itr)) break;
+            continue;
+        }
+
+        uint16_t dpdk_port_id = dp_intf_get_dpdk_port_id(dp_intf);
+        dpdk_port_configure(dp_intf, dpdk_port_id, mbuf_pool);
+        if (!hashtable_iterator_advance(itr)) break;
+    }    
+    free (itr);
 }

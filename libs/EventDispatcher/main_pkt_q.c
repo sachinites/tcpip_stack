@@ -87,6 +87,7 @@ pkt_reciever3(void *_pkt, uint32_t pkt_size) {
 	}
 }
 
+#if 0
 int
 main(int argc, char **argv){
 
@@ -117,3 +118,4 @@ main(int argc, char **argv){
 	}
 	pause();	
 }
+#endif

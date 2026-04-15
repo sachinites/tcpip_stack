@@ -1,7 +1,8 @@
 CC=g++
 #SANITIZER_FLAGS=-fsanitize=address,undefined
+DPDK_FLAGS=-mssse3
 SANITIZER_FLAGS=
-export CFLAGS=-g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
+export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_FLAGS} -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 AR=ar
 
 TARGET=libdp.a

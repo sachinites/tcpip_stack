@@ -119,6 +119,7 @@ compute_square(void *arg, uint32_t arg_size){
 	//sleep(5);
 }
 
+#if 0
 int
 main(int argc, char **argv){
 
@@ -163,5 +164,5 @@ main(int argc, char **argv){
 	pause();	
 	return 0;
 }
-
+#endif
 

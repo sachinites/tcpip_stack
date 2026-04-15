@@ -21,11 +21,14 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/select.h>
+#include <ncurses.h>
 
 #include "LinuxInterface.h"
 
 #include "../libs/c-hashtable/hashtable.h"
 #include "../libs/c-hashtable/hashtable_itr.h"
+
+#include <rte_ethdev.h>
 
 #include "../router_init.h"
 
@@ -329,7 +332,110 @@ LinuxLoadInterfaces (node_t *node) {
     
     closedir(dir);
     close (af_packet_sock_fd);
-    LinuxRtr = true;
+}
+
+void 
+DPDK_LoadInterfaces(node_t *node) {
+
+    uint16_t port_numa_node;
+    struct rte_ether_addr mac_addr;
+    struct rte_eth_dev_info dev_info;
+    char name[RTE_ETH_NAME_MAX_LEN];
+    char user_if_name[IF_NAME_SIZE];
+
+    uint16_t port_count = rte_eth_dev_count_avail();
+
+    /* DPDK internally recognizes the NICs and assigns them a port_id 
+        starting from 0 to port_count - 1. */
+    for (uint16_t port_id = 0; port_id < port_count; port_id++) {
+
+        memset(&dev_info, 0, sizeof(dev_info));
+        memset(name, 0, sizeof(name));
+        memset(&mac_addr, 0, sizeof(mac_addr));
+
+        rte_eth_dev_info_get(port_id, &dev_info);
+        rte_eth_macaddr_get(port_id, &mac_addr);
+        rte_eth_dev_get_name_by_port(port_id, name);
+
+        /* rte_eth_dev_socket_id() returns -1 (SOCKET_ID_ANY) when
+        NUMA info is unavailable (e.g. single-socket machines).
+        Fall back to NUMA node 0 in that case. */
+        int socket_id = rte_eth_dev_socket_id(port_id);
+        port_numa_node = socket_id < 0 ? 0 : socket_id;
+
+        cprintf("port_id = %u, pci_bdf = %s, driver = %s, "
+                "mac = %02x:%02x:%02x:%02x:%02x:%02x, "
+                "max_rx_q = %u, max_tx_q = %u, NUMA node = %u\n",
+                port_id, name, dev_info.driver_name,
+                mac_addr.addr_bytes[0], mac_addr.addr_bytes[1],
+                mac_addr.addr_bytes[2], mac_addr.addr_bytes[3],
+                mac_addr.addr_bytes[4], mac_addr.addr_bytes[5],
+                dev_info.max_rx_queues, dev_info.max_tx_queues,
+                port_numa_node);
+
+        /* Let us create a control plane view of the ports and install 
+            them to data path as well */
+
+        /* Control plane Interface */
+        memset (user_if_name, 0, sizeof(user_if_name));
+
+        /* DPDK Dettach interfaces from linux, so ifnames like ens2 etc dont
+            exist anymore. We have to cook our own interface names */
+        snprintf (user_if_name, sizeof (user_if_name), "eth%u", port_id);
+
+        auto intf_shared = std::make_shared<PhysicalInterface>(user_if_name, INTF_TYPE_PHY, nullptr);
+        intf_shared->SetSharedPtr(intf_shared);
+        Interface *intf = intf_shared.get();
+        intf->att_node = node;
+
+        mac_addr_t mac_addr_struct = {0};
+        memcpy(mac_addr_struct.mac, mac_addr.addr_bytes, 6);
+        intf->SetMacAddr(&mac_addr_struct);
+
+        /* Use port ID as ifindex. Since DPDK port-ids start from 0 which is
+            not a valid value for us, we add 1 to it to create ifindex */
+        intf->ifindex = port_id + 1;
+        assert (intf->ifindex <= MAX_INTF_IFINDEX );
+        interface_reserve_ifindex (node, intf->ifindex);
+
+        /* Now install interface to Data Path */
+        cp2dp_interface_create(node, intf);
+        vrf_add_interface(NODE_DEF_VRF(node), intf);
+        cp2dp_send_intf_admin_status_update(node, intf->ifindex, false);
+
+        /* Install Link Local Addressess*/
+        ipv6_addr_t v6_addr = {0};
+        mac_addr_t *mac_addr_ptr = intf->GetMacAddr();
+
+        /* Generate link local address and store it in interface configs */
+        intf->InterfaceSetIpv6LinkLocalAddress(&mac_addr_ptr->mac);
+
+        /* Obtain the generated link local address */
+        intf->InterfaceGetIpv6LinkLocalAddress(&v6_addr.addr);
+
+        /* Install IPv6 link-local address route using RTM API */
+        rtm_t *rtm = rtm_get(node, RTM_DEFAULT_VRF, AF_IPV6, 0);
+
+        intf->rtm_link_local_rt6_idx =
+            cp_rtm_install_local_or_connected_v6_routes(
+                rtm, &v6_addr, 128, intf->GetSharedPtr());
+
+        if (intf->rtm_link_local_rt6_idx == 0)
+        {
+            char ipv6_str[48];
+            inet_ntop(AF_INET6, &v6_addr.addr, ipv6_str, sizeof(ipv6_str));
+            cprintf("Warning: Failed to install IPv6 link-local route %s/128 on interface %s\n",
+                    ipv6_str, intf->if_name.c_str());
+        }
+        else
+        {
+            cp2dp_send_intf_ipv6_addr_update(
+                node, intf->ifindex, v6_addr.addr, 128);
+        }
+
+        bool inserted = node_global_intf_map_insert(node, intf);
+        assert (inserted);
+    }
 }
 
 

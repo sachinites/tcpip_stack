@@ -30,6 +30,8 @@ typedef struct ip_hdr_ ip_hdr_t;
 typedef struct arp_hdr_ arp_hdr_t;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
 
+struct rte_mbuf;
+
 #define MAX_PACKET_BUFFER_SIZE   2048
 #define PKT_BUFFER_RIGHT_ROOM    128   
 
@@ -59,6 +61,7 @@ typedef struct encap_meta_data_
 struct pkt_block_ {
 
     uint8_t *pkt;
+    struct rte_mbuf *mbuf;
     uintptr_t alloc_ptr;
     uintptr_t ingress_intf;
     encap_meta_data_t *encap_data;
@@ -162,5 +165,8 @@ pkt_block_slide (pkt_block_t *pkt_block,
                  int8_t lorr1, 
                  int8_t lorr2, 
                  uint16_t space);
-                 
+
+pkt_block_t * 
+pkt_block_new_with_mbuf (struct rte_mbuf *mbuf);
+
 #endif

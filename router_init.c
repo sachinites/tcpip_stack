@@ -207,13 +207,13 @@ Router_Create(graph_t *graph, const c_string node_name){
     /* Start Control plane Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "CP-%s", node_name);
     event_dispatcher_init(&node->ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&node->ev_dis, false);
+    event_dispatcher_run(&node->ev_dis, true, 0);
     node->ev_dis.app_data = (void *)node;
 
     /* Start Object purger Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "Purger-%s", node_name);
     event_dispatcher_init(&node->purger_ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&node->purger_ev_dis, false);  /* Purger doesn't need high-perf core */
+    event_dispatcher_run(&node->purger_ev_dis, true, 0);
     node->purger_ev_dis.app_data = (void *)node;
 
     /* Start Control Plane Timer */

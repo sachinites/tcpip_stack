@@ -5,6 +5,9 @@ import sys
 REMOTE_USER = "vm"
 REMOTE_HOST = "192.168.122.244"
 REMOTE_BASE = "~/tcpip_stack"
+REMOTE_PASS = "vm"
+
+SSHPASS = f"sshpass -p {REMOTE_PASS}"
 
 def run_cmd(cmd):
     result = subprocess.run(cmd, shell=True, text=True,
@@ -23,7 +26,7 @@ def get_staged_files():
     return [f for f in files if os.path.isfile(f)]
 
 def ensure_remote_dir(remote_path):
-    cmd = f'ssh {REMOTE_USER}@{REMOTE_HOST} "mkdir -p {remote_path}"'
+    cmd = f'{SSHPASS} ssh -o StrictHostKeyChecking=no {REMOTE_USER}@{REMOTE_HOST} "mkdir -p {remote_path}"'
     run_cmd(cmd)
 
 def scp_file(local_file):
@@ -34,7 +37,7 @@ def scp_file(local_file):
     ensure_remote_dir(remote_dir)
 
     # Copy file
-    cmd = f"scp {local_file} {REMOTE_USER}@{REMOTE_HOST}:{remote_file_path}"
+    cmd = f"{SSHPASS} scp -o StrictHostKeyChecking=no {local_file} {REMOTE_USER}@{REMOTE_HOST}:{remote_file_path}"
     print(f"⬆️  Copying {local_file} → {remote_file_path}")
     run_cmd(cmd)
 

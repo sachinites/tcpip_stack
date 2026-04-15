@@ -52,7 +52,10 @@ event_dispatcher_get_high_perf_core(void) {
  */
 static int
 event_dispatcher_pin_thread_to_core(pthread_t thread, int core_id) {
+
 	cpu_set_t cpuset;
+	
+	if (core_id < 0) return 0;
 	
 	CPU_ZERO(&cpuset);
 	CPU_SET(core_id, &cpuset);
@@ -310,7 +313,7 @@ task_schedule_again(event_dispatcher_t *ev_dis, task_t *task){
 }
 
 void
-event_dispatcher_run(event_dispatcher_t *ev_dis, bool pin_to_core){
+event_dispatcher_run(event_dispatcher_t *ev_dis, bool pin_to_core, int core_id){
 
 	pthread_attr_t attr;
 	pthread_t *event_dis_thread;
@@ -325,26 +328,12 @@ event_dispatcher_run(event_dispatcher_t *ev_dis, bool pin_to_core){
 					ev_dis);
 	
 	/* Pin thread to high-performance core if requested */
-	if (pin_to_core) {
-		int core_id = event_dispatcher_get_high_perf_core();
-		
-		if (core_id >= 0) {
-			/* Small delay to ensure thread is running before pinning */
-			usleep(1000);
-			
-			if (event_dispatcher_pin_thread_to_core(*event_dis_thread, core_id) == 0) {
-				fprintf(stdout, "Event Dispatcher: Successfully pinned to core %d\n", 
-						core_id);
-			} else {
-				fprintf(stderr, "Event Dispatcher: Warning - Failed to pin to core %d, "
-						"running on default core\n", core_id);
-			}
-		} else {
-			fprintf(stderr, "Event Dispatcher: Warning - Unable to determine high-perf core, "
-					"running on default core\n");
-		}
+	if (pin_to_core && core_id >= 0)
+	{
+		/* Small delay to ensure thread is running before pinning */
+		usleep(1000);
 	}
-	
+
 	pthread_attr_destroy(&attr);
 }
 

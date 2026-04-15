@@ -36,8 +36,8 @@
 #include <unistd.h>
 #include "utils.h"
 #include "router_init.h"
-#include "Layer2/layer2.h"
 #include "Interface/InterfaceUApi.h"
+#include "Layer2/layer2.h"
 
 extern graph_t *build_first_topo(void);
 extern graph_t *build_simple_l2_switch_topo(void);
@@ -1112,18 +1112,46 @@ evpn_spine_leaf(void) {
     return topo;
 }
 
-extern void  LinuxLoadInterfaces (node_t *node) ;
+extern void LinuxLoadInterfaces (node_t *node) ;
+extern void DPDK_LoadInterfaces(node_t *node);
+
 typedef struct dp_ctx_ dp_ctx_t;
+
 extern void Linux_listen_interfaces (dp_ctx_t *dp_ctx);
+extern void DPDK_PollInterfaces (dp_ctx_t *dp_ctx);
+extern void DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx);
+extern bool LinuxRtr;
+
+#define USE_DPDK
 
 graph_t *
 Linux_Router_topology(void) {
 
+    LinuxRtr = true;
+
     graph_t *topo = create_new_graph("Linux-Router-Topology");
+
     node_t *linux_rtr = Router_Create(topo, (const c_string)"LR");
+
+    #ifndef USE_DPDK
+    cprintf ("Scanning and Loading Linux NICs...\n");
     LinuxLoadInterfaces (linux_rtr);
-    /* Wait for all Interfaces to reconcile with Data-path */
+    #else 
+    cprintf ("Scanning and Loading DPDK Bound NICs...\n");
+    DPDK_LoadInterfaces(linux_rtr);
+    DPDK_ConfigureInterfaces(linux_rtr->dp_ctx);
+    #endif 
+
+    cprintf ("Wait for all detected Interfaces to reconcile with Data-path...\n");
     sleep(2);
+    
+    #ifndef USE_DPDK
+    cprintf ("Listening on all interfaces using Sockets ...\n");
     Linux_listen_interfaces (linux_rtr->dp_ctx);
+    #else
+    cprintf ("Linux DPDK Polling on NICs....\n");
+    DPDK_PollInterfaces(linux_rtr->dp_ctx);
+    #endif 
+
     return topo;
 }

@@ -17,10 +17,8 @@ typedef enum lcore_state_ {
 
 typedef enum lcore_role_ {
 
-    ROLE_IN_USE,
-    ROLE_OFF,
-    ROLE_SERVICE,
-    ROLE_NON_DPDK
+    ROLE_CONTROL_PLANE,
+    ROLE_DATA_PLANE
 
 } lcore_role_t;
 
@@ -74,7 +72,6 @@ typedef struct lcore_config_ {
 #pragma pack(pop)
 
 /* Equivalent to rte_eal_cpu_init() */
-void cpu_init(void);
-void numa_nodes_init (void);
+int lcore_init(void);
 
 #endif 

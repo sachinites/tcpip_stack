@@ -44,7 +44,7 @@ gre_one_time_registration();
 void
 init_tcp_ip_stack(){
 
-	event_dispatcher_run(&gev_dis, false);   /* Default behavior - no pinning */
+	event_dispatcher_run(&gev_dis, false, 0);   /* Default behavior - no pinning */
     //init_spf_algo();
 	isis_one_time_registration();
 	gre_one_time_registration();

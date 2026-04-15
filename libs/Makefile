@@ -1,7 +1,11 @@
 CC     = g++
 #SANITIZER_FLAGS = -fsanitize=address,undefined
 SANITIZER_FLAGS =
-CFLAGS = -g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes \
+
+#https://stackoverflow.com/questions/69212557/dpdk-compilation-error-while-freeing-mbuf
+DPDK_FLAGS=-mssse3
+
+CFLAGS = -g -Wcast-align -fpermissive ${DPDK_FLAGS} -Wall -Wextra -Wmissing-prototypes \
          -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 \
          -Wignored-qualifiers $(SANITIZER_FLAGS)
 

@@ -35,8 +35,8 @@
  * =====================================================================================
  */
 
-#ifndef __RTM__
-#define __RTM__
+#ifndef __RTM_H__
+#define __RTM_H__
 
 #include <stdint.h>
 #include "../libs/Tree/libtree.h"

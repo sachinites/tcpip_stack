@@ -55,15 +55,16 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
 
     strncpy(dp_ctx->ctx_name, ctx_name, sizeof(dp_ctx->ctx_name));
 
-    /* Start main datapath event dispatcher (DP thread) */
-    snprintf(ev_dis_name, EV_DIS_NAME_LEN, "DP-%s", ctx_name);
+    /* Start main datapath event dispatcher (DP thread) 
+        This thread become DP Management thread on LinuxRtr */
+    snprintf(ev_dis_name, EV_DIS_NAME_LEN, LinuxRtr ? "DP-Mgr-%s" : "DP-%s", ctx_name);
     event_dispatcher_init(&dp_ctx->dp_ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&dp_ctx->dp_ev_dis, LinuxRtr ? true : false);
+    event_dispatcher_run(&dp_ctx->dp_ev_dis, true, 0);
     dp_ctx->dp_ev_dis.app_data = (void *)dp_ctx;
 
     /* Start purger event dispatcher (cleanup / refcount) */
     event_dispatcher_init(&dp_ctx->dp_purger_ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&dp_ctx->dp_purger_ev_dis, false);
+    event_dispatcher_run(&dp_ctx->dp_purger_ev_dis, true, 0);
     dp_ctx->dp_purger_ev_dis.app_data = (void *)dp_ctx;
 
     /* Initialize packet queues */

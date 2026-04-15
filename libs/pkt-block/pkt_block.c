@@ -26,6 +26,7 @@
 #include "../LinuxMemoryManager/uapi_mm.h"
 #include "../common/l2_hdrs.h"
 #include "../common/l3_hdrs.h"
+#include <rte_ether.h>
 
 gen_proto_id_t
 pkt_block_get_starting_hdr(pkt_block_t *pkt_block) {
@@ -79,9 +80,16 @@ pkt_block_reference(pkt_block_t *pkt_block) {
 static void
 pkt_block_free(pkt_block_t *pkt_block) {
 
-    XFREE((void *)pkt_block->alloc_ptr);
     assert (!pkt_block->encap_data);
     assert (!pkt_block->ingress_intf);
+
+    if (pkt_block->mbuf) {
+        rte_pktmbuf_free(pkt_block->mbuf);
+    }
+    else {
+        XFREE((void *)pkt_block->alloc_ptr);
+    }
+
     free(pkt_block);
 }
 
@@ -513,4 +521,14 @@ pkt_block_slide (pkt_block_t *pkt_block,
 
     if (lorr1 == -1) pkt_block->pkt = pkt;
     pkt_block->pkt_size = pkt_size;
+}
+
+
+pkt_block_t * 
+pkt_block_new_with_mbuf (struct rte_mbuf *mbuf) {
+
+    pkt_block_t *pkt_block = pkt_block_get_new(NULL, 0);
+    pkt_block->pkt = (char *)rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *);
+    pkt_block->mbuf = mbuf;
+    return pkt_block;
 }
