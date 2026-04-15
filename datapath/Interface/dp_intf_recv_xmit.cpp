@@ -46,6 +46,11 @@ typedef int (*SendPacketOut_fptr)(
 extern bool LinuxRtr;
 extern int cprintf (const char* format, ...);
 
+#define NUM_MBUFS_PER_PORT 8191
+#define MBUF_CACHE_SIZE 250
+#define RX_RING_SIZE 1024
+#define TX_RING_SIZE 1024
+
 extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
@@ -1329,19 +1334,24 @@ datapath_pkt_entry_thread_function(void *arg){
 
             dp_intf = th_data->ports_array[p];
 
-            nb_rx = rte_eth_rx_burst(
-                        dp_intf->port_id - 1, 0,
-                        bufs, BURST_SIZE);
-            
-            if (unlikely(nb_rx == 0)) continue;
+            for (uint16_t q_id = 0; q_id < dp_intf->dpdk_max_rx_queues; q_id++) {
 
-            /* Now process the Burst of packets */
-            for (i = 0; i < nb_rx; i++) {
+                nb_rx = rte_eth_rx_burst(
+                            dp_intf->port_id - 1, 
+                            q_id,
+                            bufs, BURST_SIZE);
                 
-                mbuf = bufs[i];
-                pkt_block = pkt_block_new_with_mbuf(mbuf);
-                dp_pkt_entry_point (dp_intf->dp_ctx, dp_intf->vrf, dp_intf, pkt_block);
-                pkt_block_dereference(pkt_block);
+                if (unlikely(nb_rx == 0)) continue;
+
+                /* Now process the Burst of packets */
+                for (i = 0; i < nb_rx; i++) {
+                    
+                    mbuf = bufs[i];
+                    pkt_block = pkt_block_new_with_mbuf(mbuf);
+                    pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
+                    dp_pkt_entry_point (dp_intf->dp_ctx, dp_intf->vrf, dp_intf, pkt_block);
+                    pkt_block_dereference(pkt_block);
+                }
             }
         }
     }
@@ -1396,7 +1406,8 @@ DPDK_PollInterfaces(dp_ctx_t *dp_ctx) {
 
         for (uint8_t p = 0; p < entry->port_count; p++) {
 
-            dp_intf = dp_look_up_interface(dp_ctx->dp_intf_ht, entry->port_ids[p] + 1);
+            /* Note : map contains the exact port id which are used in data-path*/
+            dp_intf = dp_look_up_interface(dp_ctx->dp_intf_ht, entry->port_ids[p]);
             assert(dp_intf);
             th_data->ports_array[p] = dp_intf;
         }
@@ -1406,11 +1417,6 @@ DPDK_PollInterfaces(dp_ctx_t *dp_ctx) {
 
     free(map);
 }
-
-#define NUM_MBUFS_PER_PORT 8191
-#define MBUF_CACHE_SIZE 250
-#define RX_RING_SIZE 1024
-#define TX_RING_SIZE 1024
 
 /*
  * dpdk_port_configure - Initialize and start a single DPDK-managed Ethernet port.
@@ -1462,6 +1468,9 @@ dpdk_port_configure(dp_intf_t *dp_intf,uint16_t port_id, rte_mempool *mbuf_pool)
                             dev_info.max_rx_queues, 
                             dev_info.max_tx_queues, &port_conf);
     assert (!rc);
+
+    dp_intf->dpdk_max_rx_queues = dev_info.max_rx_queues;
+    dp_intf->dpdk_max_tx_queues = dev_info.max_tx_queues;
 
     /* Step 4: The requested ring sizes (RX_RING_SIZE / TX_RING_SIZE) may
        not be exactly supported by the hardware. This call clamps nb_rxd

@@ -143,7 +143,10 @@ dp_create_interface (uint32_t port_id, uint32_t iftype,
     intf->log_info.send = true;
     intf->log_info.is_stdout = false;
     intf->log_info.acc_lst_filter = NULL;
+    intf->dpdk_max_rx_queues = 0;
+    intf->dpdk_max_tx_queues = 0;
     intf->dp_ctx = NULL;
+    intf->nbr_intf = NULL;
     return intf;
 }
 
