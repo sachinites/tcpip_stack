@@ -35,6 +35,7 @@
 #include "../dp_ctx.h"
 #include "../dp_utils.h"
 #include "../dp_uapi.h"
+#include "../dp_ctrl.h"
 #include "../Layer3/Gre/gre-fwd.h"
 #include "../Layer3/SRv6/srv6-endpoint.h"
 #include "../Layer2/switching/mac_table.h"
@@ -113,6 +114,23 @@ linux_send_xmit_out (dp_intf_t *dp_intf, pkt_block_t *pkt_block) {
     return (int)bytes_sent;
 }
 
+static int 
+dpdk_send_xmit_out(dp_intf_t *dp_intf, pkt_block_t *pkt_block) {
+
+    assert (pkt_block->mbuf);
+    assert (pkt_block_get_starting_hdr (pkt_block) == ETHERNET_HEADER);
+    
+    int rc = rte_eth_tx_burst(dp_intf_get_dpdk_port_id(dp_intf),
+                     (dp_intf->dpdk_tx_queue_lb) % dp_intf->dpdk_max_tx_queues,
+                     &pkt_block->mbuf, 1);
+
+    dp_intf->dpdk_tx_queue_lb++;
+    dp_intf->dpdk_tx_queue_lb = (dp_intf->dpdk_tx_queue_lb % dp_intf->dpdk_max_tx_queues);
+
+    return rc;
+}
+
+
 /* Helper APIs */
 
 static int
@@ -143,7 +161,12 @@ send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
         pkt_block_str (pkt_block), intf->if_name);
 
     if (LinuxRtr) {
-        return linux_send_xmit_out (intf, pkt_block);
+
+        #ifndef USE_DPDK
+            return linux_send_xmit_out (intf, pkt_block);
+        #else 
+            return dpdk_send_xmit_out (intf, pkt_block);
+        #endif
     }
 
     dp_ctx_t *peer_dp_ctx = intf->nbr_intf->dp_ctx;
@@ -1362,8 +1385,9 @@ DPDK_PollInterfaces(dp_ctx_t *dp_ctx) {
 
     dp_intf_t *dp_intf;
     cpu_set_t cpu_set;
-    uint8_t map_count = 0;
+    char thread_name[32];
     cpu_port_map_t *entry;
+    uint8_t map_count = 0;
     pthread_attr_t thread_attr;
     datapath_pkt_entry_thread_data_t *th_data;
 
@@ -1411,6 +1435,9 @@ DPDK_PollInterfaces(dp_ctx_t *dp_ctx) {
             assert(dp_intf);
             th_data->ports_array[p] = dp_intf;
         }
+        memset (thread_name, 0, sizeof (thread_name));
+        snprintf (thread_name, sizeof (thread_name), "DPDK-C-%u", entry->cpu_id);
+        pthread_setname_np(*dp_thread, (const char *)thread_name);
         pthread_create(dp_thread, &thread_attr, 
                 datapath_pkt_entry_thread_function, (void *)th_data);
     }
@@ -1437,7 +1464,9 @@ DPDK_PollInterfaces(dp_ctx_t *dp_ctx) {
  * @mbuf_pool : pre-allocated packet buffer pool shared across all RX queues
  */
 static void 
-dpdk_port_configure(dp_intf_t *dp_intf,uint16_t port_id, rte_mempool *mbuf_pool) {
+dpdk_port_configure(dp_intf_t *dp_intf,
+                    uint16_t port_id, 
+                    struct rte_mempool *mbuf_pool) {
 
     int rc;
     uint16_t port_numa_node;
@@ -1446,7 +1475,8 @@ dpdk_port_configure(dp_intf_t *dp_intf,uint16_t port_id, rte_mempool *mbuf_pool)
     struct rte_eth_conf port_conf;
     struct rte_eth_dev_info dev_info;
 
-    cprintf ("%s: Configuring NIC:%s(%u) ...\n", __FUNCTION__, dp_intf->if_name, port_id);
+    cprintf ("%s: Configuring NIC:%s(%u) ...\n", 
+            __FUNCTION__, dp_intf->if_name, port_id);
 
     /* Step 1: Sanity check — confirm port_id maps to a recognized DPDK device */
     assert (rte_eth_dev_is_valid_port(port_id));
@@ -1525,6 +1555,7 @@ void
 DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
 
     dp_intf_t *dp_intf;
+    char numa_node_name[32];
     struct hashtable_itr *itr;
     hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
 
@@ -1534,13 +1565,24 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
 
     itr = hashtable_iterator(dp_intf_ht);
 
-    struct rte_mempool *mbuf_pool = rte_pktmbuf_pool_create(
-                    "MBUF_POOL", 
+    /* Create mrmpool for each numa nodes in the system */
+    uint8_t max_numa_nodes = system_get_max_numa_node_count ();
+    
+    struct rte_mempool **mempools_array_per_numa = 
+        (struct rte_mempool **) calloc (max_numa_nodes, sizeof (struct rte_mempool *));
+    
+
+    for (int i = 0; i < max_numa_nodes; i++) {
+
+        memset (numa_node_name, 0, sizeof (numa_node_name));
+        snprintf (numa_node_name, sizeof (numa_node_name), "NUMA_MEM_POOL%u", i);
+
+        mempools_array_per_numa[i] = rte_pktmbuf_pool_create(
+                    (const char *)numa_node_name,
                     NUM_MBUFS_PER_PORT *  port_cnt,
                     MBUF_CACHE_SIZE, 0, 
-                    RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-
-    assert (mbuf_pool);
+                    RTE_MBUF_DEFAULT_BUF_SIZE, i );
+    }
 
     while(1) {
 
@@ -1552,8 +1594,13 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
         }
 
         uint16_t dpdk_port_id = dp_intf_get_dpdk_port_id(dp_intf);
-        dpdk_port_configure(dp_intf, dpdk_port_id, mbuf_pool);
+        int socket_id = rte_eth_dev_socket_id(dpdk_port_id);
+        uint16_t port_numa_node = socket_id < 0 ? 0 : socket_id;
+
+        dpdk_port_configure(dp_intf, dpdk_port_id, 
+            mempools_array_per_numa[port_numa_node]);
         if (!hashtable_iterator_advance(itr)) break;
     }    
     free (itr);
+    free (mempools_array_per_numa);
 }

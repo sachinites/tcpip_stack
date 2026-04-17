@@ -100,6 +100,7 @@ typedef struct dp_intf_ {
     int LinuxRtr_sockfd;
     uint16_t dpdk_max_rx_queues;
     uint16_t dpdk_max_tx_queues;
+    uint32_t dpdk_tx_queue_lb;
 
     /* Wire connection Simulation */
     dp_ctx_t *dp_ctx;

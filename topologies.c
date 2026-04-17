@@ -34,6 +34,8 @@
  * if above URL dont work, then try visit : https://www.csepracticals.com*/
 
 #include <unistd.h>
+#include <ncurses.h>
+#include "datapath/dp_ctrl.h"
 #include "utils.h"
 #include "router_init.h"
 #include "Interface/InterfaceUApi.h"
@@ -1122,8 +1124,6 @@ extern void DPDK_PollInterfaces (dp_ctx_t *dp_ctx);
 extern void DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx);
 extern bool LinuxRtr;
 
-#define USE_DPDK
-
 graph_t *
 Linux_Router_topology(void) {
 
@@ -1134,24 +1134,31 @@ Linux_Router_topology(void) {
     node_t *linux_rtr = Router_Create(topo, (const c_string)"LR");
 
     #ifndef USE_DPDK
-    cprintf ("Scanning and Loading Linux NICs...\n");
+    cprintf ("Linux NICs : Scanning and Loading NICs...\n");
     LinuxLoadInterfaces (linux_rtr);
     #else 
-    cprintf ("Scanning and Loading DPDK Bound NICs...\n");
+    cprintf ("DPDK NICs : Scanning and Loading DPDK Bound NICs...\n");
     DPDK_LoadInterfaces(linux_rtr);
-    DPDK_ConfigureInterfaces(linux_rtr->dp_ctx);
     #endif 
 
     cprintf ("Wait for all detected Interfaces to reconcile with Data-path...\n");
-    sleep(2);
+    
+    for (int i = 0; i < 20; i++) {
+        usleep(100000);
+        cprintf(". ");
+        refresh();
+    }
     
     #ifndef USE_DPDK
-    cprintf ("Listening on all interfaces using Sockets ...\n");
+    cprintf ("\nLinux NICs : Listening on all NICs using Sockets ...\n");
     Linux_listen_interfaces (linux_rtr->dp_ctx);
     #else
-    cprintf ("Linux DPDK Polling on NICs....\n");
+    cprintf ("\nDPDK NICs : Configuring NICs....\n");
+    DPDK_ConfigureInterfaces(linux_rtr->dp_ctx);
+    cprintf ("DPDK NICs : Polling on NICs....\n");
     DPDK_PollInterfaces(linux_rtr->dp_ctx);
     #endif 
 
+    refresh();
     return topo;
 }
