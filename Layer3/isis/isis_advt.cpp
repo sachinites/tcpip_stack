@@ -693,7 +693,6 @@ isis_discard_fragment (isis_node_info_t *node_info, isis_fragment_t *fragment) {
     glthread_t *curr;
     pkt_size_t pkt_size;
     isis_lsp_pkt_t *lsp_pkt;
-    pkt_block_t *pkt_block;
     isis_advt_db_t *advt_db;
     isis_adv_data_t *advt_data;
 

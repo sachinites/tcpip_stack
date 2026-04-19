@@ -23,11 +23,7 @@
 #include "Interface/dp_intf_store.h"
 #include "Interface/dp_intf.h"
 
-
-extern int
-dp_submit_packet (dp_ctx_t *dp_ctx,
-                  pkt_block_t *pkt_block,
-                  dp_intf_t *interface);
+#include <rte_lcore.h>
                   
 void 
 dp_uapi_link_connect (dp_ctx_t *dp_ctx1, uint32_t ifindex1, 
@@ -53,8 +49,7 @@ dp_uapi_inject_packet(dp_ctx_t *dp_ctx,
 
     if (!recv_intf) return -1;
 
-    dp_submit_packet (dp_ctx, 
-                      pkt_block, recv_intf);
+    dp_pkt_entry_point(dp_ctx, recv_intf->vrf, recv_intf, pkt_block);
                       
     return 0;
 }
@@ -127,4 +122,13 @@ event_dispatcher_t *
 dp_uapi_get_dp_scheduler (dp_ctx_t *dp_ctx) {
 
     return &dp_ctx->dp_ev_dis;
+}
+
+struct rte_mempool *
+dp_uapi_get_current_socket_mpool(dp_ctx_t *dp_ctx) {
+
+    int socket_id = (int)rte_socket_id();
+    if (dp_ctx->dpdk_mempool)
+        return dp_ctx->dpdk_mempool[socket_id];
+    return NULL;
 }

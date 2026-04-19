@@ -1124,6 +1124,7 @@ extern void DPDK_PollInterfaces (dp_ctx_t *dp_ctx);
 extern void DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx);
 extern bool LinuxRtr;
 
+
 graph_t *
 Linux_Router_topology(void) {
 
@@ -1150,13 +1151,17 @@ Linux_Router_topology(void) {
     }
     
     #ifndef USE_DPDK
+    
     cprintf ("\nLinux NICs : Listening on all NICs using Sockets ...\n");
     Linux_listen_interfaces (linux_rtr->dp_ctx);
+    
     #else
+
     cprintf ("\nDPDK NICs : Configuring NICs....\n");
     DPDK_ConfigureInterfaces(linux_rtr->dp_ctx);
     cprintf ("DPDK NICs : Polling on NICs....\n");
     DPDK_PollInterfaces(linux_rtr->dp_ctx);
+    
     #endif 
 
     refresh();

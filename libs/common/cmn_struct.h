@@ -18,6 +18,7 @@ typedef struct mac_addr_ {
     unsigned char mac[MAC_ADDR_SIZE];
 } mac_addr_t;
 
+typedef uint32_t pkt_size_t;
 
 #pragma pack(pop)
 

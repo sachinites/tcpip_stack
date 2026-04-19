@@ -1261,20 +1261,17 @@ srv6_ping6_handler(int cmdcode,
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
+    vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
 
     srh_hdr_t *srh_hdr = NULL;
-    pkt_block_t *pkt_block = NULL;
+    pkt_size_t srh_hdr_size = 0;
 
     /* Encode SRH header only when # of segment is > 1*/
 
     if (i > 1) {
 
-        pkt_size_t srh_hdr_size = sizeof (srh_hdr_t ) + (i * 16);
-        pkt_block = pkt_block_get_new_pkt_buffer (srh_hdr_size);
-        pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IPv6_ROUTE);
-        srh_hdr = (srh_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
-
+        srh_hdr_size = sizeof (srh_hdr_t ) + (i * 16);
+        srh_hdr = (srh_hdr_t *)XCALLOC_BUFF(0, srh_hdr_size);
         srh_hdr->nexthdr = IP_PROTO_ICMPv6;
         srh_hdr->hdrlen = srh_hdr_size;
         srh_hdr->type = 4;
@@ -1290,9 +1287,8 @@ srv6_ping6_handler(int cmdcode,
     ipv6_addr_t dest_addr;
     inet_pton6 ((char *)ipv6_addr_str[0], &dest_addr);
 
-    cp2dp_send_ip6_data (node, vrf, pkt_block, dest_addr, srh_hdr ? IP_PROTO_SRH:IP_PROTO_ICMPv6 );
-
-    if (pkt_block) pkt_block_dereference (pkt_block);
+    cp2dp_send_ip6_data (node, vrf, (uint8_t *)srh_hdr, srh_hdr_size,
+                         dest_addr, srh_hdr ? IP_PROTO_SRH : IP_PROTO_ICMPv6);
 
     return 0;
 }

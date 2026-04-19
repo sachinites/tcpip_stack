@@ -418,8 +418,8 @@ isis_init (vrf_t *vrf) {
 void
 isis_one_time_registration() {
 
-    //nfc_register_for_pkt_tracing(ISIS_LSP_ETH_PKT_TYPE, isis_print_lsp_pkt_cbk);
-    //nfc_register_for_pkt_tracing(ISIS_HELLO_ETH_PKT_TYPE, isis_print_hello_pkt_cbk);
+    nfc_register_for_pkt_tracing(ISIS_LSP_ETH_PKT_TYPE, isis_print_lsp_pkt_cbk);
+    nfc_register_for_pkt_tracing(ISIS_HELLO_ETH_PKT_TYPE, isis_print_hello_pkt_cbk);
 }
 
 void

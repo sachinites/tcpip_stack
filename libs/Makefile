@@ -13,7 +13,7 @@ TARGET = libstd.a
 
 # Install external dependent libs:  sudo apt-get install libpq-dev
 
-OBJS = std_lib_init.o 						  \
+OBJS = std_lib_init.o 					  \
 	   BitOp/bitmap.o                     \
        c-hashtable/hashtable.o            \
        c-hashtable/hashtable_itr.o        \
@@ -25,12 +25,14 @@ OBJS = std_lib_init.o 						  \
        mtrie/mtrie.o                     \
        notifc/notif.o                    \
        pkt-block/pkt_block.o             \
+	   pkt-block/cp_pkt_block.o          \
        prefix-list/prefixlst.o           \
        stack/stack.o                     \
        Tracer/tracer.o                   \
        Tree/avl.o                        \
 	   common/ipv6_utils.o               \
-	   common/cmn_prefix.o
+	   common/cmn_prefix.o				 \
+	   pkt-block/pkt_mbuf.o
 
 $(TARGET): $(OBJS)
 	ar rcs $(TARGET) $(OBJS)
@@ -81,6 +83,14 @@ notifc/notif.o: notifc/notif.c
 # pkt-block
 pkt-block/pkt_block.o: pkt-block/pkt_block.c
 	$(CC) $(CFLAGS) -c -I . -I pkt-block pkt-block/pkt_block.c -o pkt-block/pkt_block.o
+
+pkt-block/cp_pkt_block.o: pkt-block/cp_pkt_block.c
+	$(CC) $(CFLAGS) -c -I . -I pkt-block pkt-block/cp_pkt_block.c -o pkt-block/cp_pkt_block.o
+
+
+pkt-block/pkt_mbuf.o: pkt-block/pkt_mbuf.c
+	$(CC) $(CFLAGS) -c -I . -I pkt-block pkt-block/pkt_mbuf.c -o pkt-block/pkt_mbuf.o
+
 
 # prefix-list
 prefix-list/prefixlst.o:prefix-list/prefixlst.c

@@ -24,6 +24,8 @@ void
 vxlan_encapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
+    pkt_mbuf_pvt_data_t *pvt_data;
+    pkt_mbuf_encap_meta_data_t *encap_data;
 
     /* Vxlan is MAC/IP encapsulation inside VxLAN */
     assert (pkt_block_get_starting_hdr (pkt_block) == ETHERNET_HEADER);
@@ -47,15 +49,18 @@ vxlan_encapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
     vxlan_hdr->reserved[1] = 0;
     vxlan_hdr->reserved[2] = 0;
     
+    pvt_data = pkt_block_get_pvt_data(pkt_block);
+    encap_data = pvt_data->encap_data;
+
     /* Convert VNI to network byte order for VXLAN header */
-    uint32_t temp_vni = htonl(pkt_block->encap_data->u.vxlan.vni);
+    uint32_t temp_vni = htonl(encap_data->u.vxlan.vni);
     vxlan_hdr->vni[0] = (temp_vni >> 24) & 0xFF;  /* MSB */
     vxlan_hdr->vni[1] = (temp_vni >> 16) & 0xFF;  /* Middle byte */
     vxlan_hdr->vni[2] = (temp_vni >> 8) & 0xFF;   /* LSB */
     vxlan_hdr->reserved2 = 0;
 
     tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
-        "VxLAN Encapsulation : VNI %u \n", pkt_block->encap_data->u.vxlan.vni);    
+        "VxLAN Encapsulation : VNI %u \n", encap_data->u.vxlan.vni);    
 }
 
 void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_vtep_ip) 
@@ -89,9 +94,10 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_v
         "VxLAN Decapsulation : VNI %u \n", vni);
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(vxlan_hdr + 1); 
-    pkt_size -= (pkt_size_t)((char *)eth_hdr - (char *)udp_hdr);
+    uint16_t strip = (uint16_t)((char *)eth_hdr - (char *)udp_hdr);
 
-    pkt_block_set_new_pkt (pkt_block, (uint8_t *) eth_hdr, pkt_size);
+    /* Strip UDP + VxLAN headers to expose the inner ethernet header. */
+    pkt_block_slide (pkt_block, -1, 1, strip);
     pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
 
     uint16_t vlan_id = vlan_vni_ht_vni_to_vlan_lookup (dp_ctx, vni);

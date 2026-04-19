@@ -10,7 +10,7 @@ typedef uint16_t isis_pkt_type_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
 typedef struct isis_fragment_ isis_fragment_t;
 typedef struct isis_node_info_ isis_node_info_t;
-
+typedef struct cp_pkt_block_ cp_pkt_block_t;
 
 typedef struct isis_pkt_ {
 
@@ -98,8 +98,8 @@ isis_print_hello_pkt_cbk(event_dispatcher_t *ev_dis, void *arg, unsigned int arg
 void
 isis_cancel_lsp_pkt_generation_task(isis_node_info_t *node_info);
 
-byte *
-isis_prepare_hello_pkt(Interface *intf, pkt_size_t *hello_pkt_size);
+cp_pkt_block_t *
+isis_prepare_hello_pkt(Interface *intf);
 
 uint32_t *
 isis_get_lsp_pkt_rtr_id(isis_lsp_pkt_t *lsp_pkt) ;

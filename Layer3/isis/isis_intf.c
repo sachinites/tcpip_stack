@@ -44,7 +44,7 @@ static void
 isis_transmit_hello(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 
     pkt_size_t pkt_size;
-    pkt_block_t *pkt_block;
+    cp_pkt_block_t *pkt_block;
 
     if (!arg) return;
 
@@ -54,12 +54,11 @@ isis_transmit_hello(event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
     node_t *node = node_info->vrf->node;
 
     Interface *egress_intf = isis_timer_data->intf;
-    pkt_block = (pkt_block_t *)isis_timer_data->data;
+    pkt_block = (cp_pkt_block_t *)isis_timer_data->data;
     ISIS_INTF_INCREMENT_STATS(egress_intf, hello_pkt_sent);
-    assert ( pkt_block_get_starting_hdr(pkt_block) == ETHERNET_HEADER );
-    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    assert ( pkt_block->hdr_type == ETHERNET_HEADER );
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)cp_pkt_block_get_pkt(pkt_block, &pkt_size);
     memcpy(eth_hdr->src_mac.mac, IF_MAC(egress_intf), sizeof(eth_hdr->src_mac.mac));
-    pkt_block_set_no_modify (pkt_block, true);
     cp2dp_xmit_pkt (node, pkt_block, egress_intf);
 }
 
@@ -69,7 +68,7 @@ isis_send_hello_immediately (Interface *intf) {
      byte *hello_pkt;
      bool new_hello;
      pkt_size_t pkt_size;
-     pkt_block_t *pkt_block;
+     cp_pkt_block_t *pkt_block;
      pkt_size_t hello_pkt_size;
      isis_timer_data_t *isis_timer_data;
      timer_event_handle *hello_xmit_timer ;
@@ -79,29 +78,22 @@ isis_send_hello_immediately (Interface *intf) {
     if (hello_xmit_timer) {
         isis_timer_data =
         (isis_timer_data_t *)wt_elem_get_and_set_app_data(hello_xmit_timer, hello_xmit_timer->arg);
-        pkt_block = (pkt_block_t *)isis_timer_data->data;
-        hello_pkt = pkt_block_get_pkt(pkt_block, &hello_pkt_size);
+        pkt_block = (cp_pkt_block_t *)isis_timer_data->data;
+        hello_pkt = cp_pkt_block_get_pkt(pkt_block, &hello_pkt_size);
         new_hello = false;
     }
     else {
-
-        hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
-        pkt_block = pkt_block_get_new(hello_pkt, hello_pkt_size);
-        pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
+        pkt_block = isis_prepare_hello_pkt(intf);
+        hello_pkt = cp_pkt_block_get_pkt(pkt_block, &hello_pkt_size);
         new_hello = true;
     }
 
-     if (hello_pkt && hello_pkt_size) {
-
-            ISIS_INTF_INCREMENT_STATS(intf, hello_pkt_sent);
-            assert(pkt_block_get_starting_hdr(pkt_block) == ETHERNET_HEADER);
-            ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
-            memcpy(eth_hdr->src_mac.mac, IF_MAC(intf), sizeof(eth_hdr->src_mac.mac));
-            pkt_block_set_no_modify (pkt_block, true);
-            cp2dp_xmit_pkt (intf->att_node, pkt_block, intf);
-            if (new_hello) pkt_block_dereference (pkt_block);
-    }
- 
+    ISIS_INTF_INCREMENT_STATS(intf, hello_pkt_sent);
+    assert(pkt_block->hdr_type == ETHERNET_HEADER);
+    ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)cp_pkt_block_get_pkt(pkt_block, &pkt_size);
+    memcpy(eth_hdr->src_mac.mac, IF_MAC(intf), sizeof(eth_hdr->src_mac.mac));
+    cp2dp_xmit_pkt(intf->att_node, pkt_block, intf);
+    if (new_hello) cp_pkt_block_dereference(pkt_block);
 }
 
 void
@@ -119,17 +111,15 @@ isis_start_sending_hellos (Interface *intf) {
     node_t *node = intf->att_node;
     node_info = intf->vrf->isis_node_info;
 
-    byte *hello_pkt = isis_prepare_hello_pkt(intf, &hello_pkt_size);
+    cp_pkt_block_t *pkt_block = isis_prepare_hello_pkt(intf);
 
     isis_timer_data_t *isis_timer_data =
         XCALLOC2(0, 1, isis_timer_data_t);
 
     isis_timer_data->node_info = node_info;
     isis_timer_data->intf = intf;
-    pkt_block_t *pkt_block = pkt_block_get_new(hello_pkt, hello_pkt_size);
-    pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
     isis_timer_data->data = (void *)pkt_block;
-    isis_timer_data->data_size = sizeof(pkt_block_t);
+    isis_timer_data->data_size = sizeof(cp_pkt_block_t);
 
     intf_info->hello_xmit_timer = timer_register_app_event(
                                         CP_TIMER(node),
@@ -140,8 +130,9 @@ isis_start_sending_hellos (Interface *intf) {
                                         1);
     
     if (intf_info->hello_xmit_timer == NULL) {
-        pkt_block_dereference(pkt_block);
+        cp_pkt_block_dereference(pkt_block);
         XFREE(isis_timer_data);
+        return;
     }
 }
 
@@ -166,7 +157,7 @@ isis_stop_sending_hellos(Interface *intf){
         (isis_timer_data_t *)wt_elem_get_and_set_app_data(hello_xmit_timer, 0);
 
     timer_de_register_app_event(hello_xmit_timer);
-    pkt_block_dereference((pkt_block_t *)isis_timer_data->data);
+    cp_pkt_block_dereference((cp_pkt_block_t *)isis_timer_data->data);
     free_timer_data(isis_timer_data);
     ISIS_INTF_HELLO_XMIT_TIMER(intf) = NULL;
     tracer (ISIS_TR(node_info),  TR_ISIS_PKT_HELLO,

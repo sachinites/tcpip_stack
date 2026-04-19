@@ -29,6 +29,18 @@ typedef struct dp_intf_ dp_intf_t;
 #include "Interface/dp_intf.h"
 
 /**
+ * Payload for recv/send path: packet pointer, interface index, and size.
+ * Used when passing packets into the datapath event dispatcher.
+ */
+typedef struct ev_dis_pkt_data_ {
+
+    unsigned char *pkt;
+    uint32_t ifindex;
+    uint32_t pkt_size;
+
+} ev_dis_pkt_data_t;
+
+/**
  * dp_intf_get_matching_subnet_interface - Find interface whose subnet contains ip_addr
  * @dp_ctx:   Datapath context
  * @vrf:     VRF to search
@@ -47,5 +59,12 @@ dp_intf_get_dpdk_port_id (dp_intf_t *dp_intf) {
 
     return dp_intf->port_id - 1;
 }
+
+/* Wrapper Function for Data path to allocate memory buffers for packets */
+pkt_block_t *
+dp_pkt_block_copy_and_wrap_raw_pkt_copy (dp_ctx_t *dp_ctx, uint8_t *pkt, uint16_t pkt_size);
+
+pkt_block_t *
+dp_pkt_block_get_new_pkt_buffer (dp_ctx_t *dp_ctx, uint16_t pkt_size);
 
 #endif /* __DP_UTILS__ */

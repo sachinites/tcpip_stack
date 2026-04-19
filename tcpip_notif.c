@@ -121,7 +121,6 @@ nfc_pkt_trace_invoke_notif_to_sbscribers(
 	
 	pkt_info.protocol_no = protocol_no;
 	pkt_info.pkt_block = pkt_block;
-	pkt_block_reference(pkt_block);
 	pkt_info.pkt_print_buffer = pkt_print_buffer;
 	pkt_info.bytes_written = 0;
 
@@ -132,8 +131,6 @@ nfc_pkt_trace_invoke_notif_to_sbscribers(
 						   (char *)&protocol_no,
 						   sizeof(protocol_no),
                            TASK_PRIORITY_LOW);
-
-	pkt_block_dereference(pkt_block);
 
 	return pkt_info.bytes_written;
 }

@@ -118,6 +118,14 @@ typedef struct fib_update_msg_ {
 
 } fib_update_msg_t;
 
+typedef struct dp_raw_pkt_info_ {
+
+    uint8_t *pkt;
+    uint16_t pkt_size;
+    uint16_t lead_proto;
+
+} dp_raw_pkt_info_t;
+
 typedef enum DP_COMPONENT_TYPE_ {
 
     MAC_TABLE,

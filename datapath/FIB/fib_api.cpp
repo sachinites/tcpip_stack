@@ -119,7 +119,9 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
                 if (pkt_block_get_starting_hdr (pkt_block) == ETH_TYPE_MPLS_UC) {
                     pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
                     if (mpls_label_is_stack_bottom (*pkt_label)) s_bit = true;
-                    pkt_block_set_new_pkt (pkt_block, (uint8_t *)(pkt_label + 1), pkt_size - sizeof (mpls_label_val_t));
+                    /* Pop the top MPLS label: shrink head by one label. */
+                    pkt_block_slide (pkt_block, -1, 1,
+                                     (uint16_t)sizeof (mpls_label_val_t));
                     if (s_bit) pkt_block_update_new_hdr_type (pkt_block,  PROTO_MISC_APP);
                 }
             break;

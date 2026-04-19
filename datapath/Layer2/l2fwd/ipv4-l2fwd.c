@@ -23,11 +23,6 @@ cp_punt_pkt_from_layer2_to_layer5(
 					  uint32_t recv_intf_ifindex,
         			  pkt_block_t *pkt_block,
 					  gen_proto_id_t hdr_code);
-
-extern int
-dp_submit_packet (dp_ctx_t *dp_ctx,
-                  pkt_block_t *pkt_block,
-                  dp_intf_t *interface);
                   
 static void
 l2_forward_ip_packet(dp_ctx_t *dp_ctx, 
@@ -111,7 +106,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         memset(ethernet_hdr->src_mac.mac, 0, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->dst_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        dp_submit_packet(dp_ctx, pkt_block, oif);
+        dp_pkt_entry_point(dp_ctx,oif->vrf, oif, pkt_block);
         return;
     }
 
@@ -119,9 +114,10 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
      * rebounce the pkt to Network Layer again*/
     if(next_hop_ip == dp_ctx->rtr_id) {
 
-        pkt_block_set_new_pkt (pkt_block, 
-            (uint8_t *)pkt_block_get_ip_hdr(pkt_block), 
-            ethernet_payload_size);
+        /* Strip the ethernet header to expose the IP header. Here
+         * ethernet_payload_size == current_pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD. */
+        pkt_block_slide(pkt_block, -1, 1,
+                        (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD);
         pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
         
         dp_promote_pkt_to_layer3(dp_ctx, vrf, 0, pkt_block);
@@ -245,10 +241,10 @@ tag_pkt_with_vlan_id (
     /*Update checksum, however not used*/
     SET_COMMON_ETH_FCS((ethernet_hdr_t *)vlan_ethernet_hdr, payload_size, 0 );
 
-    pkt_block_set_new_pkt(
-                pkt_block,
-                (uint8_t *)vlan_ethernet_hdr,
-                total_pkt_size  + (pkt_size_t)sizeof(vlan_8021q_hdr_t));
+    /* We slid the ethernet header left by sizeof(vlan_8021q_hdr_t) to carve
+     * room for the 802.1Q tag; grow the head by the same amount so the
+     * pkt_block's view now starts at vlan_ethernet_hdr. */
+    pkt_block_slide(pkt_block, -1, -1, (uint16_t)sizeof(vlan_8021q_hdr_t));
 }
 
 /* Return new packet size if pkt is untagged with the existing
@@ -290,8 +286,10 @@ untag_pkt_with_vlan_id(pkt_block_t *pkt_block) {
     /*Update checksum, however not used*/
     SET_COMMON_ETH_FCS(ethernet_hdr, payload_size, 0);
     
-    pkt_block_set_new_pkt(pkt_block, (uint8_t *)ethernet_hdr,  
-                                            pkt_size - (pkt_size_t )sizeof(vlan_8021q_hdr_t));
+    /* The inner ethernet header now lives sizeof(vlan_8021q_hdr_t) bytes past
+     * the old start; shrink head by that amount to advance the pkt_block's
+     * view onto it. */
+    pkt_block_slide(pkt_block, -1, 1, (uint16_t)sizeof(vlan_8021q_hdr_t));
 }
 
 void
@@ -340,9 +338,9 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
 
         case ETH_TYPE_IPv4:
 
-            pkt_block_set_new_pkt (
-                    pkt_block, (uint8_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr)), 
-                    pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD);
+            /* Strip the ethernet header to expose the IP payload. */
+            pkt_block_slide(pkt_block, -1, 1,
+                            (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD);
             pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IP_IN_IP);
             dp_promote_pkt_to_layer3(
                     dp_ctx,
@@ -351,9 +349,8 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
             break;
 
         case ETH_TYPE_IPv6:
-            pkt_block_set_new_pkt (
-                    pkt_block, (uint8_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr)), 
-                    pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD);
+            pkt_block_slide(pkt_block, -1, 1,
+                            (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD);
             pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IPv6);
             dp_promote_pkt_to_layer3(
                     dp_ctx,
@@ -593,7 +590,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     pkt_size_t pkt_size;
     
     vlan_ethernet_hdr_t *vlan_eth_hdr;
-    dp_intf_t *interface = (dp_intf_t *)pkt_block->ingress_intf;
+    dp_intf_t *interface = pkt_block_get_ingress_intf(pkt_block);
     
     assert(pkt_block_verify_pkt(pkt_block, ETHERNET_HEADER));
 
@@ -664,7 +661,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     pkt_size_t arp_reply_pkt_size = VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD +
                                     (pkt_size_t)sizeof(arp_hdr_t);
 
-    pkt_block_t *pkt_block2 = pkt_block_get_new_pkt_buffer(arp_reply_pkt_size);
+    pkt_block_t *pkt_block2 = dp_pkt_block_get_new_pkt_buffer(dp_ctx, arp_reply_pkt_size);
 
     vlan_ethernet_hdr_t *vlan_ethernet_hdr_reply =
         (vlan_ethernet_hdr_t *)pkt_block_get_pkt(pkt_block2, 0);

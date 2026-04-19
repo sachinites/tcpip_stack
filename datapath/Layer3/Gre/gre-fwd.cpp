@@ -12,11 +12,6 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     dp_vrf_t *vrf,
 					dp_intf_t *interface,
 					pkt_block_t *pkt_block);
-
-extern int
-dp_submit_packet (dp_ctx_t *dp_ctx,
-                  pkt_block_t *pkt_block,
-                  dp_intf_t *interface);
                   
 void 
 gre_encasulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
@@ -66,8 +61,8 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
     }
 
     pkt = pkt_block_get_pkt (pkt_block, &pkt_size);
-    pkt_block_set_new_pkt (pkt_block, 
-        (uint8_t *)(gre_hdr + 1), pkt_size - sizeof (gre_hdr_t));
+    /* Strip the GRE header: shrink head by sizeof(gre_hdr_t). */
+    pkt_block_slide(pkt_block, -1, 1, (uint16_t)sizeof(gre_hdr_t));
 
     switch (ntohs(gre_hdr->protocol_type)) {
 
@@ -85,7 +80,7 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
              pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
             tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_block_str (pkt_block));
-             dp_submit_packet(dp_ctx, pkt_block, gre_intf);
+             dp_pkt_entry_point(dp_ctx, gre_intf->vrf, gre_intf, pkt_block);
         }
         break;
     }

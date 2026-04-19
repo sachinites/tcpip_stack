@@ -15,6 +15,9 @@
 #include "dp_utils.h"
 #include "Vrfs/dp_vrf.h"
 #include "FIB/fib_nh.h"
+#include "dp_ctx.h"
+
+struct rte_mempool;
 
 /**
  * Returns the local interface whose configured subnet contains @ip_addr.
@@ -44,4 +47,33 @@ dp_intf_get_matching_subnet_interface(dp_ctx_t *dp_ctx,
     }
 
     return NULL;
+}
+
+pkt_block_t *
+dp_pkt_block_copy_and_wrap_raw_pkt_copy (
+        dp_ctx_t *dp_ctx, 
+        uint8_t *pkt, 
+        uint16_t pkt_size) {
+
+    /* Get the socket id of the current thread*/
+    int socket_id = (int)rte_socket_id();
+
+    /* Get the mempool on this socket*/
+    struct rte_mempool *mpool = (dp_ctx->dpdk_mempool) ? 
+                        dp_ctx->dpdk_mempool[socket_id] : NULL;
+
+    return PKT_BLOCK_WRAP(mpool, pkt, (pkt_size_t)pkt_size);
+}
+
+pkt_block_t *
+dp_pkt_block_get_new_pkt_buffer (dp_ctx_t *dp_ctx, uint16_t pkt_size) {
+
+    /* Get the socket id of the current thread*/
+    int socket_id = (int)rte_socket_id();
+
+    /* Get the mempool on this socket*/
+    struct rte_mempool *mpool = (dp_ctx->dpdk_mempool) ? 
+                        dp_ctx->dpdk_mempool[socket_id] : NULL;
+
+    return  PKT_BLOCK_GET_NEW(mpool, (pkt_size_t)pkt_size);
 }

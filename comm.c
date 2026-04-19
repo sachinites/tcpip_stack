@@ -40,8 +40,10 @@
 #include <netdb.h>  /*for struct hostent*/
 #include <sys/socket.h>
 #include <errno.h>
+#include <rte_ethdev.h>
 #include "router_init.h"
 #include "datapath/dp_uapi.h"
+#include "datapath/dp_utils.h"
 #include "libs/pkt-block/pkt_block.h"
 
 extern graph_t *topo;
@@ -98,28 +100,25 @@ _pkt_receive(dp_ctx_t *dp_ctx,
             uint32_t pkt_size){
 
     pkt_block_t *pkt_block;
-    uint32_t port_id = *(uint32_t *)pkt_with_aux_data;
+    ev_dis_pkt_data_t *ev_dis_pkt_data;
+    uint32_t ifindex = *(uint32_t *)pkt_with_aux_data;
 
-#if 0
-    pkt_block = pkt_block_get_new((uint8_t *)pkt_with_aux_data, pkt_size);
-    pkt_block_slide(pkt_block, -1, 1, sizeof(uint32_t));
-    pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
-#else 
-     pkt_block = pkt_block_get_new(NULL, 0);
- 
-     pkt_block_set_new_pkt(pkt_block,
-                           (uint8_t *)pkt_with_aux_data,
-                           pkt_size);
- 
-     pkt_block_set_new_pkt(pkt_block,
-                           (uint8_t *)pkt_with_aux_data + sizeof(uint32_t),
-                           pkt_size - sizeof(uint32_t));
-#endif
+    const uint16_t aux_data_size = sizeof (uint32_t);
 
-    dp_uapi_inject_packet (dp_ctx, 
-                           pkt_block, port_id);
-                      
-    XFREE(pkt_block);
+    ev_dis_pkt_data = (ev_dis_pkt_data_t *)
+        XCALLOC2(0, 1, ev_dis_pkt_data_t);
+
+    ev_dis_pkt_data->ifindex = ifindex;
+    ev_dis_pkt_data->pkt = (unsigned char *)XCALLOC_BUFF(0, pkt_size - aux_data_size);
+    memcpy(ev_dis_pkt_data->pkt, 
+        pkt_with_aux_data + aux_data_size, 
+        pkt_size - aux_data_size);
+    ev_dis_pkt_data->pkt_size = pkt_size - aux_data_size;
+
+	pkt_q_enqueue(EV_DP(dp_ctx), 
+                  DP_PKT_Q(dp_ctx),
+                  (char *)ev_dis_pkt_data,
+                  sizeof(ev_dis_pkt_data_t));
 }
 
 static char recv_buffer[MAX_PACKET_BUFFER_SIZE];

@@ -21,7 +21,9 @@ typedef struct dp_ctx_ dp_ctx_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_msg_ dp_msg_t;
+typedef struct dp_vrf_ dp_vrf_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
+struct rte_mempool;
 
 #include "../libs/notifc/notif.h"
 
@@ -74,6 +76,13 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx);
 void 
 DPDK_PollInterfaces (dp_ctx_t *dp_ctx);
 
+struct rte_mempool *
+dp_uapi_get_current_socket_mpool(dp_ctx_t *dp_ctx);
 
+void 
+dp_pkt_entry_point(dp_ctx_t *dp_ctx, 
+                    dp_vrf_t *vrf,
+                    dp_intf_t *interface,
+                    pkt_block_t *pkt_block);
 
 #endif /* __DP_UAPI__ */

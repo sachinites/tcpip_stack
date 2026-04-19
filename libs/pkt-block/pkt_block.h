@@ -22,56 +22,40 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "../common/protoIds.h"
+#include "../common/cmn_struct.h"
 #include "../../Layer3/gre-tunneling/gre.h"
-#include "../../Interface/InterfaceFwd.h"
 #include "../common/ipv6_hdrs.h"
+#include "../../datapath/dp_ctrl.h"
+#include "pkt_mbuf.h"
 
 typedef struct ip_hdr_ ip_hdr_t;
 typedef struct arp_hdr_ arp_hdr_t;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
+typedef struct dp_intf_ dp_intf_t;
 
 struct rte_mbuf;
 
 #define MAX_PACKET_BUFFER_SIZE   2048
 #define PKT_BUFFER_RIGHT_ROOM    128   
 
-typedef uint32_t pkt_size_t;
+typedef struct pkt_block_ pkt_block_t;
 
 #pragma pack(push, 8)
-
-typedef struct encap_meta_data_
-{
-    union
-    {
-        struct
-        {
-            uint32_t vni;
-            uint32_t remote_vtep_ip;
-
-        } vxlan;
-
-        struct
-        {
-
-        } gre;
-
-    } u;
-} encap_meta_data_t;
-
+         
 struct pkt_block_ {
 
-    uint8_t *pkt;
+    char *fn_name;
+    #ifdef USE_DPDK
     struct rte_mbuf *mbuf;
+    #else
+    uint8_t *pkt;
     uintptr_t alloc_ptr;
     uintptr_t ingress_intf;
-    encap_meta_data_t *encap_data;
-    char *fn_name;
-    uint64_t pkt_id;
+    pkt_mbuf_pvt_data_t pvt_data;
     pkt_size_t pkt_size;
-    gen_proto_id_t hdr_type;
-    uint16_t lineno;
     uint8_t ref_count;
-    bool no_modify;
+    #endif
+    uint16_t lineno;
 } ;
 
 #pragma pack(pop)
@@ -88,12 +72,6 @@ pkt_block_get_pkt(pkt_block_t *pkt_block, pkt_size_t *pkt_size) ;
 uint8_t
 pkt_block_dereference(pkt_block_t *pkt_block);
 
-pkt_block_t *
-pkt_block_get_new2(uint8_t *pkt, pkt_size_t pkt_size, const char *fn_name, uint16_t lineno);
-
-pkt_block_t *
-pkt_block_get_new_pkt_buffer2(pkt_size_t pkt_size, const char *fn_name, uint16_t lineno);
-
 void
 pkt_block_update_new_hdr_type(pkt_block_t *pkt_block, gen_proto_id_t hdr_type) ;
 
@@ -109,17 +87,8 @@ pkt_block_get_ip_hdr(pkt_block_t *pkt_block);
 ipv6_hdr_t *
 pkt_block_get_ip6_hdr (pkt_block_t *pkt_block) ;
 
-void
-pkt_block_free_internals (pkt_block_t *pkt_block);
-
-void
-pkt_block_set_new_pkt(pkt_block_t *pkt_block, uint8_t *pkt, pkt_size_t pkt_size);
-
-void 
-pkt_block_update_new_hdr_type (pkt_block_t *pkt_block, uint16_t proto);
-
 pkt_block_t *
-pkt_block_dup2(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno);
+pkt_block_clone(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno);
 
 bool
 pkt_block_expand_buffer_left (pkt_block_t *pkt_block, pkt_size_t expand_bytes);
@@ -148,14 +117,25 @@ pkt_ip_str (pkt_block_t *pkt_block, char *buffer);
 char *
 pkt_mac_str (pkt_block_t *pkt_block, char *buffer) ;
 
-#define pkt_block_get_new(pkt_ptr, pkt_size)  \
-    pkt_block_get_new2 (pkt_ptr, pkt_size, __FUNCTION__, __LINE__)
+pkt_block_t *
+pkt_block_wrap_raw_buffer(struct rte_mempool *mbuf_pool, 
+                          uint8_t *pkt, pkt_size_t pkt_size, 
+                          const char *fn_name, uint16_t lineno);
 
-#define pkt_block_get_new_pkt_buffer(pkt_size)  \
-    pkt_block_get_new_pkt_buffer2(pkt_size, __FUNCTION__, __LINE__)
+pkt_block_t *
+pkt_block_get_new_pkt_buffer(struct rte_mempool *mbuf_pool,  
+                             pkt_size_t pkt_size, 
+                             const char *fn_name, uint16_t lineno);
 
-#define pkt_block_dup(pkt_block_ptr)    \
-    pkt_block_dup2(pkt_block_ptr, __FUNCTION__, __LINE__)
+
+#define PKT_BLOCK_WRAP(mpool_ptr, pkt_ptr, pkt_size)  \
+    pkt_block_wrap_raw_buffer(mpool_ptr, pkt_ptr, pkt_size, __FUNCTION__, __LINE__)
+
+#define PKT_BLOCK_GET_NEW(mpool_ptr, pkt_size)  \
+    pkt_block_get_new_pkt_buffer(mpool_ptr, pkt_size, __FUNCTION__, __LINE__)
+
+#define PKT_BLOCK_DUP(pkt_block_ptr)    \
+    pkt_block_clone(pkt_block_ptr, __FUNCTION__, __LINE__)
 
 char *
 pkt_block_str (pkt_block_t *pkt_block);
@@ -168,5 +148,23 @@ pkt_block_slide (pkt_block_t *pkt_block,
 
 pkt_block_t * 
 pkt_block_new_with_mbuf (struct rte_mbuf *mbuf);
+
+pkt_mbuf_pvt_data_t *
+pkt_block_get_pvt_data(pkt_block_t *pkt_block);
+
+pkt_size_t 
+pkt_block_get_data_size(pkt_block_t *pkt_block);
+
+bool
+pkt_block_get_no_modify_value(pkt_block_t *pkt_block);
+
+void
+pkt_block_set_no_modify_value(pkt_block_t *pkt_block, bool value);
+
+dp_intf_t *
+pkt_block_get_ingress_intf(pkt_block_t *pkt_block);
+
+void 
+pkt_block_set_ingress_intf(pkt_block_t *pkt_block, dp_intf_t *intf);
 
 #endif

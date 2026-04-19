@@ -45,7 +45,7 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
         vlan_id = oif->vlan_id;
     }
 
-    pkt_block_t *pkt_block = pkt_block_get_new_pkt_buffer(
+    pkt_block_t *pkt_block = dp_pkt_block_get_new_pkt_buffer(dp_ctx,
                                 (vlan_id ? VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD : \
                                 ETH_HDR_SIZE_EXCL_PAYLOAD) + payload_size);
 
@@ -141,7 +141,7 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *ethernet_hdr_in, dp_intf_t 
 
     arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_in));
     pkt_size_t total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + (pkt_size_t )sizeof(arp_hdr_t);
-    pkt_block = pkt_block_get_new_pkt_buffer (total_pkt_size);
+    pkt_block = dp_pkt_block_get_new_pkt_buffer (dp_ctx, total_pkt_size);
     ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, 0);
 
     l2_prepare_arp_reply_msg(ethernet_hdr_reply, 

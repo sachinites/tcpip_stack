@@ -42,12 +42,12 @@ isis_mark_isis_lsp_pkt_flood_ineligible(
 static void
 isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
 
+    Interface *intf;    
     glthread_t *curr;
-    Interface *intf;
-    pkt_block_t *pkt_block;
-    pkt_block_t *pkt_block2;
+    bool has_up_adjacency;    
     isis_lsp_pkt_t *lsp_pkt;
-    bool has_up_adjacency;
+    cp_pkt_block_t *pkt_block;
+
     isis_lsp_xmit_elem_t *lsp_xmit_elem;
     byte lsp_id_str[ISIS_LSP_ID_STR_SIZE];
     
@@ -78,13 +78,10 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
     
             isis_assign_lsp_src_mac_addr(intf, lsp_pkt);
 
-            pkt_block = pkt_block_get_new((uint8_t *)lsp_pkt->pkt, lsp_pkt->pkt_size);
-            pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
-            
-            /* This needs an optimization, but code changes will be too much !*/
-            pkt_block2 = pkt_block_dup(pkt_block);
+            pkt_block = cp_pkt_block_get_new_pkt_buffer(lsp_pkt->pkt_size);
+            memcpy(pkt_block->pkt_start, lsp_pkt->pkt, lsp_pkt->pkt_size);
 
-            cp2dp_xmit_pkt(intf->att_node, pkt_block2, intf);
+            cp2dp_xmit_pkt(intf->att_node, pkt_block, intf);
 
             ISIS_INTF_INCREMENT_STATS(intf, lsp_pkt_sent);
 
@@ -94,9 +91,7 @@ isis_lsp_xmit_job(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size) {
                 isis_print_lsp_id(lsp_pkt, lsp_id_str), 
                 intf->if_name.c_str());
 
-            pkt_block_dereference(pkt_block2);
-
-            XFREE(pkt_block);
+            cp_pkt_block_dereference(pkt_block);
 
         } else {
 

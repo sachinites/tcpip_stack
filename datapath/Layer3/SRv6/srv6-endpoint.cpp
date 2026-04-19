@@ -166,9 +166,8 @@ Srv6_apply_flavor(
         ipv6_hdr_copy.payload_length -= srh->hdrlen;
         
         /* Remove IPv6 and SRH headers, keep only payload */
-        byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
-        pkt_block_set_new_pkt(orig_pkt, payload, 
-                              pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
+        uint16_t strip = (uint16_t)(sizeof(ipv6_hdr_t) + srh->hdrlen);
+        pkt_block_slide(orig_pkt, -1, 1, strip);
         
         /* Add modified IPv6 header back */
         pkt_block_expand_buffer_left(orig_pkt, sizeof(ipv6_hdr_t));
@@ -196,17 +195,17 @@ Srv6_apply_flavor(
         /* Get SRH and its next header value */
         srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
         uint16_t srh_next_hdr = srh->nexthdr;
+        uint8_t  srh_hdrlen  = srh->hdrlen;
         
         /* Remove IPv6 and SRH headers, keep only payload */
-        byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
-        pkt_block_set_new_pkt(orig_pkt, payload, 
-                              pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
+        pkt_block_slide(orig_pkt, -1, 1,
+                        (uint16_t)(sizeof(ipv6_hdr_t) + srh_hdrlen));
         
         /* Add IPv6 header back with updated next_header field */
         pkt_block_expand_buffer_left(orig_pkt, sizeof(ipv6_hdr_t));
         pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
         ipv6_hdr_copy.next_header = srh_next_hdr;
-        ipv6_hdr_copy.payload_length -= srh->hdrlen;
+        ipv6_hdr_copy.payload_length -= srh_hdrlen;
         memcpy(pkt, &ipv6_hdr_copy, sizeof(ipv6_hdr_t));
         pkt_block_update_new_hdr_type(orig_pkt, IP_PROTO_IPv6);
         
@@ -219,12 +218,12 @@ Srv6_apply_flavor(
         byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
         ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
         srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
+        uint16_t srh_next_hdr = srh->nexthdr;
+        uint16_t strip = (uint16_t)(sizeof(ipv6_hdr_t) + srh->hdrlen);
         
         /* Remove outer IPv6 and SRH headers completely */
-        byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
-        pkt_block_set_new_pkt(orig_pkt, payload, 
-                              pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
-        pkt_block_update_new_hdr_type(orig_pkt, srh->nexthdr);
+        pkt_block_slide(orig_pkt, -1, 1, strip);
+        pkt_block_update_new_hdr_type(orig_pkt, srh_next_hdr);
         
         return orig_pkt;
     }
@@ -268,21 +267,19 @@ Srv6_decapsulate(pkt_block_t *pkt_block) {
     
     /* Case 1: No SRH present - remove only IPv6 header */
     if (ipv6_hdr->next_header != IP_PROTO_SRH) {
-        pkt_block_set_new_pkt(pkt_block, 
-                              (uint8_t *)(ipv6_hdr + 1), 
-                              pkt_size - sizeof(ipv6_hdr_t));
-        pkt_block_update_new_hdr_type(pkt_block, ipv6_hdr->next_header);
+        gen_proto_id_t next = (gen_proto_id_t)ipv6_hdr->next_header;
+        pkt_block_slide(pkt_block, -1, 1, (uint16_t)sizeof(ipv6_hdr_t));
+        pkt_block_update_new_hdr_type(pkt_block, next);
         return;
     }
     
     /* Case 2: SRH present - remove both IPv6 and SRH headers */
     srh_hdr_t *srh = (srh_hdr_t *)(ipv6_hdr + 1);
-    byte *payload = pkt + sizeof(ipv6_hdr_t) + srh->hdrlen;
-    pkt_block_set_new_pkt(pkt_block, 
-                          payload, 
-                          pkt_size - sizeof(ipv6_hdr_t) - srh->hdrlen);
+    gen_proto_id_t srh_next = (gen_proto_id_t)srh->nexthdr;
+    uint16_t strip = (uint16_t)(sizeof(ipv6_hdr_t) + srh->hdrlen);
+    pkt_block_slide(pkt_block, -1, 1, strip);
     
-    pkt_block_update_new_hdr_type(pkt_block, srh->nexthdr);
+    pkt_block_update_new_hdr_type(pkt_block, srh_next);
 }
 
 /**

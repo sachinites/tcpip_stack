@@ -133,11 +133,11 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
         tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s : L3 Route found is local route\n", 
             vrf->vrf_name, pkt_block_str(pkt_block));
 
-        pkt_block_set_new_pkt(pkt_block,
-                              (uint8_t *)(ipv6_hdr + 1),
-                              pkt_size - sizeof(ipv6_hdr_t));
+        /* Strip the IPv6 header: shrink head by sizeof(ipv6_hdr_t). */
+        gen_proto_id_t next = (gen_proto_id_t)ipv6_hdr->next_header;
+        pkt_block_slide(pkt_block, -1, 1, (uint16_t)sizeof(ipv6_hdr_t));
 
-        pkt_block_update_new_hdr_type (pkt_block, ipv6_hdr->next_header);
+        pkt_block_update_new_hdr_type (pkt_block, next);
         ipv6_process_v6_payload (dp_ctx, vrf, pkt_block) ;
         return;
     }

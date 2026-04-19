@@ -6,6 +6,7 @@
 
 #include "../../tcp_public.h"
 #include "../Vrfs/dp_vrf.h"
+#include "../dp_utils.h"
 #include "ping.h"
 #include "../FIB/fib_nh.h"
 #include "../Interface/dp_intf.h"
@@ -23,6 +24,9 @@ ping_get_time_us (void)
     return (uint64_t)tv.tv_sec * 1000000ULL + (uint64_t)tv.tv_usec;
 }
 
+/* This fn is executed by ANY thread, scheduled on any core. Therefore 
+    thread do not have any specific rte_mempool. We will use mempool
+    from NUMA node on which this thread happened to schedule. */
 void *
 ping_send4 (void *_pctx)
 {
@@ -46,7 +50,7 @@ ping_send4 (void *_pctx)
 
         seq = pctx->seq_no;
 
-        pkt_block = pkt_block_get_new_pkt_buffer (
+        pkt_block = dp_pkt_block_get_new_pkt_buffer  (dp_ctx,
                         sizeof (ip_hdr_t) +
                         sizeof (icmp_hdr_t) +
                         PING_PAYLOAD_LEN);

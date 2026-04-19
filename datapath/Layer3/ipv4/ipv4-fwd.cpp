@@ -8,6 +8,7 @@
 #include "../../../libs/common/l4_hdrs.h"
 
 #include "../../dp_ctx.h"
+#include "../../dp_utils.h"
 #include "../../Vrfs/dp_vrf.h"
 #include "../../Interface/dp_intf.h"
 #include "../../../libs/pkt-block/pkt_block.h"
@@ -168,11 +169,12 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     if (icmp_hdr->type == ICMP_ECHO_REQ) {
 
                         /* Build an ICMP echo reply and route it back to the sender */
-                        pkt_size_t icmp_size = (pkt_size_t)(pkt_block->pkt_size -
-                                                    IP_HDR_LEN_IN_BYTES(ip_hdr));
+                        pkt_size_t icmp_size = (pkt_size_t)
+                            (pkt_block_get_data_size(pkt_block) - IP_HDR_LEN_IN_BYTES(ip_hdr));
 
-                        pkt_block_t *reply = pkt_block_get_new_pkt_buffer(
+                        pkt_block_t *reply = dp_pkt_block_get_new_pkt_buffer(dp_ctx,
                                                 sizeof(ip_hdr_t) + icmp_size);
+
                         pkt_block_update_new_hdr_type(reply, IP_PROTO_IP_IN_IP);
 
                         ip_hdr_t *rip = (ip_hdr_t *)pkt_block_get_ip_hdr(reply);
@@ -212,8 +214,8 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                         ip_hdr_t *ip_hdr = (ip_hdr_t *)pkt_block_get_pkt(pkt_block, &ip_hr_size);
                         udp_hdr_t *udp_hdr = (udp_hdr_t *)INCREMENT_IPHDR(ip_hdr);
                         ip_hr_size = (pkt_size_t)((char *)udp_hdr - (char *)ip_hdr);
-                        pkt_block_set_new_pkt(pkt_block, (uint8_t *)udp_hdr, 
-                            pkt_block->pkt_size - ip_hr_size);
+                        /* Strip the IP header: shrink head by ip_hr_size. */
+                        pkt_block_slide(pkt_block, -1, 1, (uint16_t)ip_hr_size);
                         pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_UDP);
                         vxlan_decapsulate(dp_ctx, pkt_block, ntohl(ip_hdr->src_ip));
                         return;
@@ -231,9 +233,9 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                 case IP_PROTO_IP_IN_IP:
                     /*Packet has reached ERO, now set the packet onto its new 
                       Journey from ERO to final destination*/
-                    pkt_block_set_new_pkt(pkt_block, 
-                                         (uint8_t *)INCREMENT_IPHDR(ip_hdr),
-                                        pkt_block->pkt_size - IP_HDR_LEN_IN_BYTES(ip_hdr));
+                    /* Strip the outer IP header: shrink head by its length. */
+                    pkt_block_slide(pkt_block, -1, 1,
+                                    (uint16_t)IP_HDR_LEN_IN_BYTES(ip_hdr));
 
                     pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
                      
@@ -251,9 +253,9 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     char gre_t_src_addr[IPV4_ADDR_LEN_STR];
                     char gre_t_dst_addr[IPV4_ADDR_LEN_STR];
 
-                    pkt_block_set_new_pkt (pkt_block, 
-                                           (uint8_t *)INCREMENT_IPHDR(ip_hdr),
-                                           pkt_block->pkt_size - IP_HDR_LEN_IN_BYTES(ip_hdr));
+                    /* Strip the IP header to expose the GRE header. */
+                    pkt_block_slide(pkt_block, -1, 1,
+                                    (uint16_t)IP_HDR_LEN_IN_BYTES(ip_hdr));
 
                     pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_GRE);
                     tcp_ip_covert_ip_n_to_p ( htonl (ip_hdr->dst_ip), (c_string)gre_t_src_addr);

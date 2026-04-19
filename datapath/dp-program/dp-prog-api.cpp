@@ -12,6 +12,7 @@
 #include "dp-prog-api.h"
 
 #include "../dp_ctx.h"
+#include "../dp_utils.h"
 #include "../Layer3/layer3.h"
 #include "../Layer3/ping.h"
 
@@ -109,17 +110,24 @@ np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
 {
     pkt_block_t *pkt_block;
     gen_proto_id_t hdr_type;
+    dp_raw_pkt_info_t *pkt_info;
     uint8_t vrf_id = dp_msg->vrf_id;
 
     dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, vrf_id);
 
-    pkt_block = *(pkt_block_t **)dp_msg->data;
+    pkt_info = *(dp_raw_pkt_info_t **)dp_msg->data;
 
+    pkt_block = 
+        dp_pkt_block_copy_and_wrap_raw_pkt_copy(dp_ctx,
+        pkt_info->pkt, pkt_info->pkt_size);
+    
+    pkt_block_update_new_hdr_type(pkt_block, (gen_proto_id_t)pkt_info->lead_proto);
+    
     switch (dp_msg->opr_type)
     {
         case DP_L3_NORTHBOUND_IN:
         {
-            hdr_type = pkt_block_get_starting_hdr(pkt_block);
+            hdr_type = (gen_proto_id_t)pkt_info->lead_proto;
 
             switch (hdr_type)
             {
@@ -140,6 +148,7 @@ np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
     }
 
     pkt_block_dereference(pkt_block);
+    XFREE(pkt_info);
     cp2dp_msg_free(dp_msg);
 }
 

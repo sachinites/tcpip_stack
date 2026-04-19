@@ -35,6 +35,7 @@ typedef struct vlan_vni_ht_db_ vlan_vni_ht_db_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_vrf_ dp_vrf_t;
 struct ping_ctx_;
+struct rte_mempool;
 
 #include "../libs/EventDispatcher/event_dispatcher.h"
 #include "../tcp_ip_trace.h"
@@ -107,6 +108,9 @@ typedef struct dp_ctx_ {
     /* Logging buffers (send/recv packet dump) */
     unsigned char *send_log_buffer;
     unsigned char *recv_log_buffer;
+
+    /* Array of mempool buffer, indexed by Numa Node IDs*/
+    struct rte_mempool **dpdk_mempool;
 
     /* Active ping session; set by ping_send4, 
     cleared when done, read by DP ICMP handler */

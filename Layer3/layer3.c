@@ -55,7 +55,11 @@ layer3_ero_ping_fn(node_t *node,
                     c_string dst_ip_addr, 
                     c_string ero_ip_address){
 
+    #if 0
     pkt_block_t *pkt_block = pkt_block_get_new_pkt_buffer (sizeof (ip_hdr_t));
+    #else 
+    pkt_block_t *pkt_block = NULL;
+    #endif 
     pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
     ip_hdr_t *inner_ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr (pkt_block);
     initialize_ip_hdr(inner_ip_hdr);
@@ -66,7 +70,7 @@ layer3_ero_ping_fn(node_t *node,
     addr_int =  tcp_ip_convert_ip_p_to_n(dst_ip_addr);
     inner_ip_hdr->dst_ip = htonl(addr_int);
     addr_int = tcp_ip_convert_ip_p_to_n(ero_ip_address);
-    cp2dp_send_ip_data (node, NODE_DEF_VRF(node), pkt_block, addr_int, IP_PROTO_IP_IN_IP);
+    //cp2dp_send_ip_data (node, NODE_DEF_VRF(node), /*pkt_block*/NULL, addr_int, IP_PROTO_IP_IN_IP);
     pkt_block_dereference(pkt_block);
 }
 
@@ -107,7 +111,7 @@ ip_traffic_generate_handler(int cmdcode,
    addr_int = tcp_ip_convert_ip_p_to_n(dst_addr_str );
 
    for (i = 0; i < count ; i ++) {
-        cp2dp_send_ip_data (node, NODE_DEF_VRF(node), NULL, addr_int, protocol);
+        cp2dp_send_ip_data (node, NODE_DEF_VRF(node), NULL, 0, addr_int, protocol);
     }
     
     return 0;

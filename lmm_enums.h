@@ -59,7 +59,8 @@ typedef enum struct_index_
 
     /* Pkt Block */
     MM_INDEX(pkt_block_t),
-    MM_INDEX(encap_meta_data_t),
+    MM_INDEX(cp_pkt_block_t),
+    MM_INDEX(pkt_mbuf_encap_meta_data_t),
 
     /* Layer2 Structures */
     MM_INDEX(arp_hdr_t),

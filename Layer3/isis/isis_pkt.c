@@ -225,7 +225,7 @@ isis_lsp_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_size
     node        = pkt_notif_data->recv_node;
     iif         = node_get_intf_by_ifindex (node, pkt_notif_data->recv_intf_index);
     node_info   = iif->vrf->isis_node_info;
-    pkt_block = pkt_notif_data->pkt_block;
+    pkt_block   = pkt_notif_data->pkt_block;
     eth_hdr     = (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
 	hdr_code    = pkt_notif_data->hdr_code;	
     
@@ -303,10 +303,11 @@ isis_hello_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_si
     XFREE(pkt_notif_data);    
 }
 
-byte *
-isis_prepare_hello_pkt(Interface *intf, pkt_size_t *hello_pkt_size) {
+cp_pkt_block_t *
+isis_prepare_hello_pkt(Interface *intf) {
 
     byte *temp;
+    pkt_size_t hello_pkt_size;
     isis_node_info_t *node_info;
     uint32_t rtr_id;
     uint8_t pdu_type ;
@@ -342,11 +343,12 @@ isis_prepare_hello_pkt(Interface *intf, pkt_size_t *hello_pkt_size) {
                 4   +                /* Data length for ISIS_ISIS_TLV_METRIC_VAL */
                 6;                    /* MAc Address */
 
-    *hello_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + /*Dst Mac + Src mac + type field + FCS field*/
-                                  eth_hdr_playload_size;
+    hello_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + /*Dst Mac + Src mac + type field + FCS field*/
+                     eth_hdr_playload_size;
 
-    ethernet_hdr_t *hello_eth_hdr =
-        (ethernet_hdr_t *)XCALLOC_BUFF(0, *hello_pkt_size);
+    cp_pkt_block_t *pkt_block = cp_pkt_block_get_new_pkt_buffer(hello_pkt_size);
+
+    ethernet_hdr_t *hello_eth_hdr = (ethernet_hdr_t *)cp_pkt_block_get_pkt(pkt_block, NULL);
 
     memset(hello_eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
     layer2_fill_with_broadcast_mac(hello_eth_hdr->dst_mac.mac);
@@ -411,7 +413,7 @@ isis_prepare_hello_pkt(Interface *intf, pkt_size_t *hello_pkt_size) {
                                                     IF_MAC(intf) );
 
     SET_COMMON_ETH_FCS(hello_eth_hdr, eth_hdr_playload_size, 0);
-    return (byte *)hello_eth_hdr;  
+    return pkt_block;
 }
 
 static uint32_t
@@ -873,7 +875,7 @@ isis_get_pkt_tlv_buffer (isis_common_hdr_t *cmn_hdr, pkt_size_t *tlv_size) {
             calculated_tlv_size = pdu_len - sizeof(isis_common_hdr_t ) - sizeof(isis_p2p_hello_pkt_hdr_t);
             
             /* Sanity check: TLV size should not exceed reasonable limits */
-            if (calculated_tlv_size > MAX_PACKET_BUFFER_SIZE - sizeof(isis_common_hdr_t) - sizeof(isis_p2p_hello_pkt_hdr_t)) {
+            if (calculated_tlv_size > CP_MAX_PACKET_BUFFER_SIZE - sizeof(isis_common_hdr_t) - sizeof(isis_p2p_hello_pkt_hdr_t)) {
                 /* Corrupted pdu_len */
                 return NULL;
             }
@@ -895,7 +897,7 @@ isis_get_pkt_tlv_buffer (isis_common_hdr_t *cmn_hdr, pkt_size_t *tlv_size) {
             calculated_tlv_size = pdu_len - sizeof(isis_common_hdr_t ) - sizeof(isis_lan_hello_pkt_hdr_t);
             
             /* Sanity check: TLV size should not exceed reasonable limits */
-            if (calculated_tlv_size > MAX_PACKET_BUFFER_SIZE - sizeof(isis_common_hdr_t) - sizeof(isis_lan_hello_pkt_hdr_t)) {
+            if (calculated_tlv_size > CP_MAX_PACKET_BUFFER_SIZE - sizeof(isis_common_hdr_t) - sizeof(isis_lan_hello_pkt_hdr_t)) {
                 /* Corrupted pdu_len */
                 return NULL;
             }

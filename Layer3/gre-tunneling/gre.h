@@ -4,11 +4,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct pkt_block_ pkt_block_t;
-typedef struct dp_vrf_ dp_vrf_t;
-typedef struct dp_intf_ dp_intf_t;
-typedef struct dp_ctx_ dp_ctx_t;
-
 #pragma pack (push,1)
 typedef struct gre_header_ {
 

@@ -8,10 +8,11 @@
 #include "../libs/EventDispatcher/event_dispatcher.h"
 
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
-#include "../libs/pkt-block/pkt_block.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../libs/Tracer/tracer.h"
 #include "../libs/common/ipv6_hdrs.h"
+#include "../libs/pkt-block/pkt_block.h"
+#include "../libs/pkt-block/cp_pkt_block.h"
 #include "../lmm_enums.h"
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../RTM/rtm_nb_integ.h"
@@ -22,15 +23,17 @@
 #include "../datapath/dp-program/dp-prog-struct.h"
 #include "../datapath/dp-program/dp-prog-api.h"
 #include "../datapath/dp_uapi.h"
+#include "../datapath/dp_utils.h"
 #include "../datapath/Layer3/ping.h"
 
 /*  Fix me : cp2dp_xmit_pkt is allocated by CP but freed by DP. This is not a desirable thing to do.
     For now its not a problem, but in future when CP and DP will have separate memory mgr, 
     this would create problem.*/
 void
-cp2dp_xmit_pkt (node_t *node, pkt_block_t *pkt_block, Interface *xmit_interface) {
+cp2dp_xmit_pkt (node_t *node, cp_pkt_block_t *pkt_block, Interface *xmit_interface) {
 
-    dp_uapi_xmit_pkt(node->dp_ctx, xmit_interface->ifindex, pkt_block);
+    pkt_block_t *dp_pkt_block = cp2dp_convert_pkt_block (node->dp_ctx, pkt_block);
+    dp_uapi_xmit_pkt(node->dp_ctx, xmit_interface->ifindex, dp_pkt_block);
 }
 
 void 
@@ -49,24 +52,20 @@ cp2dp_submit (node_t *node, dp_msg_t *dp_msg, bool async) {
 void 
 cp2dp_send_ip_data ( node_t *node,
                      vrf_t *vrf,
-                     pkt_block_t *pkt_block,
+                     uint8_t *ip_payload,
+                     pkt_size_t payload_size,
                      uint32_t dest_ip_addr,
                      uint16_t std_ip_protocol) {
 
-    bool new_pkt_block = false;
+    dp_raw_pkt_info_t *pkt_info;
 
-    if (!pkt_block) {
-        pkt_block = pkt_block_get_new_pkt_buffer(sizeof(ip_hdr_t));
-        new_pkt_block = true;
-    }
-    else {
-        pkt_block_expand_buffer_left (pkt_block, sizeof (ip_hdr_t));
-    }
+    pkt_info = (dp_raw_pkt_info_t *)XCALLOC2(0, 1, dp_raw_pkt_info_t);
+    pkt_info->pkt = (uint8_t *)XCALLOC_BUFF(0, sizeof(ip_hdr_t) + payload_size);
+    pkt_info->pkt_size = sizeof(ip_hdr_t) + payload_size;
+    pkt_info->lead_proto = IP_PROTO_IP_IN_IP;
 
-    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
-
-    ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
-    pkt_size_t pkt_size = pkt_block->pkt_size;
+    ip_hdr_t *ip_hdr = (ip_hdr_t *)pkt_info->pkt;
+    pkt_size_t pkt_size = pkt_info->pkt_size;
 
     initialize_ip_hdr (ip_hdr);
 
@@ -74,58 +73,59 @@ cp2dp_send_ip_data ( node_t *node,
     ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node)));
     ip_hdr->dst_ip = htonl(dest_ip_addr);
     ip_hdr->total_length = htons(pkt_size);
+
+    if (ip_payload) {
+        memcpy ((char *)ip_hdr + IP_HDR_LEN_IN_BYTES(ip_hdr) , ip_payload, payload_size);
+    }
+
     dp_msg_t *dp_msg = cp2dp_msg_alloc ();
     dp_msg->component_type = PKT_BLOCK;
     dp_msg->opr_type = DP_L3_NORTHBOUND_IN;
     dp_msg->vrf_id = vrf->vrf_id;
     dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(pkt_block_t *);
-    memcpy (dp_msg->data, &pkt_block, sizeof(pkt_block_t *));
-    pkt_block_reference(pkt_block);
+    dp_msg->data_size = sizeof(dp_raw_pkt_info_t);
+    memcpy (dp_msg->data, &pkt_info, sizeof(dp_raw_pkt_info_t *));
     cp2dp_submit (node, dp_msg, true);
-    if (new_pkt_block)pkt_block_dereference(pkt_block);
 }
 
-/* Write the ipv6 equivalent function of cp2dp_send_ip_data( )*/
-void cp2dp_send_ip6_data(node_t *node,
-                         vrf_t *vrf,
-                         pkt_block_t *pkt_block,
-                         ipv6_addr_t dest_ip_addr,
-                         uint16_t std_ip_protocol)
-{
-    bool new_pkt_block = false;
-    pkt_size_t ipv6_payload_size = 0;
+/* This is Control plane API to push IPv6 data to be sent out from L4+ layer down to L3.
+    pkt_block must contain IPv6 payload . If there is no ipv6 payload, then send NULL*/
+void 
+cp2dp_send_ip6_data ( node_t *node,
+                      vrf_t *vrf,
+                      uint8_t *ipv6_payload,
+                      pkt_size_t payload_size,
+                      ipv6_addr_t dest_ip_addr,
+                      uint16_t std_ip_protocol) {
 
-    if (!pkt_block) {
-        pkt_block = pkt_block_get_new_pkt_buffer(sizeof(ipv6_hdr_t));
-        new_pkt_block = true;
-    }
-    else {
-        ipv6_payload_size = pkt_block->pkt_size;
-        pkt_block_expand_buffer_left (pkt_block, sizeof (ipv6_hdr_t));
-    }
+    dp_raw_pkt_info_t *pkt_info;
 
-    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IPv6);
+    pkt_info = (dp_raw_pkt_info_t *)XCALLOC2(0, 1, dp_raw_pkt_info_t);
+    pkt_info->pkt = (uint8_t *)XCALLOC_BUFF(0, sizeof(ipv6_hdr_t) + payload_size);
+    pkt_info->pkt_size = sizeof(ipv6_hdr_t) + payload_size;
+    pkt_info->lead_proto = IP_PROTO_IPv6;
 
-    pkt_size_t pkt_size;
-    ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
+    ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt_info->pkt;
+    pkt_size_t pkt_size = pkt_info->pkt_size;
 
     initialize_ipv6_hdr (ipv6_hdr);
 
-    ipv6_hdr->next_header = (uint8_t)(std_ip_protocol);
-    ipv6_hdr->payload_length =  htons(ipv6_payload_size);
+    ipv6_hdr->next_header = (uint8_t)std_ip_protocol;
+    ipv6_hdr->payload_length = htons(pkt_size - sizeof(ipv6_hdr_t));
     memcpy (ipv6_hdr->dst_addr, dest_ip_addr.addr, 16);
+
+    if (ipv6_payload) {
+        memcpy ( ipv6_hdr + 1, ipv6_payload, payload_size);
+    }
 
     dp_msg_t *dp_msg = cp2dp_msg_alloc ();
     dp_msg->component_type = PKT_BLOCK;
     dp_msg->opr_type = DP_L3_NORTHBOUND_IN;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(pkt_block_t *);
     dp_msg->vrf_id = vrf->vrf_id;
-    memcpy (dp_msg->data, &pkt_block, sizeof(pkt_block_t *));
-    pkt_block_reference(pkt_block);
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_raw_pkt_info_t);
+    memcpy (dp_msg->data, &pkt_info, sizeof(dp_raw_pkt_info_t *));
     cp2dp_submit (node, dp_msg, true);
-    if (new_pkt_block) pkt_block_dereference (pkt_block);
 }
 /* Wrapper fn to add MAC entry to MAC table Asynchronously*/
 void
@@ -799,4 +799,25 @@ cp2dp_ping_request(node_t *node,
     gen_msg->u.ping.pctx = (uintptr_t)pctx;
 
     cp2dp_submit(node, dp_msg, true);
+}
+
+pkt_block_t *
+cp2dp_convert_pkt_block (dp_ctx_t *dp_ctx, cp_pkt_block_t *cp_pkt_block) {
+
+    pkt_block_t *pkt_block = 
+        dp_pkt_block_copy_and_wrap_raw_pkt_copy (
+                dp_ctx, cp_pkt_block->pkt_start, cp_pkt_block->pkt_size);
+
+    pkt_block_update_new_hdr_type(pkt_block, cp_pkt_block->hdr_type);
+}
+
+cp_pkt_block_t *
+dp2cp_convert_pkt_block (pkt_block_t *dp_pkt_block) {
+
+    pkt_size_t pkt_size = pkt_block_get_data_size(dp_pkt_block);
+    cp_pkt_block_t *cp_pkt_block = cp_pkt_block_get_new_pkt_buffer(pkt_size);
+    uint8_t *pkt = pkt_block_get_pkt(dp_pkt_block, NULL);
+    memcpy (cp_pkt_block->pkt_start, pkt, pkt_size);
+    cp_pkt_block->hdr_type = pkt_block_get_starting_hdr(dp_pkt_block);
+    return cp_pkt_block;
 }

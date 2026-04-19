@@ -58,18 +58,6 @@ dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_intf_t *interface, 
                       pkt_block_t *pkt_block);
 
-/**
- * Payload for recv/send path: packet pointer, interface index, and size.
- * Used when passing packets into the datapath event dispatcher.
- */
-typedef struct ev_dis_pkt_data_ {
-
-    unsigned char *pkt;
-    uint32_t ifindex;
-    uint32_t pkt_size;
-
-} ev_dis_pkt_data_t;
-
 static int
 linux_send_xmit_out (dp_intf_t *dp_intf, pkt_block_t *pkt_block) {
 
@@ -149,7 +137,7 @@ send_xmit_out (dp_intf_t *intf, pkt_block_t *pkt_block)
         return -1;
     }
 
-    if (pkt_block->pkt_size > MAX_PACKET_BUFFER_SIZE)
+    if (pkt_block_get_data_size(pkt_block) > MAX_PACKET_BUFFER_SIZE)
     {
         cprintf("Error : DCTX : %s, Pkt Size exceeded\n", local_dp_ctx->ctx_name);
         intf->xmit_pkt_dropped++;
@@ -380,9 +368,11 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t 
 
     if (!intf->is_up) { return 0; }
     
-    if (pkt_block->no_modify) {
-        no_modify = pkt_block->no_modify;
-        pkt_block_copy = pkt_block_dup (pkt_block);
+    bool pkt_no_modify = pkt_block_get_no_modify_value(pkt_block);
+    
+    if (pkt_no_modify) {
+        no_modify = pkt_no_modify;
+        pkt_block_copy = PKT_BLOCK_DUP(pkt_block);
         pkt_block = pkt_block_copy;
     }
 
@@ -477,9 +467,9 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
 
     untag_pkt_with_vlan_id(pkt_block);
     assert (eth_hdr->type == ntohs (ETH_TYPE_IPv4));
-    pkt_block_set_new_pkt(
-        pkt_block, (uint8_t *)(GET_ETHERNET_HDR_PAYLOAD(eth_hdr)),
-        pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD);
+    /* Strip the outer ethernet header: shrink head by ETH_HDR_SIZE_EXCL_PAYLOAD. */
+    pkt_block_slide(pkt_block, -1, 1,
+                    (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD);
     dp_promote_pkt_to_layer3 (dp_ctx, intf->vrf, intf, pkt_block);
 
     return 0;
@@ -496,6 +486,7 @@ static int
 NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
 
     pkt_size_t pkt_size;
+    pkt_mbuf_pvt_data_t *pvt_data;
     unsigned char ipv4_addr_str1[IPV4_ADDR_LEN_STR] = {0};
     unsigned char ipv4_addr_str2[IPV4_ADDR_LEN_STR] = {0};
     
@@ -506,7 +497,9 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
         return -1;
     }
 
-    if (!pkt_block->encap_data) {
+    pvt_data = pkt_block_get_pvt_data(pkt_block);
+
+    if (!pvt_data->encap_data) {
         tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "VxLAN Encapsulation : Error : Pkt Block has no encap data\n");
         intf->xmit_pkt_dropped++;
@@ -521,7 +514,7 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
     ip_hdr_t *ip_hdr = (ip_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
     initialize_ip_hdr (ip_hdr);
     ip_hdr->src_ip = htonl(dp_ctx->rtr_id);
-    ip_hdr->dst_ip = htonl(pkt_block->encap_data->u.vxlan.remote_vtep_ip);
+    ip_hdr->dst_ip = htonl(pvt_data->encap_data->u.vxlan.remote_vtep_ip);
     ip_hdr->protocol = IP_PROTO_UDP;
     ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
 
@@ -542,7 +535,7 @@ VlanFloodInterface_SendPacketOut(
                                     dp_intf_t *vfif_intf, 
                                     pkt_block_t *pkt_block) {
 
-    dp_intf_t *exempt_intf = (dp_intf_t *)pkt_block->ingress_intf;
+    dp_intf_t *exempt_intf = pkt_block_get_ingress_intf(pkt_block);
 
     assert (exempt_intf);
 
@@ -588,8 +581,7 @@ SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
         uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
         ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
         uint32_t eth_hdr_size = GET_ETH_HDR_SIZE_EXCL_PAYLOAD(eth_hdr);
-        uint8_t *payload = GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
-        pkt_block_set_new_pkt(pkt_block, payload, pkt_size - eth_hdr_size);
+        pkt_block_slide(pkt_block, -1, 1, (uint16_t)eth_hdr_size);
         pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IPv6);
     }
 
@@ -651,7 +643,7 @@ dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block) {
 
 /* Pkt Reception APIs */
 
-static void 
+void 
 dp_pkt_entry_point(dp_ctx_t *dp_ctx, 
                     dp_vrf_t *vrf,
                     dp_intf_t *interface,
@@ -698,7 +690,7 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
     if ((interface->switchport &&
             interface->l2_mode != DP_LAN_MODE_NONE)) {
 
-        pkt_block->ingress_intf = (uintptr_t)interface;
+        pkt_block_set_ingress_intf(pkt_block, interface);
 
         if (vlan_id_to_tag) {
            
@@ -743,7 +735,7 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
             "Pkt : %s : Recvd on L3 Interface %s, being protmoted to L3Fwding\n", 
             pkt_block_str(pkt_block), interface->if_name);
             
-        pkt_block->ingress_intf = (uintptr_t)interface;
+        pkt_block_set_ingress_intf(pkt_block, interface);
         promote_pkt_to_layer2(dp_ctx, interface->vrf, interface, pkt_block);
     }
 
@@ -756,6 +748,8 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
     }
 }
 
+/* This fn is a data path thread which is NON DPDK (share same CPU as control
+    plane.)*/
 extern void
 dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 
@@ -779,20 +773,14 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 		recv_intf = dp_look_up_interface(dp_ctx->dp_intf_ht, ev_dis_pkt_data->ifindex);
         assert(recv_intf);
 
-		pkt = ev_dis_pkt_data->pkt;		
+		pkt_start = (uint8_t *)ev_dis_pkt_data->pkt;		
 
-        /* Raw sockets deliver the Ethernet frame without the trailing FCS
-         * (the kernel/NIC strips it on receive).  The rest of the stack uses
-         * ETH_HDR_SIZE_EXCL_PAYLOAD = 18 (header + 4-byte FCS) for all frame-
-         * size arithmetic, so allocate pkt_size + ETH_FCS_SIZE here to keep
-         * the accounting consistent.  The extra 4 bytes are zeroed by calloc
-         * and act as a zero-FCS placeholder, exactly as internally-built
-         * frames do. Without this, promote_pkt_to_layer2 subtracts 4 bytes
-         * too many, and SET_COMMON_ETH_FCS later overwrites the last 4 bytes
-         * of the ICMP payload, corrupting the ICMP checksum on forwarded pkts. */
-        pkt_block = pkt_block_get_new_pkt_buffer(ev_dis_pkt_data->pkt_size + (LinuxRtr ? ETH_FCS_SIZE : 0));
-        pkt_start = (uint8_t *)pkt_block_get_pkt(pkt_block, 0);
-        memcpy (pkt_start, ev_dis_pkt_data->pkt, ev_dis_pkt_data->pkt_size);
+        /* Socket lift the packet without Ethernet FCS. To compensate, pretend
+            that we have FCS in the end of ethernet pkt*/
+        pkt_block = PKT_BLOCK_WRAP(NULL,  /* No Mem-pool as it is Non DPDK mode flow */
+                    pkt_start,
+                    ev_dis_pkt_data->pkt_size + (LinuxRtr ? ETH_FCS_SIZE : 0));
+    
         pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
 
 		dp_pkt_entry_point(dp_ctx, recv_intf->vrf,
@@ -800,44 +788,10 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
                     pkt_block);
 
         pkt_block_dereference(pkt_block);
-        free (ev_dis_pkt_data->pkt);
-		free (ev_dis_pkt_data);
+        XFREE (ev_dis_pkt_data->pkt);
+		XFREE (ev_dis_pkt_data);
 		ev_dis_pkt_data = NULL;
 	}
-}
-
-int
-dp_submit_packet (dp_ctx_t *dp_ctx,
-                  pkt_block_t *pkt_block,
-                  dp_intf_t *interface){
- 
-    uint8_t *pkt;
-    pkt_size_t pkt_size;
-
-    if (!interface->is_up){
-        return 0;
-    }
-
-    dp_ctx_t  *nbr_dp_ctx = dp_ctx;
-    dp_intf_t *peer_intf = interface;
-
-	ev_dis_pkt_data_t *ev_dis_pkt_data;
-
-    pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
-
-	ev_dis_pkt_data =  (ev_dis_pkt_data_t *)calloc(1, sizeof(ev_dis_pkt_data_t));
-
-	ev_dis_pkt_data->ifindex = peer_intf->port_id;
-	ev_dis_pkt_data->pkt = (unsigned char *)XCALLOC_BUFF(0, pkt_size);
-	memcpy(ev_dis_pkt_data->pkt, pkt, pkt_size);
-	ev_dis_pkt_data->pkt_size = pkt_size;
-
-	pkt_q_enqueue(EV_DP(nbr_dp_ctx), 
-                  DP_PKT_Q(nbr_dp_ctx),
-                  (char *)ev_dis_pkt_data,
-                  sizeof(ev_dis_pkt_data_t));
-
-    return pkt_size; 
 }
 
 int
@@ -937,6 +891,7 @@ linux_listener_thread(void* arg) {
     dp_intf_t *dp_intf;
     struct hashtable_itr *itr;
     pkt_block_t *pkt_block;
+    ev_dis_pkt_data_t *ev_dis_pkt_data;
 
     dp_ctx_t *dp_ctx = (dp_ctx_t *)arg;
     hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
@@ -990,11 +945,16 @@ linux_listener_thread(void* arg) {
                     continue;
                 }
                 
-                pkt_block = pkt_block_get_new(NULL, 0);
-                pkt_block_set_new_pkt(pkt_block, (uint8_t *)buffer, bytes_received);
-                pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
-                dp_submit_packet (dp_ctx, pkt_block, dp_intf); 
-                XFREE(pkt_block);
+                ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC2(0, 1, ev_dis_pkt_data_t);
+                ev_dis_pkt_data->ifindex = dp_intf->port_id;
+                ev_dis_pkt_data->pkt = (unsigned char *)XCALLOC_BUFF(0, bytes_received);
+                memcpy(ev_dis_pkt_data->pkt, buffer, bytes_received);
+                ev_dis_pkt_data->pkt_size = bytes_received;
+
+                pkt_q_enqueue(EV_DP(dp_ctx),
+                              DP_PKT_Q(dp_ctx),
+                              (char *)ev_dis_pkt_data,
+                              sizeof(ev_dis_pkt_data_t));
             }
 
             if (!hashtable_iterator_advance(itr)) break;
@@ -1333,6 +1293,7 @@ typedef struct datapath_pkt_entry_thread_data_ {
 
     uint8_t n_ports;
     dp_intf_t **ports_array;
+    struct rte_mempool *mempool;
 
 } datapath_pkt_entry_thread_data_t;
 
@@ -1435,11 +1396,14 @@ DPDK_PollInterfaces(dp_ctx_t *dp_ctx) {
             assert(dp_intf);
             th_data->ports_array[p] = dp_intf;
         }
+
+        th_data->mempool = dp_ctx->dpdk_mempool[entry->numa_node_id];
+
         memset (thread_name, 0, sizeof (thread_name));
         snprintf (thread_name, sizeof (thread_name), "DPDK-C-%u", entry->cpu_id);
-        pthread_setname_np(*dp_thread, (const char *)thread_name);
         pthread_create(dp_thread, &thread_attr, 
                 datapath_pkt_entry_thread_function, (void *)th_data);
+        pthread_setname_np(*dp_thread, (const char *)thread_name);
     }
 
     free(map);
@@ -1558,19 +1522,21 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
     char numa_node_name[32];
     struct hashtable_itr *itr;
     hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
+    struct rte_mempool **mempools_array_per_numa = NULL;
 
     uint16_t port_cnt = dp_intf_ht->entrycount;
 
-    if (!port_cnt) return;
+    if (!port_cnt) return ;
 
     itr = hashtable_iterator(dp_intf_ht);
 
     /* Create mrmpool for each numa nodes in the system */
     uint8_t max_numa_nodes = system_get_max_numa_node_count ();
     
-    struct rte_mempool **mempools_array_per_numa = 
+    mempools_array_per_numa = 
         (struct rte_mempool **) calloc (max_numa_nodes, sizeof (struct rte_mempool *));
-    
+
+    dp_ctx->dpdk_mempool = mempools_array_per_numa;
 
     for (int i = 0; i < max_numa_nodes; i++) {
 
@@ -1602,5 +1568,4 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
         if (!hashtable_iterator_advance(itr)) break;
     }    
     free (itr);
-    free (mempools_array_per_numa);
 }

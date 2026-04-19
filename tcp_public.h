@@ -81,6 +81,7 @@
 #include "Layer3/netfilter.h"
 #include "ted/ted.h"
 #include "libs/pkt-block/pkt_block.h"
+#include "libs/pkt-block/cp_pkt_block.h"
 #include "cp_ipc.h"
 #include "cp_ipc_struct.h"
 

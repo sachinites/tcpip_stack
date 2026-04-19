@@ -177,7 +177,7 @@ ping6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
     ipv6_addr_t dst_addr;
     inet_pton6((char *)ipv6_addr, &dst_addr);
 
-    cp2dp_send_ip6_data (node, vrf, NULL, dst_addr, IP_PROTO_ICMPv6);
+    cp2dp_send_ip6_data (node, vrf, NULL, 0, dst_addr, IP_PROTO_ICMPv6);
     return 0;
 }
 

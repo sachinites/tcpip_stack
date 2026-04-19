@@ -4,15 +4,18 @@
 #include <stdint.h>
 
 typedef struct node_ node_t;
-typedef struct pkt_block_ pkt_block_t; 
 typedef struct mac_table_entry_ mac_table_entry_t; 
 typedef struct rtm_nh_fwd_info_ rtm_nh_fwd_info_t;
 typedef struct dp_msg_ dp_msg_t;
 typedef struct ping_ctx_ ping_ctx_t;
-
+typedef struct dp_raw_pkt_info_ dp_raw_pkt_info_t;
+typedef struct cp_pkt_block_ cp_pkt_block_t;
+typedef struct pkt_block_ pkt_block_t;
 class TransportService;
 
 #include <semaphore.h>
+#include "../libs/pkt-block/pkt_block.h"
+#include "../libs/pkt-block/cp_pkt_block.h"
 #include "../libs/common/cmn_prefix.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../libs/common/ipv6_hdrs.h"
@@ -25,18 +28,23 @@ void
 cp2dp_submit (node_t *node, dp_msg_t *dp_msg, bool async);
 
 void
-cp2dp_xmit_pkt (node_t *node, pkt_block_t *pkt_block, Interface *xmit_interface) ;
+cp2dp_xmit_pkt (node_t *node, cp_pkt_block_t *pkt_block, Interface *xmit_interface) ;
 
-void cp2dp_send_ip_data(node_t *node,
-                        vrf_t *vrf,
-                        pkt_block_t *pkt_block,
-                        uint32_t dest_ip_addr,
-                        uint16_t std_ip_protocol);
+void 
+cp2dp_send_ip_data ( node_t *node,
+                     vrf_t *vrf,
+                     uint8_t *ip_payload,
+                     pkt_size_t payload_size,
+                     uint32_t dest_ip_addr,
+                     uint16_t std_ip_protocol);
 
-void cp2dp_send_ip6_data(node_t *node, vrf_t *vrf,
-                         pkt_block_t *pkt_block,
-                         ipv6_addr_t dest_ip_addr,
-                         uint16_t std_ip_protocol);
+void 
+cp2dp_send_ip6_data ( node_t *node,
+                      vrf_t *vrf,
+                      uint8_t *ipv6_payload,
+                      pkt_size_t payload_size,
+                      ipv6_addr_t dest_ip_addr,
+                      uint16_t std_ip_protocol);
 
 /* Wrapper fn to add MAC entry to MAC table Asynchronously*/
 void
@@ -131,5 +139,11 @@ cp2dp_srv6_dt4_intf_steered_vrf (node_t *node, Interface *intf, bool add);
 
 void 
 cp2dp_ping_request(node_t *node, ping_ctx_t *pctx);
+
+pkt_block_t *
+cp2dp_convert_pkt_block (dp_ctx_t *dp_ctx, cp_pkt_block_t *cp_pkt_block);
+
+cp_pkt_block_t *
+dp2cp_convert_pkt_block (pkt_block_t *pkt_block);
 
 #endif 

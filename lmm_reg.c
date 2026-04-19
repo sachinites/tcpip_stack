@@ -47,6 +47,7 @@
 /* Lib Hdr files */
 #include "libs/mtrie/mtrie.h"
 #include "libs/pkt-block/pkt_block.h"
+#include "libs/pkt-block/cp_pkt_block.h"
 #include "libs/gluethread/glthread.h"
 
 /* Notification files */
@@ -131,7 +132,8 @@ vm_page_family_t vm_page_family_array[] =
 
     /* Pkt block */
     MM_REG_STRUCT2(pkt_block_t),
-    MM_REG_STRUCT2(encap_meta_data_t),
+    MM_REG_STRUCT2(cp_pkt_block_t),
+    MM_REG_STRUCT2(pkt_mbuf_encap_meta_data_t),
 
     /* Layer2 Structures*/
     MM_REG_STRUCT2(arp_hdr_t),

@@ -114,7 +114,8 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
     uint16_t vlan_id = 0;
     pkt_block_t *pkt_block2;
     mac_oif_entry_t *oif_entry;
-    encap_meta_data_t *encap_data = NULL;
+    pkt_mbuf_pvt_data_t *pvt_data;
+    pkt_mbuf_encap_meta_data_t *encap_data = NULL;
 
     ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
         
@@ -125,7 +126,7 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
 
         if (oif->if_type == DP_INTF_TYPE_NVE) {
             
-            encap_data = (encap_meta_data_t *) XCALLOC2 (0, 1, encap_meta_data_t);
+            encap_data = (pkt_mbuf_encap_meta_data_t *) XCALLOC2 (0, 1, pkt_mbuf_encap_meta_data_t);
             vlan_id = mac_entry->vlan_id;
 
             /* Get VNI id using DP hashtable*/
@@ -145,13 +146,16 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
 
         /* Create a copy of pkt blocks, and xmit them because they can be modified*/
         /* Flush old encap data if any*/
-        if (pkt_block->encap_data) {
-            XFREE(pkt_block->encap_data);
-            pkt_block->encap_data = NULL;
+        pvt_data = pkt_block_get_pvt_data(pkt_block);
+
+        if (pvt_data && pvt_data->encap_data) {
+            XFREE(pvt_data->encap_data);
+            pvt_data->encap_data = NULL;
         }
 
-        pkt_block2 = pkt_block_dup(pkt_block);
-        pkt_block2->encap_data = encap_data;
+        pkt_block2 = PKT_BLOCK_DUP(pkt_block);
+        pvt_data = pkt_block_get_pvt_data(pkt_block2);
+        pvt_data->encap_data = encap_data;
         encap_data = NULL;
         dp_send_pkt_out(dp_ctx, oif, pkt_block2);
         pkt_block_dereference(pkt_block2);
@@ -211,7 +215,7 @@ l2_switch_forward_frame(
         pkt_block_str (pkt_block), 
         GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
 
-     pkt_block->ingress_intf = (uintptr_t)recv_intf;
+     pkt_block_set_ingress_intf (pkt_block, recv_intf);
      vlan_id = (uint16_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
 
     mac_table_entry = mac_table_lookup(dp_ctx->mac_table, 
