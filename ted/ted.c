@@ -768,6 +768,8 @@ ted_cleanup_all_half_links (ted_node_t *node, bool *lone_node) {
          if (lone_node) *lone_node = false;
 
      } TED_ITERATE_NODE_INTF_END(node, intf);
+
+     return 0;
 }
 
 void

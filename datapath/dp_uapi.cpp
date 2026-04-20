@@ -128,7 +128,11 @@ struct rte_mempool *
 dp_uapi_get_current_socket_mpool(dp_ctx_t *dp_ctx) {
 
     int socket_id = (int)rte_socket_id();
+    
+    if (socket_id < 0) socket_id = 0;
+
     if (dp_ctx->dpdk_mempool)
         return dp_ctx->dpdk_mempool[socket_id];
+
     return NULL;
 }

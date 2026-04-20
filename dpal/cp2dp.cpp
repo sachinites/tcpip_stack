@@ -34,6 +34,7 @@ cp2dp_xmit_pkt (node_t *node, cp_pkt_block_t *pkt_block, Interface *xmit_interfa
 
     pkt_block_t *dp_pkt_block = cp2dp_convert_pkt_block (node->dp_ctx, pkt_block);
     dp_uapi_xmit_pkt(node->dp_ctx, xmit_interface->ifindex, dp_pkt_block);
+    pkt_block_dereference(dp_pkt_block);
 }
 
 void 
@@ -809,6 +810,7 @@ cp2dp_convert_pkt_block (dp_ctx_t *dp_ctx, cp_pkt_block_t *cp_pkt_block) {
                 dp_ctx, cp_pkt_block->pkt_start, cp_pkt_block->pkt_size);
 
     pkt_block_update_new_hdr_type(pkt_block, cp_pkt_block->hdr_type);
+    return pkt_block;
 }
 
 cp_pkt_block_t *

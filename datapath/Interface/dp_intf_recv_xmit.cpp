@@ -114,7 +114,8 @@ dpdk_send_xmit_out(dp_intf_t *dp_intf, pkt_block_t *pkt_block) {
 
     dp_intf->dpdk_tx_queue_lb++;
     dp_intf->dpdk_tx_queue_lb = (dp_intf->dpdk_tx_queue_lb % dp_intf->dpdk_max_tx_queues);
-
+    dp_intf->pkt_sent++;
+    
     return rc;
 }
 
@@ -1298,7 +1299,7 @@ typedef struct datapath_pkt_entry_thread_data_ {
 } datapath_pkt_entry_thread_data_t;
 
 static void *
-datapath_pkt_entry_thread_function(void *arg){
+dpdk_dp_pkt_entry_thread_function(void *arg){
 
     uint8_t p;
     uint16_t nb_rx, i;
@@ -1332,7 +1333,12 @@ datapath_pkt_entry_thread_function(void *arg){
                     
                     mbuf = bufs[i];
                     pkt_block = pkt_block_new_with_mbuf(mbuf);
+                    /* DPDK lift the packet without Ethernet FCS. 
+                    To compensate, pretend that we have FCS in the end of 
+                    ethernet pkt */
+                    pkt_block_slide (pkt_block, 1, 1, ETH_FCS_SIZE);
                     pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
+                    pkt_block_debug(pkt_block);
                     dp_pkt_entry_point (dp_intf->dp_ctx, dp_intf->vrf, dp_intf, pkt_block);
                     pkt_block_dereference(pkt_block);
                 }
@@ -1402,7 +1408,7 @@ DPDK_PollInterfaces(dp_ctx_t *dp_ctx) {
         memset (thread_name, 0, sizeof (thread_name));
         snprintf (thread_name, sizeof (thread_name), "DPDK-C-%u", entry->cpu_id);
         pthread_create(dp_thread, &thread_attr, 
-                datapath_pkt_entry_thread_function, (void *)th_data);
+                dpdk_dp_pkt_entry_thread_function, (void *)th_data);
         pthread_setname_np(*dp_thread, (const char *)thread_name);
     }
 
@@ -1546,7 +1552,8 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
         mempools_array_per_numa[i] = rte_pktmbuf_pool_create(
                     (const char *)numa_node_name,
                     NUM_MBUFS_PER_PORT *  port_cnt,
-                    MBUF_CACHE_SIZE, 0, 
+                    MBUF_CACHE_SIZE, 
+                    sizeof (pkt_mbuf_pvt_data_t), 
                     RTE_MBUF_DEFAULT_BUF_SIZE, i );
     }
 

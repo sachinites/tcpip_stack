@@ -484,19 +484,9 @@ print_pkt_block(pkt_block_t *pkt_block) {
 void
 pkt_block_debug(pkt_block_t *pkt_block) {
 
-#ifdef USE_DPDK
-    if (pkt_block == NULL) {
-        printf("pkt_block_debug: (null)\n");
-        return;
-    }
-    printf("pkt_block %p: alloc @ %s:%u\n",
-           (void *)pkt_block,
-           pkt_block->fn_name ? pkt_block->fn_name : "(?)",
-           pkt_block->lineno);
-    pkt_mbuf_debug(pkt_block->mbuf);
-#else
-    (void)pkt_block;
-#endif
+    pkt_size_t pkt_size;
+    uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    gen_proto_id_t hdr = pkt_block_get_starting_hdr(pkt_block);
 }
 
 /* ------------------------------------------------------------------------- */

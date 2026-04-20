@@ -16,6 +16,7 @@
 #include "Vrfs/dp_vrf.h"
 #include "FIB/fib_nh.h"
 #include "dp_ctx.h"
+#include "dp_uapi.h"
 
 struct rte_mempool;
 
@@ -55,25 +56,15 @@ dp_pkt_block_copy_and_wrap_raw_pkt_copy (
         uint8_t *pkt, 
         uint16_t pkt_size) {
 
-    /* Get the socket id of the current thread*/
-    int socket_id = (int)rte_socket_id();
-
     /* Get the mempool on this socket*/
-    struct rte_mempool *mpool = (dp_ctx->dpdk_mempool) ? 
-                        dp_ctx->dpdk_mempool[socket_id] : NULL;
-
+    struct rte_mempool *mpool = dp_uapi_get_current_socket_mpool(dp_ctx);
     return PKT_BLOCK_WRAP(mpool, pkt, (pkt_size_t)pkt_size);
 }
 
 pkt_block_t *
 dp_pkt_block_get_new_pkt_buffer (dp_ctx_t *dp_ctx, uint16_t pkt_size) {
 
-    /* Get the socket id of the current thread*/
-    int socket_id = (int)rte_socket_id();
-
     /* Get the mempool on this socket*/
-    struct rte_mempool *mpool = (dp_ctx->dpdk_mempool) ? 
-                        dp_ctx->dpdk_mempool[socket_id] : NULL;
-
+    struct rte_mempool *mpool = dp_uapi_get_current_socket_mpool(dp_ctx);
     return  PKT_BLOCK_GET_NEW(mpool, (pkt_size_t)pkt_size);
 }

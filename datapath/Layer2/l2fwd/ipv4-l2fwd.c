@@ -340,7 +340,7 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
 
             /* Strip the ethernet header to expose the IP payload. */
             pkt_block_slide(pkt_block, -1, 1,
-                            (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD);
+                            (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
             pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IP_IN_IP);
             dp_promote_pkt_to_layer3(
                     dp_ctx,
@@ -350,7 +350,7 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
 
         case ETH_TYPE_IPv6:
             pkt_block_slide(pkt_block, -1, 1,
-                            (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD);
+                            (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
             pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IPv6);
             dp_promote_pkt_to_layer3(
                     dp_ctx,
