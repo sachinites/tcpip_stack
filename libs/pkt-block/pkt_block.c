@@ -383,7 +383,8 @@ pkt_block_clone(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno) {
      * ingress_intf, no_modify) from the source mbuf. */
     return pkt_block2;
 #else
-    pkt_block_t *pkt_block2 = pkt_block_get_new_pkt_buffer(pkt_block->pkt_size);
+    pkt_block_t *pkt_block2 = pkt_block_get_new_pkt_buffer(
+                                0, pkt_block->pkt_size, fn_name, lineno);
     memcpy(pkt_block2->pkt, pkt_block->pkt, pkt_block->pkt_size);
     pkt_block2->pvt_data.hdr_type = pkt_block->pvt_data.hdr_type;
     pkt_block2->pvt_data.no_modify = pkt_block->pvt_data.no_modify;

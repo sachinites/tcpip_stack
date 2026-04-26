@@ -105,13 +105,14 @@ linux_send_xmit_out (dp_intf_t *dp_intf, pkt_block_t *pkt_block) {
 static int 
 dpdk_send_xmit_out(dp_intf_t *dp_intf, pkt_block_t *pkt_block) {
 
-    assert (pkt_block->mbuf);
+    int rc = 0;
     assert (pkt_block_get_starting_hdr (pkt_block) == ETHERNET_HEADER);
-    
-    int rc = rte_eth_tx_burst(dp_intf_get_dpdk_port_id(dp_intf),
+
+    #ifdef USE_DPDK
+    rc = rte_eth_tx_burst(dp_intf_get_dpdk_port_id(dp_intf),
                      (dp_intf->dpdk_tx_queue_lb) % dp_intf->dpdk_max_tx_queues,
                      &pkt_block->mbuf, 1);
-
+    #endif
     dp_intf->dpdk_tx_queue_lb++;
     dp_intf->dpdk_tx_queue_lb = (dp_intf->dpdk_tx_queue_lb % dp_intf->dpdk_max_tx_queues);
     dp_intf->pkt_sent++;
@@ -1338,7 +1339,6 @@ dpdk_dp_pkt_entry_thread_function(void *arg){
                     ethernet pkt */
                     pkt_block_slide (pkt_block, 1, 1, ETH_FCS_SIZE);
                     pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
-                    pkt_block_debug(pkt_block);
                     dp_pkt_entry_point (dp_intf->dp_ctx, dp_intf->vrf, dp_intf, pkt_block);
                     pkt_block_dereference(pkt_block);
                 }

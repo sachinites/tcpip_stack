@@ -23,6 +23,7 @@ OBJS = std_lib_init.o 					  \
        libtimer/timerlib.o               \
        LinuxMemoryManager/mm.o           \
        mtrie/mtrie.o                     \
+	   mtrie/atomic_mtrie.o              \
        notifc/notif.o                    \
        pkt-block/pkt_block.o             \
 	   pkt-block/cp_pkt_block.o          \
@@ -33,6 +34,7 @@ OBJS = std_lib_init.o 					  \
 	   common/ipv6_utils.o               \
 	   common/cmn_prefix.o				 \
 	   pkt-block/pkt_mbuf.o
+
 
 $(TARGET): $(OBJS)
 	ar rcs $(TARGET) $(OBJS)
@@ -75,6 +77,9 @@ LinuxMemoryManager/mm.o: LinuxMemoryManager/mm.c
 # mtrie
 mtrie/mtrie.o: mtrie/mtrie.c
 	$(CC) $(CFLAGS) -c -I mtrie mtrie/mtrie.c -o mtrie/mtrie.o
+
+mtrie/atomic_mtrie.o: mtrie/atomic_mtrie.cpp
+	$(CC) $(CFLAGS) -c -I mtrie mtrie/atomic_mtrie.cpp -o mtrie/atomic_mtrie.o
 
 # notifc
 notifc/notif.o: notifc/notif.c

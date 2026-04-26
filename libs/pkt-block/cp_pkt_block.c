@@ -11,7 +11,7 @@ cp_pkt_block_reference(cp_pkt_block_t *pkt_block) {
 void
 cp_pkt_block_dereference(cp_pkt_block_t *pkt_block) {
 
-    assert (!pkt_block->ref_count);
+    assert (pkt_block->ref_count);
     pkt_block->ref_count--;
     if (pkt_block->ref_count) return;
     XFREE(pkt_block->alloc_ptr);

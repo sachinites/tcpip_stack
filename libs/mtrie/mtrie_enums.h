@@ -1,0 +1,18 @@
+#ifndef __MTRIE_ENUMS__
+#define __MTRIE_ENUMS__
+
+typedef enum mtrie_ops_result_code_ {
+
+	MTRIE_INSERT_SUCCESS,
+	MTRIE_INSERT_FAILED,
+	MTRIE_INSERT_DUPLICATE,
+	MTRIE_DELETE_SUCCESS,
+	MTRIE_DELETE_FAILED,
+	MTRIE_LOOKUP_SUCCESS,
+	MTRIE_LOOKUP_FAILED,
+	MTRIE_OPS_UNKNOWN
+
+} mtrie_ops_result_code_t;
+
+
+#endif 

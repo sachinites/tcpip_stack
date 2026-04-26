@@ -998,7 +998,13 @@ cp_rtm_install_route_advanced (
         nh_template.oif = oif->ifindex;
         nh_template.is_indirect = false;
         nh_template.is_resolved = true;
-    } else {
+    }
+    else if (nh_template.action == RTM_NH_ACTION_REJECT || 
+             nh_template.action == RTM_NH_ACTION_DISCARD) {
+        nh_template.is_indirect = false;
+        nh_template.is_resolved = true;
+    }
+    else {
         /* No interface means indirect route (requires resolution) */
         nh_template.is_indirect = true;
         nh_template.is_resolved = false;

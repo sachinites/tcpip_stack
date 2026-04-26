@@ -41,7 +41,7 @@
 #include "../libs/pkt-block/pkt_block.h"
 
 
-bool LinuxRtr = true;
+bool LinuxRtr = false;
 
 // Structure to hold interface socket information
 typedef struct linux_intf_socket_ {

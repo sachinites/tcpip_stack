@@ -23,9 +23,7 @@
 #ifndef __DP_CTX__
 #define __DP_CTX__
 
-#ifdef __cplusplus
 #include <atomic>
-#endif
 
 typedef struct _wheel_timer_t wheel_timer_t;
 typedef struct tracer_ tracer_t;
@@ -77,11 +75,8 @@ typedef struct dp_ctx_ {
     /* VLAN interface table (key: vlan-id) */
     hashtable_t *dp_vlan_intf_ht;
     /* VLAN–VNI mapping (VXLAN); atomic for lock-free updates */
-#ifdef __cplusplus
+
     std::atomic<vlan_vni_ht_db_t *> vlan_vni_ht;
-#else
-    vlan_vni_ht_db_t *vlan_vni_ht;
-#endif
 
     /* L3 netfilter hook database */
     nf_hook_db_t nf_hook_db;

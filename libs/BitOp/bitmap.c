@@ -4,6 +4,8 @@
 #include <arpa/inet.h>
 #include "bitmap.h"
 
+extern int (*stdlib_printf)(const char *format, ...);
+
 void bitmap_init(bitmap_t *bitmap, uint16_t size) {
 
     assert(!(size % 32));
@@ -145,29 +147,205 @@ bitmap_slow_copy(bitmap_t *src,
     } ITERATE_BITMAP_END;
 }
 
+/* OPtimized implementation of bitmap_slow_copy */
+void
+bitmap_copy_at_offset(bitmap_t *src,
+                 bitmap_t *dst,
+                 uint16_t src_start_offset,
+                 uint16_t dst_start_offset,
+                 uint16_t count)
+{
+    assert(src && dst);
+
+    assert(src_start_offset <= src->tsize);
+    assert(dst_start_offset <= dst->tsize);
+
+    assert(count <= (uint16_t)(src->tsize - src_start_offset));
+    assert(count <= (uint16_t)(dst->tsize - dst_start_offset));
+
+    if (count == 0)
+        return;
+
+    /*
+     * Overlap-safe handling when same bitmap and ranges overlap.
+     * Use reverse bit copy (memmove semantics).
+     */
+    if (src == dst) {
+        uint32_t s0 = src_start_offset;
+        uint32_t d0 = dst_start_offset;
+        uint32_t s1 = s0 + count;
+        uint32_t d1 = d0 + count;
+
+        bool overlap = !(d1 <= s0 || s1 <= d0);
+
+        if (overlap && d0 > s0) {
+            while (count--) {
+                bool bit = bitmap_at(src, src_start_offset + count);
+                if (bit)
+                    bitmap_set_bit_at(dst, dst_start_offset + count);
+                else
+                    bitmap_unset_bit_at(dst, dst_start_offset + count);
+            }
+            return;
+        }
+    }
+
+    uint8_t *src_bytes = (uint8_t *)src->bits;
+    uint8_t *dst_bytes = (uint8_t *)dst->bits;
+
+    uint32_t src_nbytes = (src->tsize + 7u) / 8u;
+    uint32_t src_nwords = (src->tsize + 31u) / 32u;
+
+    /* -------------------------------------------------
+     * 1. Align destination to byte boundary
+     * ------------------------------------------------- */
+    while (count && (dst_start_offset & 7u)) {
+        bool bit = bitmap_at(src, src_start_offset);
+        if (bit)
+            bitmap_set_bit_at(dst, dst_start_offset);
+        else
+            bitmap_unset_bit_at(dst, dst_start_offset);
+
+        src_start_offset++;
+        dst_start_offset++;
+        count--;
+    }
+
+    /* -------------------------------------------------
+     * 2. Align destination to 32-bit boundary using bytes
+     * ------------------------------------------------- */
+    while (count >= 8 && (dst_start_offset & 31u)) {
+
+        uint32_t src_byte_idx = src_start_offset >> 3;
+        uint32_t dst_byte_idx = dst_start_offset >> 3;
+        uint8_t src_bit_off = src_start_offset & 7u;
+
+        uint8_t out;
+
+        if (src_bit_off == 0) {
+            out = src_bytes[src_byte_idx];
+        } else {
+            uint8_t b0 = src_bytes[src_byte_idx];
+            uint8_t b1 = 0;
+
+            if ((src_byte_idx + 1u) < src_nbytes)
+                b1 = src_bytes[src_byte_idx + 1u];
+
+            out = (uint8_t)((b0 << src_bit_off) |
+                            (b1 >> (8u - src_bit_off)));
+        }
+
+        dst_bytes[dst_byte_idx] = out;
+
+        src_start_offset += 8;
+        dst_start_offset += 8;
+        count -= 8;
+    }
+
+    /* -------------------------------------------------
+     * 3. Full 32-bit word copies
+     * ------------------------------------------------- */
+    while (count >= 32) {
+
+        uint32_t src_word_idx = src_start_offset >> 5;
+        uint32_t dst_word_idx = dst_start_offset >> 5;
+        uint8_t src_bit_off = src_start_offset & 31u;
+
+        uint32_t out;
+
+        if (src_bit_off == 0) {
+            out = src->bits[src_word_idx];
+        } else {
+            uint32_t w0 = htonl(src->bits[src_word_idx]);
+            uint32_t w1 = 0;
+
+            if ((src_word_idx + 1u) < src_nwords)
+                w1 = htonl(src->bits[src_word_idx + 1u]);
+
+            out = htonl((w0 << src_bit_off) |
+                        (w1 >> (32u - src_bit_off)));
+        }
+
+        dst->bits[dst_word_idx] = out;
+
+        src_start_offset += 32;
+        dst_start_offset += 32;
+        count -= 32;
+    }
+
+    /* -------------------------------------------------
+     * 4. Remaining whole bytes
+     * ------------------------------------------------- */
+    while (count >= 8) {
+
+        uint32_t src_byte_idx = src_start_offset >> 3;
+        uint32_t dst_byte_idx = dst_start_offset >> 3;
+        uint8_t src_bit_off = src_start_offset & 7u;
+
+        uint8_t out;
+
+        if (src_bit_off == 0) {
+            out = src_bytes[src_byte_idx];
+        } else {
+            uint8_t b0 = src_bytes[src_byte_idx];
+            uint8_t b1 = 0;
+
+            if ((src_byte_idx + 1u) < src_nbytes)
+                b1 = src_bytes[src_byte_idx + 1u];
+
+            out = (uint8_t)((b0 << src_bit_off) |
+                            (b1 >> (8u - src_bit_off)));
+        }
+
+        dst_bytes[dst_byte_idx] = out;
+
+        src_start_offset += 8;
+        dst_start_offset += 8;
+        count -= 8;
+    }
+
+    /* -------------------------------------------------
+     * 5. Tail bits
+     * ------------------------------------------------- */
+    while (count) {
+        bool bit = bitmap_at(src, src_start_offset);
+
+        if (bit)
+            bitmap_set_bit_at(dst, dst_start_offset);
+        else
+            bitmap_unset_bit_at(dst, dst_start_offset);
+
+        src_start_offset++;
+        dst_start_offset++;
+        count--;
+    }
+}
+
 void
 bitmap_fast_copy(bitmap_t *src, 
-                              bitmap_t *dst,
-                              uint16_t count) {
+                 bitmap_t *dst,
+                 uint16_t count) {
 
-    int n_blocks = count / 32;
-    int rem_bits = count % 32;
+    assert(src && dst);
+    assert(count <= src->tsize);
+    assert(count <= dst->tsize);
 
-    if (rem_bits) {
-        n_blocks++;
-    }
+    if (count == 0) return;
 
-    int i;
-    for (i = 0; i < n_blocks - 1; i++) {    
+    uint16_t n_full_words = count / 32;
+    uint16_t rem_bits = count % 32;
+
+    for (uint16_t i = 0; i < n_full_words; i++) {
         *(dst->bits + i) = *(src->bits + i);
     }
 
-    if (!rem_bits) {
-        *(dst->bits + i) = *(src->bits + i);
-        return;
-    }
+    if (!rem_bits) return;
 
-    uint32_bits_copy(src->bits + i, dst->bits + i, 0, 0, rem_bits);
+    /* Copy tail bits with bit-accurate helper (handles offsets/endian safely). */
+    bitmap_copy_at_offset(src, dst,
+                          (uint16_t)(n_full_words * 32),
+                          (uint16_t)(n_full_words * 32),
+                          rem_bits);
 }
 
 static void
@@ -362,13 +540,13 @@ bitmap_prefix_print(bitmap_t *prefix, bitmap_t *mask, uint16_t count) {
 
         switch(bit) {
             case DONT_CARE:
-                printf ("X");
+                stdlib_printf ("X");
                 break;
             case ONE:
-                printf ("1");
+                stdlib_printf ("1");
                 break;
             case ZERO:
-                printf("0");
+                stdlib_printf("0");
             default: ;
         }
     }ITERATE_MASKED_BITMAP_END;
@@ -390,34 +568,6 @@ prefix32bit_match(uint32_t input, uint32_t prefix,
 		return true;
 	}
 	return false;
-}
-
-void
-uint32_bits_copy(uint32_t *src, uint32_t *dst,
-                             uint8_t src_start_pos,
-                             uint8_t dst_start_pos, uint8_t count) {
-
-    *dst = 0;
-    *dst = *src;
-    *dst = (*dst) << src_start_pos;
-	*dst = (*dst) >> dst_start_pos;
-    *dst = *dst >> (32 - count - dst_start_pos );
-    *dst = *dst << (32 - count - dst_start_pos );
-}
-
-void
-uint32_bits_copy_preserve(uint32_t *src, 
-                                            uint32_t *dst, 
-                                            uint8_t src_start_pos,
-                                            uint8_t dst_start_pos,
-                                            uint8_t count) {
-
-	uint32_t dst_old_mask = 
-        bits_generate_ones(dst_start_pos, dst_start_pos + count - 1);
-	dst_old_mask = ~dst_old_mask;
-	uint32_t old_dst = htonl(*dst) & dst_old_mask;
-	uint32_bits_copy(src, dst, src_start_pos, dst_start_pos, count);
-	*dst = htonl(htonl(*dst) | old_dst);
 }
 
 bool

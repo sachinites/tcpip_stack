@@ -23,7 +23,7 @@
 #include "fib_error.h"
 #include "../../RTM/rtm_fib_common.h"
 
-typedef struct mtrie_ mtrie_t;
+typedef struct atomic_mtrie_ atomic_mtrie_t;
 typedef struct fib_nh_ fib_nh_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct node_ node_t;
@@ -41,7 +41,11 @@ typedef struct fib_ {
 
     union {
         /* IF the key of the FIB is v4 or V6*/
-        mtrie_t *lpm;
+        struct {
+           atomic_mtrie_t *lpm;
+           Fglthread_t rt_lst_head;
+        }rts;
+
         /* IF the key of the Fib is MPLS Label*/
         hashtable_t *label_ht;
     }u;
@@ -55,7 +59,6 @@ typedef struct fib_ {
 #pragma pack(pop)
 
 fib_t* fib_init (dp_vrf_t *vrf, AFI_T afi, uint8_t vrf_id);
-//fib_error_t fib_forward (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id);
 void fib_show(fib_t *fib);
 fib_t *fib_get (dp_ctx_t *dp_ctx, AFI_T afi, uint8_t vrf_id);
 void fib_destroy (fib_t*fib);

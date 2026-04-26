@@ -4,22 +4,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+#include "mtrie_enums.h"
 #include "../BitOp/bitmap.h"
 #include "../gluethread/glthread.h"
 
 typedef struct stack Stack_t;
-
-typedef enum mtrie_ops_result_code_ {
-
-	MTRIE_INSERT_SUCCESS,
-	MTRIE_INSERT_FAILED,
-	MTRIE_INSERT_DUPLICATE,
-	MTRIE_DELETE_SUCCESS,
-	MTRIE_DELETE_FAILED,
-	MTRIE_LOOKUP_SUCCESS,
-	MTRIE_LOOKUP_FAILED,
-	MTRIE_OPS_UNKNOWN
-} mtrie_ops_result_code_t;
 
 #pragma pack (push,8)
 

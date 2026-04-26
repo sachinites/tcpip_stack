@@ -119,9 +119,9 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
 
     /* COPY Prefix : copy node->prefix_len - split_offset + 1 bits 
         from parent node starting from split_offset to end of the prefix */
-    bitmap_slow_copy(&node->prefix, &new_node->prefix, split_offset, 0, node->prefix_len - split_offset );
+    bitmap_copy_at_offset(&node->prefix, &new_node->prefix, split_offset, 0, node->prefix_len - split_offset );
     /* COPY wildcard in the same way as above*/
-    bitmap_slow_copy(&node->wildcard, &new_node->wildcard, split_offset, 0, node->prefix_len - split_offset );
+    bitmap_copy_at_offset(&node->wildcard, &new_node->wildcard, split_offset, 0, node->prefix_len - split_offset );
     /* Set prefix len in new Node */
     new_node->prefix_len = node->prefix_len - split_offset;
 
@@ -242,8 +242,8 @@ mtrie_insert_prefix (mtrie_t *mtrie,
     node->child[bit1] = mtrie_create_new_node(mtrie->prefix_len);
     node->child[bit1]->parent = node;
     node = node->child[bit1];
-    bitmap_slow_copy(prefix, &node->prefix, i, 0, prefix_len - i);
-    bitmap_slow_copy(wildcard, &node->wildcard, i, 0, prefix_len - i);
+    bitmap_copy_at_offset(prefix, &node->prefix, i, 0, prefix_len - i);
+    bitmap_copy_at_offset(wildcard, &node->wildcard, i, 0, prefix_len - i);
     node->prefix_len = prefix_len - i;
     init_glthread(&node->list_glue);
     glthread_add_next(&mtrie->list_head, &node->list_glue);
@@ -377,9 +377,9 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node, void *unused) {
     node->child[bit] = NULL;
     child_node->parent = NULL;
 
-    bitmap_slow_copy(&child_node->prefix, &node->prefix, 0,
+    bitmap_copy_at_offset(&child_node->prefix, &node->prefix, 0,
         node->prefix_len, child_node->prefix_len);
-    bitmap_slow_copy(&child_node->wildcard, &node->wildcard, 0, 
+    bitmap_copy_at_offset(&child_node->wildcard, &node->wildcard, 0, 
         node->prefix_len, child_node->prefix_len);
 
     node->prefix_len += child_node->prefix_len;

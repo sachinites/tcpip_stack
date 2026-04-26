@@ -659,13 +659,13 @@ config node CE2 rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.2 inte
     node_set_v6_rtr_id(R3, "2001::122:1:1:3");
     node_set_v6_rtr_id(R4, "2001::122:1:1:4");
     node_set_v6_rtr_id(R5, "2001::122:1:1:5");   
-
+    
     node_set_intf_ip_address(R0, "eth0", "10.1.1.1", 24);
     node_set_intf_ip_address(R0, "eth14","80.1.1.1", 24);
 
     node_set_intf_ip_address(R1, "eth1", "10.1.1.2", 24);
     node_set_intf_ip_address(R1, "eth2", "20.1.1.1", 24); 
-
+    
     node_set_intf_ip_address(R2, "eth3", "20.1.1.2", 24);
     node_set_intf_ip_address(R2, "eth8", "50.1.1.1", 24);
     node_set_intf_ip_address(R2, "eth4", "30.1.1.1", 24);

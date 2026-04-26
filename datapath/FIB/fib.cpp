@@ -29,6 +29,7 @@
 #include "fib.h"
 #include "../../libs/pkt-block/pkt_block.h"
 #include "../../libs/mtrie/mtrie.h"
+#include "../../libs/mtrie/atomic_mtrie.h"
 #include "fib_api.h"
 #include "fib_route.h"
 #include "fib_nh.h"
@@ -96,12 +97,14 @@ fib_t *fib_init(dp_vrf_t *vrf, AFI_T afi, uint8_t vrf_id) {
     switch (afi) {
 
         case AF_IPV4:
-            fib->u.lpm = (mtrie_t *)XCALLOC2(0, 1, mtrie_t);
-            init_mtrie (fib->u.lpm, 32, 0);
+            fib->u.rts.lpm = (atomic_mtrie_t *)XCALLOC2(0, 1, atomic_mtrie_t);
+            atomic_mtrie_init (fib->u.rts.lpm, 32);
+            init_Fglthread(&fib->u.rts.rt_lst_head);
             break;
         case AF_IPV6:
-            fib->u.lpm = (mtrie_t *)XCALLOC2(0, 1, mtrie_t);
-            init_mtrie (fib->u.lpm, 128, 0);
+            fib->u.rts.lpm = (atomic_mtrie_t *)XCALLOC2(0, 1, atomic_mtrie_t);
+            atomic_mtrie_init (fib->u.rts.lpm, 128);
+            init_Fglthread(&fib->u.rts.rt_lst_head);
             break;
         case AF_LABEL:
             fib->u.label_ht = create_hashtable(32, 
@@ -221,8 +224,8 @@ fib_forward(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id) {
         bitmap_t bm_dest, bm_mask;
         cmn_prefix_to_bitmap(&dest, &bm_dest, &bm_mask);
 
-        mtrie_node_t *mnode = mtrie_longest_prefix_match_search(
-                                fib->u.lpm, &bm_dest);
+        atomic_mtrie_node_t *mnode = atomic_mtrie_longest_prefix_match_search(
+                                        fib->u.lpm, &bm_dest);
 
         bitmap_free_internal(&bm_dest);
         bitmap_free_internal(&bm_mask);
@@ -276,31 +279,29 @@ void fib_show(fib_t *fib) {
     if (fib->afi == AF_IPV4 || fib->afi == AF_IPV6) {
         
         /* IP routes - use mtrie */
-        if (!fib->u.lpm) {
+        if (!fib->u.rts.lpm) {
             cprintf("Error: FIB LPM tree not initialized\n");
             return;
         }
         
         /* Check if FIB is empty */
-        if (IS_GLTHREAD_LIST_EMPTY(&fib->u.lpm->list_head)) {
+        if (IS_GLTHREAD_LIST_EMPTY(&fib->u.rts.rt_lst_head.head)) {
             cprintf("FIB is empty\n");
             cprintf("===============================================================================\n\n");
             return;
         }
         
         cprintf("Lookup Method: Longest Prefix Match\n");
-        cprintf("Total Routes: %d\n", fib->u.lpm->N);
+        //cprintf("Total Routes: %d\n", fib->u.lpm->N);
         cprintf("===============================================================================\n\n");
         
         /* Iterate through all routes in the mtrie */
         glthread_t *curr = NULL;
-        mtrie_node_t *mnode;
         fib_route_t *route;
         
-        ITERATE_GLTHREAD_BEGIN(&fib->u.lpm->list_head, curr) {
+        ITERATE_GLTHREAD_BEGIN(&fib->u.rts.rt_lst_head.head, curr) {
             
-            mnode = list_glue_to_mtrie_node(curr);
-            route = (fib_route_t *)mnode->data;
+            route = (fib_route_t *)fib_route_to_lst_glue(curr);
             
             route_count++;
             
@@ -387,7 +388,7 @@ void fib_show(fib_t *fib) {
             
             printw("\n");
             
-        } ITERATE_GLTHREAD_END(&fib->u.lpm->list_head, curr);
+        } ITERATE_GLTHREAD_END(&fib->u.rts.rt_lst_head.head, curr);
         
     } else if (fib->afi == AF_LABEL) {
         

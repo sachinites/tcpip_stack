@@ -858,9 +858,9 @@ debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT:
         #if 0
-            mtrie_longest_prefix_first_traverse(
-                    fib_get(node->dp_ctx, AF_IPV4, 0)->u.lpm,
-                    mtrie_print_node, NULL);
+            atomic_mtrie_longest_prefix_first_traverse(
+                    fib_get(node->dp_ctx, AF_IPV4, 0)->u.rts.lpm,
+                    atomic_mtrie_print_node, NULL);
         #endif
             break;
         case CMDCODE_DEBUG_SHOW_NODE_MTRIE_RT6:

@@ -9,6 +9,7 @@
 #include "fib_nh.h"
 #include "../../libs/common/cmn_prefix.h"
 #include "../../libs/mtrie/mtrie.h"
+#include "../../libs/mtrie/atomic_mtrie.h"
 #include "../../libs/c-hashtable/hashtable.h"
 #include "../../libs/c-hashtable/hashtable_itr.h"
 #include "../../libs/common/mpls_lstack.h"
@@ -214,20 +215,15 @@ fib_show_routes(fib_t *fib) {
     if (fib->afi == AF_IPV4 || fib->afi == AF_IPV6) {
         
         /* LPM-based FIB - iterate through mtrie */
-        if (!fib->u.lpm) {
+        if (!fib->u.rts.lpm) {
             cprintf("No routes in FIB\n\n");
             return;
         }
         
         glthread_t *curr;
-        ITERATE_GLTHREAD_BEGIN(&fib->u.lpm->list_head, curr) {
+        ITERATE_GLTHREAD_BEGIN(&fib->u.rts.rt_lst_head.head, curr) {
             
-            mtrie_node_t *mnode = list_glue_to_mtrie_node(curr);
-            if (!mnode || !mnode->data) {
-                continue;
-            }
-            
-            fib_route_t *route = (fib_route_t *)mnode->data;
+            fib_route_t *route = (fib_route_t *)fib_route_to_lst_glue(curr);
             route_count++;
             
             /* Print route prefix */
@@ -303,7 +299,7 @@ fib_show_routes(fib_t *fib) {
                 printw("\n");
             }
             
-        } ITERATE_GLTHREAD_END(&fib->u.lpm->list_head, curr);
+        } ITERATE_GLTHREAD_END(&fib->u.rts.rt_lst_head.head, curr);
         
     } else if (fib->afi == AF_LABEL) {
         
@@ -417,20 +413,15 @@ fib_show_routes_brief(fib_t *fib) {
     if (fib->afi == AF_IPV4 || fib->afi == AF_IPV6) {
         
         /* LPM-based FIB - iterate through mtrie */
-        if (!fib->u.lpm) {
+        if (!fib->u.rts.lpm) {
             cprintf("No routes in FIB\n\n");
             return;
         }
         
         glthread_t *curr;
-        ITERATE_GLTHREAD_BEGIN(&fib->u.lpm->list_head, curr) {
+        ITERATE_GLTHREAD_BEGIN(&fib->u.rts.rt_lst_head.head, curr) {
             
-            mtrie_node_t *mnode = list_glue_to_mtrie_node(curr);
-            if (!mnode || !mnode->data) {
-                continue;
-            }
-            
-            fib_route_t *route = (fib_route_t *)mnode->data;
+            fib_route_t *route = (fib_route_t *)fib_route_to_lst_glue(curr);
             route_count++;
             
             /* Format route prefix */
@@ -485,7 +476,7 @@ fib_show_routes_brief(fib_t *fib) {
                 fib_show_nh_encap_brief(fi, "");
             }
 
-        } ITERATE_GLTHREAD_END(&fib->u.lpm->list_head, curr);
+        } ITERATE_GLTHREAD_END(&fib->u.rts.rt_lst_head.head, curr);
         
     } else if (fib->afi == AF_LABEL) {
         

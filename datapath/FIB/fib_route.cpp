@@ -7,6 +7,7 @@
 #include "fib_nh.h"
 #include "../../lmm_enums.h"
 #include "../../libs/mtrie/mtrie.h"
+#include "../../libs/mtrie/atomic_mtrie.h"
 #include "../../libs/BitOp/bitmap.h"
 #include "../../libs/Tracer/tracer.h"
 #include "../../libs/common/cmn_prefix.h"
@@ -32,6 +33,48 @@ fib_nh_idx_compare(
     uint64_t temp;
     fib_set_nh_idx (&temp, inhidx, nhidx);
     return temp == p;
+}
+
+#define FIB_GC_TIMER 5
+
+struct fib_garbage_data_t {
+
+    atomic_mtrie_node_t *garbage_node;
+    wheel_timer_elem_t *wh_elem;
+    bool add;
+};
+
+static void 
+fib_atomic_mtrie_garbage_collector_cbk(event_dispatcher_t *ev_dis, 
+                                        void *data, uint32_t data_size) {
+
+    struct fib_garbage_data_t *gc_data = (struct fib_garbage_data_t *)data;
+
+    if (gc_data->add) 
+        atomic_mtrie_prefix_insert_delete_discarded_node(gc_data->garbage_node);
+    else 
+        atomic_mtrie_prefix_delete_delete_discarded_node(gc_data->garbage_node);
+
+    free(gc_data->wh_elem);
+    free (gc_data);
+}
+
+static void 
+fib_atomic_mtrie_garbage_collector (dp_ctx_t *dp_ctx, 
+                                    atomic_mtrie_node_t *garbage_node,
+                                    bool add) {
+
+    struct fib_garbage_data_t *gc_data = 
+        (struct fib_garbage_data_t *)malloc(sizeof (struct fib_garbage_data_t));
+
+    gc_data->garbage_node = garbage_node;
+    gc_data->add = add;
+
+    gc_data->wh_elem =  timer_register_app_event (DP_TIMER(dp_ctx), 
+                            fib_atomic_mtrie_garbage_collector_cbk, 
+                            (void *)gc_data,
+                            sizeof (*gc_data),
+                            (FIB_GC_TIMER * 1000), 0);
 }
 
 fib_error_t 
@@ -64,40 +107,42 @@ fib_add_route (dp_ctx_t *dp_ctx,
         cmn_prefix_to_bitmap(prefix, &bm_prefix);
         cmn_prefix_to_wildcard_bitmap(prefix, &bm_mask);
         
+        fib_route_t *route = (fib_route_t *)XCALLOC2(0, 1, fib_route_t);
+
         /* Try to insert or lookup existing route in mtrie */
-        mtrie_node_t *mnode = NULL;
-        mtrie_ops_result_code_t result = mtrie_insert_prefix(
-            fib->u.lpm,
+        atomic_mtrie_node_t *waste_node = NULL;
+        atomic_mtrie_node_t *result_node = NULL;
+        mtrie_ops_result_code_t result = atomic_mtrie_insert_prefix(
+            fib->u.rts.lpm,
             &bm_prefix,
             &bm_mask,
             afi_stride_len(prefix->afi),
-            &mnode
-        );
+            (void*) route,
+            &result_node,
+            &waste_node);
 
         /* Free bitmaps */
         bitmap_free_internal(&bm_prefix);
         bitmap_free_internal(&bm_mask);
-        
+
         /* Check result */
         if (result == MTRIE_INSERT_FAILED) {
 
             tracer (dp_ctx->dptr, DFIB | DERR, 
                 "FIB[%s] : Route %s : FIB installation failed\n", 
                 fib->name, route_str);
+        
+            XFREE(route);
             return FIB_ERROR_INSERT_FAILED;
         }
         
-        fib_route_t *route = NULL;
-        
         /* If this is a new route, allocate and initialize */
         if (result == MTRIE_INSERT_SUCCESS) {
-            
-            /* Allocate new route */
-            route = (fib_route_t *)XCALLOC2(0, 1, fib_route_t);
-            if (!route) {
-                return FIB_ERROR_ALLOC_FAILED;
+
+            if (waste_node) {
+                fib_atomic_mtrie_garbage_collector(dp_ctx, waste_node, true);
             }
-            
+        
             /* Allocate and copy prefix */
             memcpy(&route->prefix, prefix, sizeof(cmn_prefix_t));
             
@@ -116,9 +161,10 @@ fib_add_route (dp_ctx_t *dp_ctx,
             
             /* Reference the nexthop */
             fib_nh_reference(nh);
-            
-            /* Store route in mtrie node */
-            mnode->data = (void *)route;
+
+            /* Add route to linkedlist as well */
+            init_glthread(&route->glue);
+            Fglthread_add_last(&fib->u.rts.rt_lst_head, &route->glue);
 
             tracer (dp_ctx->dptr, DFIB_DET, 
                 "FIB[%s] : Route %s : New route created and installed, Nexthop : %s(%u)\n", 
@@ -127,7 +173,7 @@ fib_add_route (dp_ctx_t *dp_ctx,
         } else if (result == MTRIE_INSERT_DUPLICATE) {
             
             /* Route already exists, add nexthop to ECMP group */
-            route = (fib_route_t *)mnode->data;
+            route = (fib_route_t *)result_node->data;
             
             int empty_slot = -1;
 
@@ -290,11 +336,10 @@ fib_del_route (dp_ctx_t *dp_ctx,
         cmn_prefix_to_wildcard_bitmap(prefix, &bm_mask);
         
         /* Look up route in mtrie */
-        mtrie_node_t *mnode = mtrie_exact_prefix_match_search(
-            fib->u.lpm,
+        atomic_mtrie_node_t *mnode = atomic_mtrie_exact_prefix_match_search(
+            fib->u.rts.lpm,
             &bm_prefix,
-            &bm_mask
-        );
+            &bm_mask);
         
         /* Free bitmaps */
         bitmap_free_internal(&bm_prefix);
@@ -357,21 +402,26 @@ fib_del_route (dp_ctx_t *dp_ctx,
             cmn_prefix_to_wildcard_bitmap(prefix, &bm_mask);
             
             void *app_data = NULL;
-            mtrie_ops_result_code_t result = mtrie_delete_prefix(
-                fib->u.lpm,
+            atomic_mtrie_node_t *waste_node = NULL;
+            mtrie_ops_result_code_t result = atomic_mtrie_delete_prefix(
+                fib->u.rts.lpm,
                 &bm_prefix,
                 &bm_mask,
-                &app_data
-            );
+                &app_data,
+                &waste_node);
             
             bitmap_free_internal(&bm_prefix);
             bitmap_free_internal(&bm_mask);
             
-            if (result != MTRIE_DELETE_SUCCESS) {
-                /* Route data already cleared, but mtrie deletion failed */
-                /* This is not critical - just log and continue cleanup */
+            assert (result == MTRIE_DELETE_SUCCESS);
+
+            if (waste_node) {
+                fib_atomic_mtrie_garbage_collector(dp_ctx, waste_node, false);
             }
             
+            /* Remove from list*/
+            remove_Fglthread(&fib->u.rts.rt_lst_head, &route->glue);
+
             /* Free route structure */
             tracer (dp_ctx->dptr, DFIB_DET, 
                 "FIB[%s] : Route %s Deleted. No remaining nexthops\n", 

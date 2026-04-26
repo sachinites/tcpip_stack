@@ -9,6 +9,7 @@
 #include "../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../libs/Tree/libtree.h"
 #include "../../libs/mtrie/mtrie.h"
+#include "../../libs/mtrie/atomic_mtrie.h"
 #include "../../libs/c-hashtable/hashtable.h"
 
 int
@@ -176,8 +177,8 @@ fib_nh_t *fib_get_forwarding_nh(fib_t *fib, cmn_prefix_t *prefix) {
         bitmap_t bm_dest, bm_mask;
         cmn_prefix_to_bitmap(prefix, &bm_dest, &bm_mask);
         
-        mtrie_node_t *mnode = mtrie_longest_prefix_match_search(
-                                fib->u.lpm, &bm_dest);
+        atomic_mtrie_node_t *mnode = atomic_mtrie_longest_prefix_match_search(
+                                fib->u.rts.lpm, &bm_dest);
         
         bitmap_free_internal(&bm_dest);
         bitmap_free_internal(&bm_mask);

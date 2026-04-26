@@ -30,6 +30,7 @@
 #include "Layer2/arp/arp.h"
 #include "../libs/c-hashtable/hashtable.h"
 #include "../libs/c-hashtable/hashtable_itr.h"
+#include "../libs/mtrie/atomic_mtrie.h"
 #include "../libs/BitOp/bitmap.h"
 #include "../router_init.h"
 #include "dp_ctx.h"
@@ -367,6 +368,14 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
         if (!fib) {
             cprintf("Error: FIB '%s' not initialized\n", fib_name);
             return -1;
+        }
+
+        {
+            #if 0
+            atomic_mtrie_traverse(
+                fib_get(node->dp_ctx, AF_IPV4, 0)->u.rts.lpm,
+                atomic_mtrie_print_node, NULL);
+            #endif
         }
 
         fib_show_routes_brief(fib);

@@ -39,6 +39,12 @@ bitmap_slow_copy(bitmap_t *src,
                       uint16_t src_start_offset,
                       uint16_t dst_start_offset,
                       uint16_t count);
+void
+bitmap_copy_at_offset(bitmap_t *src,
+                 bitmap_t *dst,
+                 uint16_t src_start_offset,
+                 uint16_t dst_start_offset,
+                 uint16_t count);
 
 bool
 bitmap_slow_compare(bitmap_t *src, 
@@ -101,16 +107,6 @@ void bitmap_prefix_print(bitmap_t *prefix, bitmap_t *mask, uint16_t count);
 /* Functions on 32 bit integers, used by bit arrays as helper fns */
 bool
 prefix32bit_match(uint32_t input, uint32_t prefix, uint32_t mask, uint8_t prefix_len);
-
-void
-uint32_bits_copy(uint32_t *src, uint32_t *dst,
-                             uint8_t src_start_pos,
-                             uint8_t dst_start_pos, uint8_t count);
-
-void
-uint32_bits_copy_preserve(uint32_t *src, uint32_t *dst, 
-                                            uint8_t src_start_pos, uint8_t dst_start_pos,
-                                            uint8_t count);
 
 bool
 uint32_bits_compare  (uint32_t bits1, uint32_t bits2, uint8_t count);
