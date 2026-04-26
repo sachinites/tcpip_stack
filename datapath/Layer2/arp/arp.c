@@ -26,6 +26,16 @@
 
 #define ARP_ENTRY_EXP_TIME	30
 
+static arp_entry_t *
+arp_table_lookup_nolock(arp_table_t *arp_table, uint32_t ip_addr);
+
+static bool
+arp_table_entry_add_nolock(dp_ctx_t *dp_ctx,
+                           dp_vrf_t *vrf,
+                           arp_table_t *arp_table,
+                           arp_entry_t *arp_entry,
+                           glthread_t **arp_pending_list);
+
 /*A Routine to resolve ARP out of oif*/
 void
 send_arp_broadcast_request(dp_ctx_t *dp_ctx,
@@ -245,10 +255,17 @@ init_arp_table(arp_table_t **arp_table){
 
     *arp_table = (arp_table_t *)XCALLOC2(0, 1, arp_table_t);
     init_glthread(&((*arp_table)->arp_entries));
+    pthread_rwlock_init(&((*arp_table)->rwlock), NULL);
 }
 
 arp_entry_t *
 arp_table_lookup(arp_table_t *arp_table, uint32_t ip_addr){
+
+    return arp_table_lookup_nolock(arp_table, ip_addr);
+}
+
+static arp_entry_t *
+arp_table_lookup_nolock(arp_table_t *arp_table, uint32_t ip_addr){
 
     glthread_t *curr;
     arp_entry_t *arp_entry;
@@ -268,6 +285,7 @@ clear_arp_table(arp_table_t *arp_table){
 
     glthread_t *curr;
     arp_entry_t *arp_entry;
+    arp_table_wrlock(arp_table);
 
     ITERATE_GLTHREAD_BEGIN(&arp_table->arp_entries, curr){
         
@@ -275,18 +293,23 @@ clear_arp_table(arp_table_t *arp_table){
         delete_arp_entry(arp_entry);
 
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
+    arp_table_unlock(arp_table);
 }
 
 void
 arp_entry_delete(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, uint32_t ip_addr, uint16_t proto){
 
     arp_table_t *arp_table = vrf->arp_table;
-    arp_entry_t *arp_entry = arp_table_lookup(arp_table, ip_addr);
+    arp_table_wrlock(arp_table);
+    arp_entry_t *arp_entry = arp_table_lookup_nolock(arp_table, ip_addr);
     
-    if(!arp_entry || arp_entry->proto != proto)
+    if(!arp_entry || arp_entry->proto != proto) {
+        arp_table_unlock(arp_table);
         return;
+    }
 
     delete_arp_entry(arp_entry);
+    arp_table_unlock(arp_table);
     char ip_addr_str[IPV4_ADDR_LEN_STR];
     tcp_ip_covert_ip_n_to_p(ip_addr, ip_addr_str);
     tracer(dp_ctx->dptr, DARP, "VRF:%s: ARP-entry %s : Deleted\n",
@@ -299,6 +322,20 @@ bool arp_table_entry_add(dp_ctx_t *dp_ctx,
                          arp_entry_t *arp_entry,
                          glthread_t **arp_pending_list)
 {
+    bool rc;
+    arp_table_wrlock(arp_table);
+    rc = arp_table_entry_add_nolock(dp_ctx, vrf, arp_table, arp_entry, arp_pending_list);
+    arp_table_unlock(arp_table);
+    return rc;
+}
+
+static bool
+arp_table_entry_add_nolock(dp_ctx_t *dp_ctx,
+                           dp_vrf_t *vrf,
+                           arp_table_t *arp_table,
+                           arp_entry_t *arp_entry,
+                           glthread_t **arp_pending_list)
+{
     char ip_addr_str[IPV4_ADDR_LEN_STR];
     tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
     tracer(dp_ctx->dptr, DARP, "VRF:%s: ARP-entry %s : called ...\n",
@@ -308,7 +345,7 @@ bool arp_table_entry_add(dp_ctx_t *dp_ctx,
         assert(*arp_pending_list == NULL);   
     }
 
-    arp_entry_t *arp_entry_old = arp_table_lookup(arp_table, 
+    arp_entry_t *arp_entry_old = arp_table_lookup_nolock(arp_table, 
                                     arp_entry->ip_addr);
 
     /* Case 0 : if ARP table entry do not exist already, then add it
@@ -433,7 +470,6 @@ pending_arp_processing_callback_function(dp_ctx_t *dp_ctx,
     SET_COMMON_ETH_FCS(ethernet_hdr, 
         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), 0);
     dp_send_pkt_out (dp_ctx, oif, pkt_block);
-    arp_entry->hit_count++;
 }
 
 static void
@@ -475,7 +511,8 @@ void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
     tracer(dp_ctx->dptr, DARP, "VRF:%s: ARP-Reply from %s : Updating ARP Table\n", 
         vrf->vrf_name, ip_addr_str);
 
-    bool rc = arp_table_entry_add(dp_ctx, 
+    arp_table_wrlock(arp_table);
+    bool rc = arp_table_entry_add_nolock(dp_ctx, 
                 iif->vrf, 
 				arp_table, arp_entry, &arp_pending_list);
 
@@ -498,8 +535,8 @@ void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
         } ITERATE_GLTHREAD_END(arp_pending_list, curr);
 
         tracer(dp_ctx->dptr, DARP_DET, 
-            "VRF:%s: ARP-Entry %s : Number of ARP Pending List processed %d\n", 
-            vrf->vrf_name, ip_addr_str, arp_entry->hit_count);
+            "VRF:%s: ARP-Entry %s : ARP Pending List processed\n", 
+            vrf->vrf_name, ip_addr_str);
 
 		assert(IS_GLTHREAD_LIST_EMPTY(arp_pending_list));
         (arp_pending_list_to_arp_entry(arp_pending_list))->is_sane = false;
@@ -525,6 +562,7 @@ void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
     if(rc == false){
         delete_arp_entry(arp_entry);
     }
+    arp_table_unlock(arp_table);
 }
 
 void
@@ -535,20 +573,21 @@ show_arp_table(arp_table_t *arp_table){
     int count = 0 ;
 
     printw ("\n\r");
+    arp_table_rdlock(arp_table);
     
     ITERATE_GLTHREAD_BEGIN(&arp_table->arp_entries, curr){
         count++;
         arp_entry = arp_glue_to_arp_entry(curr);
         if(count == 1){
-            cprintf("\t|========IP==========|========MAC========|=====OIF======|===Resolved==|=Exp-Time(msec)==|===Proto==|== hits ===|\n");
+            cprintf("\t|========IP==========|========MAC========|=====OIF======|===Resolved==|=Exp-Time(msec)==|===Proto==|\n");
         }
         else{
-            cprintf("\t|====================|===================|==============|=============|=================|==========|===========|\n");
+            cprintf("\t|====================|===================|==============|=============|=================|==========|\n");
         }
         {
             char ip_addr_str[IPV4_ADDR_LEN_STR];
             tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_addr_str);
-        cprintf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-5d          |  %-6s  | %-6llu    |\n", 
+        cprintf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-5d          |  %-6s  |\n", 
             ip_addr_str, 
             arp_entry->mac_addr.mac[0], 
             arp_entry->mac_addr.mac[1], 
@@ -559,12 +598,12 @@ show_arp_table(arp_table_t *arp_table){
             arp_entry->oif ? arp_entry->oif->if_name : "null",
             arp_entry_sane(arp_entry) ? "false" : "true",
 			arp_entry_get_exp_time_left(arp_entry),
-            proto_id_str(arp_entry->proto),
-            arp_entry->hit_count);
+            proto_id_str(arp_entry->proto));
         }
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
+    arp_table_unlock(arp_table);
     if(count){
-        cprintf("\t|====================|===================|==============|=============|=================|==========|===========|\n");
+        cprintf("\t|====================|===================|==============|=============|=================|==========|\n");
     }
 }
 
@@ -617,14 +656,16 @@ void create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
                            uint32_t ip_addr,
                            pkt_block_t *pkt_block)
 {
+    arp_table_wrlock(arp_table);
 
     /*case 1 : If full entry already exist - assert. The L2 must have
      * not create ARP sane entry if the already was already existing*/
-    arp_entry_t *arp_entry = arp_table_lookup(arp_table, ip_addr);
+    arp_entry_t *arp_entry = arp_table_lookup_nolock(arp_table, ip_addr);
     
     if(arp_entry){
     
         if(!arp_entry_sane(arp_entry)){
+            arp_table_unlock(arp_table);
             assert(0);
         }
 
@@ -633,6 +674,7 @@ void create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
                               pending_arp_processing_callback_function, 
                               pkt_block);
 	    arp_entry_refresh_expiration_timer(arp_entry);	
+        arp_table_unlock(arp_table);
         return;
     }
     
@@ -653,7 +695,8 @@ void create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
     add_arp_pending_entry(dp_ctx, arp_entry, 
                           pending_arp_processing_callback_function, 
                           pkt_block);
-    assert (arp_table_entry_add(dp_ctx, vrf, arp_table, arp_entry, 0));
+    assert (arp_table_entry_add_nolock(dp_ctx, vrf, arp_table, arp_entry, 0));
+    arp_table_unlock(arp_table);
 }
 
 static void
@@ -755,6 +798,7 @@ arp_entry_delete_by_interface (arp_table_t *arp_table, dp_intf_t *intf) {
     glthread_t *curr;
     arp_entry_t *arp_entry;
 
+    arp_table_wrlock(arp_table);
     ITERATE_GLTHREAD_BEGIN(&arp_table->arp_entries, curr) {
 
         arp_entry = arp_glue_to_arp_entry(curr);
@@ -762,4 +806,5 @@ arp_entry_delete_by_interface (arp_table_t *arp_table, dp_intf_t *intf) {
         delete_arp_entry(arp_entry);
 
     } ITERATE_GLTHREAD_END(&arp_table->arp_entries, curr);
+    arp_table_unlock(arp_table);
 }

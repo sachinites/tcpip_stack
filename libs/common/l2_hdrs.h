@@ -53,8 +53,8 @@ typedef struct vlan_ethernet_hdr_{
     mac_addr_t src_mac;
     vlan_8021q_hdr_t vlan_8021q_hdr;
     unsigned short type;
-    unsigned char payload[248];  /*Max allowed 1500*/
-    uint32_t FCS;
+    unsigned char payload[0];  /* Variable-length payload starts here */
+  
 } vlan_ethernet_hdr_t;
 
 typedef struct ethernet_hdr_{
@@ -62,17 +62,16 @@ typedef struct ethernet_hdr_{
     mac_addr_t dst_mac;
     mac_addr_t src_mac;
     unsigned short type;
-    unsigned char payload[248];  /*Max allowed 1500*/
-    uint32_t FCS;
+    unsigned char payload[0];  /* Variable-length payload starts here */
+
 } ethernet_hdr_t;
 
 #pragma pack(pop)
 
 
-#define ETH_FCS_SIZE    (sizeof(((ethernet_hdr_t *)0)->FCS))
+#define ETH_FCS_SIZE    (4)
 
-#define ETH_HDR_SIZE_EXCL_PAYLOAD   \
-    (sizeof(ethernet_hdr_t) - sizeof(((ethernet_hdr_t *)0)->payload))
+#define ETH_HDR_SIZE_EXCL_PAYLOAD   (sizeof(ethernet_hdr_t))
 
 #define ETH_FCS(eth_hdr_ptr, payload_size)  \
     (*(uint32_t *)(((char *)(((ethernet_hdr_t *)eth_hdr_ptr)->payload) + payload_size)))
@@ -86,8 +85,7 @@ GET_802_1Q_VLAN_ID(vlan_8021q_hdr_t *vlan_8021q_hdr){
 #define VLAN_ETH_FCS(vlan_eth_hdr_ptr, payload_size)  \
     (*(uint32_t *)(((char *)(((vlan_ethernet_hdr_t *)vlan_eth_hdr_ptr)->payload) + payload_size)))
 
-#define VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD  \
-   (sizeof(vlan_ethernet_hdr_t) - sizeof(((vlan_ethernet_hdr_t *)0)->payload))
+#define VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD  (sizeof(vlan_ethernet_hdr_t))
 
 /* Return 0 if not vlan tagged, else return pointer to 801.1q vlan hdr
  * present in ethernet hdr*/

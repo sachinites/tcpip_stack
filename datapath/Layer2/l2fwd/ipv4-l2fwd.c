@@ -142,7 +142,6 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         dp_send_pkt_out(dp_ctx, oif, pkt_block);
 		arp_entry_refresh_expiration_timer(arp_entry);
-        arp_entry->hit_count++;
     }
 
 /* An API to be used by Layer 3 or higher to push the pkt

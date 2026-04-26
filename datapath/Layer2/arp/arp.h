@@ -16,6 +16,8 @@
 #ifndef __ARP__HDR__
 #define __ARP__HDR__
 
+#include <pthread.h>
+
 #include "../../../libs/common/cmn_struct.h"
 #include "../../../libs/gluethread/glthread.h"
 #include "../../../tcpconst.h"
@@ -40,6 +42,8 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
 typedef struct arp_table_{
 
     glthread_t arp_entries;
+
+    pthread_rwlock_t rwlock;
 
 } arp_table_t;
 
@@ -69,7 +73,6 @@ struct arp_entry_{
     uint32_t ip_addr;   /*key*/
     dp_intf_t *oif;
     bool is_sane;
-    long long unsigned int hit_count;
 	
 };
 #pragma pack(pop)
@@ -86,6 +89,21 @@ GLTHREAD_TO_STRUCT(arp_pending_list_to_arp_entry, arp_entry_t, arp_pending_list)
 
 void
 init_arp_table(arp_table_t **arp_table);
+
+static inline void
+arp_table_rdlock(arp_table_t *arp_table) {
+    pthread_rwlock_rdlock(&arp_table->rwlock);
+}
+
+static inline void
+arp_table_wrlock(arp_table_t *arp_table) {
+    pthread_rwlock_wrlock(&arp_table->rwlock);
+}
+
+static inline void
+arp_table_unlock(arp_table_t *arp_table) {
+    pthread_rwlock_unlock(&arp_table->rwlock);
+}
 
 arp_entry_t *
 arp_table_lookup(arp_table_t *arp_table, uint32_t ip_addr);
