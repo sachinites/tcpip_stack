@@ -11,7 +11,9 @@
 #include "isis_advt.h"
 
 static isis_lsp_pkt_t *
-isis_get_dummy_lsp_pkt_with_key(isis_node_info_t *node_info, uint32_t rtr_id, pn_id_t pn_id, uint8_t fr_no) {
+isis_get_dummy_lsp_pkt_with_key(isis_node_info_t *node_info, 
+                                uint32_t rtr_id, pn_id_t pn_id, 
+                                uint8_t fr_no) {
 
     uint32_t pkt_size;
     uint32_t *rtr_id_addr;
@@ -495,9 +497,9 @@ isis_print_lsp_id (isis_lsp_pkt_t *lsp_pkt, byte *lsp_id_str) {
     uint32_t *seq_no = isis_get_lsp_pkt_seq_no(lsp_pkt);
     pn_id = isis_get_lsp_pkt_pn_id(lsp_pkt);
     fr_no = isis_get_lsp_pkt_fr_no(lsp_pkt);
-    sprintf(lsp_id_str, "%s-%hu-%hu[%u]", 
-                    tcp_ip_covert_ip_n_to_p(*rtr_id, ip_addr), 
-                    pn_id, fr_no, *seq_no);
+    snprintf((char *)lsp_id_str, ISIS_LSP_ID_STR_SIZE, "%s-%hu-%hu[%u]",
+             tcp_ip_covert_ip_n_to_p(*rtr_id, ip_addr),
+             pn_id, fr_no, *seq_no);
     return (byte *)lsp_id_str;
 }
 

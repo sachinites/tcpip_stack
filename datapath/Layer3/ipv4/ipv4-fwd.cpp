@@ -582,8 +582,13 @@ dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) {
 
     // Src IP may or may not be set already. If not set, we will determine it
     //assert (ip_hdr->src_ip);
+    if (!ip_hdr->dst_ip) {
+        tracer (dp_ctx->dptr, DL3FWD | DERR, 
+            "Error : Dst IP address could not be determined, cannot send the pkt\n");
+        cprintf ("Error : Dst IP address could not be determined, cannot send the pkt\n");
+        return;
+    }
 
-    assert (ip_hdr->dst_ip);
     assert (ip_hdr->total_length);
 
     tracer (dp_ctx->dptr, DL3FWD, "VRF:%s Dest:%s  NP Recvd Routing Request\n",

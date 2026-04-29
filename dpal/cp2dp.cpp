@@ -213,7 +213,6 @@ cp2dp_fib_update (
     msg->inhidx = inh_idx;
     msg->prefix = *prefix;
 
-    /* Comment Abhishek: Use different structure , not fib internal structure */
     if (fwd_info){
 
          rtm_nh_fwd_info_t *src =  fwd_info;

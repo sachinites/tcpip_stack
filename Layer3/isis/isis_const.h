@@ -15,7 +15,7 @@
 #define ISIS_LSP_DEFAULT_FLOOD_INTERVAL  30 // 1200 sec is standard
 #define ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL (ISIS_LSP_DEFAULT_FLOOD_INTERVAL * 2)
 #define ISIS_INTF_DEFAULT_PRIORITY  64
-#define ISIS_LSP_ID_STR_SIZE    32 //  abc.def.ghi.jkl-123-123
+#define ISIS_LSP_ID_STR_SIZE    48 // xxx.xxx.xxx.xxx-65535-255[4294967295]
 
 /*ISIS TLVs */
 #define ISIS_TLV_HOSTNAME   137 // as per standard 

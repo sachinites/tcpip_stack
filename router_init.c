@@ -36,7 +36,6 @@
 #include <memory.h>
 #include <memory>
 #include <ctype.h>
-#include "configdb.h"
 #include "router_init.h"
 #include "tcp_ip_trace.h"
 #include "FireWall/acl/acldb.h"
@@ -223,8 +222,6 @@ Router_Create(graph_t *graph, const c_string node_name){
 
     /* Start IPC Message Queue of Control Plane*/
     init_pkt_q (&node->ev_dis, &node->cp_ipc_q, ipc_event_signal);
-
-    //node_config_db_init (node);
 
     /* Turn on Default Logging */
     #if 1

@@ -1,6 +1,8 @@
 # tcpip_stack project.
 Implement your own TCP IP Stack in userspace.
 
+This branch can be compiled without dpdk library on the system. 
+
 In this course, We shall be implementing a Working TCP/IP Stack through several Networking Projects. Below is the list of projects Implemented so far.
 
 Visit : www.csepracticals.com for more projects and courses.

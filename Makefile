@@ -31,12 +31,12 @@ LIBS= ${ISIS_LIB_PATH} \
 			-Llibs -lstd \
 			-LRTM -lrtm \
 			-lpthread \
-   		    -lrt \
-			-lfl \
+       		        -lrt \
+ 			-lfl \
 			-lm \
 			-lncurses \
 
-OBJS=router_init.o   \
+OBJS=             router_init.o   \
 		  cli_interface.o \
 		  topologies.o	   \
 		  net.o			   \

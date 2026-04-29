@@ -450,7 +450,9 @@ isis_withdraw_tlv_advertisement (isis_node_info_t *node_info,
 /* This fn regenerate fragment;s LSP pkt from scratch. regen_ctrl_flags controls as to what content
     will go in LSP pkt.*/
 void
-isis_regenerate_lsp_fragment (isis_node_info_t *node_info, isis_fragment_t *fragment, uint32_t regen_ctrl_flags) {
+isis_regenerate_lsp_fragment (isis_node_info_t *node_info, 
+                              isis_fragment_t *fragment, 
+                              uint32_t regen_ctrl_flags) {
 
     glthread_t *curr;
     pkt_size_t tlv_size;
@@ -621,7 +623,7 @@ isis_regenerate_lsp_fragment (isis_node_info_t *node_info, isis_fragment_t *frag
     SET_COMMON_ETH_FCS (eth_hdr, eth_payload_size, 0 );
     bytes_filled +=  ETH_FCS_SIZE;
     fragment->lsp_pkt->pkt_size = bytes_filled ;
-    ISIS_INCREMENT_NODE_STATS(node_info, isis_event_count[ isis_event_fragment_regen]);
+    ISIS_INCREMENT_NODE_STATS(node_info, isis_event_count[isis_event_fragment_regen]);
 }
 
 void 
@@ -1121,7 +1123,7 @@ isis_fragment_alloc_new_lsp_pkt (isis_fragment_t *fragment) {
     fragment->lsp_pkt->fragment = fragment;
     isis_fragment_lock(fragment);
     fragment->lsp_pkt->flood_eligibility = true;
-    fragment->lsp_pkt->pkt = (byte *)XCALLOC_BUFF(0, fragment->bytes_filled);
+    fragment->lsp_pkt->pkt = (byte *)XCALLOC_BUFF(0, MAX_PACKET_BUFFER_SIZE);
     fragment->lsp_pkt->alloc_size = fragment->bytes_filled;
     fragment->lsp_pkt->pkt_size = 0;
 }
