@@ -71,8 +71,6 @@ typedef struct ethernet_hdr_{
 
 #define ETH_FCS_SIZE    (4)
 
-#define ETH_HDR_SIZE_EXCL_PAYLOAD   (sizeof(ethernet_hdr_t))
-
 #define ETH_FCS(eth_hdr_ptr, payload_size)  \
     (*(uint32_t *)(((char *)(((ethernet_hdr_t *)eth_hdr_ptr)->payload) + payload_size)))
 
@@ -84,8 +82,6 @@ GET_802_1Q_VLAN_ID(vlan_8021q_hdr_t *vlan_8021q_hdr){
 
 #define VLAN_ETH_FCS(vlan_eth_hdr_ptr, payload_size)  \
     (*(uint32_t *)(((char *)(((vlan_ethernet_hdr_t *)vlan_eth_hdr_ptr)->payload) + payload_size)))
-
-#define VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD  (sizeof(vlan_ethernet_hdr_t))
 
 /* Return 0 if not vlan tagged, else return pointer to 801.1q vlan hdr
  * present in ethernet hdr*/
@@ -148,10 +144,10 @@ static inline uint32_t
 GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
 
     if(is_pkt_vlan_tagged(ethernet_hdr)){
-        return VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;        
+        return sizeof(vlan_ethernet_hdr_t) + ETH_FCS_SIZE;
     }
     else{
-        return ETH_HDR_SIZE_EXCL_PAYLOAD; 
+        return sizeof(ethernet_hdr_t) + ETH_FCS_SIZE;
     }
 }
 

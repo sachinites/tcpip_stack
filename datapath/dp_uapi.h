@@ -76,6 +76,9 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx);
 void 
 DPDK_PollInterfaces (dp_ctx_t *dp_ctx);
 
+void
+DPDK_PollInterfaces_load_balancing (dp_ctx_t *dp_ctx);
+
 struct rte_mempool *
 dp_uapi_get_current_socket_mpool(dp_ctx_t *dp_ctx);
 

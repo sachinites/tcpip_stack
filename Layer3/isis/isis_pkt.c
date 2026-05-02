@@ -162,7 +162,7 @@ isis_process_hello_pkt(isis_node_info_t *node_info,
 
     isis_update_interface_adjacency_from_hello (
         iif, cmn_hdr, 
-        pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD);
+        pkt_size - sizeof(ethernet_hdr_t) - ETH_FCS_SIZE);
 
     return ;
 
@@ -343,7 +343,7 @@ isis_prepare_hello_pkt(Interface *intf) {
                 4   +                /* Data length for ISIS_ISIS_TLV_METRIC_VAL */
                 6;                    /* MAc Address */
 
-    hello_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + /*Dst Mac + Src mac + type field + FCS field*/
+    hello_pkt_size = sizeof(ethernet_hdr_t) +  ETH_FCS_SIZE + /*Dst Mac + Src mac + type field + FCS field*/
                      eth_hdr_playload_size;
 
     cp_pkt_block_t *pkt_block = cp_pkt_block_get_new_pkt_buffer(hello_pkt_size);

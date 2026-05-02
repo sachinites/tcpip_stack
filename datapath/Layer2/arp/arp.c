@@ -56,8 +56,8 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     }
 
     pkt_block_t *pkt_block = dp_pkt_block_get_new_pkt_buffer(dp_ctx,
-                                (vlan_id ? VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD : \
-                                ETH_HDR_SIZE_EXCL_PAYLOAD) + payload_size);
+                                (vlan_id ? sizeof(vlan_ethernet_hdr_t) : sizeof(ethernet_hdr_t)) + 
+                                payload_size + ETH_FCS_SIZE);
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *) 
         pkt_block_get_pkt(pkt_block, &pkt_size);
@@ -150,7 +150,7 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *ethernet_hdr_in, dp_intf_t 
     char ip_addr_str[IPV4_ADDR_LEN_STR];
 
     arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_in));
-    pkt_size_t total_pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + (pkt_size_t )sizeof(arp_hdr_t);
+    pkt_size_t total_pkt_size = sizeof(ethernet_hdr_t) + (pkt_size_t)sizeof(arp_hdr_t) + ETH_FCS_SIZE;
     pkt_block = dp_pkt_block_get_new_pkt_buffer (dp_ctx, total_pkt_size);
     pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
     ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, 0);

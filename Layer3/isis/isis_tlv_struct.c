@@ -488,7 +488,7 @@ isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
 
     byte *lsp_tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
     pkt_size_t lsp_tlv_buffer_size = (uint16_t)(lsp_pkt->pkt_size -
-                                        ETH_HDR_SIZE_EXCL_PAYLOAD -
+                                        sizeof(ethernet_hdr_t) - ETH_FCS_SIZE -
                                         sizeof(isis_pkt_hdr_t)) ;
 
     ITERATE_TLV_BEGIN(lsp_tlv_buffer, tlv_type,

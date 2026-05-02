@@ -50,7 +50,6 @@ struct pkt_block_ {
     #else
     uint8_t *pkt;
     uintptr_t alloc_ptr;
-    uintptr_t ingress_intf;
     pkt_mbuf_pvt_data_t pvt_data;
     pkt_size_t pkt_size;
     uint8_t ref_count;

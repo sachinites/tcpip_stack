@@ -483,7 +483,7 @@ isis_regenerate_lsp_fragment (isis_node_info_t *node_info,
     layer2_fill_with_broadcast_mac(eth_hdr->dst_mac.mac);
     eth_hdr->type = htons(ISIS_LSP_ETH_PKT_TYPE);
 
-    bytes_filled += (ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
+    bytes_filled += sizeof(ethernet_hdr_t);
 
     /* Re-manufactue LSP Pkt Hdr */
     lsp_pkt_hdr = (isis_pkt_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
@@ -645,7 +645,7 @@ isis_alloc_new_fragment () {
     fragment->fr_no = 0;
     fragment->pn_no = 0;
     fragment->ref_count = 0;
-    fragment->bytes_filled = ETH_HDR_SIZE_EXCL_PAYLOAD + sizeof(isis_pkt_hdr_t);
+    fragment->bytes_filled = sizeof(ethernet_hdr_t) + sizeof(isis_pkt_hdr_t) + ETH_FCS_SIZE;
     init_glthread(&fragment->priority_list_glue);
     init_glthread(&fragment->tlv_list_head);
     init_glthread(&fragment->frag_regen_glue);

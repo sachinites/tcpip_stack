@@ -167,7 +167,6 @@ pkt_block_free(pkt_block_t *pkt_block) {
 #else
     assert(!pkt_block->pvt_data.encap_data);
     assert(!pkt_block->pvt_data.ingress_intf);
-    assert(!pkt_block->ingress_intf);
 
     XFREE((void *)pkt_block->alloc_ptr);
     free(pkt_block);
@@ -221,7 +220,7 @@ pkt_block_dereference(pkt_block_t *pkt_block) {
             pkt_block->pvt_data.encap_data = NULL;
         }
         pkt_block->pvt_data.ingress_intf = 0;
-        if (pkt_block->ingress_intf) pkt_block->ingress_intf = 0;
+        if (pkt_block->pvt_data.ingress_intf) pkt_block->pvt_data.ingress_intf = 0;
         pkt_block_free(pkt_block);
         return 0;
     }
@@ -388,7 +387,7 @@ pkt_block_clone(pkt_block_t *pkt_block, const char *fn_name, uint16_t lineno) {
     memcpy(pkt_block2->pkt, pkt_block->pkt, pkt_block->pkt_size);
     pkt_block2->pvt_data.hdr_type = pkt_block->pvt_data.hdr_type;
     pkt_block2->pvt_data.no_modify = pkt_block->pvt_data.no_modify;
-    pkt_block2->ingress_intf = pkt_block->ingress_intf;
+    pkt_block2->pvt_data.ingress_intf = pkt_block->pvt_data.ingress_intf;
     if (pkt_block->pvt_data.encap_data) {
         pkt_block2->pvt_data.encap_data = (pkt_mbuf_encap_meta_data_t *)calloc(1, sizeof(pkt_mbuf_encap_meta_data_t));
         memcpy(pkt_block2->pvt_data.encap_data, pkt_block->pvt_data.encap_data,
@@ -437,13 +436,7 @@ pkt_block_update_new_hdr_type(pkt_block_t *pkt_block, uint16_t proto) {
 void
 tcp_ip_expand_buffer_ethernet_hdr(pkt_block_t *pkt_block) {
 
-    /* Grow the HEAD by (ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE) bytes, i.e.
-     * enough for dst_mac + src_mac + ethertype; then grow the TAIL by
-     * ETH_FCS_SIZE bytes to reserve room for the FCS that SET_COMMON_ETH_FCS()
-     * will write after the payload. Net pkt_size increase is
-     * ETH_HDR_SIZE_EXCL_PAYLOAD on both build modes. */
-    pkt_block_slide(pkt_block, -1, -1,
-                    (uint16_t)(ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE));
+    pkt_block_slide(pkt_block, -1, -1, sizeof (ethernet_hdr_t));
     pkt_block_slide(pkt_block,  1,  1, (uint16_t)ETH_FCS_SIZE);
 
     pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
@@ -454,7 +447,8 @@ tcp_ip_expand_buffer_ethernet_hdr(pkt_block_t *pkt_block) {
     memset(eth_hdr->dst_mac.mac, 0, sizeof(mac_addr_t));
     memset(eth_hdr->src_mac.mac, 0, sizeof(mac_addr_t));
     eth_hdr->type = 0;
-    SET_COMMON_ETH_FCS(eth_hdr, pkt_size, 0);
+    pkt_size_t payload_size = pkt_size - (pkt_size_t)sizeof(ethernet_hdr_t) - ETH_FCS_SIZE;
+    SET_COMMON_ETH_FCS(eth_hdr, payload_size, 0);
 }
 
 void

@@ -27,7 +27,7 @@ isis_ted_update_or_install_lsp (isis_node_info_t *node_info, ted_db_t *ted_db, i
    
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
-    uint16_t eth_payload_size = lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
+    uint16_t eth_payload_size = lsp_pkt->pkt_size - sizeof(ethernet_hdr_t) - ETH_FCS_SIZE;
 
     byte *tlv_buffer = (byte *)(lsp_pkt_hdr + 1);
 

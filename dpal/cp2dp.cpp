@@ -693,7 +693,7 @@ cp2dp_send_rtr_id(node_t *node, uint32_t rtr_id) {
     /* Fill in the header */
     gen_msg = (dp_generic_msg_t *)dp_msg->data;
     gen_msg->opcode = DP_GENERIC_RTR_ID;
-   gen_msg->u.rtr_id = rtr_id;
+    gen_msg->u.rtr_id = rtr_id;
     
     cp2dp_submit(node, dp_msg, true);
 }

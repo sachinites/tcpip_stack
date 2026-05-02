@@ -40,7 +40,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
     ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
     
     pkt_size_t ethernet_payload_size = 
-        pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD;
+        pkt_size - sizeof(ethernet_hdr_t) - ETH_FCS_SIZE;
 
     /* Handling L2 forwarding for any payload other than ipv4. Sinply,
         encap the pkt within ethernet hdr with dst mac as broadcast mac */
@@ -114,12 +114,9 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
      * rebounce the pkt to Network Layer again*/
     if(next_hop_ip == dp_ctx->rtr_id) {
 
-        /* Strip the ethernet header to expose the IP header. Here
-         * ethernet_payload_size == current_pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD. */
-        pkt_block_slide(pkt_block, -1, 1,
-                        (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD);
+        pkt_block_slide(pkt_block, -1, 1, (uint16_t)sizeof(ethernet_hdr_t));
+        pkt_block_slide(pkt_block, 1, -1, ETH_FCS_SIZE);
         pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
-        
         dp_promote_pkt_to_layer3(dp_ctx, vrf, 0, pkt_block);
         return;
     }
@@ -200,7 +197,7 @@ tag_pkt_with_vlan_id (
         is_pkt_vlan_tagged(ethernet_hdr);
     
     if(vlan_8021q_hdr){
-        payload_size = total_pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
+        payload_size = total_pkt_size - sizeof (vlan_ethernet_hdr_t) - ETH_FCS_SIZE;
         vlan_8021q_hdr->tci = MAKE_TCI(TCI_PCP(vlan_8021q_hdr->tci),
                                         TCI_DEI(vlan_8021q_hdr->tci),
                                         vlan_id);
@@ -209,20 +206,18 @@ tag_pkt_with_vlan_id (
     }
 
     /*If the pkt is not already tagged, tag it*/
-    /*Fix me : Avoid declaring local variables of type 
-     ethernet_hdr_t or vlan_ethernet_hdr_t as the size of these
-     variables are too large and is not healthy for program stack
-     memory*/
     ethernet_hdr_t ethernet_hdr_old;
-    memcpy((char *)&ethernet_hdr_old, (char *)ethernet_hdr, 
-                ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
+    memcpy((char *)&ethernet_hdr_old, (char *)ethernet_hdr, sizeof (ethernet_hdr_t));
+    
+    payload_size = total_pkt_size - sizeof (ethernet_hdr_t) - ETH_FCS_SIZE;
 
-    payload_size = total_pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD; 
+    /* Create room for 802.1Q vlan hdr*/
+    pkt_block_slide(pkt_block, -1, -1, (uint16_t)sizeof(vlan_8021q_hdr_t));
+
     vlan_ethernet_hdr_t *vlan_ethernet_hdr = 
-            (vlan_ethernet_hdr_t *)((char *)ethernet_hdr - sizeof(vlan_8021q_hdr_t));
+            (vlan_ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &total_pkt_size);
 
-    memset((char *)vlan_ethernet_hdr, 0, 
-                VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
+    memset((char *)vlan_ethernet_hdr, 0, sizeof (vlan_ethernet_hdr_t));
     memcpy(vlan_ethernet_hdr->dst_mac.mac, 
         ethernet_hdr_old.dst_mac.mac, MAC_ADDR_SIZE);
     memcpy(vlan_ethernet_hdr->src_mac.mac, 
@@ -239,11 +234,6 @@ tag_pkt_with_vlan_id (
 
     /*Update checksum, however not used*/
     SET_COMMON_ETH_FCS((ethernet_hdr_t *)vlan_ethernet_hdr, payload_size, 0 );
-
-    /* We slid the ethernet header left by sizeof(vlan_8021q_hdr_t) to carve
-     * room for the 802.1Q tag; grow the head by the same amount so the
-     * pkt_block's view now starts at vlan_ethernet_hdr. */
-    pkt_block_slide(pkt_block, -1, -1, (uint16_t)sizeof(vlan_8021q_hdr_t));
 }
 
 /* Return new packet size if pkt is untagged with the existing
@@ -252,6 +242,7 @@ void
 untag_pkt_with_vlan_id(pkt_block_t *pkt_block) {
 
     pkt_size_t pkt_size;
+    vlan_ethernet_hdr_t vlan_ethernet_hdr_old;
 
     ethernet_hdr_t *ethernet_hdr = 
         (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
@@ -264,15 +255,14 @@ untag_pkt_with_vlan_id(pkt_block_t *pkt_block) {
         return;
     }
 
-    /*Fix me : Avoid declaring local variables of type 
-      ethernet_hdr_t or vlan_ethernet_hdr_t as the size of these
-      variables are too large and is not healthy for program stack
-      memory*/
-    vlan_ethernet_hdr_t vlan_ethernet_hdr_old;
-    memcpy((char *)&vlan_ethernet_hdr_old, (char *)ethernet_hdr, 
-                VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
 
-    ethernet_hdr = (ethernet_hdr_t *)((char *)ethernet_hdr + sizeof(vlan_8021q_hdr_t));
+    memcpy((char *)&vlan_ethernet_hdr_old, 
+           (char *)ethernet_hdr, 
+            sizeof(vlan_ethernet_hdr_t));
+
+    pkt_block_slide(pkt_block, -1, 1, (uint16_t)sizeof(vlan_8021q_hdr_t));
+
+    ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
    
     memcpy(ethernet_hdr->dst_mac.mac, vlan_ethernet_hdr_old.dst_mac.mac, MAC_ADDR_SIZE);
     memcpy(ethernet_hdr->src_mac.mac, vlan_ethernet_hdr_old.src_mac.mac, MAC_ADDR_SIZE);
@@ -280,15 +270,10 @@ untag_pkt_with_vlan_id(pkt_block_t *pkt_block) {
     ethernet_hdr->type = vlan_ethernet_hdr_old.type;
     
     /*No need to copy data*/
-    uint32_t payload_size = pkt_size - VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD;
+    uint32_t payload_size = pkt_size - sizeof(ethernet_hdr_t) - ETH_FCS_SIZE;
 
     /*Update checksum, however not used*/
     SET_COMMON_ETH_FCS(ethernet_hdr, payload_size, 0);
-    
-    /* The inner ethernet header now lives sizeof(vlan_8021q_hdr_t) bytes past
-     * the old start; shrink head by that amount to advance the pkt_block's
-     * view onto it. */
-    pkt_block_slide(pkt_block, -1, 1, (uint16_t)sizeof(vlan_8021q_hdr_t));
 }
 
 void
@@ -297,10 +282,16 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                     dp_intf_t *iif, 
                     pkt_block_t *pkt_block) {
 
+    bool is_vlan_tagged;
     uint16_t eth_type;
     pkt_size_t pkt_size;
 
     assert(pkt_block_verify_pkt(pkt_block, ETHERNET_HEADER));
+
+    ethernet_hdr_t *ethernet_hdr = 
+        (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+
+    is_vlan_tagged = is_pkt_vlan_tagged(ethernet_hdr );
 
     /* Unconditionally distribute pkt-copy to interested applications */
     cp_punt_pkt_from_layer2_to_layer5(
@@ -308,9 +299,6 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                     iif->port_id, 
                     pkt_block,
                     ETHERNET_HEADER);
-
-    ethernet_hdr_t *ethernet_hdr = 
-        (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
     eth_type = ntohs(ethernet_hdr->type);
 
@@ -338,8 +326,11 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
         case ETH_TYPE_IPv4:
 
             /* Strip the ethernet header to expose the IP payload. */
-            pkt_block_slide(pkt_block, -1, 1,
-                            (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
+            pkt_block_slide(pkt_block, -1, 1, 
+                    is_vlan_tagged ? (uint16_t)sizeof(vlan_ethernet_hdr_t) : \
+                    (uint16_t)sizeof(ethernet_hdr_t));
+
+            pkt_block_slide(pkt_block, 1, -1, ETH_FCS_SIZE);
             pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IP_IN_IP);
             dp_promote_pkt_to_layer3(
                     dp_ctx,
@@ -348,8 +339,10 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
             break;
 
         case ETH_TYPE_IPv6:
-            pkt_block_slide(pkt_block, -1, 1,
-                            (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD - ETH_FCS_SIZE);
+            pkt_block_slide(pkt_block, -1, 1, 
+                    is_vlan_tagged ? (uint16_t)sizeof(vlan_ethernet_hdr_t) : \
+                    (uint16_t)sizeof(ethernet_hdr_t));
+            pkt_block_slide(pkt_block, 1, -1, ETH_FCS_SIZE);
             pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IPv6);
             dp_promote_pkt_to_layer3(
                     dp_ctx,
@@ -657,7 +650,8 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
 
     arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr));
 
-    pkt_size_t arp_reply_pkt_size = VLAN_ETH_HDR_SIZE_EXCL_PAYLOAD +
+    pkt_size_t arp_reply_pkt_size = sizeof(vlan_ethernet_hdr_t) + 
+                                    ETH_FCS_SIZE +
                                     (pkt_size_t)sizeof(arp_hdr_t);
 
     pkt_block_t *pkt_block2 = dp_pkt_block_get_new_pkt_buffer(dp_ctx, arp_reply_pkt_size);

@@ -436,7 +436,7 @@ static int
 RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block){
 
     pkt_size_t pkt_size;
-    vlan_8021q_hdr_t *vlan_8021q_hdr;
+    vlan_8021q_hdr_t *vlan_8021q_hdr = NULL;
 
     assert(pkt_block_verify_pkt(pkt_block, ETHERNET_HEADER));
 
@@ -454,8 +454,13 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
         intf->if_name, pkt_block_str(pkt_block), TCI_VID(vlan_8021q_hdr->tci));
     
     if ( is_arp_pkt_for_svi_interface (dp_ctx, pkt_block) ) {
-            svi_interface_intercept_arp_pkt (dp_ctx, intf->vrf, pkt_block);
-            return 0;
+
+        tracer (dp_ctx->dptr, DL2FWD , 
+                "Rmac Interface %s : ARP pkt %s Intercepted by SVI interface\n", 
+                intf->if_name, pkt_block_str(pkt_block));
+
+        svi_interface_intercept_arp_pkt (dp_ctx, intf->vrf, pkt_block);
+        return 0;
     }
 
     /* Case 3 : if this is any other ethernet pkt with dst mac = RMAC address */
@@ -468,10 +473,11 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_
     }
 
     untag_pkt_with_vlan_id(pkt_block);
-    assert (eth_hdr->type == ntohs (ETH_TYPE_IPv4));
-    /* Strip the outer ethernet header: shrink head by ETH_HDR_SIZE_EXCL_PAYLOAD. */
-    pkt_block_slide(pkt_block, -1, 1,
-                    (uint16_t)ETH_HDR_SIZE_EXCL_PAYLOAD);
+    eth_hdr = ( ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    assert (eth_hdr->type == htons (ETH_TYPE_IPv4));
+    pkt_block_slide(pkt_block, -1, 1, sizeof (ethernet_hdr_t));
+    pkt_block_slide(pkt_block, 1, -1, ETH_FCS_SIZE);
+    pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IP_IN_IP);
     dp_promote_pkt_to_layer3 (dp_ctx, intf->vrf, intf, pkt_block);
 
     return 0;
@@ -582,8 +588,11 @@ SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
     if (pkt_block_get_starting_hdr(pkt_block) == ETHERNET_HEADER) {
         uint8_t *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
         ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt;
-        uint32_t eth_hdr_size = GET_ETH_HDR_SIZE_EXCL_PAYLOAD(eth_hdr);
-        pkt_block_slide(pkt_block, -1, 1, (uint16_t)eth_hdr_size);
+        uint16_t eth_hdr_size = is_pkt_vlan_tagged(eth_hdr)
+            ? (uint16_t)sizeof(vlan_ethernet_hdr_t)
+            : (uint16_t)sizeof(ethernet_hdr_t);
+        pkt_block_slide(pkt_block, -1, 1, eth_hdr_size);
+        pkt_block_slide(pkt_block, 1, -1, ETH_FCS_SIZE);
         pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IPv6);
     }
 
@@ -1413,6 +1422,12 @@ DPDK_PollInterfaces(dp_ctx_t *dp_ctx) {
     }
 
     free(map);
+}
+
+void
+DPDK_PollInterfaces_load_balancing (dp_ctx_t *dp_ctx) {
+
+    
 }
 
 /*

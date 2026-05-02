@@ -23,7 +23,7 @@ isis_get_dummy_lsp_pkt_with_key(isis_node_info_t *node_info,
     if (!node_info->lsp_dummy_pkt) {
     
         node_info->lsp_dummy_pkt = (isis_lsp_pkt_t *)XCALLOC2(0, 1, isis_lsp_pkt_t);
-        pkt_size = ETH_HDR_SIZE_EXCL_PAYLOAD + ISIS_LSP_HDR_SIZE;
+        pkt_size = sizeof(ethernet_hdr_t) + ISIS_LSP_HDR_SIZE + ETH_FCS_SIZE;
         node_info->lsp_dummy_pkt->pkt = (unsigned char *)XCALLOC_BUFF(0,  pkt_size);
         isis_mark_isis_lsp_pkt_flood_ineligible(0, node_info->lsp_dummy_pkt);
         node_info->lsp_dummy_pkt->pkt_size = pkt_size;
@@ -444,7 +444,7 @@ isis_show_one_lsp_pkt( isis_lsp_pkt_t *lsp_pkt, byte *buff) {
     cprintf ("LSP : %s  size(B) : %-4lu    "
             "ref_c : %-3u   Life Time Remaining : %u sec\n",
             isis_print_lsp_id (lsp_pkt,  lsp_id_str),
-            lsp_pkt->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD,
+            lsp_pkt->pkt_size - sizeof(ethernet_hdr_t) - ETH_FCS_SIZE,
             lsp_pkt->ref_count,
             lsp_pkt->expiry_timer ? wt_get_remaining_time(lsp_pkt->expiry_timer)/1000 : 0);
 
@@ -480,7 +480,7 @@ isis_is_lsp_diff(isis_lsp_pkt_t *lsp_pkt1, isis_lsp_pkt_t *lsp_pkt2) {
 
     rc =  memcmp( (byte *) (lsp_hdr1 + 1) , 
                                 (byte *) (lsp_hdr2 + 1),
-                                lsp_pkt1->pkt_size - ETH_HDR_SIZE_EXCL_PAYLOAD - ISIS_LSP_HDR_SIZE);
+                                lsp_pkt1->pkt_size - sizeof(ethernet_hdr_t) - ETH_FCS_SIZE - ISIS_LSP_HDR_SIZE);
     if (rc == 0) return false;
     return true;
 }

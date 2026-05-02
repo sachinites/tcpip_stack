@@ -101,5 +101,9 @@ main(int argc, char **argv){
     init_tcp_ip_stack();
     libcli_init_done ();
     cli_start_shell(); 
+
+    /* Never Reach here */
+    rte_eal_cleanup();
+
     return 0;
 }

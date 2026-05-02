@@ -140,7 +140,7 @@ main(int argc, char **argv){
     udp_hdr->udp_checksum = 0;
 #endif
 
-    uint32_t total_data_size = ETH_HDR_SIZE_EXCL_PAYLOAD + 
+    uint32_t total_data_size = sizeof(ethernet_hdr_t) + ETH_FCS_SIZE + 
                                 IP_HDR_TOTAL_LEN_IN_BYTES(ip_hdr) +
                                 AUX_DATA_SIZE;
 

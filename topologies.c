@@ -130,8 +130,8 @@ build_inter_vlan_routing_topo(void){
                                        +----+------+
                                             |eth0/7 - 13.1.1.2/24       
                                             |
-				            |
-				            |v13	    
+				                            |
+				                            |v13	    
                                             |eth0/1
                                        +----+----+                        +--------+
        +---------+                     |         |                        |        |
@@ -165,6 +165,19 @@ config node L3SW interface vlan 10 ip-address 10.1.1.1 24
 config node L3SW interface vlan 11 ip-address 11.1.1.1 24
 config node L3SW interface vlan 12 ip-address 12.1.1.1 24
 config node L3SW interface vlan 13 ip-address 13.1.1.1 24
+
+config node L3SW rtm route 122.1.1.3/32 0 0 0 2 1 gateway 12.1.1.2 interface vlan12
+config node L3SW rtm route 122.1.1.1/32 0 0 0 2 1 gateway 10.1.1.2 interface vlan10
+
+config node H1 interface loopback lo0 
+config node H1 interface loopback lo0 ip-address 122.1.1.1 32
+config node H2 interface loopback lo0 
+config node H2 interface loopback lo0 ip-address 122.1.1.2 32
+config node H3 interface loopback lo0
+config node H3 interface loopback lo0 ip-address 122.1.1.3 32
+config node H4 interface loopback lo0
+config node H4 interface loopback lo0 ip-address 122.1.1.4 32
+
 
 Test
 ====
@@ -1121,6 +1134,7 @@ typedef struct dp_ctx_ dp_ctx_t;
 
 extern void Linux_listen_interfaces (dp_ctx_t *dp_ctx);
 extern void DPDK_PollInterfaces (dp_ctx_t *dp_ctx);
+extern void DPDK_PollInterfaces_load_balancing (dp_ctx_t *dp_ctx);
 extern void DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx);
 extern bool LinuxRtr;
 
@@ -1160,9 +1174,20 @@ Linux_Router_topology(void) {
     cprintf ("\nDPDK NICs : Configuring NICs....\n");
     DPDK_ConfigureInterfaces(linux_rtr->dp_ctx);
     cprintf ("DPDK NICs : Polling on NICs....\n");
+
+    #ifndef USE_DPDK_LOAD_BALANCE
+
+    /* Static , process packets recvd on NIC on a 
+        pre-defined pinned cores */
     DPDK_PollInterfaces(linux_rtr->dp_ctx);
-    
-    #endif 
+
+    #else 
+    /* Dynamic Load Balancing of the cores */
+    DPDK_PollInterfaces_load_balancing (linux_rtr->dp_ctx);
+
+    #endif /* USE_DPDK_LOAD_BALANCE */
+
+    #endif /* USE_DPDK */
 
     refresh();
     return topo;

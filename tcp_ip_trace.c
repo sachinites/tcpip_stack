@@ -506,10 +506,12 @@ tcp_dump(int sock_fd,
             break;
     }
 
-    rc = nfc_pkt_trace_invoke_notif_to_sbscribers(
+    /* Let NFC subscribers append protocol-specific output after the built-in dump.
+     * Pass write pointer offset by rc so subscribers don't overwrite it. */
+    rc += nfc_pkt_trace_invoke_notif_to_sbscribers(
         hdr_type,
         pkt_block,
-        out_buff + write_OFFset);
+        out_buff + write_OFFset + rc);
 
     if(!rc){
         return;

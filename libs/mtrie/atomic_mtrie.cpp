@@ -2,6 +2,23 @@
 #include "atomic_mtrie.h"
 #include "../stack/stack.h"
 
+/*
+ * Memory ordering on child[] pointers (RCU-style publication):
+ *
+ * - memory_order_release on store: Publishes or unpublishes an edge in the trie.
+ *   All prior writes that initialize the target node (or clear the old graph)
+ *   are ordered before the pointer becomes visible to other threads.
+ *
+ * - memory_order_acquire on load: Consumes a child pointer from the live trie.
+ *   Pairs with writers' release stores so this thread sees the node body
+ *   (prefix, wildcard, data, etc.) as published before the pointer was stored.
+ *
+ * - memory_order_relaxed on store/load: Used when copying into a node that is
+ *   not yet reachable from the trie. Atomicity keeps the pointer read/write
+ *   race-free; no cross-thread happens-before is needed until a later release
+ *   store installs the subtree. Loads from the shared src use acquire.
+ */
+
 extern int (*stdlib_printf)(const char *format, ...);
 
 static uint16_t node_id = 1;
@@ -42,6 +59,7 @@ atomic_mtrie_create_new_node (atomic_mtrie_t *mtrie) {
 static bool
 atomic_mtrie_is_leaf_node (atomic_mtrie_node_t *node) {
 
+	/* Acquire: node may be reachable from the trie; need published child ptrs. */
 	return  (!node->child[ZERO].load(std::memory_order_acquire) && 
 			 !node->child[ONE].load(std::memory_order_acquire) &&
 			 !node->child[DONT_CARE].load(std::memory_order_acquire));
@@ -53,15 +71,23 @@ atomic_mtrie_copy_children (atomic_mtrie_node_t *src_node,
 
     atomic_mtrie_node_t *temp;
 
-    dst_node->child[ZERO].store(src_node->child[ZERO].load(std::memory_order_acquire));
-    dst_node->child[ONE].store(src_node->child[ONE].load(std::memory_order_acquire));
-    dst_node->child[DONT_CARE].store(src_node->child[DONT_CARE].load(std::memory_order_acquire));
+    /* Src may still be in the trie: acquire loads. Dst is private: relaxed stores;
+     * a later release on the parent edge will publish the whole subtree. */
+    dst_node->child[ZERO].store(
+        src_node->child[ZERO].load(std::memory_order_acquire),
+        std::memory_order_relaxed);
+    dst_node->child[ONE].store(
+        src_node->child[ONE].load(std::memory_order_acquire),
+        std::memory_order_relaxed);
+    dst_node->child[DONT_CARE].store(
+        src_node->child[DONT_CARE].load(std::memory_order_acquire),
+        std::memory_order_relaxed);
 
-    if ((temp = dst_node->child[ZERO].load(std::memory_order_acquire)))
+    if ((temp = dst_node->child[ZERO].load(std::memory_order_relaxed)))
          temp->parent = dst_node;
-     if ((temp = dst_node->child[ONE].load(std::memory_order_acquire)))
+     if ((temp = dst_node->child[ONE].load(std::memory_order_relaxed)))
          temp->parent = dst_node;
-    if ((temp = dst_node->child[DONT_CARE].load(std::memory_order_acquire)))
+    if ((temp = dst_node->child[DONT_CARE].load(std::memory_order_relaxed)))
          temp->parent = dst_node;    
 }
 
@@ -94,6 +120,7 @@ node_get_its_child_index(atomic_mtrie_node_t *node) {
 
     atomic_mtrie_node_t *parent = node->parent;
 
+    /* Acquire: parent's child slots are trie edges published by writers. */
     if (parent->child[ZERO].load(std::memory_order_acquire) == node)
         return ZERO;
     if (parent->child[ONE].load(std::memory_order_acquire) == node)
@@ -145,9 +172,11 @@ atomic_mtrie_node_split (atomic_mtrie_t *mtrie,
     daughter_node->data = node->data;
     node->data = NULL;
 
-    node->child[ZERO].store(nullptr);
-    node->child[ONE].store(nullptr);
-    node->child[DONT_CARE].store(nullptr);
+    /* Release: unlink old children so readers do not follow stale edges after
+     * observing null; pairs with acquire loads in search/traverse. */
+    node->child[ZERO].store(nullptr, std::memory_order_release);
+    node->child[ONE].store(nullptr, std::memory_order_release);
+    node->child[DONT_CARE].store(nullptr, std::memory_order_release);
 
     /* Establish parent Child Relationship */
     daughter_node->parent = node;
@@ -155,7 +184,8 @@ atomic_mtrie_node_split (atomic_mtrie_t *mtrie,
     new_child_pos = bitmap_effective_bit_at(&node->prefix, 
                             &node->wildcard, split_offset);
 
-    node->child[new_child_pos].store(daughter_node);
+    /* Release: daughter_node fully initialized above; publish after prior writes. */
+    node->child[new_child_pos].store(daughter_node, std::memory_order_release);
 
     /* Update the parent node Prefix len/Prefix/wildcard*/
 
@@ -183,9 +213,9 @@ atomic_mtrie_init(atomic_mtrie_t *mtrie, uint16_t prefix_len) {
 void 
 atomic_mtrie_deinit(atomic_mtrie_t *mtrie) {
 
-    assert (mtrie->root->child[ZERO] == NULL);
-    assert (mtrie->root->child[ONE] == NULL);
-    assert (mtrie->root->child[DONT_CARE] == NULL);
+    assert (mtrie->root->child[ZERO].load(std::memory_order_acquire) == nullptr);
+    assert (mtrie->root->child[ONE].load(std::memory_order_acquire) == nullptr);
+    assert (mtrie->root->child[DONT_CARE].load(std::memory_order_acquire) == nullptr);
 
     free_stack (mtrie->stack);
     mtrie->stack = NULL;
@@ -212,6 +242,7 @@ atomic_mtrie_insert_prefix(atomic_mtrie_t *mtrie,
 
     bit1 =  bitmap_effective_bit_at(prefix, wildcard, 0);
 
+    /* Acquire: follow root edge published by insert/delete. */
     node = mtrie->root->child[bit1].load(std::memory_order_acquire);
 
     if (!node) {
@@ -222,7 +253,8 @@ atomic_mtrie_insert_prefix(atomic_mtrie_t *mtrie,
         bitmap_fast_copy(wildcard, &new_node->wildcard, prefix_len);
         new_node->parent = mtrie->root;
         new_node->data = app_data;
-        mtrie->root->child[bit1].store(new_node);
+        /* Release: publish new leaf after all fields above are written. */
+        mtrie->root->child[bit1].store(new_node, std::memory_order_release);
         *result_node = new_node;
         *discarded_node = NULL;
         return MTRIE_INSERT_SUCCESS;
@@ -277,13 +309,15 @@ atomic_mtrie_insert_prefix(atomic_mtrie_t *mtrie,
     niece_node->parent = new_node;
     bitmap_copy_at_offset(prefix, &niece_node->prefix, i, 0, prefix_len - i);
     bitmap_copy_at_offset(wildcard, &niece_node->wildcard, i, 0, prefix_len - i);
-    
-    new_node->child[bit1].store(niece_node);
     niece_node->data = app_data;
+
+    /* Release: link niece only after prefix/wildcard/data are ready. */
+    new_node->child[bit1].store(niece_node, std::memory_order_release);
 
     /* RCU update : Now replace 'node' with 'new_node' in mtrie */
     bit_type_t child_node_index = node_get_its_child_index(node);
-    node->parent->child[child_node_index].store(new_node);
+    /* Release: swap subtree root; readers acquire-load this edge. */
+    node->parent->child[child_node_index].store(new_node, std::memory_order_release);
     
     *discarded_node = node;
     *result_node = new_node;
@@ -305,7 +339,7 @@ atomic_mtrie_merge_child_node (
     bit = node_get_its_child_index(child);
 
     /* Parent-child association break */
-    parent->child[bit].store(nullptr); 
+    parent->child[bit].store(nullptr, std::memory_order_release);
     child->parent = NULL;
 
     bitmap_copy_at_offset(&child->prefix, &parent->prefix, 0,
@@ -348,7 +382,8 @@ atomic_mtrie_delete_prefix (atomic_mtrie_t *mtrie,
 
     if (parent == mtrie->root) {
 
-        parent->child[node_get_its_child_index(existing_node)].store(nullptr);
+        parent->child[node_get_its_child_index(existing_node)].store(
+            nullptr, std::memory_order_release);
         *discarded_node = existing_node;
         return MTRIE_DELETE_SUCCESS;
     }
@@ -416,7 +451,9 @@ atomic_mtrie_delete_prefix (atomic_mtrie_t *mtrie,
     existing_node_sibling_clone->data = existing_node_sibling->data;
 
     existing_node_sibling_clone->parent = parent_clone;
-    parent_clone->child[existing_node_sibling_index].store(existing_node_sibling_clone);
+    /* Relaxed: parent_clone not yet in trie; final release is below on grandparent. */
+    parent_clone->child[existing_node_sibling_index].store(
+        existing_node_sibling_clone, std::memory_order_relaxed);
 
     atomic_mtrie_copy_children (existing_node_sibling, existing_node_sibling_clone);
     atomic_mtrie_merge_child_node(mtrie, parent_clone, existing_node_sibling_clone);
@@ -424,8 +461,8 @@ atomic_mtrie_delete_prefix (atomic_mtrie_t *mtrie,
 
     bit_type_t parent_index = node_get_its_child_index(parent);
 
-    /* Final RCU update */
-    parent->parent->child[parent_index].store(parent_clone);
+    /* Final RCU update: release publishes parent_clone and its wired subtree. */
+    parent->parent->child[parent_index].store(parent_clone, std::memory_order_release);
     *discarded_node = parent;
 
     return MTRIE_DELETE_SUCCESS;
@@ -440,9 +477,12 @@ atomic_mtrie_prefix_insert_delete_discarded_node (atomic_mtrie_node_t *node) {
 void 
 atomic_mtrie_prefix_delete_delete_discarded_node (atomic_mtrie_node_t *node) {
 
-    atomic_mtrie_node_t *zero_child = node->child[ZERO].load(std::memory_order_acquire);
-    atomic_mtrie_node_t *one_child = node->child[ONE].load(std::memory_order_acquire);
-    atomic_mtrie_node_t *dont_care_child = node->child[DONT_CARE].load(std::memory_order_acquire);
+    /* Node is no longer reachable from the trie; no concurrent reader loads these
+     * child atomics as trie edges. Relaxed is enough to read the pointer values
+     * for teardown (atomicity without cross-thread publish/consume pairing). */
+    atomic_mtrie_node_t *zero_child = node->child[ZERO].load(std::memory_order_relaxed);
+    atomic_mtrie_node_t *one_child = node->child[ONE].load(std::memory_order_relaxed);
+    atomic_mtrie_node_t *dont_care_child = node->child[DONT_CARE].load(std::memory_order_relaxed);
 
     if (zero_child) {
         atomic_mtrie_free_node(zero_child);
@@ -463,7 +503,7 @@ stack_push_node (Stack_t *stack, atomic_mtrie_node_t *node, bitmap_t *prefix) {
     push(stack , (void *)node);
 }
 
-/* Look up APIs */
+/* Look up APIs: child[] loads use acquire to pair with release stores on updates. */
 atomic_mtrie_node_t *
 atomic_mtrie_longest_prefix_match_search(atomic_mtrie_t *mtrie, bitmap_t *prefix) {
 
@@ -504,9 +544,9 @@ atomic_mtrie_longest_prefix_match_search(atomic_mtrie_t *mtrie, bitmap_t *prefix
             return NULL;
         }
 
-            if (atomic_mtrie_is_leaf_node(node)) {
-                assert(node->data);
-                return node;
+        if (atomic_mtrie_is_leaf_node(node)) {
+            assert(node->data);
+            return node;
         }
         
         /* Shifts with data type width is not defined */
@@ -525,7 +565,6 @@ atomic_mtrie_longest_prefix_match_search(atomic_mtrie_t *mtrie, bitmap_t *prefix
         node = next_node;
     }
 }
-
 
 atomic_mtrie_node_t *
 atomic_mtrie_exact_prefix_match_search(atomic_mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard) {
@@ -547,12 +586,6 @@ atomic_mtrie_exact_prefix_match_search(atomic_mtrie_t *mtrie, bitmap_t *prefix, 
 
     while (true) {
 
-        /*
-         * Exact lookup should follow trie path semantics (prefix + node wildcard
-         * mask), not strict wildcard bitmap equality. After merge during delete,
-         * a surviving leaf can have an equivalent, but not bit-identical,
-         * wildcard representation versus cmn_prefix_to_wildcard_bitmap().
-         */
         if (!(bitmap_fast_compare (&prefix_dup, &node->prefix, node->prefix_len) &&
              bitmap_fast_compare(&wildcard_dup, &node->wildcard, node->prefix_len))) {
 

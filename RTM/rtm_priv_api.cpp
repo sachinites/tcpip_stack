@@ -733,7 +733,7 @@ config_rtm_route_cli_handler(int cmdcode,
             /* Get interface and VRF*/
             InterfaceP oif = nullptr;
             if (if_name) {
-                Interface *intf = vrf_interface_lookup_by_name(vrf, (const char *)if_name);
+                Interface *intf = node_interface_lookup_by_name(node, (const char *)if_name);
                 if (!intf) {
                     cprintf("Error: Interface %s not found on node %s\n",
                             if_name, node_name);
@@ -1039,7 +1039,7 @@ config_rtm_route_cli_handler(int cmdcode,
             InterfaceP oif = nullptr;
            vrf_t *vrf = NODE_DEF_VRF(node);
             if (if_name) {
-                Interface *intf = vrf_interface_lookup_by_name(vrf, (const char *)if_name);
+                Interface *intf = node_interface_lookup_by_name(node, (const char *)if_name);
                 if (!intf) {
                     cprintf("Error: Interface %s not found on node %s\n",
                             if_name, node_name); 
