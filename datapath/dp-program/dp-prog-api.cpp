@@ -324,7 +324,7 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                 case DP_VRF_INTF_OP_ADD:
                 {
                     dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, msg->vrf_id);
-                    dp_intf_t *intf = dp_look_up_interface(dp_ctx->dp_intf_ht, msg->ifindex);
+                    dp_intf_t *intf = dp_ctx->intf_table[msg->ifindex];
                     assert (intf && vrf);
                     assert (!intf->vrf);
                     intf->vrf = vrf;
@@ -335,7 +335,7 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                 case DP_VRF_INTF_OP_DEL:
                 {
                     dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, msg->vrf_id);
-                    dp_intf_t *intf = dp_look_up_interface(dp_ctx->dp_intf_ht, msg->ifindex);
+                    dp_intf_t *intf = dp_ctx->intf_table[msg->ifindex];
                     assert(intf && vrf);
                     assert(intf->vrf && (intf->vrf == vrf));
                     intf->vrf = NULL;
@@ -361,7 +361,6 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
     dp_intf_t *intf = NULL;
     char ip_str[INET_ADDRSTRLEN];
     char ipv6_str[INET6_ADDRSTRLEN];
-    hashtable_t *ht = dp_ctx->dp_intf_ht;
 
     assert (dp_msg->component_type == INTF_TABLE);
 
@@ -376,7 +375,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                 "Creating interface if_name=%s iftype=%u\n",
                 msg->intf_name, msg->iftype);
 
-            intf = dp_look_up_interface(ht, msg->port_id);
+            intf = dp_ctx->intf_table[msg->port_id];
             assert (!intf);
             intf = dp_create_interface(msg->port_id, msg->iftype, 
                         &msg->mac_addr, (uint16_t)msg->vlan_id);
@@ -422,7 +421,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                     break;
             }
 
-            dp_insert_interface(ht, intf);
+            dp_insert_interface(dp_ctx, intf);
             intf->dp_ctx = dp_ctx;
 
             tracer(dp_ctx->dptr, DCONF, 
@@ -437,7 +436,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                 (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
             char if_name_saved[IF_NAME_SIZE] = {0};
             
-            intf = dp_look_up_interface(ht, msg->port_id);
+            intf = dp_ctx->intf_table[msg->port_id];
             assert (intf);
 
             if (intf->if_type == DP_INTF_TYPE_VLAN) {
@@ -459,7 +458,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
             }                       
         
             intf->vrf = NULL;
-            dp_delete_interface (ht, msg->port_id);
+            dp_delete_interface (dp_ctx, msg->port_id);
             tracer (dp_ctx->dptr, DCONF, 
                 "Interface port_id=%u deleted\n", msg->port_id);
         }
@@ -470,7 +469,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
             dp_intf_cp2dp_msg_hdr_t *msg = 
                 (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
 
-            intf = dp_look_up_interface(ht, msg->port_id);
+            intf = dp_ctx->intf_table[msg->port_id];
             assert (intf);
 
             /* Process update based on update_code */
@@ -514,7 +513,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                         (dp_intf_vlan_bind_t *)(msg + 1);
 
                     /* Look up the VLAN interface */
-                    dp_intf_t *vlan_intf = dp_look_up_interface(ht, vlan_bind->vlan_port_id);
+                    dp_intf_t *vlan_intf = dp_ctx->intf_table[vlan_bind->vlan_port_id];
                 
                     if (vlan_bind->add) {
                         dp_vlan_bind_port (vlan_intf, intf, (DP_IntfL2Mode)vlan_bind->l2_mode);
@@ -581,17 +580,14 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
 
                     dp_intf_t *vlan_intf;
 
-                    struct hashtable_itr *itr = hashtable_iterator(ht);
-                    while (1)
+                    DP_FOR_ALL_INTF(dp_ctx, vlan_intf)
                     {
-                        vlan_intf = (dp_intf_t *)hashtable_iterator_value(itr);
-
                         if (vlan_intf->if_type != DP_INTF_TYPE_VLAN) {
-                            if (hashtable_iterator_advance(itr)) continue; break;
+                            continue;
                         }
 
                         if (!dp_bitmap_at(vlan_grp_bind->vlan_bitmapp, vlan_intf->vlan_id)) {
-                            if (hashtable_iterator_advance(itr)) continue; break;   
+                            continue;
                         }
 
                         if (vlan_grp_bind->add) {
@@ -601,9 +597,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                             dp_vlan_unbind_port(vlan_intf, intf, DP_LAN_TRUNK_MODE, false);
                         }
 
-                        if (!hashtable_iterator_advance(itr)) break;
-                    }
-                    free(itr);
+                    } DP_FOR_ALL_INTF_END;
 
                     if (!vlan_grp_bind->add) {
                      intf->l2_mode = DP_LAN_MODE_NONE;   
@@ -627,9 +621,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                     dp_intf_t *member_intf;
                     uint32_t count = 0;
 
-                    struct hashtable_itr *itr = hashtable_iterator(ht);
-                    while (1) {
-                        member_intf = (dp_intf_t *)hashtable_iterator_value(itr);
+                    DP_FOR_ALL_INTF(dp_ctx, member_intf) {
 
                         /* Filter interfaces which cannot be member ports of a vlan*/
                         if (member_intf->if_type == DP_INTF_TYPE_VLAN       || 
@@ -637,11 +629,11 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                             member_intf->if_type == DP_INTF_TYPE_LOOPBACK   ||
                             member_intf->if_type == DP_INTF_TYPE_NVE) {
 
-                            if (hashtable_iterator_advance(itr)) continue; break;   
+                             continue;
                         }
 
                         if (!dp_bitmap_at(intf_grp_bind->if_bitmapp, member_intf->port_id)) {
-                            if (hashtable_iterator_advance(itr)) continue; break;    
+                            continue;
                         }
 
                         if (intf_grp_bind->add)
@@ -651,9 +643,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
 
                         count++;
 
-                        if (!hashtable_iterator_advance(itr)) break;
-                    }
-                    free(itr);
+                    } DP_FOR_ALL_INTF_END;
 
                     tracer(dp_ctx->dptr, DCONF, 
                         ("DP INTF : %u member ports successfully %s %s %s\n", 

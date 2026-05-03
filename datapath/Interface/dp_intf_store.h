@@ -5,8 +5,8 @@
  * =============================================================================
  *
  * Design:
- *   - Interface table: keyed by port_id (ifindex); dp_init_intf_hashtable,
- *     dp_look_up_interface, dp_insert_interface, dp_delete_interface.
+ *   - Interface table: indexed by port_id (ifindex) in dp_ctx_t::intf_table[];
+ *     dp_insert_interface, dp_delete_interface.
  *   - VLAN interface table: keyed by vlan_id; dp_init_vlan_intf_hashtable,
  *     dp_look_up_interface_by_vlan_id, dp_insert_vlan_interface,
  *     dp_remove_vlan_interface.
@@ -24,18 +24,13 @@
 
 typedef  struct hashtable hashtable_t;
 typedef struct dp_intf_ dp_intf_t;
-
-void 
-dp_init_intf_hashtable (hashtable_t **ht);
-
-dp_intf_t *
-dp_look_up_interface (hashtable_t *ht, uint32_t port_id);
+typedef struct dp_ctx_ dp_ctx_t;
 
 void
-dp_insert_interface (hashtable_t *ht, dp_intf_t *intf);
+dp_insert_interface (dp_ctx_t *dp_ctx, dp_intf_t *intf);
 
 void
-dp_delete_interface (hashtable_t *ht, uint32_t port_id) ;
+dp_delete_interface (dp_ctx_t *dp_ctx, uint32_t port_id);
 
 dp_intf_t *
 dp_create_interface (uint32_t port_id, uint32_t iftype, uint8_t (*mac_addr)[6], uint16_t vlan_id) ;
@@ -73,5 +68,10 @@ dp_insert_vlan_interface (hashtable_t *ht, dp_intf_t *intf);
 void
 dp_remove_vlan_interface (hashtable_t *ht, uint16_t vlan_id) ;
 
+#define DP_FOR_ALL_INTF(dp_ctx_ptr, intf_ptr) { \
+    for (int i = 0; i < DP_MAX_INTF; i++) {   \
+        if ((intf_ptr = dp_ctx_ptr->intf_table[i]) == NULL) continue;
+
+#define DP_FOR_ALL_INTF_END } }
 
 #endif /* __DP_INTF_STORE__ */

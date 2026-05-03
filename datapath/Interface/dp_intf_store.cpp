@@ -6,6 +6,7 @@
 
 #include "dp_intf.h"
 #include "../Vrfs/dp_vrf.h"
+#include "../dp_ctx.h"
 
 #include "../../libs/c-hashtable/hashtable.h"
 #include "../../libs/c-hashtable/hashtable_itr.h"
@@ -15,7 +16,7 @@ typedef struct arp_table_ arp_table_t;
 extern void 
 arp_entry_delete_by_interface  (arp_table_t *arp_table, dp_intf_t *intf);
 
-/* Hash function for port_id (uint32_t) keys */
+/* Hash function for uint32_t keys (used by VLAN interface hashtable) */
 static inline uint32_t hash32(void *_x) {
 
     uint32_t x = *(uint32_t *)_x;
@@ -27,7 +28,7 @@ static inline uint32_t hash32(void *_x) {
     return x;
 }
 
-/* Equality function for port_id keys */
+/* Equality function for uint32_t keys */
 static int 
 uint32_key_equal_function(void *key1, void *key2) {
     uint32_t *x1 = (uint32_t *)key1;
@@ -35,36 +36,12 @@ uint32_key_equal_function(void *key1, void *key2) {
     return (*x1 == *x2);
 }
 
-void 
-dp_init_intf_hashtable (hashtable_t **ht) {
-
-    /* Create hashtable with initial size of 16 entries */
-    *ht = create_hashtable(32, hash32, uint32_key_equal_function);
-}
-
-dp_intf_t *
-dp_look_up_interface (hashtable_t *ht, uint32_t port_id) {
-    if (!ht) {
-        return NULL;
-    }
-    
-    /* Search for the interface using port_id as key */
-    return (dp_intf_t *)hashtable_search(ht, (void *)&port_id);
-}
-
 void
-dp_insert_interface (hashtable_t *ht, dp_intf_t *intf) {
-    
-    /* Allocate a key for the hashtable (hashtable takes ownership of key) */
-    uint32_t *key = (uint32_t *)malloc(sizeof(uint32_t));
-    
-    *key = intf->port_id;
-    
-    /* Insert the interface with port_id as key */
-    if (!hashtable_insert(ht, (void *)key, (void *)intf)) {
-        /* Insert failed - free the key we allocated */
-        free(key);
-    }
+dp_insert_interface (dp_ctx_t *dp_ctx, dp_intf_t *intf) {
+
+    assert(intf->port_id < DP_MAX_INTF);
+    assert(!dp_ctx->intf_table[intf->port_id]);
+    dp_ctx->intf_table[intf->port_id] = intf;
 }
 
 void 
@@ -102,11 +79,12 @@ dp_intf_de_init_logging(dp_intf_t *intf){
 }
 
 void
-dp_delete_interface (hashtable_t *ht, uint32_t port_id) {
-    
-    /* Remove the interface from hashtable */
-    dp_intf_t *intf = (dp_intf_t *)hashtable_remove(ht, (void *)&port_id);
+dp_delete_interface (dp_ctx_t *dp_ctx, uint32_t port_id) {
+
+    assert(port_id < DP_MAX_INTF);
+    dp_intf_t *intf = dp_ctx->intf_table[port_id];
     assert(intf);
+    dp_ctx->intf_table[port_id] = NULL;
     dp_intf_de_init_logging (intf);
     arp_entry_delete_by_interface(intf->vrf->arp_table, intf);
     dp_check_and_free_interface (intf);

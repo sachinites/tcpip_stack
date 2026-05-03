@@ -200,7 +200,8 @@ Router_Create(graph_t *graph, const c_string node_name){
     /* initialize ACL/NAT/OBJECT-G Tracer*/
     memset(file_name, 0, sizeof(file_name));
     sprintf(file_name, "logs/%s-cp-acl.txt", node->node_name);
-    node->acl_cptr = tracer_init (node_name, file_name, node->node_name, STDOUT_FILENO,  debug_infra_tracer_bits_to_str );
+    node->acl_cptr = tracer_init (node_name, file_name, 
+            node->node_name, STDOUT_FILENO,  debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->acl_cptr, true);
     
     /* Start Control plane Thread/Scheduler */

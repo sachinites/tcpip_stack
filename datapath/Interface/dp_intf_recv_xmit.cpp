@@ -781,7 +781,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
 	for ( ; ev_dis_pkt_data; 
 			ev_dis_pkt_data = (ev_dis_pkt_data_t *) task_get_next_pkt(ev_dis, &pkt_size)) {
 
-		recv_intf = dp_look_up_interface(dp_ctx->dp_intf_ht, ev_dis_pkt_data->ifindex);
+        recv_intf = dp_ctx->intf_table[ev_dis_pkt_data->ifindex];
         assert(recv_intf);
 
 		pkt_start = (uint8_t *)ev_dis_pkt_data->pkt;		
@@ -812,23 +812,14 @@ send_pkt_flood(dp_ctx_t *dp_ctx,
 
     dp_intf_t *intf; 
 
-    struct hashtable_itr *itr = hashtable_iterator(dp_ctx->dp_intf_ht);
+    DP_FOR_ALL_INTF(dp_ctx, intf) {
 
-    while ((intf = (dp_intf_t *)hashtable_iterator_value(itr))) {
-    
-        if(!intf) {
-            free(itr);
-            return 0;
-        }
-
-        if(intf == exempted_intf) {
-            hashtable_iterator_advance(itr);
+        if (intf == exempted_intf) {
             continue;
         }
         dp_send_pkt_out(dp_ctx, intf, pkt_block);
-        hashtable_iterator_advance(itr);
-    } 
-    free(itr);
+
+    } DP_FOR_ALL_INTF_END;
     
     return 0;
 }
@@ -850,7 +841,7 @@ void dp_pkt_xmit_intf_job_cbk(event_dispatcher_t *ev_dis,
     for (; ev_dis_pkt_data;
          ev_dis_pkt_data = (ev_dis_pkt_data_t *)task_get_next_pkt(ev_dis, &pkt_size))
     {
-        dp_intf = dp_look_up_interface(dp_ctx->dp_intf_ht, ev_dis_pkt_data->ifindex);
+        dp_intf = dp_ctx->intf_table[ev_dis_pkt_data->ifindex];
         pkt_block = (pkt_block_t *)ev_dis_pkt_data->pkt;
 
         if (!dp_intf)
@@ -905,57 +896,47 @@ linux_listener_thread(void* arg) {
     ev_dis_pkt_data_t *ev_dis_pkt_data;
 
     dp_ctx_t *dp_ctx = (dp_ctx_t *)arg;
-    hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
-    
-    if (!dp_intf_ht->entrycount) return NULL;
+
+    /* Early exit if no interfaces are registered */
+    bool has_intf = false;
+    for (int _i = 0; _i < DP_MAX_INTF && !has_intf; _i++) {
+        if (dp_ctx->intf_table[_i]) has_intf = true;
+    }
+    if (!has_intf) return NULL;
 
     while (listener_running) {
 
         FD_ZERO(&read_fds);
-
         max_fd = 0;
-        itr = hashtable_iterator(dp_intf_ht);
-        
-        while (1) {
-            
-            dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
+
+        for (int _i = 0; _i < DP_MAX_INTF; _i++) {
+            dp_intf = dp_ctx->intf_table[_i];
+            if (!dp_intf) continue;
             sock_fd = dp_intf->LinuxRtr_sockfd;
-
             if (sock_fd > 0) {
-
-                FD_SET(sock_fd , &read_fds);
+                FD_SET(sock_fd, &read_fds);
                 if (sock_fd > max_fd) max_fd = sock_fd;
             }
-            if (!hashtable_iterator_advance(itr)) break;
         }
-        free (itr);
-        
+
         select(max_fd + 1, &read_fds, NULL, NULL, NULL);
-        
-        itr = hashtable_iterator(dp_intf_ht);
 
-        while (1) {
-            
-            dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
-
+        for (int _i = 0; _i < DP_MAX_INTF; _i++) {
+            dp_intf = dp_ctx->intf_table[_i];
+            if (!dp_intf) continue;
             sock_fd = dp_intf->LinuxRtr_sockfd;
-
             if (sock_fd > 0 && FD_ISSET(sock_fd, &read_fds)) {
-                
+
                 struct sockaddr_ll from_addr;
                 socklen_t from_len = sizeof(from_addr);
 
-                ssize_t bytes_received = recvfrom(sock_fd, 
+                ssize_t bytes_received = recvfrom(sock_fd,
                         buffer,
                         sizeof(buffer), 0,
                         (struct sockaddr*)&from_addr, &from_len);
-                
-                if (bytes_received <= 0) {
 
-                    if (!hashtable_iterator_advance(itr)) break;
-                    continue;
-                }
-                
+                if (bytes_received <= 0) continue;
+
                 ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC2(0, 1, ev_dis_pkt_data_t);
                 ev_dis_pkt_data->ifindex = dp_intf->port_id;
                 ev_dis_pkt_data->pkt = (unsigned char *)XCALLOC_BUFF(0, bytes_received);
@@ -967,10 +948,7 @@ linux_listener_thread(void* arg) {
                               (char *)ev_dis_pkt_data,
                               sizeof(ev_dis_pkt_data_t));
             }
-
-            if (!hashtable_iterator_advance(itr)) break;
         }
-        free (itr);
     }
 
     return NULL;
@@ -980,26 +958,17 @@ void
 Linux_listen_interfaces (dp_ctx_t *dp_ctx) {
     
     dp_intf_t *dp_intf;
-    struct hashtable_itr *itr;
-
-    hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
 
     if (listener_running) {
         return;
     }
 
-    if (!dp_intf_ht->entrycount) return;
+    for (int _i = 0; _i < DP_MAX_INTF; _i++) {
 
-    itr = hashtable_iterator(dp_intf_ht);
+        dp_intf = dp_ctx->intf_table[_i];
+        if (!dp_intf) continue;
 
-    while(1) {
-
-        dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
-
-        if (dp_intf->if_type != DP_INTF_TYPE_PHY) {
-            if (!hashtable_iterator_advance(itr)) break;
-            continue;
-        }
+        if (dp_intf->if_type != DP_INTF_TYPE_PHY) continue;
 
         dp_intf->LinuxRtr_sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
         
@@ -1009,22 +978,17 @@ Linux_listen_interfaces (dp_ctx_t *dp_ctx) {
         sll.sll_protocol = htons(ETH_P_ALL);
         sll.sll_ifindex = dp_intf->port_id;
         
-        if (bind(dp_intf->LinuxRtr_sockfd, 
+        if (bind(dp_intf->LinuxRtr_sockfd,
                 (struct sockaddr*)&sll, sizeof(sll)) < 0) {
 
             cprintf ("%s : Error : Failed to bind socket : "
-                     "if-name : %s , errno : %s\n", 
+                     "if-name : %s , errno : %s\n",
                       __FUNCTION__, dp_intf->if_name, strerror(errno));
             close(dp_intf->LinuxRtr_sockfd);
             dp_intf->LinuxRtr_sockfd = 0;
-            if (!hashtable_iterator_advance(itr)) break;
-            continue;
         }
-        
-        if (!hashtable_iterator_advance(itr)) break;
     }
-    
-    free(itr);
+
     listener_running = true;
 
     if (listener_running) {
@@ -1246,41 +1210,33 @@ Linux_dpdk_build_cpu_port_map(dp_ctx_t *dp_ctx, uint8_t *map_count_out) {
         cpu_to_map_idx[map[i].cpu_id] = i;
 
     /* ---- 3. Assign each physical port to the least-loaded CPU on its NUMA node ---- */
-    hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
-    struct hashtable_itr *itr = hashtable_iterator(dp_intf_ht);
+    for (int _i = 0; _i < DP_MAX_INTF; _i++) {
 
-    if (itr && hashtable_count(dp_intf_ht) > 0) {
+        dp_intf_t *dp_intf = dp_ctx->intf_table[_i];
+        if (!dp_intf) continue;
 
-        do {
-            dp_intf_t *dp_intf =
-                (dp_intf_t *)hashtable_iterator_value(itr);
+        if (dp_intf->if_type != DP_INTF_TYPE_PHY)
+            continue;
 
-            if (dp_intf->if_type != DP_INTF_TYPE_PHY)
-                continue;
+        uint8_t port_numa = system_port_get_numa_node(dp_intf->port_id);
+        if (port_numa >= numa_count) continue;
 
-            uint8_t port_numa = system_port_get_numa_node(dp_intf->port_id);
-            if (port_numa >= numa_count) continue;
+        numa_cpu_info_t *ni = &numa_info[port_numa];
+        if (ni->cpu_count == 0) continue;
 
-            numa_cpu_info_t *ni = &numa_info[port_numa];
-            if (ni->cpu_count == 0) continue;
+        /* Pick the CPU on this NUMA node that currently has the fewest ports */
+        uint16_t best_mi = cpu_to_map_idx[ni->cpu_ids[0]];
+        for (uint8_t c = 1; c < ni->cpu_count; c++) {
+            uint16_t candidate = cpu_to_map_idx[ni->cpu_ids[c]];
+            if (map[candidate].port_count < map[best_mi].port_count)
+                best_mi = candidate;
+        }
 
-            /* Pick the CPU on this NUMA node that currently has the fewest ports */
-            uint16_t best_mi = cpu_to_map_idx[ni->cpu_ids[0]];
-            for (uint8_t c = 1; c < ni->cpu_count; c++) {
-                uint16_t candidate = cpu_to_map_idx[ni->cpu_ids[c]];
-                if (map[candidate].port_count < map[best_mi].port_count)
-                    best_mi = candidate;
-            }
-
-            if (map[best_mi].port_count < MAX_PORTS_PER_CPU) {
-                map[best_mi].port_ids[map[best_mi].port_count] = dp_intf->port_id;
-                map[best_mi].port_count++;
-            }
-
-        } while (hashtable_iterator_advance(itr));
+        if (map[best_mi].port_count < MAX_PORTS_PER_CPU) {
+            map[best_mi].port_ids[map[best_mi].port_count] = dp_intf->port_id;
+            map[best_mi].port_count++;
+        }
     }
-
-    free(itr);
     free(cpu_to_map_idx);
     free(numa_info);
 
@@ -1407,7 +1363,7 @@ DPDK_PollInterfaces(dp_ctx_t *dp_ctx) {
         for (uint8_t p = 0; p < entry->port_count; p++) {
 
             /* Note : map contains the exact port id which are used in data-path*/
-            dp_intf = dp_look_up_interface(dp_ctx->dp_intf_ht, entry->port_ids[p]);
+            dp_intf = dp_ctx->intf_table[entry->port_ids[p]];
             assert(dp_intf);
             th_data->ports_array[p] = dp_intf;
         }
@@ -1541,15 +1497,14 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
 
     dp_intf_t *dp_intf;
     char numa_node_name[32];
-    struct hashtable_itr *itr;
-    hashtable_t *dp_intf_ht = dp_ctx->dp_intf_ht;
     struct rte_mempool **mempools_array_per_numa = NULL;
 
-    uint16_t port_cnt = dp_intf_ht->entrycount;
+    uint16_t port_cnt = 0;
+    for (int _i = 0; _i < DP_MAX_INTF; _i++) {
+        if (dp_ctx->intf_table[_i]) port_cnt++;
+    }
 
-    if (!port_cnt) return ;
-
-    itr = hashtable_iterator(dp_intf_ht);
+    if (!port_cnt) return;
 
     /* Create mrmpool for each numa nodes in the system */
     uint8_t max_numa_nodes = system_get_max_numa_node_count ();
@@ -1572,22 +1527,18 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
                     RTE_MBUF_DEFAULT_BUF_SIZE, i );
     }
 
-    while(1) {
+    for (int _i = 0; _i < DP_MAX_INTF; _i++) {
 
-        dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
+        dp_intf = dp_ctx->intf_table[_i];
+        if (!dp_intf) continue;
 
-        if (dp_intf->if_type != DP_INTF_TYPE_PHY) {
-            if (!hashtable_iterator_advance(itr)) break;
-            continue;
-        }
+        if (dp_intf->if_type != DP_INTF_TYPE_PHY) continue;
 
         uint16_t dpdk_port_id = dp_intf_get_dpdk_port_id(dp_intf);
         int socket_id = rte_eth_dev_socket_id(dpdk_port_id);
         uint16_t port_numa_node = socket_id < 0 ? 0 : socket_id;
 
-        dpdk_port_configure(dp_intf, dpdk_port_id, 
+        dpdk_port_configure(dp_intf, dpdk_port_id,
             mempools_array_per_numa[port_numa_node]);
-        if (!hashtable_iterator_advance(itr)) break;
-    }    
-    free (itr);
+    }
 }

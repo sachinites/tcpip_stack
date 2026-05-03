@@ -233,7 +233,7 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
                     uint16_t flags,
                     uint32_t remote_dst_ip) {
 
-    dp_intf_t *oif = dp_look_up_interface(dp_ctx->dp_intf_ht, ifindex);
+    dp_intf_t *oif = dp_ctx->intf_table[ifindex];
     if (!oif) {
         cprintf("Error : DP_CTX %s : Interface with ifindex %d not found\n",
                 dp_ctx->ctx_name, ifindex);
@@ -283,7 +283,7 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
  * Show MAC table  (iterate hashtable)
  * ----------------------------------------------------------------------- */
 
-static uint16_t
+static uint32_t
 mac_table_entry_get_exp_time_left(mac_table_entry_t *mac_table_entry) {
 
     if (mac_table_entry->exp_timer_wt_elem) {

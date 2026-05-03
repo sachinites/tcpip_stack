@@ -112,6 +112,8 @@ node_assign_router_mac (node_t *node) {
     interface_reserve_ifindex(node, RMAC_INTF_INDEX);
     node->node_nw_prop.rmac_interface->vrf = NODE_DEF_VRF(node);
     cp2dp_interface_create(node, node->node_nw_prop.rmac_interface.get());
+    cp2dp_send_intf_admin_status_update(node, 
+        node->node_nw_prop.rmac_interface->ifindex, false);
     cp2dp_send_rmac(node, &node->node_nw_prop.rmac.mac);
 }
 
@@ -127,6 +129,8 @@ node_create_vlan_flood_interface(node_t *node) {
     interface_reserve_ifindex(node, VLAN_FLOOD_INDEX);
     node->node_nw_prop.vlan_flood_interface->vrf = NODE_DEF_VRF(node);
     cp2dp_interface_create(node, node->node_nw_prop.vlan_flood_interface.get());
+    cp2dp_send_intf_admin_status_update(node, 
+        node->node_nw_prop.vlan_flood_interface->ifindex, false);
 }
 
 void 
@@ -141,6 +145,8 @@ node_create_host_path_interface (node_t *node) {
     interface_reserve_ifindex(node, HOST_PATH_IFINDEX);
     node->node_nw_prop.host_path_interface->vrf = NODE_DEF_VRF(node);
     cp2dp_interface_create(node, node->node_nw_prop.host_path_interface.get());
+    cp2dp_send_intf_admin_status_update(node, 
+        node->node_nw_prop.host_path_interface->ifindex, false);
 }
 
 bool node_set_rtr_id(node_t *node, const char *ip_addr){

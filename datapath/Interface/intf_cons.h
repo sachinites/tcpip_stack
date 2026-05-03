@@ -19,6 +19,7 @@
 #define DP_INTF_UPDATE_MSG_LEN 256
 #define MAX_VLAN_MEMBER_PORTS 16
 #define DP_MAX_VLAN_SUPORT 4096
+#define DP_MAX_INTF 1024
 
 enum DP_IntfL2Mode
 {

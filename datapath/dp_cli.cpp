@@ -287,13 +287,6 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
     }
 
     case CMDCODE_SHOW_DP_INTF_TABLE: {
-        hashtable_t *intf_ht = node->dp_ctx->dp_intf_ht;
-
-        if (!intf_ht) {
-            cprintf("Node %s: Datapath interface table not initialized\n", node_name);
-            return 0;
-        }
-
         printw("\n");
         cprintf("Node: %s - Datapath Interface Table", node_name);
         if (intf_name_filter) {
@@ -302,61 +295,36 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
         printw("\n");
         cprintf("================================================================================\n");
 
-        struct hashtable_itr *itr = hashtable_iterator(intf_ht);
-
-        if (hashtable_count(intf_ht) > 0) {
-            int count = 0;
-            do {
-                dp_intf_t *intf = (dp_intf_t *)hashtable_iterator_value(itr);
-                if (intf) {
-                    if (intf_name_filter && intf->if_name[0]) {
-                        if (strcmp(intf->if_name, (const char *)intf_name_filter) != 0) {
-                            continue;
-                        }
-                    }
-                    count++;
-                    dp_print_interface(intf);
-                }
-            } while (hashtable_iterator_advance(itr));
-
-            if (count == 0) {
-                cprintf("No interfaces match the filter\n");
+        int count = 0;
+        for (int _i = 0; _i < DP_MAX_INTF; _i++) {
+            dp_intf_t *intf = node->dp_ctx->intf_table[_i];
+            if (!intf) continue;
+            if (intf_name_filter && intf->if_name[0]) {
+                if (strcmp(intf->if_name, (const char *)intf_name_filter) != 0) continue;
             }
-        } else {
+            count++;
+            dp_print_interface(intf);
+        }
+        if (count == 0) {
             cprintf("No interfaces configured\n");
         }
 
-        free(itr);
         cprintf("================================================================================\n");
         printw("\n");
         break;
     }
 
     case CMDCODE_SHOW_DP_INTF_TABLE_BRIEF: {
-        hashtable_t *intf_ht = node->dp_ctx->dp_intf_ht;
-
-        if (!intf_ht) {
-            cprintf("Node %s: Datapath interface table not initialized\n", node_name);
-            return 0;
-        }
-
         printw("\n");
         cprintf("Node: %s - Datapath Interface Table (brief)\n", node_name);
         cprintf("%-10s  %-12s  %-20s  %-32s  %-6s  %s\n",
                 "IfName", "VRF", "IPv4", "IPv6", "Mode", "Type");
         cprintf("-----------------------------------------------------------------------------------------------------\n");
 
-        struct hashtable_itr *itr = hashtable_iterator(intf_ht);
-
-        if (hashtable_count(intf_ht) > 0) {
-            do {
-                dp_intf_t *intf = (dp_intf_t *)hashtable_iterator_value(itr);
-                if (intf) {
-                    dp_print_interface_brief(intf);
-                }
-            } while (hashtable_iterator_advance(itr));
+        for (int _i = 0; _i < DP_MAX_INTF; _i++) {
+            dp_intf_t *intf = node->dp_ctx->intf_table[_i];
+            if (intf) dp_print_interface_brief(intf);
         }
-        free(itr);
         printw("\n");
         break;
     }

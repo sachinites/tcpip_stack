@@ -15,7 +15,7 @@
  * Key members:
  *   - dp_ev_dis / dp_purger_ev_dis : Event dispatchers (DP thread, purger).
  *   - dp_recvr_pkt_q / cp_to_dp_xmit_intf_pkt_q / dp_ipc_q : Packet queues.
- *   - dp_intf_ht / dp_vrf_ht / dp_vlan_intf_ht : Lookup tables.
+ *   - dp_vrf_ht / dp_vlan_intf_ht : Lookup tables.
  *   - vlan_vni_ht : VLAN–VNI mapping (atomic for lock-free access).
  * =============================================================================
  */
@@ -40,6 +40,7 @@ struct rte_mempool;
 #include "../Layer3/netfilter.h"
 #include "../libs/notifc/notif.h"
 #include "../libs/common/cmn_struct.h"
+#include "Interface/intf_cons.h"
 
 #pragma pack(push, 8)
 
@@ -68,8 +69,9 @@ typedef struct dp_ctx_ {
     /* L2 MAC table */
     mac_table_t *mac_table;
 
-    /* Interface table (key: port_id / ifindex) */
-    hashtable_t *dp_intf_ht;
+    /* Interface table indexed by port_id / ifindex */
+    dp_intf_t *intf_table[DP_MAX_INTF];
+
     /* VRF table */
     hashtable_t *dp_vrf_ht;
     /* VLAN interface table (key: vlan-id) */

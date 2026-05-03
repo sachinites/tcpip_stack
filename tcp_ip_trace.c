@@ -609,20 +609,18 @@ void tcp_ip_show_log_status(node_t *node){
     cprintf("\n");
     tcp_ip_print_dp_intf_log_status_header();
 
-    if (hashtable_count(dp_ctx->dp_intf_ht) > 0) {
-        struct hashtable_itr *itr = hashtable_iterator(dp_ctx->dp_intf_ht);
-        do {
-            dp_intf_t *dp_intf = (dp_intf_t *)hashtable_iterator_value(itr);
-            if (dp_intf) tcp_ip_print_dp_intf_log_status(dp_intf);
-        } while (hashtable_iterator_advance(itr));
-        free(itr);
+    for (int _i = 0; _i < DP_MAX_INTF; _i++) {
+        dp_intf_t *dp_intf = dp_ctx->intf_table[_i];
+        if (dp_intf) tcp_ip_print_dp_intf_log_status(dp_intf);
     }
 
     /* Special virtual interfaces */
+#if 0
     if (dp_ctx->dp_rmac_intf)       tcp_ip_print_dp_intf_log_status(dp_ctx->dp_rmac_intf);
     if (dp_ctx->dp_vlan_flood_intf) tcp_ip_print_dp_intf_log_status(dp_ctx->dp_vlan_flood_intf);
     if (dp_ctx->dp_host_path_intf)  tcp_ip_print_dp_intf_log_status(dp_ctx->dp_host_path_intf);
     if (dp_ctx->dp_nve_intf)        tcp_ip_print_dp_intf_log_status(dp_ctx->dp_nve_intf);
+#endif 
 
     cprintf ("\tDebug Logging Status:\n");
 
@@ -765,7 +763,7 @@ int traceoptions_handler(int cmdcode,
                 cprintf("Error : No interface %s on Node %s\n", if_name, node_name);
                 return -1;
             }
-            dp_intf = dp_look_up_interface(node->dp_ctx->dp_intf_ht, intf->ifindex);
+            dp_intf = node->dp_ctx->intf_table[intf->ifindex];
             if (!dp_intf) {
                 cprintf("Error : No DP interface for %s on Node %s\n", if_name, node_name);
                 return -1;
@@ -835,7 +833,7 @@ int traceoptions_handler(int cmdcode,
                 printw ("\nError : Access-list do not exist\n");
                 return -1;
         }
-        dp_intf_acl = dp_look_up_interface(node->dp_ctx->dp_intf_ht, intf->ifindex);
+        dp_intf_acl = node->dp_ctx->intf_table[intf->ifindex];
         if (!dp_intf_acl)
         {
                 printw ("\nError : No DP interface for %s on Node %s\n", if_name, node_name);
@@ -900,8 +898,7 @@ int traceoptions_handler(int cmdcode,
                 ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
                     if(!intf) continue;
-                    dp_intf_t *dp_intf_it = dp_look_up_interface(
-                            node->dp_ctx->dp_intf_ht, intf->ifindex);
+                    dp_intf_t *dp_intf_it = node->dp_ctx->intf_table[intf->ifindex];
                     if (dp_intf_it)
                         tcp_ip_set_all_log_info_params(&dp_intf_it->log_info, false);
 

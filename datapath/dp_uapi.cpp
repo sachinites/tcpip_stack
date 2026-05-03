@@ -30,8 +30,8 @@ dp_uapi_link_connect (dp_ctx_t *dp_ctx1, uint32_t ifindex1,
                  dp_ctx_t *dp_ctx2, uint32_t ifindex2){
 
 
-    dp_intf_t *dp_intf1 = dp_look_up_interface(dp_ctx1->dp_intf_ht, ifindex1);
-    dp_intf_t *dp_intf2 = dp_look_up_interface(dp_ctx2->dp_intf_ht, ifindex2);
+    dp_intf_t *dp_intf1 = dp_ctx1->intf_table[ifindex1];
+    dp_intf_t *dp_intf2 = dp_ctx2->intf_table[ifindex2];
 
     dp_intf1->dp_ctx = dp_ctx1;
     dp_intf1->nbr_intf = dp_intf2;
@@ -45,7 +45,7 @@ dp_uapi_inject_packet(dp_ctx_t *dp_ctx,
                       pkt_block_t *pkt_block,
                       uint32_t ifindex) {
 
-    dp_intf_t *recv_intf = dp_look_up_interface(dp_ctx->dp_intf_ht, ifindex);
+    dp_intf_t *recv_intf = dp_ctx->intf_table[ifindex];
 
     if (!recv_intf) return -1;
 

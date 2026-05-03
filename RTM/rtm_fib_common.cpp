@@ -14,7 +14,7 @@ rtm_fib_copy_fwd_info (dp_ctx_t *dp_ctx,
 
     /* SRv6 Local SIDs with END function may not have any interface*/
     if (src->oif) {
-        dst->oif = dp_look_up_interface(dp_ctx->dp_intf_ht, src->oif);
+        dst->oif = dp_ctx->intf_table[src->oif];
     }
 
     dst->nh_addr = src->nh_addr;

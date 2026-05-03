@@ -224,8 +224,10 @@ l2_switch_forward_frame(
 
     if (mac_table_entry) {
         mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, pkt_block, recv_intf);
-        mac_table_entry_cancel_expiry_timer(mac_table_entry);
-        mac_table_entry_init_timer(dp_ctx, mac_table_entry);
+        if (!(mac_table_entry->flags & MAC_STATIC)) {
+            mac_table_entry_cancel_expiry_timer(mac_table_entry);
+            mac_table_entry_init_timer(dp_ctx, mac_table_entry);
+        }
         return;
     }
 
