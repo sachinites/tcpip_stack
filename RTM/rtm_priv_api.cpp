@@ -181,7 +181,7 @@ rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto)
             } else {
                 return RTM_ADMIN_DIST_BGP_EXT;
             }
-        case RTM_IP_PROTO_ISIS:
+        case RTM_PROTO_ISIS:
             switch (sub_proto) {
                 case  RTM_PROTO_L1_ISIS_INT:
                 case RTM_PROTO_L2_ISIS_INT: 

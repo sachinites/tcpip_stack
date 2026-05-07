@@ -14,6 +14,8 @@ OBJS=rtm.o \
 	 rtm_presentation.o \
 	 rtm_gc.o \
 	 rtm_fib_common.o \
+	 rtm_dist_mgr.o \
+	 rtm_dist_cli.o \
 
 all: $(TARGET)
 

@@ -51,6 +51,7 @@
 
 
 extern void cp_init_ipc_pub_sub(node_t *node);
+extern void rtm_dist_mgr_init (node_t *node);
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -182,6 +183,8 @@ Router_Create(graph_t *graph, const c_string node_name){
     bitmap_set_bit_at(&node->if_index_bm, 0);
 
     init_node_nw_prop(node, &node->node_nw_prop);
+
+    rtm_dist_mgr_init(node);
 
     /* Initialize global interface maps */
     node->intf_by_name = NULL;

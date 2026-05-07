@@ -18,8 +18,20 @@
 #include "isis_tlv_struct.h"
 #include "isis_utils.h"
 #include "isis_srv6.h"
+#include "../../RTM/rtm_enums.h"
 #include "../SegmentRouting/SRv6/cp/srv6_sid_pool.h"
 
+extern int
+rtm_isis_rt_distribution_policy_config_cli_handler(
+                int cmdcode,
+                Stack_t *tlv_stack,
+                op_mode enable_or_disable);
+
+extern void
+rtm_build_distribution_policy_cli_tree(
+            param_t *mount_point, 
+            int (*cbk)(int, Stack_t*, op_mode), RTM_PROTO_T exempt_proto) ;
+            
 static int
 isis_config_traceoption_handler (int cmdcode,
                     Stack_t *tlv_stack,
@@ -1185,6 +1197,7 @@ isis_config_build_frr_clis (param_t *root) {
 }
 
 /* conf node <node-name> protocol ... */
+
 int
 isis_config_cli_tree(param_t *param) {
 
@@ -1196,6 +1209,8 @@ isis_config_cli_tree(param_t *param) {
         {
             isis_config_buid_traceoptions (&isis_proto);
             isis_config_build_frr_clis (&isis_proto);
+            rtm_build_distribution_policy_cli_tree (&isis_proto, 
+                rtm_isis_rt_distribution_policy_config_cli_handler, RTM_PROTO_ISIS);
         }
         {
              static param_t import_policy;

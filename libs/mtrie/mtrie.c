@@ -269,7 +269,8 @@ static inline void
 stack_push_node (Stack_t *stack, mtrie_node_t *node, bitmap_t *prefix) {
                                     
     if (!node) return;
-    bitmap_fast_copy(prefix, &node->stacked_prefix, prefix->tsize);
+    bitmap_fast_copy(prefix, &node->stacked_prefix, prefix->next);
+    node->stacked_prefix.next = prefix->next;
     push(stack , (void *)node);
 }
 
@@ -307,7 +308,8 @@ mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix) {
             if (node) {
 
                 n_back_tracks++;
-                bitmap_fast_copy(&node->stacked_prefix, prefix, node->stacked_prefix.tsize);
+                bitmap_fast_copy(&node->stacked_prefix, prefix, node->stacked_prefix.next);
+                prefix->next = node->stacked_prefix.next;
                 bitmap_reset(&node->stacked_prefix);
                 stack_push_node(mtrie->stack, mtrie->root->child[DONT_CARE], prefix);
                 continue;
@@ -315,15 +317,17 @@ mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix) {
             return NULL;
         }
 
-            if (mtrie_is_leaf_node(node)) {
-                assert(node->data);
-                node->n_comparisons = n_comparisons;
-                node->n_backtracks = n_back_tracks;
-                return node;
+        if (mtrie_is_leaf_node(node)) {
+
+            assert(node->data);
+            node->n_comparisons = n_comparisons;
+            node->n_backtracks = n_back_tracks;
+            return node;
         }
-        
+
         /* Shifts with data type width is not defined */
         bitmap_lshift(prefix, node->prefix_len);
+        prefix->next -= node->prefix_len;
 
         next_node = node->child[bitmap_at(prefix, 0) ? ONE : ZERO];
 
@@ -437,6 +441,8 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wild
 
         bitmap_lshift(&prefix_dup, node->prefix_len);
         bitmap_lshift(&wildcard_dup, node->prefix_len);
+        prefix_dup.next -= node->prefix_len;
+        wildcard_dup.next -= node->prefix_len;
 
         node = node->child[bitmap_effective_bit_at(&prefix_dup, &wildcard_dup, 0)];
 

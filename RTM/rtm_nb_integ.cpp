@@ -327,7 +327,7 @@ cp_rtm_install_local_or_connected_v4_routes (
     
     /* Create protocol information structure */
     rtm_error_t rc = rtm_nh_proto_info_create(
-            RTM_PROTO_LOCAL, RTM_SUB_PROTO_NA, 0, rtm->vrf, &nh_proto);
+            nh_template.proto, RTM_SUB_PROTO_NA, 0, rtm->vrf, &nh_proto);
     assert (rc == RTM_SUCCESS);
 
     nh_template.rtm_nh_proto = nh_proto;
@@ -402,7 +402,7 @@ cp_rtm_install_local_or_connected_v6_routes (
 
     /* Create protocol information structure */
     rtm_error_t rc = rtm_nh_proto_info_create(
-            RTM_PROTO_LOCAL, RTM_SUB_PROTO_NA, 0, rtm->vrf, &nh_proto);
+            nh_template.proto, RTM_SUB_PROTO_NA, 0, rtm->vrf, &nh_proto);
     assert(rc == RTM_SUCCESS);
 
     nh_template.rtm_nh_proto = nh_proto;
@@ -1510,4 +1510,14 @@ cp_rtm_get_route_target_rtm(
                           RTM_SUB_PROTO_T sub_proto) {
 
     return rtm_get_route_target_rtm(vrf, afi, proto, sub_proto);
+}
+
+
+extern void (*RT_DIST_HANDLERS[])(node_t *, rt_advert_info_t  *);
+
+void 
+rtm_register_rt_distribution_cbk (
+        node_t *node, void (*cbk)(node_t *, rt_advert_info_t  *), RTM_PROTO_T proto) {
+
+    RT_DIST_HANDLERS[proto] = cbk;
 }

@@ -65,6 +65,7 @@ typedef struct hashtable hashtable_t;
 typedef struct tracer_ tracer_t;
 typedef struct BPlusTree BPlusTree_t;
 typedef struct dp_ctx_ dp_ctx_t;
+typedef struct dist_mgr_ dist_mgr_t;
 
 struct node_ {
 
@@ -110,6 +111,8 @@ struct node_ {
     BPlusTree_t *sql_db;
     /* Data Path */
     dp_ctx_t *dp_ctx;
+    /* Route distribution manager */
+    dist_mgr_t *dist_mgr;
     /* Transport Svc profiles DB*/
     std::unordered_map<std::string , TransportService *> *TransPortSvcDB;
     /* Vlan Interface Created*/

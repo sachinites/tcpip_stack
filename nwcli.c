@@ -97,6 +97,8 @@ extern int mac_table_config_handler(
 
 extern int validate_vrf_existence(Stack_t *tlv_stack, unsigned char *leaf_value);
 extern void display_cbk_all_vrfs(param_t *param, Stack_t *tlv_stack) ;
+extern int rtm_show_dist_mgr_database_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int rtm_show_dist_mgr_policies_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 
 static int
 display_mem_usage(int cmdcode, Stack_t *tlv_stack,
@@ -586,10 +588,10 @@ clear_rt_handler(int cmdcode, Stack_t *tlv_stack,
 
     cp_rtm_uninstall_routes_by_proto  (
             rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV4, 0), 
-            RTM_IP_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
     cp_rtm_uninstall_routes_by_proto  (
             rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV6, 0), 
-            RTM_IP_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
     return 0;
 }
 
@@ -1175,6 +1177,23 @@ nw_init_cli(){
                     init_param(&rtm, CMD, "rtm", 0, 0, INVALID, 0, "RTM information");
                     libcli_register_param(&node_name, &rtm);
                     {
+                        {
+                            /* show node <node-name> rtm dist-mgr-db */
+                            static param_t dist_mgr_db;
+                            init_param(&dist_mgr_db, CMD, "dist-mgr-db", rtm_show_dist_mgr_database_handler, 0, INVALID, 0, "Show Distribution Manager Database");
+                            libcli_register_param(&rtm, &dist_mgr_db);
+                            libcli_set_param_cmd_code(&dist_mgr_db, CMDCODE_SHOW_NODE_RTM_DIST_MGR_DB);
+                        }
+                        {
+                            /* show node <node-name> rtm dist-mgr-policies */
+                            static param_t dist_mgr_policies;
+                            init_param(&dist_mgr_policies, CMD, "dist-mgr-policies",
+                                       rtm_show_dist_mgr_policies_handler, 0, INVALID,
+                                       0, "Show distribution manager redistribution targets and rules");
+                            libcli_register_param(&rtm, &dist_mgr_policies);
+                            libcli_set_param_cmd_code(&dist_mgr_policies, CMDCODE_SHOW_NODE_RTM_DIST_MGR_POLICIES);
+                        }
+
                          /*show node <node-name> rtm <Rib name> */
                         static param_t rib_name;
                         init_param(&rib_name, LEAF, 0, show_rtm_route_cli_handler, 0, STRING, "rib-name", "Show RTM table");

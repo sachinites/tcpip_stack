@@ -29,6 +29,9 @@ extern void isis_recv_ipc_updates(isis_node_info_t *node_info,
 
 extern void isis_rtm_test(isis_node_info_t *node_info) ;
 
+extern void
+isis_rtm_route_notif (node_t *node, rt_advert_info_t  *rt_advert);
+
 /* Checking if protocol enable at node & intf level */
 bool
 isis_is_protocol_enable_on_node(vrf_t *vrf) {
@@ -177,15 +180,15 @@ isis_schedule_route_delete_task(isis_node_info_t *node_info,
 
     cp_rtm_uninstall_routes_by_proto  (
             vrf->inet0,
-            RTM_IP_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
 
     cp_rtm_uninstall_routes_by_proto  (
             vrf->inet6,
-            RTM_IP_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
     
     cp_rtm_uninstall_routes_by_proto  (
             vrf->inet6,
-            RTM_IP_PROTO_ISIS, RTM_SUB_PROTO_SRv6, 0);
+            RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6, 0);
 
     isis_check_and_shutdown_protocol_now(node_info,
             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);
@@ -373,6 +376,9 @@ isis_init (vrf_t *vrf) {
     dp_register_l2_pkt_trap_rule(
 			node->dp_ctx,
             isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
+
+    rtm_register_rt_distribution_cbk(vrf->node, 
+        isis_rtm_route_notif, RTM_PROTO_ISIS);
 
     isis_node_info_t *node_info = XCALLOC2(0, 1, isis_node_info_t);
     vrf->isis_node_info = node_info;

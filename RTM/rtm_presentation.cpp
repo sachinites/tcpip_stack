@@ -73,6 +73,12 @@
 #include "../lmm_enums.h"
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
 
+typedef struct dist_mgr_ dist_mgr_t;
+
+extern void 
+rtm_distribution_manager_update (dist_mgr_t *dist_mgr, 
+                                 rtm_presentation_data_t *presentation_data);
+                                 
 #define RTM_ADVT_COUNT_PREEMPTION_LIMIT 100
 
 /* ========================================================================
@@ -1302,6 +1308,7 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
             rtm_fib_update(rtm, presentation_data);
 
             /* Now Advertise it to Routing Protocols */
+            rtm_distribution_manager_update (rtm->node->dist_mgr, presentation_data);
 
             if (!presentation_data->cbk) {
                 rtm_check_and_delete_presentation_data (rtm, presentation_data);

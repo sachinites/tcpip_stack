@@ -57,9 +57,9 @@ void
 prefix_list_show (prefix_list_t *prefix_lst);
 
 pfx_lst_result_t
-prefix_list_evaluate_against_pfx_lst_node (uint32_t prefix,
-                                                                      uint8_t len,
-                                                                      pfx_lst_node_t *pfx_lst_node );
+prefix_list_evaluate_against_pfx_lst_node(uint32_t prefix,
+                                          uint8_t len,
+                                          pfx_lst_node_t *pfx_lst_node);
 
 pfx_lst_result_t
 prefix_list_evaluate (uint32_t prefix, uint8_t len, prefix_list_t *prefix_lst);

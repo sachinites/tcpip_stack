@@ -499,7 +499,8 @@ static inline void
 stack_push_node (Stack_t *stack, atomic_mtrie_node_t *node, bitmap_t *prefix) {
                                     
     if (!node) return;
-    bitmap_fast_copy(prefix, &node->stacked_prefix, prefix->tsize);
+    bitmap_fast_copy(prefix, &node->stacked_prefix, prefix->next);
+    node->stacked_prefix.next = prefix->next;
     push(stack , (void *)node);
 }
 
@@ -529,14 +530,15 @@ atomic_mtrie_longest_prefix_match_search(atomic_mtrie_t *mtrie, bitmap_t *prefix
 
         n_comparisons++;
         if (!bitmap_prefix_match(prefix, &node->prefix, 
-                                                 &node->wildcard, node->prefix_len)) {
+                                 &node->wildcard, node->prefix_len)) {
 
             node = (atomic_mtrie_node_t *)pop(mtrie->stack);
 
             if (node) {
 
                 n_back_tracks++;
-                bitmap_fast_copy(&node->stacked_prefix, prefix, node->stacked_prefix.tsize);
+                bitmap_fast_copy(&node->stacked_prefix, prefix, node->stacked_prefix.next);
+                prefix->next = node->stacked_prefix.next;
                 bitmap_reset(&node->stacked_prefix);
                 stack_push_node(mtrie->stack, mtrie->root->child[DONT_CARE].load(std::memory_order_acquire), prefix);
                 continue;
@@ -551,6 +553,7 @@ atomic_mtrie_longest_prefix_match_search(atomic_mtrie_t *mtrie, bitmap_t *prefix
         
         /* Shifts with data type width is not defined */
         bitmap_lshift(prefix, node->prefix_len);
+        prefix->next -= node->prefix_len;
 
         next_node = node->child[bitmap_at(prefix, 0) ? ONE : ZERO].load(std::memory_order_acquire);
 
@@ -603,6 +606,8 @@ atomic_mtrie_exact_prefix_match_search(atomic_mtrie_t *mtrie, bitmap_t *prefix, 
 
         bitmap_lshift(&prefix_dup, node->prefix_len);
         bitmap_lshift(&wildcard_dup, node->prefix_len);
+        prefix_dup.next -= node->prefix_len;
+        wildcard_dup.next -= node->prefix_len;
 
         node = node->child[bitmap_effective_bit_at(&prefix_dup, &wildcard_dup, 0)].load(std::memory_order_acquire);
 

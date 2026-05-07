@@ -183,6 +183,12 @@
 /* show node <node-name> vrf */
 #define CMDCODE_SHOW_NODE_VRF 76
 
+/* show node <node-name> rtm dist-mgr-db */
+#define CMDCODE_SHOW_NODE_RTM_DIST_MGR_DB 78
+
+/* show node <node-name> rtm dist-mgr-policies */
+#define CMDCODE_SHOW_NODE_RTM_DIST_MGR_POLICIES 79
+
 /* Flag to distinguish if the CLI typed should go to
   control plane scheduler or data plane scheduler*/
 #define CLI_F_CONTROL_PLANE 1

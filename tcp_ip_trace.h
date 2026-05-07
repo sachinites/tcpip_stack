@@ -129,10 +129,12 @@ variadic_sprintf (node_t *node, dp_intf_t *intf, const char *format, ...);
 #define DMPLS_DET (1 << 23)
 #define DFIB (1 << 24)
 #define DFIB_DET (1 << 25)
-#define DCONF (1 << 26)
-#define DALWAYS_FLUSH (1 << 27)
-#define DALL_LOGGING (1 << 28)
-#define DERR (1 << 29)
+#define DREDIS (1 << 26)
+#define DREDIS_DET (1 << 27)
+#define DCONF (1 << 28)
+#define DALWAYS_FLUSH (1 << 29)
+#define DALL_LOGGING (1 << 30)
+#define DERR (1 << 31)
 
 
 #endif /* __TCP_IP_TRACE__ */

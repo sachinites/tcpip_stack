@@ -5,6 +5,7 @@
 #include "isis_policy.h"
 #include "isis_tlv_struct.h"
 #include "isis_advt.h"
+#include "../../RTM/rtm_nb_integ.h"
 
 int
 isis_config_import_policy(isis_node_info_t *node_info, const char *prefix_lst_name) {
@@ -515,3 +516,10 @@ void
     }
  }
 #endif
+
+
+void
+isis_rtm_route_notif (node_t *node, rt_advert_info_t  *rt_advert) {
+
+    cprintf ("%s() ... called \n", __FUNCTION__);    
+}

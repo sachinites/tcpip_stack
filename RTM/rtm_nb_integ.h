@@ -17,8 +17,31 @@ typedef struct rtm_nh_proto_ rtm_nh_proto_t;
 typedef struct rtm_nh_ rtm_nh;
 typedef struct rtm_rt_subscription_ rtm_rt_subscription_t;
 typedef struct mpls_lstack_ mpls_lstack_t;
+typedef struct rt_advert_info_ rt_advert_info_t;
+typedef struct node_ node_t;
 
 #pragma pack(push, 8)
+
+typedef struct rt_advert_info_ {
+
+    cmn_prefix_t route;
+
+    /* Meta info*/
+    RTM_PROTO_T src_proto;
+
+    /* Output info*/
+    uint32_t out_cost;       /* redistribute static cost 1000 */
+    uint32_t out_tag;        /* Tag the routes */
+    uint32_t out_community;  /* Ist 16 bits:2nd16 bits , eg : 100:1 */
+
+    uint64_t Cnhidx;
+
+    bool is_delete;
+
+    glthread_t redis_glue;
+
+} rt_advert_info_t;
+GLTHREAD_TO_STRUCT(redis_glue_to_rt_advert_info, rt_advert_info_t, redis_glue);
 
 typedef struct cp_nexthop_template_ {
 
@@ -122,7 +145,7 @@ config node H1 rtm-route prefix 2001::/120 0 0 0 2 10 gateway 2002::1 interface 
 # Route with MPLS labels
 config node H1 rtm-route prefix 100100 0 0 0 2 10 gateway 192.168.0.12 interface eth1 label-stack 100 200 300
 
-RTM_IP_PROTO_ISIS
+RTM_PROTO_ISIS
 RTM_PROTO_L1_ISIS_INT
 instance 0
 action : forward 
@@ -192,7 +215,11 @@ cp_rtm_get_route_target_rtm(
                           RTM_PROTO_T proto, 
                           RTM_SUB_PROTO_T sub_proto);
 
-                          void 
+void 
 rtm_nh_template_free_internals (cp_nexthop_template_t *nh_template);
+
+void 
+rtm_register_rt_distribution_cbk (
+        node_t *node, void (*cbk)(node_t *, rt_advert_info_t  *), RTM_PROTO_T proto);
 
 #endif 

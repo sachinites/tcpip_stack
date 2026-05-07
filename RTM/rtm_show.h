@@ -7,6 +7,7 @@ extern "C" {
 
 typedef struct rtm_  rtm_t;
 typedef struct cmn_prefix_ cmn_prefix_t;
+typedef struct dist_mgr_ dist_mgr_t;
 
 void rtm_show_rib (rtm_t *rtm);
 void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter);
@@ -16,6 +17,8 @@ void rtm_show_proto_info(rtm_t *rtm);
 void rtm_show_protocol_subscriptions(rtm_t *rtm);
 void rtm_show_unresolvable_routes(rtm_t *rtm);
 void rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter);
+void rtm_show_dist_mgr_database (dist_mgr_t *dist_mgr);
+void rtm_show_dist_mgr_policies (dist_mgr_t *dist_mgr);
 
 #ifdef __cplusplus
 }

@@ -202,7 +202,7 @@ rtm_get_target_fib (rtm_t *rtm,
 
     /* ISIS - SR routes */
     if (!inh &&
-        (nh->proto == RTM_IP_PROTO_ISIS || nh->proto == RTM_PROTO_OSPF) && 
+        (nh->proto == RTM_PROTO_ISIS || nh->proto == RTM_PROTO_OSPF) && 
         nh->sub_proto == RTM_SUB_PROTO_SR) {
 
         /* SR Transit routes will go in global mpls.0 fib*/

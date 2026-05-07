@@ -647,6 +647,11 @@ void tcp_ip_show_log_status(node_t *node){
     else 
         cprintf ("\t  DRTM     :     OFF\n" );
 
+    if (tracer_is_bit_set (cptr, DREDIS | DREDIS_DET)) 
+        cprintf ("\t  DREDIS     :     ON\n" );
+    else 
+        cprintf ("\t  DREDIS     :     OFF\n" );
+
     if (tracer_is_bit_set (dptr, DACL | DACL_DET) ||
             tracer_is_bit_set (cptr, DACL | DACL_DET)) 
         cprintf ("\t  DACL     :     ON\n" );
@@ -1400,6 +1405,14 @@ debug_infra_tracer_bits_to_str (char *buffer, uint64_t bits) {
     if (bits & DRTM_DET) {
         strcat (buffer, "DRTM_DET ");
         rc += 9;
+    }
+    if (bits & DREDIS) {
+        strcat (buffer, "DREDIS ");
+        rc += 7;
+    }
+    if (bits & DREDIS_DET) {
+        strcat (buffer, "DREDIS_DET ");
+        rc += 11;
     }
     if (bits & DACL) {
         strcat (buffer, "DACL ");

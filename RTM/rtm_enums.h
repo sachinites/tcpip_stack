@@ -1,13 +1,16 @@
 #ifndef __RTM_ENUMS__
 #define __RTM_ENUMS__
 
+/* Refer RT_DIST_HANDLERS array in case you change
+    the array order */
+    
 typedef enum protocols_ {
 
     RTM_PROTO_STATIC, 
     RTM_PROTO_CONNECTED,
     RTM_PROTO_LOCAL,
     RTM_PROTO_BGP,  
-    RTM_IP_PROTO_ISIS, 
+    RTM_PROTO_ISIS, 
     RTM_PROTO_OSPF,
     RTM_PROTO_LDP,
     RTM_PROTO_MAX
@@ -80,7 +83,7 @@ static const char* rtm_proto_to_string(RTM_PROTO_T proto) {
         case RTM_PROTO_LOCAL: return "Local";
         case RTM_PROTO_OSPF: return "OSPF";
         case RTM_PROTO_BGP: return "BGP";
-        case RTM_IP_PROTO_ISIS: return "ISIS";
+        case RTM_PROTO_ISIS: return "ISIS";
         case RTM_PROTO_LDP: return "LDP";
         default: return "Unknown";
     }

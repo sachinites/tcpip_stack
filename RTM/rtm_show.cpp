@@ -73,11 +73,15 @@
 #include "rtm_enums.h"
 #include "rtm_priv_api.h"
 #include "rtm_presentation.h"
+#include "rtm_dist_mgr.h"
 #include "../libs/prefix-list/prefixlst.h"
 #include "../libs/common/mpls_lstack.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
+typedef struct graph_ graph_t;
+
 extern int cprintf (const char * format, ...);
+extern graph_t *topo;
 
 /* ========================================================================
  * Forward Declarations
@@ -339,7 +343,7 @@ static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_pro
             }
         case RTM_PROTO_BGP:
             return "B";
-        case RTM_IP_PROTO_ISIS:
+        case RTM_PROTO_ISIS:
             switch(sub_proto) {
                 case RTM_PROTO_L1_ISIS_INT:
                     return "I L1";
@@ -519,13 +523,20 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
             }
             
             /* Determine the display format based on action type - Cisco style */
-            if (best_nh->action == RTM_NH_ACTION_CONNECTED || 
-                best_nh->action == RTM_NH_ACTION_LOCAL) {
-                /* Connected/Local routes: show as directly connected */
+            if (best_nh->action == RTM_NH_ACTION_CONNECTED) {
+               
                 cprintf("%-4s %-18s is directly connected, %s\n",
                        proto_code,
                        prefix_str,
                        if_name);
+        
+            } else if (best_nh->action == RTM_NH_ACTION_LOCAL) {
+                
+                cprintf("%-4s %-18s is local, %s\n",
+                                    proto_code,
+                                    prefix_str,
+                                    if_name);
+        
             } else {
                 /* Other routes: show with nexthop - format: code prefix [ad/metric] via gateway, time, interface */
                 if (cmn_prefix_is_null(&best_nh->prefix)) {
@@ -1020,4 +1031,232 @@ rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter) {
     cprintf("Total Routes in Presentation DB: %d\n", total_routes);
 }
 
-} // extern "C"
+
+void
+rtm_show_dist_mgr_database (dist_mgr_t *dist_mgr) {
+
+    if (!dist_mgr) return;
+
+    avltree_node_t *avl_node;
+    rt_redist_route_t *redis_rt;
+    char prefix_str[48];
+    int entry_count = 0;
+
+    cprintf("\n%-26s %-12s %-16s %-20s %-16s\n",
+            "Route", "Proto", "Sub-Proto", "Cnhidx", "VRF");
+    cprintf("%-26s %-12s %-16s %-20s %-16s\n",
+            "--------------------------", "------------",
+            "----------------", "--------------------", "----------------");
+
+    ITERATE_AVL_TREE_BEGIN(&dist_mgr->nhidx_tree, avl_node)
+    {
+        redis_rt = avltree_container_of(avl_node, rt_redist_route_t, nhidx_glue);
+
+        cmn_prefix_to_string(&redis_rt->prefix, &prefix_str);
+
+        cprintf("%-26s %-12s %-16s 0x%-18llx %-16s\n",
+                prefix_str,
+                rtm_proto_to_string(redis_rt->nh_proto->proto),
+                rtm_sub_proto_to_string(redis_rt->nh_proto->sub_proto),
+                (unsigned long long)redis_rt->Cnhidx,
+                vrf_name(dist_mgr->node, redis_rt->nh_proto->vrf_id));
+
+        entry_count++;
+    }
+    ITERATE_AVL_TREE_END;
+
+    cprintf("\nTotal: %d entr%s\n", entry_count, entry_count == 1 ? "y" : "ies");
+}
+
+static void
+rtm_show_dist_mgr_comm_fmt(uint32_t wc, char *buf, size_t buflen)
+{
+    uint32_t hi = (wc >> 16) & 0xFFFFu;
+    uint32_t lo = wc & 0xFFFFu;
+
+    snprintf(buf, buflen, "%u:%u", hi, lo);
+}
+
+void
+rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
+{
+    redist_target_t *target;
+    dist_rule_t *rule;
+    int rule_no;
+    char comm_buf[24];
+
+    if (!dist_mgr)
+        return;
+
+    printw("\n");
+    if (dist_mgr->node)
+        cprintf(
+            "RTM redistribution policies :: node %s\n",
+            dist_mgr->node->node_name);
+    else
+        cprintf("RTM redistribution policies\n");
+
+    target = dist_mgr->target_lst;
+    if (!target) {
+        cprintf("No redistribution targets configured.\n\n");
+        return;
+    }
+
+    for (target = dist_mgr->target_lst; target; target = target->next) {
+        char vrf_buf[48];
+        char client_id[128];
+        const char *vrf_str =
+            vrf_name(dist_mgr->node, target->dst_vrf);
+
+        if (vrf_str)
+            snprintf(vrf_buf, sizeof(vrf_buf), "%s", vrf_str);
+        else
+            snprintf(vrf_buf, sizeof(vrf_buf), "id%u", target->dst_vrf);
+
+        snprintf(
+            client_id,
+            sizeof(client_id),
+            "%s.%s.%u",
+            vrf_buf,
+            rtm_proto_to_string(target->dst_proto),
+            (unsigned)target->dst_instance_no);
+
+        cprintf("\nClient : %s\n", client_id);
+        cprintf(
+            "------------------------------------------------------------------\n");
+
+        rule = target->rule_list;
+        if (!rule) {
+            cprintf("  (no rules)\n");
+            continue;
+        }
+
+        rule_no = 0;
+        for (; rule; rule = rule->next, rule_no++) {
+            const char *pfx_str;
+            char pfx_line[PFX_LST_NAME_LEN + 4];
+
+            if (rule->pfx_lst) {
+                snprintf(
+                    pfx_line,
+                    sizeof(pfx_line),
+                    "%s",
+                    (const char *)rule->pfx_lst->name);
+                pfx_str = pfx_line;
+            } else {
+                pfx_str = "(any)";
+            }
+
+            rtm_show_dist_mgr_comm_fmt(rule->out_community, comm_buf, sizeof(comm_buf));
+
+            cprintf("  Rule %d\n", rule_no + 1);
+
+            cprintf("    Source\n");
+            cprintf(
+                "      %-14s %s\n",
+                "Src-VRF:",
+                vrf_buf);
+            cprintf(
+                "      %-14s %s\n",
+                "Protocol:",
+                rtm_proto_to_string(rule->src_proto));
+            cprintf(
+                "      %-14s %s\n",
+                "Sub-protocol:",
+                rtm_sub_proto_to_string(rule->src_sub_proto));
+            cprintf(
+                "      %-14s %u\n",
+                "Instance:",
+                (unsigned)rule->src_instance_no);
+
+            cprintf("    Filter\n");
+            cprintf(
+                "      %-14s %s\n",
+                "Prefix-list:",
+                pfx_str);
+
+            cprintf("    Action\n");
+            cprintf(
+                "      %-14s %u\n",
+                "Metric:",
+                (unsigned)rule->out_cost);
+            cprintf(
+                "      %-14s %u\n",
+                "Tag:",
+                (unsigned)rule->out_tag);
+            cprintf(
+                "      %-14s %s\n",
+                "Community:",
+                comm_buf);
+
+            cprintf(
+                "------------------------------------------------------------------\n");
+        }
+    }
+
+    printw("\n");
+}
+
+}
+
+int 
+rtm_show_dist_mgr_database_handler (int cmdcode,
+    Stack_t *tlv_stack,
+    op_mode enable_or_disable)
+{
+    node_t *node = NULL;
+    c_string node_name = NULL;
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv)
+    {
+        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    rtm_show_dist_mgr_database(node->dist_mgr);
+    return 0;
+}
+
+int
+rtm_show_dist_mgr_policies_handler(int cmdcode,
+                                   Stack_t *tlv_stack,
+                                   op_mode enable_or_disable)
+{
+    node_t *node = NULL;
+    c_string node_name = NULL;
+    tlv_struct_t *tlv = NULL;
+
+    (void)cmdcode;
+    (void)enable_or_disable;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv)
+    {
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+    }
+    TLV_LOOP_END;
+
+    if (!node_name) {
+        cprintf("Error : node-name missing\n");
+        return -1;
+    }
+
+    node = node_get_node_by_name(topo, node_name);
+    if (!node) {
+        cprintf("Error : Node %s not found\n", node_name);
+        return -1;
+    }
+
+    if (!node->dist_mgr) {
+        cprintf("Error : distribution manager not initialized for node %s\n",
+                node_name);
+        return -1;
+    }
+
+    rtm_show_dist_mgr_policies(node->dist_mgr);
+    return 0;
+}
+
+

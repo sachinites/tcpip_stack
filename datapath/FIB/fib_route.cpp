@@ -13,7 +13,7 @@
 #include "../../libs/common/cmn_prefix.h"
 #include "../../libs/LinuxMemoryManager/uapi_mm.h"
 
-static inline void 
+inline void 
 fib_set_nh_idx(
     uint64_t *p, 
     uint32_t inhidx, 
