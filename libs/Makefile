@@ -3,7 +3,15 @@ CC     = g++
 SANITIZER_FLAGS =
 
 #https://stackoverflow.com/questions/69212557/dpdk-compilation-error-while-freeing-mbuf
-DPDK_FLAGS=-mssse3
+
+ARCH := $(shell uname -m)
+ifeq ($(ARCH),x86_64)
+    DPDK_FLAGS += -mssse3
+endif
+
+ifeq ($(ARCH),aarch64)
+    DPDK_FLAGS += -march=armv8-a+simd
+endif
 
 CFLAGS = -g -Wcast-align -fpermissive ${DPDK_FLAGS} -Wall -Wextra -Wmissing-prototypes \
          -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 \
