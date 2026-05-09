@@ -92,7 +92,7 @@ prefix_lst_config_handler (int cmdcode,
 
     if (!prefix_lst) {
 
-        prefix_lst = (prefix_list_t *)XCALLOC(0, 1, prefix_list_t);
+        prefix_lst = (prefix_list_t *)XCALLOC2(0, 1, prefix_list_t);
         string_copy ((char *)prefix_lst->name, pfx_lst_name, PFX_LST_NAME_LEN);
         new_pfx_lst = true;
     }

@@ -161,4 +161,19 @@ rtm_string_to_protocol_enum (const char *proto_name) {
     return RTM_PROTO_MAX;
 }
 
+static const char *
+rtm_proto_to_cli_keyword(RTM_PROTO_T proto)
+{
+    switch (proto) {
+        case RTM_PROTO_STATIC:    return "static";
+        case RTM_PROTO_CONNECTED: return "connected";
+        case RTM_PROTO_LOCAL:     return "local";
+        case RTM_PROTO_OSPF:      return "ospf";
+        case RTM_PROTO_BGP:       return "bgp";
+        case RTM_PROTO_ISIS:      return "isis";
+        case RTM_PROTO_LDP:       return "ldp";
+        default:                  return "unknown";
+    }
+}
+
 #endif 

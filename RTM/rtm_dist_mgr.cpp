@@ -724,7 +724,92 @@ rtm_dist_mgr_refresh_dist_routes_to_target(
     ITERATE_AVL_TREE_END;
 }
 
+void 
+rtm_dist_mgr_client_request_route_replay (
+        dist_mgr_t *dist_mgr, 
+        RTM_PROTO_T proto, 
+        uint32_t instance_no, uint8_t vrf_id) {
 
+    redist_target_t *target;
+    avltree_node_t *avl_node;
+    rt_advertised_node_t *adv_node;
+    rt_redist_route_t *dist_rt;
+    dist_rule_t *rule;
+    rt_advert_info_t advert_tmplate;
+    rt_advert_info_t *advert_info;
+    char rt_str[48];
+    bool should_advert;
+
+    tracer (dist_mgr->node->cptr, DREDIS,
+           "REDIS-MGR : Client request route replay for proto %s instance %u vrf %u\n",
+           rtm_proto_to_string(proto),
+           instance_no, vrf_id);
+
+    for (target = dist_mgr->target_lst; target; target = target->next) {
+        if (target->proto == proto && target->instance_no == instance_no
+            && target->vrf == vrf_id)
+            break;
+    }
+
+    if (!target) {
+
+        tracer (dist_mgr->node->cptr, DREDIS | DERR,
+           "REDIS-MGR : Error : No matching target found for proto %s instance %u vrf %u, cannot replay routes\n",
+           rtm_proto_to_string(proto),
+           instance_no, vrf_id);
+        return;
+    }
+
+    ITERATE_AVL_TREE_BEGIN(&target->rt_advertised, avl_node)
+    {
+        adv_node = avltree_container_of(avl_node, rt_advertised_node_t, glue);
+        dist_rt = adv_node->dist_rt;
+
+        should_advert =
+            rtm_dist_mgr_target_first_permitting_rule(target, dist_rt, &rule);
+
+        if (!should_advert) {
+
+            rtm_dist_mgr_advert_fill_from_route(&advert_tmplate, dist_rt);
+            advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
+            memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
+            init_glthread(&advert_info->redis_glue);
+            advert_info->code = RTM_CLIENT_RT_DEL;
+
+            tracer(dist_mgr->node->cptr, DREDIS_DET,
+                   "REDIS-MGR : Replay withdraw %s from target proto %s instance %u vrf %u\n",
+                   rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
+                   rtm_proto_to_string(target->proto),
+                   target->instance_no,
+                   target->vrf);
+
+            rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
+            rtm_redist_target_record_rt_advertisement (dist_mgr, target, dist_rt, false);
+        }
+        else {
+
+            rtm_dist_mgr_advert_fill_from_route(&advert_tmplate, dist_rt);
+            advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
+            memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
+            advert_info->out_cost = rule->out_cost;
+            advert_info->out_tag = rule->out_tag;
+            advert_info->out_community = rule->out_community;
+            advert_info->code = RTM_CLIENT_RT_ADD;
+            init_glthread(&advert_info->redis_glue);
+
+            tracer(dist_mgr->node->cptr, DREDIS_DET,
+                   "REDIS-MGR : Replay flash advertise %s to target proto %s instance %u vrf %u\n",
+                   rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
+                   rtm_proto_to_string(target->proto),
+                   target->instance_no,
+                   target->vrf);
+
+            rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
+            //rtm_redist_target_record_rt_advertisement (dist_mgr, target, dist_rt, true);
+        }
+    }
+    ITERATE_AVL_TREE_END;
+}
 
 typedef struct dist_mgr_gc_container_ {
 
@@ -737,7 +822,7 @@ GLTHREAD_TO_STRUCT(dist_mgr_gc_container_object, dist_mgr_gc_container_t, glue);
 
 
 static void 
-dist_mgr_check_and_delete (redist_target_t *target) {
+dist_mgr_target_check_and_delete (redist_target_t *target) {
 
     assert (!target->rule_list);
     assert (Fglthread_list_is_empty (&target->client_redis_queue));
@@ -806,7 +891,7 @@ dist_mgr_gc_job_cbk(
 
             case DIST_MGR_GC_TYPE_TARGET:
                 dist_mgr_release_all_target_resources (dist_mgr, (redist_target_t *)container->object);
-                dist_mgr_check_and_delete((redist_target_t *)container->object);
+                dist_mgr_target_check_and_delete((redist_target_t *)container->object);
                 break;
             default: ;
                 break;

@@ -17,7 +17,7 @@ isis_print_formatted_tlv130( byte* out_buff, byte* tlv130_start,  uint8_t tlv_le
     rc += cprintf("\tTLV%d IP-REACH TLV   len:%dB\n", ISIS_TLV_IP_REACH, tlv_len);
     rc += cprintf("\t  %s/%d  metric = %u  %s\n",
                 tcp_ip_covert_ip_n_to_p(htonl(tlv_130->prefix), ip_addr_str),
-                tcp_ip_convert_bin_mask_to_dmask(tlv_130->mask),
+                tcp_ip_convert_bin_mask_to_dmask(htonl(tlv_130->mask)),
                 htonl(tlv_130->metric), 
                 IS_BIT_SET (tlv_130->flags, ISIS_EXTERN_ROUTE_F) ? "External" : "Internal");
                 

@@ -73,7 +73,11 @@ isis_config_export_policy(isis_node_info_t *node_info, const char *prefix_lst_na
 
     node_info->export_policy = prefix_lst;
     prefix_list_reference(prefix_lst);
-    //nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
+
+    rtm_dist_mgr_client_request_route_replay (
+            node->dist_mgr,
+            RTM_PROTO_ISIS, 0, node_info->vrf->vrf_id);
+
     return 0;
 }
 
@@ -266,281 +270,265 @@ isis_prefix_list_change(node_t *node, vrf_t *vrf,
     }
 
     if (vrf->isis_node_info->export_policy == prefix_list) {
-         //nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
+
+        rtm_dist_mgr_client_request_route_replay (
+            node->dist_mgr,
+            RTM_PROTO_ISIS, 0, vrf->vrf_id);         
     }
 }
 
-#if 0
 isis_adv_data_t *
-isis_is_route_exported (isis_node_info_t *node_info, l3_route_t *l3route ) {
+isis_is_route_exported (isis_node_info_t *node_info, cmn_prefix_t *prefix) {
 
-    uint32_t bin_ip, bin_mask;
     bitmap_t prefix_bm, mask_bm;
-    isis_node_info_t *node_info;
+    mtrie_node_t *mnode;
+    isis_adv_data_t *adv_data = NULL;
 
-    bin_ip = tcp_ip_convert_ip_p_to_n (l3route->dest);
-    bin_ip = htonl(bin_ip);
+    if (!node_info || !prefix || prefix->afi != AF_IPV4) return NULL;
 
-    bin_mask = tcp_ip_convert_dmask_to_bin_mask(l3route->mask);
-    bin_mask = ~bin_mask;
-    bin_mask = htonl(bin_mask);
+    cmn_prefix_to_bitmap (prefix, &prefix_bm, &mask_bm);
 
-    bitmap_init(&prefix_bm, 32);
-    bitmap_init(&mask_bm, 32);
-
-    prefix_bm.bits[0] = bin_ip;
-    mask_bm.bits[0] = bin_mask;
-
-    node_info = ISIS_NODE_INFO(node);
-
-    mtrie_node_t *mnode = mtrie_exact_prefix_match_search(
-                            &node_info->exported_routes,
-                            &prefix_bm,
-                            &mask_bm);
-
-    bitmap_free_internal(&prefix_bm);
-    bitmap_free_internal(&mask_bm);
+    mnode = mtrie_exact_prefix_match_search (
+                &node_info->exported_routes,
+                &prefix_bm, &mask_bm);
 
     if (mnode && mnode->data) {
-        return ( isis_adv_data_t *)(mnode->data);
+        adv_data = (isis_adv_data_t *)mnode->data;
     }
 
-    return NULL;
+    bitmap_free_internal (&prefix_bm);
+    bitmap_free_internal (&mask_bm);
+    return adv_data;
 }
 
 isis_advt_tlv_return_code_t
-isis_export_route (isis_node_info_t *node_info, l3_route_t *l3route) {
+isis_export_route (isis_node_info_t *node_info, cmn_prefix_t *prefix, uint32_t metric) {
 
+    char rt_str[48];
     mtrie_node_t *mnode;
-    uint32_t bin_ip, bin_mask;
-    isis_node_info_t *node_info;
+    bitmap_t prefix_bm, mask_bm;
     isis_adv_data_t *exported_rt;
     isis_advt_info_t advt_info_out;
-    bitmap_t prefix_bm, mask_bm;
     isis_advt_tlv_return_code_t rc;
 
-    tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Exporting Route %s/%d\n",
-        ISIS_EXPOLICY, l3route->dest, l3route->mask);
+    if (!node_info || !prefix || prefix->afi != AF_IPV4) {
+        return ISIS_TLV_RECORD_ADVT_FAILED;
+    }
 
-    exported_rt = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
+    memset (rt_str, 0, sizeof (rt_str));
+    cmn_prefix_to_string (prefix, &rt_str);
+
+    tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+            "%s : Exporting Route %s\n", ISIS_EXPOLICY, rt_str);
+
+    cmn_prefix_to_bitmap (prefix, &prefix_bm, &mask_bm);
+
+    /* If the route is already exported, nothing to do. */
+    mnode = mtrie_exact_prefix_match_search (
+                &node_info->exported_routes,
+                &prefix_bm, &mask_bm);
+
+    if (mnode && mnode->data) {
+
+        tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+                "%s : Route %s is already advertised\n",
+                ISIS_EXPOLICY, rt_str);
+        bitmap_free_internal (&prefix_bm);
+        bitmap_free_internal (&mask_bm);
+        return ISIS_TLV_RECORD_ADVT_ALREADY;
+    }
+
+    exported_rt = (isis_adv_data_t *)XCALLOC2 (0, 1, isis_adv_data_t);
     exported_rt->tlv_no = ISIS_TLV_IP_REACH;
-    exported_rt->u.pfx.prefix = htonl(tcp_ip_convert_ip_p_to_n (l3route->dest));
-    exported_rt->u.pfx.mask = l3route->mask;
-    exported_rt->u.pfx.metric = ISIS_DEFAULT_INTF_COST;
+    exported_rt->u.pfx.prefix = prefix->u.v4_addr;
+    exported_rt->u.pfx.mask = prefix->prefix_len;
+    exported_rt->u.pfx.metric = metric ? metric : ISIS_DEFAULT_INTF_COST;
+    exported_rt->u.pfx.flags = 0;
+    init_glthread (&exported_rt->glue);
     exported_rt->tlv_size = isis_get_adv_data_size (exported_rt);
 
-    node_info = ISIS_NODE_INFO(node);
-    bin_ip = tcp_ip_convert_ip_p_to_n(l3route->dest);
-    bin_ip = htonl(bin_ip);
-    bin_mask = tcp_ip_convert_dmask_to_bin_mask(l3route->mask);
-    bin_mask = ~bin_mask;
-    bin_mask = htonl(bin_mask);
+    if (mtrie_insert_prefix (&node_info->exported_routes,
+                             &prefix_bm,
+                             &mask_bm,
+                             32,
+                             &mnode) != MTRIE_INSERT_SUCCESS) {
 
-    bitmap_init(&prefix_bm, 32);
-    bitmap_init(&mask_bm, 32);
-
-    prefix_bm.bits[0] = bin_ip;
-    mask_bm.bits[0] = bin_mask;
-
-    if (mtrie_insert_prefix(&node_info->exported_routes,
-                                            &prefix_bm,
-                                            &mask_bm,
-                                            32,
-                                            &mnode) != MTRIE_INSERT_SUCCESS) {
-        
-        tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Exporting Route %s/%d failed\n",
-            ISIS_EXPOLICY, l3route->dest, l3route->mask);
-        bitmap_free_internal(&prefix_bm);
-        bitmap_free_internal(&mask_bm);
+        tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+                "%s : Exporting Route %s failed\n", ISIS_EXPOLICY, rt_str);
+        bitmap_free_internal (&prefix_bm);
+        bitmap_free_internal (&mask_bm);
         isis_free_advt_data (exported_rt);
         return ISIS_TLV_RECORD_ADVT_FAILED;
     }
     mnode->data = (void *)exported_rt;
 
-    rc =  isis_advertise_tlv(node, 0, 
-                                (isis_adv_data_t *)exported_rt,
-                                &advt_info_out);
+    rc = isis_advertise_tlv (node_info, 0, exported_rt, &advt_info_out);
 
     switch (rc) {
 
         case ISIS_TLV_RECORD_ADVT_SUCCESS:
-            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Route %s/%d advertised in LSP [%hu][%hu]\n",
-                ISIS_EXPOLICY, l3route->dest, l3route->mask, advt_info_out.pn_no, advt_info_out.fr_no);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+                    "%s : Route %s advertised in LSP [%hu][%hu]\n",
+                    ISIS_EXPOLICY, rt_str,
+                    advt_info_out.pn_no, advt_info_out.fr_no);
             break;
         case ISIS_TLV_RECORD_ADVT_ALREADY:
-            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Route %s/%d is already advertised\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+                    "%s : Route %s is already advertised\n",
+                    ISIS_EXPOLICY, rt_str);
             break;
         case ISIS_TLV_RECORD_ADVT_NO_SPACE:
         case ISIS_TLV_RECORD_ADVT_NO_FRAG:
-            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Route %s/%d Failed to advertised, No Space available\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+                    "%s : Route %s failed to advertise, no space available\n",
+                    ISIS_EXPOLICY, rt_str);
             break;
         default:
-            assert(0);
+            assert (0);
     }
 
-    bitmap_free_internal(&prefix_bm);
-    bitmap_free_internal(&mask_bm);
+    bitmap_free_internal (&prefix_bm);
+    bitmap_free_internal (&mask_bm);
     return rc;
 }
 
 bool
-isis_unexport_route (isis_node_info_t *node_info, l3_route_t *l3route) {
+isis_unexport_route (isis_node_info_t *node_info, cmn_prefix_t *prefix) {
 
     bool res = false;
+    char rt_str[48];
     mtrie_node_t *mnode;
-    void *exported_rt_data;
     isis_adv_data_t *adv_data;
-    uint32_t bin_ip, bin_mask;
-    isis_tlv_wd_return_code_t rc;
-    isis_node_info_t *node_info;
     bitmap_t prefix_bm, mask_bm;
+    isis_tlv_wd_return_code_t rc;
 
-    node_info = ISIS_NODE_INFO(node);
+    if (!node_info || !prefix || prefix->afi != AF_IPV4) return false;
 
-    if (!node_info) return false;
+    memset (rt_str, 0, sizeof (rt_str));
+    cmn_prefix_to_string (prefix, &rt_str);
 
-    tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : UnExporting Route %s/%d\n",
-        ISIS_EXPOLICY, l3route->dest, l3route->mask);
+    tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+            "%s : UnExporting Route %s\n", ISIS_EXPOLICY, rt_str);
 
-    bin_ip = tcp_ip_convert_ip_p_to_n (l3route->dest);
-    bin_ip = htonl(bin_ip);
+    cmn_prefix_to_bitmap (prefix, &prefix_bm, &mask_bm);
 
-    bin_mask = tcp_ip_convert_dmask_to_bin_mask(l3route->mask);
-    bin_mask = ~bin_mask;
-    bin_mask = htonl(bin_mask);
-
-    bitmap_init(&prefix_bm, 32);
-    bitmap_init(&mask_bm, 32);
-
-    prefix_bm.bits[0] = bin_ip;
-    mask_bm.bits[0] = bin_mask;
-
-    mnode = mtrie_exact_prefix_match_search(
+    mnode = mtrie_exact_prefix_match_search (
                 &node_info->exported_routes,
                 &prefix_bm, &mask_bm);
 
-    if (!mnode) {
-        
-        bitmap_free_internal(&prefix_bm);
-        bitmap_free_internal(&mask_bm);
+    if (!mnode || !mnode->data) {
+
+        bitmap_free_internal (&prefix_bm);
+        bitmap_free_internal (&mask_bm);
         return false;
     }
 
-    exported_rt_data = mnode->data;
-    assert(exported_rt_data);
-    adv_data = (isis_adv_data_t *)exported_rt_data;
+    adv_data = (isis_adv_data_t *)mnode->data;
 
+    /* Not yet committed to a fragment - drop bookkeeping only. */
     if (!adv_data->fragment) {
-       isis_wait_list_advt_data_remove(node, adv_data);
-       isis_free_advt_data (adv_data);
-       mnode->data = NULL;
-       mtrie_delete_leaf_node (&node_info->exported_routes, mnode);
-       return true;
+
+        if (adv_data->flags & ISIS_ADVT_DATA_F_WAIT_LISTED) {
+            isis_wait_list_advt_data_remove (node_info, adv_data);
+        }
+        isis_free_advt_data (adv_data);
+        mnode->data = NULL;
+        mtrie_delete_leaf_node (&node_info->exported_routes, mnode);
+        bitmap_free_internal (&prefix_bm);
+        bitmap_free_internal (&mask_bm);
+        return true;
     }
 
-    rc = isis_withdraw_tlv_advertisement (node, (isis_adv_data_t *)exported_rt_data);
+    rc = isis_withdraw_tlv_advertisement (node_info, adv_data);
 
-    switch(rc) {
+    switch (rc) {
         case ISIS_TLV_WD_SUCCESS:
-            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d is successful\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+                    "%s : UnExporting Route %s is successful\n",
+                    ISIS_EXPOLICY, rt_str);
             res = true;
             break;
         case ISIS_TLV_WD_FRAG_NOT_FOUND:
-           tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, Fragment Not Found\n",ISIS_EXPOLICY, l3route->dest, l3route->mask);
-            break;            
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+                    "%s : UnExporting Route %s failed, Fragment Not Found\n",
+                    ISIS_EXPOLICY, rt_str);
+            break;
         case ISIS_TLV_WD_TLV_NOT_FOUND:
-            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, TLV Not Found\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+                    "%s : UnExporting Route %s failed, TLV Not Found\n",
+                    ISIS_EXPOLICY, rt_str);
             break;
         case ISIS_TLV_WD_FAILED:
-            tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Export Policy : UnExporting Route %s/%d failed, reason Unknown\n", ISIS_EXPOLICY, l3route->dest, l3route->mask);
-            break;            
+            tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+                    "%s : UnExporting Route %s failed, reason Unknown\n",
+                    ISIS_EXPOLICY, rt_str);
+            break;
     }
 
-    bitmap_free_internal(&prefix_bm);
-    bitmap_free_internal(&mask_bm);
     mnode->data = NULL;
-    isis_free_advt_data (exported_rt_data);
-    mtrie_delete_leaf_node ( &node_info->exported_routes, mnode);
+    isis_free_advt_data (adv_data);
+    mtrie_delete_leaf_node (&node_info->exported_routes, mnode);
+
+    bitmap_free_internal (&prefix_bm);
+    bitmap_free_internal (&mask_bm);
     return res;
 }
-
-void
- isis_process_ipv4_route_notif (isis_node_info_t *node_info, l3_route_t *l3route) {
-
-    bool policy_eval_failed;
-    isis_adv_data_t *exported_rt;
-    isis_node_info_t *node_info;
-    isis_advt_tlv_return_code_t rc;
-    
-      tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Recv notif for Route %s/%d with code %d\n",
-        ISIS_EXPOLICY, l3route->dest, l3route->mask, l3route->rt_flags);
-
-    node_info = ISIS_NODE_INFO(node);
-
-    if (!node_info->export_policy) {
-        return;
-    }
-
-    policy_eval_failed = isis_evaluate_policy(node,
-                                 node_info->export_policy,
-                                 tcp_ip_convert_ip_p_to_n(l3route->dest), l3route->mask) != PFX_LST_PERMIT;
-
-    if (policy_eval_failed) {
-
-        isis_unexport_route (node, l3route);
-        return;
-    }
-
-    /* Dont export the deleted route*/
-    if (IS_BIT_SET (l3route->rt_flags, RT_DEL_F)) {
-
-        isis_unexport_route (node, l3route);
-        return;
-    }
-
-    nxthop_proto_id_t nxthop_proto =
-        l3_rt_map_proto_id_to_nxthop_index(IP_PROTO_ISIS);
-
-    /* Reject routes which ISIS already knows */
-    if (l3route->nexthops[nxthop_proto][0]) {
-
-        tracer (ISIS_TR(node_info), TR_ISIS_POLICY, "%s : Route %s/%d already known to ISIS\n",
-            ISIS_EXPOLICY, l3route->dest, l3route->mask);
-        return;
-    }
-
-    rc = isis_export_route (node, l3route);
-
-    if (rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
-        rc == ISIS_TLV_RECORD_ADVT_NO_FRAG) {
-
-        tracer (ISIS_TR(node_info), TR_ISIS_POLICY | TR_ISIS_ERRORS,
-                "%s : Route %s/%d could not be exported, space Exhaustion\n",
-                ISIS_EXPOLICY, l3route->dest, l3route->mask);
-    }
- }
-#endif
-
 
 void
 isis_rtm_route_notif (node_t *node, rt_advert_info_t  *rt_advert) {
 
     char rt_str[48];
-
+    isis_advt_tlv_return_code_t rc;
     isis_node_info_t *node_info = ISIS_NODE_INFO(node);
 
     if (!node_info) return;
+    if (!rt_advert) return;
 
     memset (rt_str, 0, sizeof (rt_str));
+    cmn_prefix_to_string (&rt_advert->route, &rt_str);
 
-    tracer (ISIS_TR(node_info), TR_ISIS_POLICY, 
-        "%s : Recv notif for Route %s with code %s\n", 
-        ISIS_EXPOLICY, 
-        cmn_prefix_to_string (&rt_advert->route, &rt_str),
-        rt_advert->code == 1 ? "Add" : "Del");
+    tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+            "%s : Recv notif for Route %s with code %s\n",
+            ISIS_EXPOLICY, rt_str,
+            rt_advert->code == RTM_CLIENT_RT_ADD ? "Add" : "Del");
 
-    cprintf ("%s : Recv notif for Route %s with code %s\n", 
-        ISIS_EXPOLICY, 
-        cmn_prefix_to_string (&rt_advert->route, &rt_str),
-        rt_advert->code == 1 ? "Add" : "Del");
+    /* Export DB only tracks IPv4 reachability TLVs (TLV 130). */
+    if (rt_advert->route.afi != AF_IPV4) return;
+
+    /* Withdraw on delete notification. */
+    if (rt_advert->code == RTM_CLIENT_RT_DEL) {
+        isis_unexport_route (node_info, &rt_advert->route);
+        return;
+    }
+
+    /* Don't redistribute ISIS-sourced routes back into ISIS. */
+    if (rt_advert->src_proto == RTM_PROTO_ISIS) {
+        tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
+                "%s : Route %s sourced by ISIS, skip\n",
+                ISIS_EXPOLICY, rt_str);
+        return;
+    }
+
+    /* Export-policy check. If no policy is configured treat it as a
+       wildcard permit and export every route. Otherwise, the policy is
+       the authoritative ISIS-side gate. */
+    if (node_info->export_policy &&
+        isis_evaluate_policy (node_info,
+                              node_info->export_policy,
+                              rt_advert->route.u.v4_addr,
+                              rt_advert->route.prefix_len) != PFX_LST_PERMIT) {
+
+        isis_unexport_route (node_info, &rt_advert->route);
+        return;
+    }
+
+    rc = isis_export_route (node_info, &rt_advert->route, rt_advert->out_cost);
+
+    if (rc == ISIS_TLV_RECORD_ADVT_NO_SPACE ||
+        rc == ISIS_TLV_RECORD_ADVT_NO_FRAG) {
+
+        tracer (ISIS_TR(node_info), TR_ISIS_POLICY | TR_ISIS_ERRORS,
+                "%s : Route %s could not be exported, space exhausted\n",
+                ISIS_EXPOLICY, rt_str);
+    }
 }

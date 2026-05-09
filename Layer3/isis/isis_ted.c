@@ -103,7 +103,7 @@ isis_ted_update_or_install_lsp (isis_node_info_t *node_info, ted_db_t *ted_db, i
             isis_tlv_130_t *tlv_130 = (isis_tlv_130_t *)tlv_value;
             ted_prefix_t *ted_prefix = (ted_prefix_t *)XCALLOC2(0, 1, ted_prefix_t);
             ted_prefix->prefix = htonl(tlv_130->prefix);
-            ted_prefix->mask = tcp_ip_convert_bin_mask_to_dmask(tlv_130->mask);
+            ted_prefix->mask = tcp_ip_convert_bin_mask_to_dmask(htonl(tlv_130->mask));
             ted_prefix->metric = htonl(tlv_130->metric);
             ted_prefix->flags = tlv_130->flags;
             ted_prefix->src = lsp_pkt_hdr->fr_no;

@@ -1031,7 +1031,6 @@ rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter) {
     cprintf("Total Routes in Presentation DB: %d\n", total_routes);
 }
 
-
 void
 rtm_show_dist_mgr_database (dist_mgr_t *dist_mgr) {
 
@@ -1075,23 +1074,6 @@ rtm_show_dist_mgr_comm_fmt(uint32_t wc, char *buf, size_t buflen)
     uint32_t lo = wc & 0xFFFFu;
 
     snprintf(buf, buflen, "%u:%u", hi, lo);
-}
-
-/* Lowercase CLI keyword for a redistribution source protocol, matching the
-   tokens accepted by rtm_build_distribution_policy_cli_tree(). */
-static const char *
-rtm_proto_to_cli_keyword(RTM_PROTO_T proto)
-{
-    switch (proto) {
-        case RTM_PROTO_STATIC:    return "static";
-        case RTM_PROTO_CONNECTED: return "connected";
-        case RTM_PROTO_LOCAL:     return "local";
-        case RTM_PROTO_OSPF:      return "ospf";
-        case RTM_PROTO_BGP:       return "bgp";
-        case RTM_PROTO_ISIS:      return "isis";
-        case RTM_PROTO_LDP:       return "ldp";
-        default:                  return "unknown";
-    }
 }
 
 /* Reconstruct the exact "redistribute ..." CLI line that would create

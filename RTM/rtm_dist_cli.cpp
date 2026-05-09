@@ -82,6 +82,26 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
     dist_mgr_t **dist_mgr_out);
 
 
+static void 
+dist_mgr_target_delink (dist_mgr_t *dist_mgr, redist_target_t *target) {
+
+    redist_target_t *curr = dist_mgr->target_lst, *prev = NULL;
+
+    while (curr) {
+
+        if (curr == target) {
+
+            if (prev) prev->next = curr->next;
+            else dist_mgr->target_lst = curr->next;
+            curr->next = NULL;
+            return;
+        }
+        prev = curr;
+        curr = curr->next;
+    }
+    assert(0);
+}
+
 extern int
 rtm_isis_rt_distribution_policy_config_cli_handler(
     int cmdcode,
@@ -101,8 +121,18 @@ rtm_isis_rt_distribution_policy_config_cli_handler(
         redistributed to this target */
     rtm_dist_mgr_refresh_dist_routes_to_target(dist_mgr, target);
     
+    /* If target's rule list is empty, then Queue the target for deletion.
+        Deletion of the target should be done asynchronously (deferred) 
+        through Garbage collector because we need to send DELETE to this 
+        target for all routes we have flashed to it */
+
+    if (!target->rule_list) {
+        dist_mgr_target_delink (dist_mgr, target);
+        rtm_dis_mgr_gc (dist_mgr, target, DIST_MGR_GC_TYPE_TARGET);
+    }
+
     return 0;
-} 
+}
 
 static void 
 rtm_distribution_policy_common_subtree_cli(

@@ -15,6 +15,7 @@
 #include "isis_ted.h"
 #include "isis_cmdcodes.h"
 #include "isis_srv6.h"
+#include "../../RTM/rtm_nb_integ.h"
 
 extern void
 isis_ipv4_rt_notif_cbk (
@@ -1251,7 +1252,9 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     /* Advertise IP REACH TLVs : Exported Routes*/
     if (node_info->export_policy) {
         isis_free_all_exported_rt_advt_data (node_info);
-        //nfc_ipv4_rt_request_flash (node, isis_ipv4_rt_notif_cbk);
+        rtm_dist_mgr_client_request_route_replay (
+            node_info->vrf->node->dist_mgr,
+            RTM_PROTO_ISIS, 0, node_info->vrf->vrf_id);
     }
 
     UNSET_BIT64 (node_info->event_control_flags, ISIS_EVENT_FULL_LSP_REGEN_BIT);

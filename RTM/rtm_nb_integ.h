@@ -223,4 +223,10 @@ void
 rtm_register_rt_distribution_cbk (
         node_t *node, void (*cbk)(node_t *, rt_advert_info_t  *), RTM_PROTO_T proto);
 
+void 
+rtm_dist_mgr_client_request_route_replay (
+        dist_mgr_t *dist_mgr, 
+        RTM_PROTO_T proto, 
+        uint32_t instance_no, uint8_t vrf_id);
+
 #endif 

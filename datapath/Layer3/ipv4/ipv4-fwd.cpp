@@ -118,10 +118,30 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         return;
     }
 
+
     tracer (dp_ctx->dptr, DL3FWD, 
             "VRF %s: Pkt : %s : L3 Route Found\n", 
             vrf->vrf_name, dest_ip_addr);
 
+    /* Handle Rejected/Discarded routes */
+    if (IS_BIT_SET (nh->fwd_info->fwd_flags, FIB_NH_FWD_F_REJECT) ||
+        IS_BIT_SET (nh->fwd_info->fwd_flags, FIB_NH_FWD_F_DISCARD)) {
+
+        tracer (dp_ctx->dptr, DL3FWD, 
+            "VRF %s: Pkt : %s : L3 Route found is Reject/Discard route\n",
+            vrf->vrf_name, dest_ip_addr);
+
+        /* For Reject/Discard route, we do not forward the pkt to next hop.
+           Instead, we drop the pkt after optionally sending ICMP unreachable
+           message back to sender in case of Reject route. */
+
+        tracer (dp_ctx->dptr, DL3FWD, 
+            "VRF %s: Pkt : %s : Dropping pkt as this is a Discard/Reject route\n",
+            vrf->vrf_name, dest_ip_addr);
+        return;
+    }
+    
+    
     /* VPNv4 case : when vrf.inet FIB has SRv6 nexthop 
        Handover to ipv6 forwarding stack ... */
 

@@ -221,20 +221,6 @@ void
 rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
                                  rtm_presentation_data_t *presentation_data);
 
-/* Client APIs */
-uint32_t
-rtm_distribution_manager_client_register (
-        dist_mgr_t *dist_mgr,
-        RTM_PROTO_T target_proto, 
-        uint8_t target_instance_no, 
-        uint16_t target_vrf, 
-        void (*redis_cbk)(node_t *, rt_advert_info_t  *));
-
-void
-rtm_distribution_manager_client_unregister(
-        dist_mgr_t *dist_mgr, 
-        uint32_t target_handle);
-
 void 
 rtm_dist_mgr_refresh_dist_routes_to_target (
         dist_mgr_t *dist_mgr, redist_target_t *target);
