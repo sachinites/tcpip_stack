@@ -38,6 +38,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 #include "libs/common/cmn_prefix.h"
 
 typedef unsigned char byte;

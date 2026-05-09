@@ -198,8 +198,16 @@ vrf_config_handler (int cmdcode,
                         cprintf("Error : VRF already exists\n");
                         return -1;
                     }
+                    
+                    int vrf_id = vrf_alloc_new_vrf_id (node);
+
+                    if (vrf_id < 0) {
+                        cprintf ("Error : Max VRF Reached\n");
+                        return -1;
+                    }
+
                     vrf_t *vrf = (vrf_t *)XCALLOC2(0, 1, vrf_t);
-                    vrf = vrf_init(node, node_get_sequence_no(node), (char *)vrf_name, vrf);
+                    vrf = vrf_init(node, (uint8_t)vrf_id, (char *)vrf_name, vrf);
                     strncpy(temp_str, (const char *)rte_dist, sizeof(temp_str) - 1);
                     colon = (char *)strchr(temp_str, ':');
                     unsigned long v1 = strtoul(temp_str, &endptr, 10);

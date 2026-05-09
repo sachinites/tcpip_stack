@@ -20,7 +20,7 @@ typedef struct srv6_node_info_ srv6_node_info_t ;
 typedef struct srv6_sid_pools_ srv6_sid_pools_t;
 class SRv6EndPointEND_DT4_Egress_Interface;
 
-#define MAX_VRF_PER_NODE    8
+#define MAX_VRF_PER_NODE    32
 
 #pragma pack(push, 8)
 
@@ -99,6 +99,7 @@ vrf_t* vrf_get_by_name (node_t *node, char *name);
 char* vrf_name (node_t *node, uint8_t vrf_id);
 bool node_register_vrf(node_t *node, vrf_t *vrf);
 void show_vrfs(node_t *node);
+int vrf_alloc_new_vrf_id (node_t *node) ;
 
 vrf_t *NODE_DEF_VRF(node_t *node);
 

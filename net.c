@@ -279,6 +279,8 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     node_nw_prop->nve = nullptr;  /* Initialize NVE interface pointer */
 
     node_nw_prop->def_vrf = vrf_def_init(node);
+    node->vrf[0] = (vrf_t *)node_nw_prop->def_vrf;
+
     cp2dp_vrf_create(node, DEF_VRF_NAME, RTM_DEFAULT_VRF);
     node_assign_router_mac (node);
     node_create_vlan_flood_interface(node);

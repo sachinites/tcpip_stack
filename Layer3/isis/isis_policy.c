@@ -5,6 +5,8 @@
 #include "isis_policy.h"
 #include "isis_tlv_struct.h"
 #include "isis_advt.h"
+#include "isis_utils.h"
+#include "../../libs/common/cmn_prefix.h"
 #include "../../RTM/rtm_nb_integ.h"
 
 int
@@ -248,10 +250,12 @@ isis_evaluate_policy (isis_node_info_t *node_info,
 }
 
 void
-isis_prefix_list_change(node_t *node, vrf_t *vrf, prefix_list_t *prefix_list); 
+isis_prefix_list_change(node_t *node, vrf_t *vrf, 
+        uint32_t instance_no, prefix_list_t *prefix_list);
 
 void
-isis_prefix_list_change(node_t *node, vrf_t *vrf, prefix_list_t *prefix_list) {
+isis_prefix_list_change(node_t *node, vrf_t *vrf, 
+        uint32_t instance_no, prefix_list_t *prefix_list) {
 
     if (!isis_is_protocol_enable_on_node(vrf) ||
           isis_is_protocol_shutdown_in_progress(vrf->isis_node_info)) return;
@@ -521,5 +525,22 @@ void
 void
 isis_rtm_route_notif (node_t *node, rt_advert_info_t  *rt_advert) {
 
-    cprintf ("%s() ... called \n", __FUNCTION__);    
+    char rt_str[48];
+
+    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+
+    if (!node_info) return;
+
+    memset (rt_str, 0, sizeof (rt_str));
+
+    tracer (ISIS_TR(node_info), TR_ISIS_POLICY, 
+        "%s : Recv notif for Route %s with code %s\n", 
+        ISIS_EXPOLICY, 
+        cmn_prefix_to_string (&rt_advert->route, &rt_str),
+        rt_advert->code == 1 ? "Add" : "Del");
+
+    cprintf ("%s : Recv notif for Route %s with code %s\n", 
+        ISIS_EXPOLICY, 
+        cmn_prefix_to_string (&rt_advert->route, &rt_str),
+        rt_advert->code == 1 ? "Add" : "Del");
 }

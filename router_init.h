@@ -66,6 +66,7 @@ typedef struct tracer_ tracer_t;
 typedef struct BPlusTree BPlusTree_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct dist_mgr_ dist_mgr_t;
+typedef struct prefix_lst_client_ prefix_lst_client_t;
 
 struct node_ {
 
@@ -127,6 +128,8 @@ struct node_ {
     std::unordered_map<uint32_t, InterfaceP> *intf_by_ifindex;    
     /*bitmap_t for bounded ifindex generation*/
     bitmap_t if_index_bm;
+    /* Prefix list client for updates */
+    std::vector<prefix_lst_client_t *> prefix_lst_clients;
 
     glthread_t graph_glue;
     /* Random Number Generator*/

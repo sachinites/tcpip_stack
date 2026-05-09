@@ -19,6 +19,8 @@ void rtm_show_unresolvable_routes(rtm_t *rtm);
 void rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter);
 void rtm_show_dist_mgr_database (dist_mgr_t *dist_mgr);
 void rtm_show_dist_mgr_policies (dist_mgr_t *dist_mgr);
+void rtm_show_dist_mgr_targets (dist_mgr_t *dist_mgr, 
+        char *vrf_name, char *proto_name, uint32_t instance_no);
 
 #ifdef __cplusplus
 }

@@ -28,6 +28,7 @@ typedef struct rt_advert_info_ {
 
     /* Meta info*/
     RTM_PROTO_T src_proto;
+    uint8_t src_vrf_id;
 
     /* Output info*/
     uint32_t out_cost;       /* redistribute static cost 1000 */
@@ -36,7 +37,7 @@ typedef struct rt_advert_info_ {
 
     uint64_t Cnhidx;
 
-    bool is_delete;
+    RTM_RT_CLIENT_CODE_T code;
 
     glthread_t redis_glue;
 

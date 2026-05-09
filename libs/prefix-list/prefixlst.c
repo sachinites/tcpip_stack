@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <arpa/inet.h>
 #include "LinuxMemoryManager/uapi_mm.h"
 #include "../prefix-list/prefixlst.h"
 
+extern int (*stdlib_printf)(const char *format, ...);
 
 prefix_list_t *
 prefix_lst_lookup_by_name (pfxlst_db *pfxlstdb, unsigned char *pfxlst_name) {
@@ -57,6 +59,24 @@ prefix_lst_node_comp_fn (void *arg1, void *arg2) {
     return  new_node->seq_no - existing_node->seq_no;
 }
 
+pfx_lst_node_t *
+prefix_list_lookup_by_seq_no (prefix_list_t *prefix_lst, uint32_t seq_no) {
+
+    glthread_t *curr;
+    pfx_lst_node_t *pfx_lst_node;
+
+    if (!prefix_lst || seq_no == 0) return NULL;
+
+    ITERATE_GLTHREAD_BEGIN(&prefix_lst->pfx_lst_head, curr) {
+
+        pfx_lst_node = glue_to_pfx_lst_node(curr);
+        if (pfx_lst_node->seq_no == seq_no) return pfx_lst_node;
+
+    } ITERATE_GLTHREAD_END(&prefix_lst->pfx_lst_head, curr);
+
+    return NULL;
+}
+
 bool
 prefix_list_add_rule (prefix_list_t *prefix_lst,
                                    uint32_t seq_no,
@@ -68,6 +88,13 @@ prefix_list_add_rule (prefix_list_t *prefix_lst,
 
     pfx_lst_node_t *pfx_lst_node;
     pfx_lst_node_t *pfx_lst_node_existing;
+
+    /* seq_no must be unique within a prefix-list so that operations keyed
+       on seq_no (delete, show) target exactly one rule. seq_no == 0 means
+       "auto-assign" and is handled below. */
+    if (seq_no && prefix_list_lookup_by_seq_no(prefix_lst, seq_no)) {
+        return false;
+    }
 
     pfx_lst_node = (pfx_lst_node_t *)calloc( 1, sizeof(pfx_lst_node_t));
     pfx_lst_node->pfx = prefix;
@@ -81,7 +108,7 @@ prefix_list_add_rule (prefix_list_t *prefix_lst,
     if (pfx_lst_node_existing) {
         free(pfx_lst_node);
         pfx_lst_node = NULL;
-        //cprintf ("Error : This Prefix list rule already exists\n");
+        //stdlib_printf ("Error : This Prefix list rule already exists\n");
         return false;
     }
 
@@ -121,17 +148,17 @@ print_pfx_lst_node ( prefix_list_t *prefix_lst, pfx_lst_node_t *pfx_lst_node) {
 
     unsigned char out_buff[16];
 
-#if 0
-    cprintf ("prefix-list %s %s %u %s/%d ge %d le %d (hit-count = %lu)\n",  
+    uint32_t ip_addr_int = htonl(pfx_lst_node->pfx);
+
+    stdlib_printf ("prefix-list %s %s %u %s/%d ge %d le %d (hit-count = %lu)\n",  
         prefix_lst->name,
         pfx_lst_node->res == PFX_LST_DENY ? "deny" : "permit",
         pfx_lst_node->seq_no,
-        tcp_ip_covert_ip_n_to_p(pfx_lst_node->pfx,  out_buff),
+        inet_ntop(AF_INET, &ip_addr_int, (char *)out_buff, 16),
         pfx_lst_node->pfx_len,
         pfx_lst_node->lb,
         pfx_lst_node->ub,
         pfx_lst_node->hit_count);
-#endif
 }
 
 

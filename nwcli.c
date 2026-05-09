@@ -99,6 +99,7 @@ extern int validate_vrf_existence(Stack_t *tlv_stack, unsigned char *leaf_value)
 extern void display_cbk_all_vrfs(param_t *param, Stack_t *tlv_stack) ;
 extern int rtm_show_dist_mgr_database_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int rtm_show_dist_mgr_policies_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int rtm_show_dist_mgr_targets_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 
 static int
 display_mem_usage(int cmdcode, Stack_t *tlv_stack,
@@ -1192,6 +1193,41 @@ nw_init_cli(){
                                        0, "Show distribution manager redistribution targets and rules");
                             libcli_register_param(&rtm, &dist_mgr_policies);
                             libcli_set_param_cmd_code(&dist_mgr_policies, CMDCODE_SHOW_NODE_RTM_DIST_MGR_POLICIES);
+                        }
+                        {
+                            /* show node <node-name> rtm dist-mgr-target <proto-name> [<vrf-name> [<instance-no>]] */
+                            static param_t dist_mgr_target;
+                            init_param(&dist_mgr_target, CMD, "dist-mgr-target", 0, 0, INVALID, 0,
+                                       "Show routes advertised to a redistribution target");
+                            libcli_register_param(&rtm, &dist_mgr_target);
+                            {
+                                /* show node <node-name> rtm dist-mgr-target <proto-name> */
+                                static param_t proto_name;
+                                init_param(&proto_name, LEAF, 0, rtm_show_dist_mgr_targets_handler,
+                                           0, STRING, "proto-name",
+                                           "Target protocol name (e.g. ospf, isis, bgp)");
+                                libcli_register_param(&dist_mgr_target, &proto_name);
+                                libcli_set_param_cmd_code(&proto_name, CMDCODE_SHOW_NODE_RTM_DIST_MGR_TARGETS);
+                                {
+                                    /* show node <node-name> rtm dist-mgr-target <proto-name> <vrf-name> */
+                                    static param_t vrf_name;
+                                    init_param(&vrf_name, LEAF, 0, rtm_show_dist_mgr_targets_handler,
+                                               validate_vrf_existence, STRING, "vrf-name",
+                                               "Optional: target VRF name (default VRF if omitted)");
+                                    libcli_register_display_callback(&vrf_name, display_cbk_all_vrfs);
+                                    libcli_register_param(&proto_name, &vrf_name);
+                                    libcli_set_param_cmd_code(&vrf_name, CMDCODE_SHOW_NODE_RTM_DIST_MGR_TARGETS);
+                                    {
+                                        /* show node <node-name> rtm dist-mgr-target <proto-name> <vrf-name> <instance-no> */
+                                        static param_t instance_no;
+                                        init_param(&instance_no, LEAF, 0, rtm_show_dist_mgr_targets_handler,
+                                                   0, INT, "instance-no",
+                                                   "Optional: target protocol instance number (default 0)");
+                                        libcli_register_param(&vrf_name, &instance_no);
+                                        libcli_set_param_cmd_code(&instance_no, CMDCODE_SHOW_NODE_RTM_DIST_MGR_TARGETS);
+                                    }
+                                }
+                            }
                         }
 
                          /*show node <node-name> rtm <Rib name> */

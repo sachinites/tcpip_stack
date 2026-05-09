@@ -128,4 +128,11 @@ RSHIFT (uint32_t N, uint16_t n) {
     else return (0);
 }
 
+static inline uint32_t 
+bitmap_next_32_divisible_integer(uint32_t input) {
+
+    if (input % 32 == 0) return input;
+    return ((input / 32) + 1) * 32;
+}
+
 #endif 

@@ -54,6 +54,7 @@ static void isis_rt_dist_handler(node_t *node, rt_advert_info_t *rt_advert)
 }
 
 void (*RT_DIST_HANDLERS[])(node_t *, rt_advert_info_t *) = {
+
     static_rt_dist_handler,
     connected_rt_dist_handler,
     local_rt_dist_handler,
@@ -66,17 +67,19 @@ void (*RT_DIST_HANDLERS[])(node_t *, rt_advert_info_t *) = {
 
 /* Per-file command codes for redistribution policy CLI */
 #define CMDCODE_RTM_REDIST_CONNECTED  1
-#define CMDCODE_RTM_REDIST_STATIC     2
-#define CMDCODE_RTM_REDIST_BGP        3
-#define CMDCODE_RTM_REDIST_OSPF       4
-#define CMDCODE_RTM_REDIST_ISIS       5
+#define CMDCODE_RTM_REDIST_LOCAL      2
+#define CMDCODE_RTM_REDIST_STATIC     3
+#define CMDCODE_RTM_REDIST_BGP        4
+#define CMDCODE_RTM_REDIST_OSPF       5
+#define CMDCODE_RTM_REDIST_ISIS       6
 
-void
+redist_target_t *
 rtm_protocol_rt_distribution_policy_config_cli_handler(
     RTM_PROTO_T proto,
     int cmdcode,
     Stack_t *tlv_stack,
-    op_mode enable_or_disable);
+    op_mode enable_or_disable,
+    dist_mgr_t **dist_mgr_out);
 
 
 extern int
@@ -85,9 +88,19 @@ rtm_isis_rt_distribution_policy_config_cli_handler(
     Stack_t *tlv_stack,
     op_mode enable_or_disable) {
 
-    rtm_protocol_rt_distribution_policy_config_cli_handler(
-            RTM_PROTO_ISIS, cmdcode, tlv_stack, enable_or_disable);
+    dist_mgr_t *dist_mgr = NULL;
 
+    redist_target_t *target = rtm_protocol_rt_distribution_policy_config_cli_handler(
+                    RTM_PROTO_ISIS, 
+                    cmdcode, 
+                    tlv_stack, enable_or_disable, &dist_mgr);
+
+    if (!target) return -1;
+
+    /* Invoke redistribution callback for all routes currently 
+        redistributed to this target */
+    rtm_dist_mgr_refresh_dist_routes_to_target(dist_mgr, target);
+    
     return 0;
 } 
 
@@ -164,6 +177,17 @@ rtm_build_distribution_policy_cli_tree(param_t *mount_point,
         rtm_distribution_policy_common_subtree_cli (connected, CMDCODE_RTM_REDIST_CONNECTED, cbk);
     }
 
+    if (exempt_proto != RTM_PROTO_CONNECTED)
+    {
+        param_t *local = (param_t *)calloc(1, sizeof (param_t));
+        init_param(local, CMD, "local", cbk, 0, INVALID, 0,
+            "Redistribute local routes");
+        libcli_register_param(redistribute, local);
+        libcli_set_param_cmd_code(local, CMDCODE_RTM_REDIST_LOCAL);
+        libcli_disable_batch_processing(local);
+        rtm_distribution_policy_common_subtree_cli (local, CMDCODE_RTM_REDIST_LOCAL, cbk);
+    }    
+
     if (exempt_proto != RTM_PROTO_STATIC)
     {
         param_t *static_rt = (param_t *)calloc(1, sizeof (param_t));
@@ -216,6 +240,8 @@ rtm_redist_cmdcode_to_src_proto(int cmdcode)
     switch (cmdcode) {
     case CMDCODE_RTM_REDIST_CONNECTED:
         return RTM_PROTO_CONNECTED;
+    case CMDCODE_RTM_REDIST_LOCAL:
+        return RTM_PROTO_LOCAL;        
     case CMDCODE_RTM_REDIST_STATIC:
         return RTM_PROTO_STATIC;
     case CMDCODE_RTM_REDIST_BGP:
@@ -239,14 +265,25 @@ redist_target_find(
     redist_target_t *t;
 
     for (t = dm->target_lst; t; t = t->next) {
-        if (t->dst_proto == dst_proto && t->dst_instance_no == dst_inst
-            && t->dst_vrf == dst_vrf)
+        if (t->proto == dst_proto && t->instance_no == dst_inst
+            && t->vrf == dst_vrf)
             return t;
     }
     return NULL;
 }
 
-static uint32_t g_redist_next_target_handle = 1;
+static int
+rt_advertised_node_tree_comp_fn(
+    const avltree_node_t *node1,
+    const avltree_node_t *node2)
+{
+    rt_advertised_node_t *rt1 = avltree_container_of (node1, rt_advertised_node_t, glue);
+    rt_advertised_node_t *rt2 = avltree_container_of (node2, rt_advertised_node_t, glue);
+
+    if ((uintptr_t)rt1->dist_rt < (uintptr_t)rt2->dist_rt) return 1;
+    if ((uintptr_t)rt1->dist_rt > (uintptr_t)rt2->dist_rt) return -1;
+    return 0;
+}
 
 static redist_target_t *
 redist_target_get_or_create(
@@ -257,18 +294,15 @@ redist_target_get_or_create(
 {
     redist_target_t *t = redist_target_find(dm, dst_proto, dst_inst, dst_vrf);
 
-    if (t)
-        return t;
+    if (t) return t;
 
     t = (redist_target_t *)XCALLOC2(0, 1, redist_target_t);
-    t->dst_proto = dst_proto;
-    t->dst_instance_no = dst_inst;
-    t->dst_vrf = dst_vrf;
-    t->target_handle = g_redist_next_target_handle++;
-    if ((unsigned)dst_proto < (unsigned)RTM_PROTO_MAX)
-        t->redis_cbk = RT_DIST_HANDLERS[dst_proto];
+    t->proto = dst_proto;
+    t->instance_no = dst_inst;
+    t->vrf = dst_vrf;
     init_Fglthread(&t->client_redis_queue);
     t->client_flash_job = NULL;
+    avltree_init(&t->rt_advertised, rt_advertised_node_tree_comp_fn);
     t->rule_list = NULL;
     t->next = dm->target_lst;
     dm->target_lst = t;
@@ -301,33 +335,48 @@ dist_rule_list_remove(redist_target_t *target, dist_rule_t *rule)
     return false;
 }
 
+/* Find the rule on `target` whose every identity attribute matches `key`.
+   Compares all dist_rule_t fields that define the rule (source identity,
+   filter, action). The list-linkage `next` and the back-pointer
+   `owning_target` are intentionally excluded from the match. */
 static dist_rule_t *
-dist_rule_find(
-    redist_target_t *target,
-    RTM_PROTO_T src_proto,
-    prefix_list_t *pfx_lst,
-    uint32_t out_cost)
+dist_rule_find(redist_target_t *target, const dist_rule_t *key)
 {
     dist_rule_t *r;
 
     for (r = target->rule_list; r; r = r->next) {
-        if (r->src_proto == src_proto && r->src_sub_proto == RTM_SUB_PROTO_NA
-            && r->src_instance_no == 0 && r->pfx_lst == pfx_lst
-            && r->out_cost == out_cost)
-            return r;
+
+        /* Source identity */
+        if (r->src_proto       != key->src_proto)       continue;
+        if (r->src_sub_proto   != key->src_sub_proto)   continue;
+        if (r->src_vrf_id      != key->src_vrf_id)      continue;
+        if (r->src_instance_no != key->src_instance_no) continue;
+
+        /* Filter */
+        if (r->pfx_lst         != key->pfx_lst)         continue;
+
+        /* Action */
+        if (r->out_cost        != key->out_cost)        continue;
+        if (r->out_tag         != key->out_tag)         continue;
+        if (r->out_community   != key->out_community)   continue;
+
+        return r;
     }
     return NULL;
 }
 
 /* Generic Route policy function handler for all protocols */
-void
+redist_target_t *
 rtm_protocol_rt_distribution_policy_config_cli_handler(
-    RTM_PROTO_T proto,
+
+    RTM_PROTO_T target_proto,
     int cmdcode,
     Stack_t *tlv_stack,
-    op_mode enable_or_disable)
+    op_mode enable_or_disable,
+    dist_mgr_t **dist_mgr_out)
 {
     tlv_struct_t *tlv;
+    dist_rule_t *rule;
     c_string node_name = NULL;
     c_string vrf_name = NULL;
     c_string pfx_lst_name = NULL;
@@ -341,39 +390,26 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
             vrf_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "pfx-lst-name"))
             pfx_lst_name = tlv->value;
-        else if (parser_match_leaf_id(tlv->leaf_id, "metric-val") ||
-                 parser_match_leaf_id(tlv->leaf_id, "n"))
+        else if (parser_match_leaf_id(tlv->leaf_id, "metric-val"))
             metric_str = (const char *)tlv->value;
     }
     TLV_LOOP_END;
-
-    if (!node_name)
-        return;
 
     RTM_PROTO_T src_proto = rtm_redist_cmdcode_to_src_proto(cmdcode);
 
     if (src_proto >= RTM_PROTO_MAX) {
         cprintf("Error: unknown redistribute source for command\n");
-        return;
+        return NULL;
     }
 
     node_t *node = node_get_node_by_name(topo, node_name);
-
-    if (!node) {
-        cprintf("Error: node not found\n");
-        return;
-    }
-
-    if (!node->dist_mgr) {
-        cprintf("Error: route distribution manager is not initialized\n");
-        return;
-    }
-
     vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
+
+    *dist_mgr_out = node->dist_mgr;
 
     if (!vrf) {
         cprintf("Error: VRF not found\n");
-        return;
+        return NULL;
     }
 
     uint32_t metric_u = 0;
@@ -388,53 +424,74 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
             &node->prefix_lst_db, (unsigned char *)pfx_lst_name);
         if (!pfx_lst) {
             cprintf("Error: prefix-list does not exist\n");
-            return;
+            return NULL;
         }
     }
 
+    /* Build a single rule template that fully describes this CLI invocation.
+       It is used for the existence/duplicate lookups below and, in the
+       CONFIG_ENABLE path, as the prototype for the new rule allocation.
+       Adding a new attribute to dist_rule_t will only require initializing
+       it here. */
+    dist_rule_t key;
+    memset(&key, 0, sizeof(key));
+    key.src_proto       = src_proto;
+    key.src_sub_proto   = RTM_SUB_PROTO_NA;
+    key.src_instance_no = 0;
+    key.src_vrf_id      = vrf->vrf_id;
+    key.pfx_lst         = pfx_lst;
+    key.out_cost        = metric_u;
+    key.out_tag         = 0;
+    key.out_community   = 0;
+
+    redist_target_t *target =
+        redist_target_find(node->dist_mgr, target_proto, 0, vrf->vrf_id);
+
     if (enable_or_disable == CONFIG_DISABLE) {
-        redist_target_t *target =
-            redist_target_find(node->dist_mgr, proto, 0, vrf->vrf_id);
 
         if (!target) {
-            cprintf("Error: target not found\n");
-            return;
+            cprintf("Error: target protocol not found\n");
+            return NULL;
         }
 
-        dist_rule_t *rule =
-            dist_rule_find(target, src_proto, pfx_lst, metric_u);
+        rule = dist_rule_find(target, &key);
 
-        if (!rule)
-            return;
+        if (!rule) {
+            cprintf("Error: rule not found\n");
+            return NULL;
+        }
 
         dist_rule_list_remove(target, rule);
-        if (rule->pfx_lst)
-            prefix_list_dereference(rule->pfx_lst);
+
+        if (rule->pfx_lst) prefix_list_dereference(rule->pfx_lst);
+
         XFREE(rule);
-        return;
+        return target;
     }
 
     /* CONFIG_ENABLE */
-    redist_target_t *target = redist_target_get_or_create(
-        node->dist_mgr, proto, 0, vrf->vrf_id);
 
-    if (dist_rule_find(target, src_proto, pfx_lst, metric_u))
-        return;
+    if (target && dist_rule_find(target, &key)) {
+        //cprintf("Error: same rule already exists\n");
+        return NULL;
+    }
 
-    dist_rule_t *rule = (dist_rule_t *)XCALLOC2(0, 1, dist_rule_t);
+    if (!target) {
 
-    rule->src_proto = src_proto;
-    rule->src_sub_proto = RTM_SUB_PROTO_NA;
-    rule->src_instance_no = 0;
-    rule->out_cost = metric_u;
-    rule->out_tag = 0;
-    rule->out_community = 0;
-    rule->pfx_lst = pfx_lst;
+        target = redist_target_get_or_create(
+            node->dist_mgr, target_proto, 0, vrf->vrf_id);
+    }
 
-    if (pfx_lst)
-        prefix_list_reference(pfx_lst);
-
+    /* Materialize the rule from the template. memcpy preserves every
+       identity field that was matched above, so the lookup and the
+       allocation can never drift apart. */
+    rule = (dist_rule_t *)XCALLOC2(0, 1, dist_rule_t);
+    memcpy(rule, &key, sizeof(*rule));
+    rule->next = NULL;
+    rule->owning_target = target;
+    if (rule->pfx_lst) prefix_list_reference(rule->pfx_lst);
     dist_rule_list_append(target, rule);
+    return rule->owning_target;
 }
 
 

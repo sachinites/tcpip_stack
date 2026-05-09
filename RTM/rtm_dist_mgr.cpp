@@ -5,6 +5,7 @@
 
 #include "../router_init.h"
 #include "../libs/prefix-list/prefixlst.h"
+#include "../net.h"
 #include "rtm_dist_mgr.h"
 #include "rtm_presentation.h"
 #include "rtm_priv_api.h"
@@ -138,10 +139,53 @@ rt_redist_route_dereference (dist_mgr_t *dist_mgr, rt_redist_route_t *redis_rt) 
 
     rtm_nh_proto_dereference(rtm, redis_rt->nh_proto);
     redis_rt->nh_proto = NULL;
+
+    bitmap_free_internal (&redis_rt->client_advert_tracker.proto_bitmap);
+    bitmap_free_internal (&redis_rt->client_advert_tracker.vrf_id);
+    bitmap_free_internal (&redis_rt->client_advert_tracker.instance_no);
+    
     rtm_dist_mgr_check_and_delete (redis_rt);    
 
     return 0;
 }   
+
+void 
+rtm_redist_target_record_rt_advertisement 
+    (dist_mgr_t *dist_mgr, 
+    redist_target_t *target, 
+    rt_redist_route_t *dist_rt, bool add) {
+
+    rt_advertised_node_t *node;
+
+    if (add) {    
+        node = (rt_advertised_node_t *)XCALLOC2(0, 1, rt_advertised_node_t);
+        avltree_node_init (&node->glue);
+        node->dist_rt = dist_rt;
+        rt_redist_route_reference(dist_rt);
+        assert(!avltree_insert(&node->glue, &target->rt_advertised));
+        bitmap_set_bit_at (&dist_rt->client_advert_tracker.proto_bitmap, target->proto);
+        bitmap_set_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf);
+        bitmap_set_bit_at (&dist_rt->client_advert_tracker.instance_no, target->instance_no);
+        return;
+    }
+
+    rt_advertised_node_t tmplate;
+    avltree_node_init (&tmplate.glue);
+    tmplate.dist_rt = dist_rt;
+
+    avltree_node_t *avl_node = avltree_lookup (&tmplate.glue, &target->rt_advertised);
+    assert (avl_node);
+
+    node = avltree_container_of(avl_node, rt_advertised_node_t, glue);
+    assert(avltree_remove (&node->glue, &target->rt_advertised));
+    assert(node->dist_rt == dist_rt);
+
+    node->dist_rt = NULL;
+    bitmap_unset_bit_at (&dist_rt->client_advert_tracker.proto_bitmap, target->proto);
+    bitmap_unset_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf);
+    bitmap_unset_bit_at (&dist_rt->client_advert_tracker.instance_no, target->instance_no);
+    rt_redist_route_dereference(dist_mgr, dist_rt);
+}
 
 void 
 rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
@@ -183,10 +227,14 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
             redis_rt->nh_proto = presentation_data->rtm_nh_proto;
             rtm_nh_proto_reference(redis_rt->nh_proto);
 
+            init_glthread (&redis_rt->redis_glue);
+            redis_rt->is_deleted = false;
             redis_rt->ref_count = 0;
 
-            init_glthread (&redis_rt->redis_glue);
-
+            bitmap_init(&redis_rt->client_advert_tracker.proto_bitmap, bitmap_next_32_divisible_integer((uint16_t)RTM_PROTO_MAX));
+            bitmap_init(&redis_rt->client_advert_tracker.vrf_id, bitmap_next_32_divisible_integer((uint16_t)MAX_VRF_PER_NODE));
+            bitmap_init(&redis_rt->client_advert_tracker.instance_no, bitmap_next_32_divisible_integer(32));
+            
             avl_node = avltree_insert (&redis_rt->nhidx_glue, &dist_mgr->nhidx_tree);
 
             /* Insertion must succeed */
@@ -336,11 +384,8 @@ dist_mgr_redistrbution_job_cbk(
     dist_mgr->redis_task = NULL;
 
     while ((curr = dequeue_glthread_first(&dist_mgr->redis_queue.head))) {
-
         dist_rt = rt_redist_route_redis_glue_to_rt(curr);
-
         rtm_dist_mgr_distribute_route_to_target_clients (dist_mgr, dist_rt);
-        remove_Fglthread(&dist_mgr->redis_queue, curr);
         rt_redist_route_dereference(dist_mgr, dist_rt);
     }
 }
@@ -388,6 +433,8 @@ rtm_dist_mgr_rule_source_matches (dist_rule_t *rule, rtm_nh_proto_t *nh_proto) {
 
     if ((uint32_t)rule->src_instance_no != nh_proto->instance_no) return false;
 
+    if (rule->src_vrf_id != nh_proto->vrf_id) return false;
+    
     return true;
 }
 
@@ -406,63 +453,385 @@ rtm_dist_mgr_rule_filter_permits (dist_rule_t *rule, cmn_prefix_t *prefix) {
                                  rule->pfx_lst) == PFX_LST_PERMIT;
 }
 
-void 
-rtm_dist_mgr_distribute_route_to_target_clients 
-    (dist_mgr_t *dist_mgr, rt_redist_route_t *dist_rt) {
-
-    redist_target_t *target;
+/* First rule on this target that permits redistribution of dist_rt (VRF + policy). */
+static bool
+rtm_dist_mgr_target_first_permitting_rule(
+    redist_target_t *target,
+    rt_redist_route_t *dist_rt,
+    dist_rule_t **rule_out)
+{
     dist_rule_t *rule;
+
+    if (rule_out)
+        *rule_out = NULL;
+
+    if (dist_rt->is_deleted)
+        return false;
+
+    for (rule = target->rule_list; rule; rule = rule->next) {
+
+        if (!rtm_dist_mgr_rule_source_matches(rule, dist_rt->nh_proto))
+            continue;
+        if (!rtm_dist_mgr_rule_filter_permits(rule, &dist_rt->prefix))
+            continue;
+        if (rule_out)
+            *rule_out = rule;
+        return true;
+    }
+    return false;
+}
+
+static inline void
+rtm_dist_mgr_advert_fill_from_route(
+    rt_advert_info_t *advert_info,
+    rt_redist_route_t *dist_rt)
+{
+    memset(advert_info, 0, sizeof(*advert_info));
+    memcpy(&advert_info->route, &dist_rt->prefix, sizeof(advert_info->route));
+    advert_info->src_proto = dist_rt->nh_proto->proto;
+    advert_info->src_vrf_id = dist_rt->nh_proto->vrf_id;
+    advert_info->Cnhidx = dist_rt->Cnhidx;
+}
+
+extern void (*RT_DIST_HANDLERS[])(node_t *, rt_advert_info_t  *);
+
+static void 
+target_redis_cbk (
+        event_dispatcher_t *ev_dis, 
+        void *arg, uint32_t arg_size) {
+
+    redist_target_t *target = (redist_target_t *)arg;
+    glthread_t *curr;
+    rt_advert_info_t *advert_info;
+
+    target->client_flash_job = NULL;
+    node_t *node = (node_t *)ev_dis->app_data;
+
+    while ((curr = dequeue_glthread_first(&target->client_redis_queue.head))) {
+
+        advert_info = redis_glue_to_rt_advert_info(curr);
+        RT_DIST_HANDLERS[target->proto](node, advert_info);
+        XFREE(advert_info);
+    }
+}
+
+static inline void
+rtm_dist_mgr_schedule_rt_advert_info_to_target (
+                dist_mgr_t *dist_mgr, 
+                redist_target_t *target, 
+                rt_advert_info_t *advert_info) {
+
+    Fglthread_add_last (&target->client_redis_queue,
+                        &advert_info->redis_glue);
+
+    if (target->client_flash_job) return;
+
+    target->client_flash_job = task_create_new_job (EV(dist_mgr->node), 
+                                    (void *)target, 
+                                    target_redis_cbk,
+                                    TASK_ONE_SHOT, 
+                                    TASK_PRIORITY_COMPUTE);
+}
+
+void rtm_dist_mgr_distribute_route_to_target_clients(
+            dist_mgr_t *dist_mgr, 
+            rt_redist_route_t *dist_rt)
+{
     char rt_str[48];
+    dist_rule_t *rule;
+    redist_target_t *target;
+    rt_advert_info_t advert_tmplate;
+    rt_advert_info_t *advert_info;
+
+    /* Build route-derived advertisement template once; per-rule action fields
+       are applied on cloned objects before queuing to targets. */
+    rtm_dist_mgr_advert_fill_from_route(&advert_tmplate, dist_rt);
+
+    /* This route has been deleted , withdraw it from all targets */
+    if (dist_rt->is_deleted)
+    {
+        /* IF the route is deleted, withdraw it from all clientd we advertised it before */
+        for (target = dist_mgr->target_lst; target; target = target->next)
+        {
+            if (redist_route_is_advertised_to_client(dist_rt, target))
+            {
+                advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
+                memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
+                init_glthread(&advert_info->redis_glue);
+                advert_info->code = RTM_CLIENT_RT_DEL;
+
+                tracer(dist_mgr->node->cptr, DREDIS_DET,
+                       "REDIS-MGR : Withdraw %s from target proto %s instance %u vrf %u\n",
+                       rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
+                       rtm_proto_to_string(target->proto),
+                       target->instance_no,
+                       target->vrf);
+
+                rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
+                rtm_redist_target_record_rt_advertisement (dist_mgr, target, dist_rt, false);
+            }
+        }
+
+        return;
+    }
 
     /* 1. For all Target clients TC */
-    for (target = dist_mgr->target_lst; target; target = target->next) {
-
-        /* Honor the target's VRF scope: only advertise routes from the
-           same VRF the client registered for */
-        if (target->dst_vrf != dist_rt->nh_proto->vrf_id) continue;
+    for (target = dist_mgr->target_lst; target; target = target->next)
+    {
+        
+        bool policy_permits = false;
 
         /* 2. For all Rules in TC */
-        for (rule = target->rule_list; rule; rule = rule->next) {
+        for (rule = target->rule_list; rule; rule = rule->next)
+        {
 
             /* 3/4. Filter check : source protocol + prefix-list */
-            if (!rtm_dist_mgr_rule_source_matches (rule, dist_rt->nh_proto)) continue;
+            if (!rtm_dist_mgr_rule_source_matches(rule, dist_rt->nh_proto)) continue;
 
-            if (!rtm_dist_mgr_rule_filter_permits (rule, &dist_rt->prefix)) continue;
+            /* Policy permits this Route*/
+            if (rtm_dist_mgr_rule_filter_permits(rule, &dist_rt->prefix))
+            {
 
-            /* 5. Build advertisement and queue it for the target */
-            rt_advert_info_t *advert_info =
-                (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
+                policy_permits = true;
 
-            memcpy (&advert_info->route, &dist_rt->prefix, sizeof (advert_info->route));
-            advert_info->src_proto    = dist_rt->nh_proto->proto;
-            advert_info->out_cost     = rule->out_cost;
-            advert_info->out_tag      = rule->out_tag;
+                /* Skip if this route already advertised */
+                if (redist_route_is_advertised_to_client(dist_rt, target)) {
+
+                    tracer(dist_mgr->node->cptr, DREDIS_DET,
+                           "REDIS-MGR : Route %s already advertised to target proto %s instance %u vrf %u, skip re-advertisement\n",
+                           rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
+                           rtm_proto_to_string(target->proto),
+                           target->instance_no,
+                           target->vrf);
+                    break;
+                }
+
+                /* 5. Clone base advertisement, apply rule action and queue by pointer */
+                advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
+                memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
+                advert_info->out_cost = rule->out_cost;
+                advert_info->out_tag = rule->out_tag;
+                advert_info->out_community = rule->out_community;
+                advert_info->code = RTM_CLIENT_RT_ADD;
+                init_glthread(&advert_info->redis_glue);
+
+                tracer(dist_mgr->node->cptr, DREDIS_DET,
+                       "REDIS-MGR : Advertise %s to target proto %s instance %u vrf %u\n",
+                       rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
+                       rtm_proto_to_string(target->proto),
+                       target->instance_no,
+                       target->vrf);
+
+                rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
+                rtm_redist_target_record_rt_advertisement(dist_mgr, target, dist_rt, true);
+                break;
+            }
+
+            else
+            {
+
+                // goto next rule without breaking out of the loop to check if any other rule permits this route for this target
+                continue;
+            }
+        } // rule loop ends
+
+        /* If none of the rule permits, and if the route is already advertised, withdraw it */
+        if (!policy_permits &&
+            (redist_route_is_advertised_to_client(dist_rt, target)))
+        {
+            advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
+            memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
+            init_glthread(&advert_info->redis_glue);
+            advert_info->code = RTM_CLIENT_RT_DEL;
+
+            tracer(dist_mgr->node->cptr, DREDIS_DET,
+                   "REDIS-MGR : Withdraw %s from target proto %s instance %u vrf %u\n",
+                   rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
+                   rtm_proto_to_string(target->proto),
+                   target->instance_no,
+                   target->vrf);
+
+            rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
+            rtm_redist_target_record_rt_advertisement(dist_mgr, target, dist_rt, false);
+        }
+
+    } // target loop ends 
+}
+
+/* This fn is called when route distribution Rule is added/deleted 
+    under a protocol */
+void
+rtm_dist_mgr_refresh_dist_routes_to_target(
+                        dist_mgr_t *dist_mgr,
+                        redist_target_t *target)
+{
+    avltree_node_t *avl_node;
+    rt_redist_route_t *dist_rt;
+    dist_rule_t *rule;
+    rt_advert_info_t advert_tmplate;
+    rt_advert_info_t *advert_info;
+    char rt_str[48];
+    bool should_advert;
+    bool is_advertised;
+
+    ITERATE_AVL_TREE_BEGIN(&dist_mgr->nhidx_tree, avl_node)
+    {
+        dist_rt = avltree_container_of(avl_node, rt_redist_route_t, nhidx_glue);
+        should_advert =
+            rtm_dist_mgr_target_first_permitting_rule(target, dist_rt, &rule);
+        is_advertised = redist_route_is_advertised_to_client(dist_rt, target);
+
+        if (is_advertised && !should_advert) {
+
+            rtm_dist_mgr_advert_fill_from_route(&advert_tmplate, dist_rt);
+            advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
+            memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
+            init_glthread(&advert_info->redis_glue);
+            advert_info->code = RTM_CLIENT_RT_DEL;
+
+            tracer(dist_mgr->node->cptr, DREDIS_DET,
+                   "REDIS-MGR : Policy flash withdraw %s from target proto %s instance %u vrf %u\n",
+                   rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
+                   rtm_proto_to_string(target->proto),
+                   target->instance_no,
+                   target->vrf);
+
+            rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
+            rtm_redist_target_record_rt_advertisement (dist_mgr, target, dist_rt, false);
+        }
+        else if (!is_advertised && should_advert) {
+
+            rtm_dist_mgr_advert_fill_from_route(&advert_tmplate, dist_rt);
+            advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
+            memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
+            advert_info->out_cost = rule->out_cost;
+            advert_info->out_tag = rule->out_tag;
             advert_info->out_community = rule->out_community;
-            advert_info->Cnhidx       = dist_rt->Cnhidx;
-            advert_info->is_delete    = dist_rt->is_deleted;
-            init_glthread (&advert_info->redis_glue);
+            advert_info->code = RTM_CLIENT_RT_ADD;
+            init_glthread(&advert_info->redis_glue);
 
-            if (!advert_info->is_delete) {
-                Fglthread_add_last (&target->client_redis_queue,
-                                &advert_info->redis_glue);
-            }
-            
-            tracer (dist_mgr->node->cptr, DREDIS_DET,
-                "REDIS-MGR : Advertise %s (%s) to target proto %s instance %u vrf %u\n",
-                rtm_format_prefix (&dist_rt->prefix, rt_str, sizeof (rt_str)),
-                advert_info->is_delete ? "delete" : "add",
-                rtm_proto_to_string (target->dst_proto),
-                target->dst_instance_no,
-                target->dst_vrf);
+            tracer(dist_mgr->node->cptr, DREDIS_DET,
+                   "REDIS-MGR : Policy flash advertise %s to target proto %s instance %u vrf %u\n",
+                   rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
+                   rtm_proto_to_string(target->proto),
+                   target->instance_no,
+                   target->vrf);
 
-            /* 6. Notify the client */
-            if (target->redis_cbk) {
-                target->redis_cbk (dist_mgr->node, advert_info);
-            }
-
-            /* One advertisement per target is enough; further matching rules
-               for the same target would only generate duplicates */
-            break;
+            rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
+            rtm_redist_target_record_rt_advertisement (dist_mgr, target, dist_rt, true);
         }
     }
+    ITERATE_AVL_TREE_END;
+}
+
+
+
+typedef struct dist_mgr_gc_container_ {
+
+    DIST_MGR_GC_TYPE_T type;
+    void *object;
+    glthread_t glue;
+
+} dist_mgr_gc_container_t;
+GLTHREAD_TO_STRUCT(dist_mgr_gc_container_object, dist_mgr_gc_container_t, glue);
+
+
+static void 
+dist_mgr_check_and_delete (redist_target_t *target) {
+
+    assert (!target->rule_list);
+    assert (Fglthread_list_is_empty (&target->client_redis_queue));
+    assert (!target->client_flash_job);
+    assert (!target->next);
+    assert (avltree_is_empty (&target->rt_advertised));
+    XFREE  (target);
+}
+
+static void 
+dist_mgr_release_all_target_resources (dist_mgr_t *dist_mgr, redist_target_t *target) {
+
+    /* Free the Rule list. Each rule may hold a reference on its filter
+       prefix-list which must be released before the rule itself is freed. */
+    dist_rule_t *rule;
+
+    while ((rule = target->rule_list)) {
+
+        target->rule_list = rule->next;
+        rule->next = NULL;
+        if (rule->pfx_lst) prefix_list_dereference(rule->pfx_lst);
+        XFREE(rule);
+    }
+
+    /* Release the routes advertised to this target i.e. target->rt_advertised.
+       At GC time the client has already drained client_redis_queue, so we just
+       tear down the bookkeeping: drop the per-target advertisement bit on each
+       dist_rt, dereference the dist_rt, and free the avl entry. */
+    avltree_node_t *avl_node;
+    rt_advertised_node_t *adv_node;
+    rt_redist_route_t *dist_rt;
+
+    ITERATE_AVL_TREE_BEGIN(&target->rt_advertised, avl_node)
+    {
+        adv_node = avltree_container_of(avl_node, rt_advertised_node_t, glue);
+        dist_rt = adv_node->dist_rt;
+
+        avltree_remove(&adv_node->glue, &target->rt_advertised);
+        adv_node->dist_rt = NULL;
+        XFREE(adv_node);
+
+        bitmap_unset_bit_at (&dist_rt->client_advert_tracker.proto_bitmap, target->proto);
+        bitmap_unset_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf);
+        bitmap_unset_bit_at (&dist_rt->client_advert_tracker.instance_no, target->instance_no);
+        rt_redist_route_dereference(dist_mgr, dist_rt);
+
+    } ITERATE_AVL_TREE_END;
+}
+
+static void 
+dist_mgr_gc_job_cbk(
+        event_dispatcher_t *ev_dis, 
+        void *arg, uint32_t arg_size) {
+
+    glthread_t *curr;
+    dist_mgr_t *dist_mgr = (dist_mgr_t *)arg;
+    dist_mgr_gc_container_t *container = NULL;
+
+    dist_mgr->gc_task = NULL;
+
+    while ((curr = dequeue_glthread_first(&dist_mgr->gc_queue.head))) {
+
+        container = dist_mgr_gc_container_object(curr);
+        
+        switch (container->type) {
+
+            case DIST_MGR_GC_TYPE_TARGET:
+                dist_mgr_release_all_target_resources (dist_mgr, (redist_target_t *)container->object);
+                dist_mgr_check_and_delete((redist_target_t *)container->object);
+                break;
+            default: ;
+                break;
+        }
+        XFREE(container);
+    }
+}
+
+void 
+rtm_dis_mgr_gc (dist_mgr_t *dist_mgr, void *object, DIST_MGR_GC_TYPE_T type) {
+
+    dist_mgr_gc_container_t *container = 
+        (dist_mgr_gc_container_t *)XCALLOC2(0, 1, dist_mgr_gc_container_t);
+
+    container->type = type;
+    container->object = object;
+    init_glthread(&container->glue);
+    Fglthread_add_last (&dist_mgr->gc_queue, &container->glue);
+
+    if (dist_mgr->gc_task) return;
+
+    dist_mgr->gc_task = task_create_new_job (EV_PURGER(dist_mgr->node), 
+                                    (void *)dist_mgr, 
+                                    dist_mgr_gc_job_cbk,
+                                    TASK_ONE_SHOT, 
+                                    TASK_PRIORITY_GARBAGE_COLLECTOR);
+
 }

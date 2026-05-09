@@ -27,7 +27,9 @@ extern void isis_recv_ipc_updates(isis_node_info_t *node_info,
                                   void *msg,
                                   uint32_t msg_size);
 
-extern void isis_rtm_test(isis_node_info_t *node_info) ;
+extern void
+isis_prefix_list_change(node_t *node, vrf_t *vrf, 
+        uint32_t instance_no, prefix_list_t *prefix_list);
 
 extern void
 isis_rtm_route_notif (node_t *node, rt_advert_info_t  *rt_advert);
@@ -353,6 +355,8 @@ isis_de_init(vrf_t *vrf) {
 			vrf->node->dp_ctx,
             isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
 
+    prefix_list_unregister_client(vrf->node, isis_prefix_list_change, vrf, 0);
+
     tracer (ISIS_TR(vrf->isis_node_info), TR_ISIS_EVENTS, 
             "ISIS pkt trap disabled\n");
 
@@ -379,6 +383,8 @@ isis_init (vrf_t *vrf) {
 
     rtm_register_rt_distribution_cbk(vrf->node, 
         isis_rtm_route_notif, RTM_PROTO_ISIS);
+
+    prefix_list_register_client(node, isis_prefix_list_change, vrf, 0);
 
     isis_node_info_t *node_info = XCALLOC2(0, 1, isis_node_info_t);
     vrf->isis_node_info = node_info;

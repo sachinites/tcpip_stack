@@ -157,34 +157,17 @@ bool vrf_del_interface(vrf_t *vrf, Interface *intf) {
     return false;
 }
 
-/* Get VRF by ID from global registry */
 vrf_t* vrf_get_by_id (node_t *node, uint8_t vrf_id) {
-    
-    int i;
 
-    if (vrf_id == 0) return (vrf_t *)node->node_nw_prop.def_vrf;
-
-    for (i = 0; i < MAX_VRF_PER_NODE; i++) {
-        if (node->vrf[i] && node->vrf[i]->vrf_id == vrf_id) {
-            return node->vrf[i];
-        }
-    }
-
-    return NULL;
+    return node->vrf[vrf_id];
 }
 
 bool
 node_register_vrf(node_t *node, vrf_t *vrf) {
 
-    int i;
-    
-    for (i = 0; i < MAX_VRF_PER_NODE; i++) {
-        if (node->vrf[i]) continue;
-        node->vrf[i] = vrf;
-        vrf->node = node;
-        break;
-    }
-
+    assert (!node->vrf[vrf->vrf_id]);
+    node->vrf[vrf->vrf_id] = vrf;
+    vrf->node = node;
     return true;
 }
 
@@ -211,6 +194,20 @@ vrf_get_by_name (node_t *node, char *name) {
     }
 
     return NULL;    
+}
+
+int
+vrf_alloc_new_vrf_id (node_t *node) {
+
+    int i;
+
+    for (i = 0; i < MAX_VRF_PER_NODE; i++) {
+
+        if (!node->vrf[i]) return i;
+    }
+
+    assert (0);
+    return -1;
 }
 
 void 

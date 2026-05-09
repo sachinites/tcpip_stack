@@ -5,8 +5,6 @@
 #include "CLIBuilder/cmdtlv.h"
 
 extern graph_t *topo;
-static void
-prefix_list_notify_clients(node_t *node, vrf_t *vrf, prefix_list_t *prefix_lst);
 
 static int
 prefix_lst_config_handler (int cmdcode,
@@ -58,7 +56,7 @@ prefix_lst_config_handler (int cmdcode,
 
         if (seq_no) {
             if (prefix_list_del_rule(prefix_lst, seq_no)) {
-                prefix_list_notify_clients(node, NULL, prefix_lst);
+                prefix_list_update_notify_clients(node, prefix_lst);
                 if (IS_GLTHREAD_LIST_EMPTY(&prefix_lst->pfx_lst_head)) {
                     if (!prefix_list_is_in_use(prefix_lst))
                     {
@@ -99,6 +97,19 @@ prefix_lst_config_handler (int cmdcode,
         new_pfx_lst = true;
     }
 
+    /* Reject up-front so the user gets a specific message; prefix_list_add_rule
+       enforces the same invariant defensively. */
+    if (seq_no && prefix_list_lookup_by_seq_no(prefix_lst, seq_no)) {
+
+        cprintf("Error : Rule with sequence number %u already exists\n", seq_no);
+
+        if (new_pfx_lst) {
+            XFREE(prefix_lst);
+        }
+
+        return -1;
+    }
+
     if (!prefix_list_add_rule (prefix_lst,
                                              seq_no,
                                              res, 
@@ -119,7 +130,7 @@ prefix_lst_config_handler (int cmdcode,
         prefix_list_reference(prefix_lst);
     }
     else {
-        prefix_list_notify_clients(node, 0, prefix_lst);
+        prefix_list_update_notify_clients(node, prefix_lst);
     }
 
     return 0;
@@ -160,6 +171,7 @@ void prefix_list_cli_config_tree(param_t *param)
                     init_param(&seq_no, LEAF, NULL, prefix_lst_config_handler, NULL, INT, "seq-no", "prefix-list Sequence No");
                     libcli_register_param(&res, &seq_no);
                     libcli_set_param_cmd_code(&seq_no, CMDCODE_CONFIG_PREFIX_LST);
+                    libcli_disable_batch_processing(&seq_no);
                     {
                         static param_t nw_ip;
                         init_param(&nw_ip, LEAF, 0, 0, 0, IPV4, "nw-ip", "specify Network IPV4 Address");
@@ -169,6 +181,7 @@ void prefix_list_cli_config_tree(param_t *param)
                             init_param(&nw_mask, LEAF, NULL, prefix_lst_config_handler, NULL, INT, "nw-mask", "specify IPV4 Mask");
                             libcli_register_param(&nw_ip, &nw_mask);
                             libcli_set_param_cmd_code(&nw_mask, CMDCODE_CONFIG_PREFIX_LST);
+                            libcli_disable_batch_processing(&nw_mask);
                             {
                                 static param_t ge;
                                 init_param(&ge, CMD, "ge", 0, 0, INVALID, 0, "specify greater than equal ");
@@ -178,6 +191,7 @@ void prefix_list_cli_config_tree(param_t *param)
                                     init_param(&gen, LEAF, NULL, prefix_lst_config_handler, NULL, INT, "ge-n", "greater than equal Number");
                                     libcli_register_param(&ge, &gen);
                                     libcli_set_param_cmd_code(&gen, CMDCODE_CONFIG_PREFIX_LST);
+                                    libcli_disable_batch_processing(&gen);
                                     {
                                         static param_t le;
                                         init_param(&le, CMD, "le", 0, 0, INVALID, 0, "specify less than equal ");
@@ -187,6 +201,7 @@ void prefix_list_cli_config_tree(param_t *param)
                                             init_param(&len, LEAF, NULL, prefix_lst_config_handler, NULL, INT, "le-n", "less than equal Number");
                                             libcli_register_param(&le, &len);
                                             libcli_set_param_cmd_code(&len, CMDCODE_CONFIG_PREFIX_LST);
+                                            libcli_disable_batch_processing(&len);
                                         }
                                     }
                                 }
@@ -200,6 +215,7 @@ void prefix_list_cli_config_tree(param_t *param)
                                     init_param(&len, LEAF, NULL, prefix_lst_config_handler, NULL, INT, "le-n", "less than equal Number");
                                     libcli_register_param(&le, &len);
                                     libcli_set_param_cmd_code(&len, CMDCODE_CONFIG_PREFIX_LST);
+                                    libcli_disable_batch_processing(&len);
                                 }
                             }
                         }
@@ -278,24 +294,88 @@ void prefix_list_cli_show_tree(param_t *param) {
     }
 }
 
-/* Prefix-list change notification */
-typedef void (*prefix_list_change_cbk)(node_t *, vrf_t *, prefix_list_t *);
+/* Prefix-list change subscription registry.
 
-extern void isis_prefix_list_change(node_t *node, vrf_t *vrf,
-             prefix_list_t *pfx_lst);
+   The set of clients interested in prefix-list updates lives on the
+   owning node (node->prefix_lst_clients) instead of in a global table.
+   Each entry binds a callback to a (vrf_id, instance_no) tuple supplied
+   by the caller at registration time; the registry is otherwise opaque
+   to the protocol identity. */
 
-static prefix_list_change_cbk notif_arr[] = {
-    isis_prefix_list_change,
-    /*add_mode_callbacks_here,*/
-    0,
+struct prefix_lst_client_ {
+
+    prefix_list_change_cbk cbk;
+    vrf_t   *vrf;
+    uint32_t instance_no;
 };
 
-void
-prefix_list_notify_clients(node_t *node, vrf_t *vrf, prefix_list_t *prefix_lst) {
+static bool
+prefix_lst_client_matches(const prefix_lst_client_t *c,
+                          prefix_list_change_cbk cbk,
+                          vrf_t *vrf,
+                          uint32_t instance_no)
+{
+    return c
+        && c->cbk == cbk
+        && c->vrf == vrf
+        && c->instance_no == instance_no;
+}
 
-    int i = 0 ;
-    while (notif_arr[i]) {
-        notif_arr[i](node, vrf, prefix_lst);
-        i++;
+void
+prefix_list_register_client(node_t *node,
+                            prefix_list_change_cbk cbk,
+                            vrf_t *vrf,
+                            uint32_t instance_no)
+{
+    if (!node || !cbk) return;
+
+    /* Idempotent: silently ignore a duplicate registration so a caller
+       can re-register without book-keeping. */
+    for (prefix_lst_client_t *c : node->prefix_lst_clients) {
+        if (prefix_lst_client_matches(c, cbk, vrf, instance_no))
+            return;
+    }
+
+    prefix_lst_client_t *client =
+        (prefix_lst_client_t *)XCALLOC(0, 1, prefix_lst_client_t);
+    client->cbk         = cbk;
+    client->vrf         = vrf;
+    client->instance_no = instance_no;
+
+    node->prefix_lst_clients.push_back(client);
+}
+
+void
+prefix_list_unregister_client(node_t *node,
+                              prefix_list_change_cbk cbk,
+                              vrf_t *vrf,
+                              uint32_t instance_no)
+{
+    if (!node || !cbk) return;
+
+    auto &clients = node->prefix_lst_clients;
+    for (auto it = clients.begin(); it != clients.end(); ++it) {
+
+        prefix_lst_client_t *c = *it;
+        if (!prefix_lst_client_matches(c, cbk, vrf, instance_no))
+            continue;
+
+        clients.erase(it);
+        XFREE(c);
+        return;
+    }
+}
+
+void
+prefix_list_update_notify_clients(node_t *node, prefix_list_t *prefix_lst)
+{
+    /* Snapshot the registry so a callback that mutates the registry
+       (re-register / unregister) cannot invalidate our iterator. */
+    std::vector<prefix_lst_client_t *> snapshot = node->prefix_lst_clients;
+
+    for (prefix_lst_client_t *c : snapshot) {
+        if (!c || !c->cbk) continue;
+
+        c->cbk(node, c->vrf, c->instance_no, prefix_lst);
     }
 }

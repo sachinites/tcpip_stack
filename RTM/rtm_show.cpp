@@ -1077,6 +1077,47 @@ rtm_show_dist_mgr_comm_fmt(uint32_t wc, char *buf, size_t buflen)
     snprintf(buf, buflen, "%u:%u", hi, lo);
 }
 
+/* Lowercase CLI keyword for a redistribution source protocol, matching the
+   tokens accepted by rtm_build_distribution_policy_cli_tree(). */
+static const char *
+rtm_proto_to_cli_keyword(RTM_PROTO_T proto)
+{
+    switch (proto) {
+        case RTM_PROTO_STATIC:    return "static";
+        case RTM_PROTO_CONNECTED: return "connected";
+        case RTM_PROTO_LOCAL:     return "local";
+        case RTM_PROTO_OSPF:      return "ospf";
+        case RTM_PROTO_BGP:       return "bgp";
+        case RTM_PROTO_ISIS:      return "isis";
+        case RTM_PROTO_LDP:       return "ldp";
+        default:                  return "unknown";
+    }
+}
+
+/* Reconstruct the exact "redistribute ..." CLI line that would create
+   `rule`. Only fields that the CLI actually exposes are emitted; defaults
+   that the user could not have typed are dropped so the output round-trips
+   through the parser. */
+static void
+rtm_dist_rule_format_cli(const dist_rule_t *rule, char *buf, size_t buflen)
+{
+    int n = snprintf(buf, buflen, "redistribute %s",
+                     rtm_proto_to_cli_keyword(rule->src_proto));
+
+    if (n < 0 || (size_t)n >= buflen) return;
+
+    if (rule->pfx_lst) {
+        n += snprintf(buf + n, buflen - n, " prefix-list %s",
+                      (const char *)rule->pfx_lst->name);
+        if (n < 0 || (size_t)n >= buflen) return;
+    }
+
+    if (rule->out_cost) {
+        snprintf(buf + n, buflen - n, " metric %u",
+                 (unsigned)rule->out_cost);
+    }
+}
+
 void
 rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
 {
@@ -1089,12 +1130,7 @@ rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
         return;
 
     printw("\n");
-    if (dist_mgr->node)
-        cprintf(
-            "RTM redistribution policies :: node %s\n",
-            dist_mgr->node->node_name);
-    else
-        cprintf("RTM redistribution policies\n");
+    cprintf("RTM redistribution policies\n");
 
     target = dist_mgr->target_lst;
     if (!target) {
@@ -1106,20 +1142,20 @@ rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
         char vrf_buf[48];
         char client_id[128];
         const char *vrf_str =
-            vrf_name(dist_mgr->node, target->dst_vrf);
+            vrf_name(dist_mgr->node, target->vrf);
 
         if (vrf_str)
             snprintf(vrf_buf, sizeof(vrf_buf), "%s", vrf_str);
         else
-            snprintf(vrf_buf, sizeof(vrf_buf), "id%u", target->dst_vrf);
+            snprintf(vrf_buf, sizeof(vrf_buf), "id%u", target->vrf);
 
         snprintf(
             client_id,
             sizeof(client_id),
             "%s.%s.%u",
             vrf_buf,
-            rtm_proto_to_string(target->dst_proto),
-            (unsigned)target->dst_instance_no);
+            rtm_proto_to_string(target->proto),
+            (unsigned)target->instance_no);
 
         cprintf("\nClient : %s\n", client_id);
         cprintf(
@@ -1150,6 +1186,10 @@ rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
             rtm_show_dist_mgr_comm_fmt(rule->out_community, comm_buf, sizeof(comm_buf));
 
             cprintf("  Rule %d\n", rule_no + 1);
+
+            char cli_buf[256];
+            rtm_dist_rule_format_cli(rule, cli_buf, sizeof(cli_buf));
+            cprintf("    CLI: %s\n", cli_buf);
 
             cprintf("    Source\n");
             cprintf(
@@ -1195,6 +1235,109 @@ rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
     }
 
     printw("\n");
+}
+
+void
+rtm_show_dist_mgr_targets (dist_mgr_t *dist_mgr,
+                           char *vrf_name_in,
+                           char *proto_name,
+                           uint32_t instance_no)
+{
+    if (!dist_mgr) {
+        cprintf("Error : distribution manager is NULL\n");
+        return;
+    }
+
+    if (!proto_name) {
+        cprintf("Error : protocol name missing\n");
+        return;
+    }
+
+    /* Resolve target proto */
+    RTM_PROTO_T target_proto = rtm_string_to_protocol_enum(proto_name);
+    if (target_proto >= RTM_PROTO_MAX) {
+        cprintf("Error : unknown protocol '%s'\n", proto_name);
+        return;
+    }
+
+    /* Resolve target VRF (NULL => default VRF) */
+    vrf_t *vrf = vrf_get_by_name(dist_mgr->node, vrf_name_in);
+    if (!vrf) {
+        cprintf("Error : VRF '%s' not found\n",
+                vrf_name_in ? vrf_name_in : "default");
+        return;
+    }
+    uint8_t target_vrf_id = vrf->vrf_id;
+
+    /* Locate the target */
+    redist_target_t *target = NULL;
+    for (redist_target_t *t = dist_mgr->target_lst; t; t = t->next) {
+        if (t->proto == target_proto &&
+            t->instance_no == instance_no &&
+            t->vrf == target_vrf_id) {
+            target = t;
+            break;
+        }
+    }
+
+    if (!target) {
+        cprintf("Error : redistribution target %s.%s.%u not found\n",
+                vrf->vrf_name,
+                rtm_proto_to_string(target_proto),
+                instance_no);
+        return;
+    }
+
+    printw("\n");
+    cprintf("Routes advertised to target : %s.%s.%u\n",
+            vrf->vrf_name,
+            rtm_proto_to_string(target_proto),
+            instance_no);
+
+    if (avltree_is_empty(&target->rt_advertised)) {
+        cprintf("  (no routes advertised)\n\n");
+        return;
+    }
+
+    /* Tabular header */
+    cprintf("%-4s %-26s %-12s %-14s %-12s %-10s %-20s\n",
+            "#", "Route", "Src-Proto", "Src-Sub-Proto",
+            "Src-VRF", "Src-Inst", "Cnhidx");
+    cprintf("%-4s %-26s %-12s %-14s %-12s %-10s %-20s\n",
+            "----", "--------------------------",
+            "------------", "--------------",
+            "------------", "----------",
+            "--------------------");
+
+    avltree_node_t *avl_node;
+    rt_advertised_node_t *adv_node;
+    rt_redist_route_t *dist_rt;
+    char prefix_str[48];
+    int idx = 0;
+
+    ITERATE_AVL_TREE_BEGIN(&target->rt_advertised, avl_node)
+    {
+        adv_node = avltree_container_of(avl_node, rt_advertised_node_t, glue);
+        dist_rt = adv_node->dist_rt;
+        if (!dist_rt || !dist_rt->nh_proto) continue;
+
+        rtm_format_prefix(&dist_rt->prefix, prefix_str, sizeof(prefix_str));
+
+        const char *src_vrf_name = vrf_name(dist_mgr->node,
+                                            dist_rt->nh_proto->vrf_id);
+
+        cprintf("%-4d %-26s %-12s %-14s %-12s %-10u 0x%-18llx\n",
+                ++idx,
+                prefix_str,
+                rtm_proto_to_string(dist_rt->nh_proto->proto),
+                rtm_sub_proto_to_string(dist_rt->nh_proto->sub_proto),
+                src_vrf_name ? src_vrf_name : "?",
+                dist_rt->nh_proto->instance_no,
+                (unsigned long long)dist_rt->Cnhidx);
+    }
+    ITERATE_AVL_TREE_END;
+
+    cprintf("\nTotal advertised routes : %d\n\n", idx);
 }
 
 }
@@ -1256,6 +1399,63 @@ rtm_show_dist_mgr_policies_handler(int cmdcode,
     }
 
     rtm_show_dist_mgr_policies(node->dist_mgr);
+    return 0;
+}
+
+int
+rtm_show_dist_mgr_targets_handler(int cmdcode,
+                                  Stack_t *tlv_stack,
+                                  op_mode enable_or_disable)
+{
+    node_t *node = NULL;
+    c_string node_name = NULL;
+    c_string proto_name = NULL;
+    c_string vrf_name_in = NULL;
+    uint32_t instance_no = 0;
+    tlv_struct_t *tlv = NULL;
+
+    (void)cmdcode;
+    (void)enable_or_disable;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv)
+    {
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "proto-name"))
+            proto_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+            vrf_name_in = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "instance-no"))
+            instance_no = (uint32_t)atoi((const char *)tlv->value);
+    }
+    TLV_LOOP_END;
+
+    if (!node_name) {
+        cprintf("Error : node-name missing\n");
+        return -1;
+    }
+
+    if (!proto_name) {
+        cprintf("Error : proto-name missing\n");
+        return -1;
+    }
+
+    node = node_get_node_by_name(topo, node_name);
+    if (!node) {
+        cprintf("Error : Node %s not found\n", node_name);
+        return -1;
+    }
+
+    if (!node->dist_mgr) {
+        cprintf("Error : distribution manager not initialized for node %s\n",
+                node_name);
+        return -1;
+    }
+
+    rtm_show_dist_mgr_targets(node->dist_mgr,
+                              (char *)vrf_name_in,
+                              (char *)proto_name,
+                              instance_no);
     return 0;
 }
 

@@ -53,6 +53,12 @@ prefix_list_add_rule (prefix_list_t *prefix_lst, uint32_t seq_no, pfx_lst_result
 bool
 prefix_list_del_rule (prefix_list_t *prefix_lst, uint32_t seq_no);
 
+/* Returns the rule with the given seq_no in `prefix_lst`, or NULL if no
+   such rule exists. seq_no == 0 is reserved for auto-assignment and never
+   matches any stored rule. */
+pfx_lst_node_t *
+prefix_list_lookup_by_seq_no (prefix_list_t *prefix_lst, uint32_t seq_no);
+
 void
 prefix_list_show (prefix_list_t *prefix_lst);
 
@@ -99,5 +105,45 @@ prefix_list_is_in_use (prefix_list_t *prefix_lst) {
 
     return prefix_lst->ref_count > 1;
 }
+
+/* Per-node prefix-list change subscription registry.
+   A client (e.g. a routing protocol instance) registers a callback that
+   the prefix-list code invokes whenever any prefix-list owned by `node`
+   is modified. The (vrf_id, instance_no) pair is opaque to the registry;
+   it is stored alongside the callback so the callee can route the event
+   to the right protocol instance without the registry needing to know
+   anything about the protocols. */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct node_ node_t;
+typedef struct vrf_  vrf_t;
+
+typedef void (*prefix_list_change_cbk)(node_t *node,
+                                       vrf_t *vrf,
+                                       uint32_t instance_no,
+                                       prefix_list_t *prefix_lst);
+
+void
+prefix_list_register_client(node_t *node,
+                            prefix_list_change_cbk cbk,
+                            vrf_t *vrf,
+                            uint32_t instance_no);
+
+void
+prefix_list_unregister_client(node_t *node,
+                              prefix_list_change_cbk cbk,
+                              vrf_t *vrf,
+                              uint32_t instance_no);
+
+void
+prefix_list_update_notify_clients(node_t *node,
+                                  prefix_list_t *prefix_lst);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif 

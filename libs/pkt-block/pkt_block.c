@@ -467,12 +467,12 @@ print_pkt_block(pkt_block_t *pkt_block) {
 
     (void)pkt_block;
     #if 0
-    cprintf("pkt_block->pkt = %p\n", pkt_block->pkt);
-    cprintf("pkt_block->pkt_size = %d\n", pkt_block->pkt_size);
-    cprintf("pkt_block->hdr_type = %d\n", pkt_block->pvt_data.hdr_type);
-    cprintf("pkt_block->ref_count = %d\n", pkt_block->ref_count);
-    cprintf("pkt_block alloc :  %s(%d)\n", pkt_block->fn_name, pkt_block->lineno);
-    cprintf("pkt_block->no_modify = %d\n", pkt_block->pvt_data.no_modify);
+    stdlib_printf("pkt_block->pkt = %p\n", pkt_block->pkt);
+    stdlib_printf("pkt_block->pkt_size = %d\n", pkt_block->pkt_size);
+    stdlib_printf("pkt_block->hdr_type = %d\n", pkt_block->pvt_data.hdr_type);
+    stdlib_printf("pkt_block->ref_count = %d\n", pkt_block->ref_count);
+    stdlib_printf("pkt_block alloc :  %s(%d)\n", pkt_block->fn_name, pkt_block->lineno);
+    stdlib_printf("pkt_block->no_modify = %d\n", pkt_block->pvt_data.no_modify);
     #endif
 }
 

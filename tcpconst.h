@@ -97,6 +97,7 @@ tcpip_protocol_classification(uint16_t proto) {
 #define DEF_VRF_NAME            "0"
 #define MAX_INTF_IFINDEX        1023 
 
+#define MAX_PREFIX_LIST_CLIE
 /* Special interface ifindices */
 #define RMAC_INTF_INDEX   (MAX_INTF_IFINDEX)
 #define VLAN_FLOOD_INDEX  (MAX_INTF_IFINDEX - 1)

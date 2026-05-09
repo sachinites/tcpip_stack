@@ -1,12 +1,14 @@
 #ifndef __RTM_ENUMS__
 #define __RTM_ENUMS__
 
+#include "../utils.h"
+
 /* Refer RT_DIST_HANDLERS array in case you change
     the array order */
     
 typedef enum protocols_ {
 
-    RTM_PROTO_STATIC, 
+    RTM_PROTO_STATIC,
     RTM_PROTO_CONNECTED,
     RTM_PROTO_LOCAL,
     RTM_PROTO_BGP,  
@@ -16,6 +18,13 @@ typedef enum protocols_ {
     RTM_PROTO_MAX
 
 } RTM_PROTO_T;
+
+typedef enum RTM_RT_CLIENT_CODE_ {
+    
+    RTM_CLIENT_RT_ADD = 1,
+    RTM_CLIENT_RT_DEL
+
+} RTM_RT_CLIENT_CODE_T;
 
 typedef enum sub_protocols_ {
 
@@ -123,6 +132,33 @@ static const char* rtm_nh_action_to_string(RTM_NH_ACTION_TYPE_T action) {
         case RTM_NH_ACTION_TUNNEL: return "Tunnel";
         default: return "Unknown";
     }
+}
+
+static RTM_PROTO_T
+rtm_string_to_protocol_enum (const char *proto_name) {
+
+    if (string_compare(proto_name, "static", 6) == 0) {
+        return RTM_PROTO_STATIC;
+    }
+    if (string_compare(proto_name, "connected", 9) == 0) {
+        return RTM_PROTO_CONNECTED;
+    }
+    if (string_compare(proto_name, "local", 5) == 0) {
+        return RTM_PROTO_LOCAL;
+    }
+    if (string_compare(proto_name, "ospf", 4) == 0) {
+        return RTM_PROTO_OSPF;
+    }
+    if (string_compare(proto_name, "bgp", 3) == 0) {
+        return RTM_PROTO_BGP;
+    }
+    if (string_compare(proto_name, "isis", 4) == 0) {
+        return RTM_PROTO_ISIS;
+    }
+    if (string_compare(proto_name, "ldp", 3) == 0) {
+        return RTM_PROTO_LDP;
+    }
+    return RTM_PROTO_MAX;
 }
 
 #endif 
