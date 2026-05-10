@@ -39,6 +39,8 @@ Visit : www.csepracticals.com for more projects and courses.
 
 ## Project 16 : Policy based Route Distribution Manager
 
+## Project 17 :  Integrated DPDK in Data-Path ( Numa Aware , Multi-Core Arch in Data plane )
+
 #### After Doing These Projects, you shall be able to :
 
 Tell why you need Data link layer and Network Layer
