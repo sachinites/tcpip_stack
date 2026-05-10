@@ -37,6 +37,10 @@ Visit : www.csepracticals.com for more projects and courses.
 
 ## Project 15 : Routing Table Infra with Cross Table Route-Resolution
 
+## Project 16 : Policy based Route Distribution Manager
+
+## Project 17 :  Integrated DPDK in Data-Path ( Numa Aware , Multi-Core Arch in Data plane )
+
 #### After Doing These Projects, you shall be able to :
 
 Tell why you need Data link layer and Network Layer
@@ -53,6 +57,7 @@ This project will fill up the gap between theoretical knowledge and the Implemen
 ## Steps to build the Project : 
 
 This project depends on several standard, and private libraries. Therefore, we we describe the steps to resolve all dependencies and eventually build the project executable. OS supported is Linux. MAC with Apple Silicon, not supported.
+Ubuntu on ARM and x86 is supported. Make sure you have DPDK library installed on the system already.
 
 Make sure you have C++ compiler and Makefile utility installed in your system. If not install them as below:  
 `sudo apt-get install g++`  
