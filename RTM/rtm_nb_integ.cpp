@@ -830,11 +830,6 @@ cp_rtm_uninstall_route_by_proto ( rtm_t *rtm,
 
     } ITERATE_GLTHREAD_END(&rt->path_list, curr);
 
-    /* If route has no more nexthops, delete the route as well */
-    if (rt->nh_count == 0) {
-        rtm_route_delete(rtm, rt);
-    }
-
     return deleted_count;
 }
 

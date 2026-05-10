@@ -453,7 +453,8 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
             else if (msg->port_id == dp_ctx->dp_host_path_intf->port_id) {
                 dp_ctx->dp_host_path_intf = NULL;
             }
-            else if (msg->port_id == dp_ctx->dp_nve_intf->port_id) {
+            else if (dp_ctx->dp_nve_intf &&
+                    msg->port_id == dp_ctx->dp_nve_intf->port_id) {
                 dp_ctx->dp_nve_intf = NULL;
             }                       
         

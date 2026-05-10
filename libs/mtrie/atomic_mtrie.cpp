@@ -99,9 +99,9 @@ atomic_mtrie_clone (atomic_mtrie_t *mtrie, atomic_mtrie_node_t *node) {
     clone->prefix_len = node->prefix_len;
 
     /* Copy prefixes */
-    bitmap_fast_copy(&node->prefix, &clone->prefix, clone->prefix_len);
-    bitmap_fast_copy(&node->wildcard, &clone->wildcard, clone->prefix_len);
-
+    bitmap_fast_copy(&node->prefix, &clone->prefix, node->prefix_len);
+    bitmap_fast_copy(&node->wildcard, &clone->wildcard, node->prefix_len);
+    
     /* Copy parent */
     clone->parent = node->parent;
 
@@ -198,6 +198,8 @@ atomic_mtrie_node_split (atomic_mtrie_t *mtrie,
 
     /* now update prefix len */
     node->prefix_len = split_offset;
+    node->prefix.next = split_offset;
+    node->wildcard.next = split_offset;
 }
 
 void
@@ -500,7 +502,6 @@ stack_push_node (Stack_t *stack, atomic_mtrie_node_t *node, bitmap_t *prefix) {
                                     
     if (!node) return;
     bitmap_fast_copy(prefix, &node->stacked_prefix, prefix->next);
-    node->stacked_prefix.next = prefix->next;
     push(stack , (void *)node);
 }
 
@@ -538,7 +539,6 @@ atomic_mtrie_longest_prefix_match_search(atomic_mtrie_t *mtrie, bitmap_t *prefix
 
                 n_back_tracks++;
                 bitmap_fast_copy(&node->stacked_prefix, prefix, node->stacked_prefix.next);
-                prefix->next = node->stacked_prefix.next;
                 bitmap_reset(&node->stacked_prefix);
                 stack_push_node(mtrie->stack, mtrie->root->child[DONT_CARE].load(std::memory_order_acquire), prefix);
                 continue;
@@ -584,8 +584,8 @@ atomic_mtrie_exact_prefix_match_search(atomic_mtrie_t *mtrie, bitmap_t *prefix, 
 
     bitmap_init (&prefix_dup, prefix->tsize);
     bitmap_init (&wildcard_dup, wildcard->tsize);
-    bitmap_fast_copy (prefix, &prefix_dup, prefix->tsize);
-    bitmap_fast_copy (wildcard, &wildcard_dup, wildcard->tsize);
+    bitmap_fast_copy (prefix, &prefix_dup, prefix->next);
+    bitmap_fast_copy (wildcard, &wildcard_dup, wildcard->next);
 
     while (true) {
 

@@ -192,6 +192,9 @@
 /* show node <node-name> rtm dist-mgr-target <proto-name> [<vrf-name>] [<instance-no>] */
 #define CMDCODE_SHOW_NODE_RTM_DIST_MGR_TARGETS 80
 
+/* show node <node-name> rtm dist-mgr-target route <prefix> */
+#define CMDCODE_SHOW_NODE_RTM_DIST_MGR_TARGET_ROUTE 81
+
 /* Flag to distinguish if the CLI typed should go to
   control plane scheduler or data plane scheduler*/
 #define CLI_F_CONTROL_PLANE 1

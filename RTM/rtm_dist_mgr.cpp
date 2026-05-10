@@ -12,8 +12,183 @@
 #include "rtm_nh.h"
 #include "rtm_proto.h"
 
-extern int cprintf (const char *format, ...);
+/*
 
+================================================================================
+ RTM Distribution Manager (dist_mgr) — reading guide for new programmers
+================================================================================
+
+WHAT THIS MODULE DOES
+---------------------
+The Route Table Manager (RTM) tells the distribution manager whenever a route
+that is eligible for redistribution changes (add / delete).  This file
+implements that manager: it remembers every *redistributed* route instance,
+matches it against per-protocol *redistribution rules*, and enqueues work so
+each *target* protocol (IS-IS, OSPF, …) receives RTM_CLIENT_RT_ADD or
+RTM_CLIENT_RT_DEL callbacks with a filled-in rt_advert_info_t.
+
+It is **not** the main RIB/FIB; it is the cross-protocol “who should see this
+external route” layer sitting on top of RTM presentation events.
+
+HOW TO READ THIS FILE (order)
+-----------------------------
+1. rtm_dist_mgr_init              — allocates dist_mgr_t, empty trees/queues.
+2. rtm_distribution_manager_update — entry for RTM add/delete; builds indexes.
+3. dist_mgr_schedule_route_advertise + dist_mgr_redistrbution_job_cbk — batches
+   work onto the node’s main event thread (see Threading below).
+4. rtm_dist_mgr_distribute_route_to_target_clients — policy loop: permit/deny,
+   advertise or withdraw per target.
+5. rtm_dist_mgr_refresh_dist_routes_to_target — re-evaluate all routes when
+   rules on one target change.
+6. rtm_dist_mgr_client_request_route_replay — target asks to re-sync state.
+7. rtm_dis_mgr_gc + dist_mgr_gc_job_cbk — deferred teardown of targets (after
+   client queues are drained).
+
+THREADING / ASYNC MODEL
+-----------------------
+Most work is **not** done inline in rtm_distribution_manager_update.  Routes
+pending distribution are linked on dist_mgr->redis_queue; a single one-shot
+task (redis_task) drains the whole queue on the node’s EV dispatcher.  Likewise,
+target-specific rt_advert_info_t objects queue on redist_target_t::client_redis_queue
+and are delivered by client_flash_job.  GC uses the same pattern on gc_queue
+with TASK_PRIORITY_GARBAGE_COLLECTOR.
+
+Assume: callbacks run on the **same** logical control-plane thread as other RTM
+jobs for that node unless you know a caller violates that; design still uses
+queues to avoid deep recursion and to batch work.
+
+DATA STRUCTURES (mental model)
+------------------------------
+- nhidx_tree: one rt_redist_route_t per (indirect NH idx, direct NH idx) pair,
+  encoded in Cnhidx via fib_set_nh_idx().  Lookup/delete by presentation event
+  uses this tree first.
+- route_tree_by_prefix: avl_prefix_node_t per prefix; each holds an Fglthread
+  list of all redist routes for that prefix (different NH / source).
+- route_tree[afi][proto]: avl_vrf_node_t per (vrf_id, instance_no); each holds
+  an Fglthread list of routes sourced under that vrf/instance for that AFI/proto.
+  (Useful for iteration / policy refresh, not for nhidx lookup.)
+
+- redist_target_t: a registered consumer (proto + vrf + instance) with an
+  ordered rule list and rt_advertised AVL of routes currently advertised to it.
+
+REFERENCE COUNTING (rt_redist_route_t::ref_count)
+------------------------------------------------
+A route’s refcount drops to zero only when nothing holds it: prefix list,
+vrf/proto list, redis queue glue, target advertisement nodes, etc.  On add,
+rt_redist_route_reference is called when linking into each structure and again
+when enqueueing for distribution; matching rt_redist_route_dereference calls
+remove those references.  When refcount hits zero, nh_proto is released,
+bitmaps freed, and the rt_redist_route_t is destroyed.
+
+ADVERTISEMENT TRACKING
+----------------------
+client_advert_tracker (bitmaps over proto / vrf / instance) records which
+targets have been told about this route so we can withdraw precisely and avoid
+duplicate adds.  rtm_redist_target_record_rt_advertisement updates both the
+target’s rt_advertised tree and those bitmaps.
+
+POLICY
+------
+Rules on each target are evaluated in list order.  First matching rule that
+passes source + prefix-list wins for add; if no rule permits and the route was
+previously advertised, we send withdraw.  IPv4-only limitation: prefix-list
+filters deny non-IPv4 when a filter is configured (see rtm_dist_mgr_rule_filter_permits).
+
+================================================================================
+ (Original design overview — retained for additional detail)
+================================================================================
+
+The RTM (Route Table Manager) Distribution Manager is responsible for tracking,
+managing, and advertising redistributed routing information within the system.
+Its primary role is to manage lifecycle events of redistributed (redist) routes
+and ensure those routes are properly propagated to relevant protocol clients
+according to the system’s redistribution policies.
+
+Key Concepts and Data Structures:
+---------------------------------
+
+1. **dist_mgr_t**:
+   The distribution manager root object, maintaining trees of redistributed
+   routes and mappings from next-hop indices and route prefixes. Also tracks
+   registered redistribution targets (protocol clients interested in route
+   updates) and GC (garbage collection) tasks.
+
+2. **rt_redist_route_t**:
+   Represents a redistributed route instance, encapsulating route prefix,
+   next-hop, client advertisement tracking bitmaps, reference counts, and glue
+   nodes for AVL trees.
+
+3. **redist_target_t**:
+   Represents a redistribution target client/protocol – e.g., OSPF, IS-IS –
+   that is interested in receiving route advertisements. Each target has its
+   own advertisement list for bookkeeping.
+
+4. **AVL Trees**:
+   Central to fast route/path lookups and management.
+   - **nhidx_tree**: Indexed by combined next-hop index, enables efficient
+     management by next-hop.
+   - **route_tree_by_prefix**: Indexed by route prefixes for per-prefix
+     operations.
+
+5. **Advertisement Bitmaps**:
+   Each redist route maintains client-specific bitmaps (per-protocol, per-vrf,
+   per-instance) to efficiently track which clients have been advertised each
+   route.
+
+6. **Reference Counting**:
+   `rt_redist_route_t` employs refcounting to ensure safe reuse and teardown
+   during add/delete and GC operations.
+
+Core Flow:
+----------
+
+1. **Route Reception & Installation**:
+   RTM receives a route presentation event (e.g., from a protocol or RIB).
+   Insertion into AVL trees (`nhidx_tree`, `route_tree_by_prefix`) occurs, new
+   route records are initialized, and protocol waitlists/queues are set up as
+   needed.
+
+2. **Distribute to Target Clients**:
+   Once a route is installed/updated, the manager determines which
+   redistribution targets are eligible/interested and advertises the route
+   accordingly, updating their advertisement bitmaps and reference counts.
+
+3. **Client Advertisement/Withdrawal**:
+   When a target client is deleted or the route is withdrawn, the relevant bit
+   is cleared in the advertisement tracker, and reference counts are updated.
+   The system ensures all bookkeeping is cleaned up, and if no references
+   remain, triggers route teardown.
+
+4. **Garbage Collection**:
+   Uses an asynchronous GC queue and callback (dist_mgr_gc_job_cbk) to reliably
+   tear down route/target resources after draining protocol queues, ensuring
+   late resources are reclaimed without dangling pointers or premature frees.
+
+5. **Reference-safe Teardown**:
+   At each removal (route or target), AVL tree nodes are safely removed, and all
+   data structures are reference-checked and zeroed out before memory is freed.
+
+Design Considerations:
+---------------------
+
+- **Efficiency:** AVL trees and bitmaps for O(log n) route/target management.
+- **Concurrency Safety:** Asynchronous GC helps avoid freeing while clients
+  still hold queued callbacks.
+- **Extensibility:** Per-target and per-client bitmaps simplify new protocols
+  or VRF instances.
+- **Tracing:** `tracer` calls visualize redistribution flow (DREDIS / DREDIS_DET).
+
+Summary:
+--------
+
+The RTM DIST MGR distributes and withdraws routes between routing protocols and
+client stacks using explicit state, indexes, and asynchronous queues for safe
+teardown.
+
+*/
+
+/* Pack indirect + direct next-hop indices into one 64-bit key (Cnhidx) used as
+ * the AVL sort key for nhidx_tree.  Presentation events always supply both. */
 extern inline void 
 fib_set_nh_idx(
     uint64_t *p, 
@@ -26,6 +201,11 @@ dist_mgr_schedule_route_advertise(dist_mgr_t *dist_mgr, rt_redist_route_t *dist_
 static void 
 rtm_dist_mgr_distribute_route_to_target_clients 
     (dist_mgr_t *dist_mgr, rt_redist_route_t *dist_rt);
+
+/* ------------------------------------------------------------------------- */
+/* AVL comparators — return >0 if node1 goes "before" node2 in tree order     */
+/* (library convention used here: 1 / -1 / 0).                                */
+/* ------------------------------------------------------------------------- */
 
 static int
 nhidx_tree_comp_fn(
@@ -82,6 +262,10 @@ vrf_instance_tree_comp_fn(
     return 0;
 }
 
+/* ------------------------------------------------------------------------- */
+/* Initialization — one dist_mgr per node; route_tree is [AFI][source proto] */
+/* ------------------------------------------------------------------------- */
+
 void 
 rtm_dist_mgr_init (node_t *node) {
 
@@ -111,6 +295,10 @@ rtm_dist_mgr_init (node_t *node) {
     node->dist_mgr = dist_mgr;
 }
 
+/* ------------------------------------------------------------------------- */
+/* rt_redist_route_t reference counting                                       */
+/* ------------------------------------------------------------------------- */
+
 static void 
 rt_redist_route_reference (rt_redist_route_t *redis_rt) {
 
@@ -120,7 +308,7 @@ rt_redist_route_reference (rt_redist_route_t *redis_rt) {
 static void 
 rtm_dist_mgr_check_and_delete (rt_redist_route_t *redis_rt) {
 
-    /* Check all linkages */
+    /* Last step of teardown; extend here if invariants must hold before free. */
     XFREE(redis_rt);
 }
 
@@ -148,6 +336,10 @@ rt_redist_route_dereference (dist_mgr_t *dist_mgr, rt_redist_route_t *redis_rt) 
 
     return 0;
 }   
+
+/* Record or clear that `dist_rt` is advertised to `target`: maintains
+ * target->rt_advertised AVL and the per-route bitmaps.  add=true bumps
+ * dist_rt refcount; add=false may drop it to zero and destroy the route. */
 
 void 
 rtm_redist_target_record_rt_advertisement 
@@ -187,11 +379,20 @@ rtm_redist_target_record_rt_advertisement
     rt_redist_route_dereference(dist_mgr, dist_rt);
 }
 
+/* ------------------------------------------------------------------------- */
+/* RTM presentation hook — build/update indexes, then schedule distribution     */
+/*                                                                               */
+/* ADD: insert nhidx + prefix + vrf/instance lists (each link holds a ref).     */
+/* DELETE: remove from all lists (deref each), mark is_deleted, then schedule   */
+/*         one more distribute pass so targets get withdrawals.                 */
+/* The extra rt_redist_route_reference on DELETE keeps the object alive until   */
+/* unlink + schedule complete.                                                  */
+/* ------------------------------------------------------------------------- */
+
 void 
 rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
                                  rtm_presentation_data_t *presentation_data) {
 
-    int i, j;
     uint64_t Cnhidx;
     char rt_str[48];
     char nh_str[128];
@@ -237,7 +438,7 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
             
             avl_node = avltree_insert (&redis_rt->nhidx_glue, &dist_mgr->nhidx_tree);
 
-            /* Insertion must succeed */
+            /* Duplicate Cnhidx would mean two redist entries for same NH keys. */
             assert(!avl_node);
             rt_redist_route_reference(redis_rt);
 
@@ -264,6 +465,7 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
                 pfx_node = avltree_container_of (avl_node, avl_prefix_node_t, glue);
             }
 
+            /* Fglthread list under prefix: all redist routes for this prefix. */
             Fglthread_add_next (&pfx_node->rt_pfx_lst, &pfx_node->rt_pfx_lst.head, &redis_rt->rt_pfx_lst_glue);
             rt_redist_route_reference(redis_rt);
 
@@ -295,6 +497,7 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
                 avl_vrf_node = avltree_container_of (avl_node, avl_vrf_node_t, glue);
             }
 
+            /* Same route keyed by vrf/instance under its source protocol tree. */
             Fglthread_add_next (&avl_vrf_node->rt_src_lst, &avl_vrf_node->rt_src_lst.head, &redis_rt->rt_src_lst_glue);
             rt_redist_route_reference(redis_rt);
 
@@ -317,7 +520,7 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
             rt_redist_route_t *redis_rt = avltree_container_of(
                     avl_node, rt_redist_route_t, nhidx_glue);
             
-            /* Get the extra lock to prevent premature deletion */
+            /* Hold one ref while we unlink from every list and enqueue withdraw. */
             rt_redist_route_reference(redis_rt);
 
             avltree_remove(&redis_rt->nhidx_glue, &dist_mgr->nhidx_tree);
@@ -360,10 +563,11 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
                 XFREE(avl_vrf_node);
             }
 
+            /* Stale for policy adds; distribute path only sends withdraws. */
             redis_rt->is_deleted = true;
             dist_mgr_schedule_route_advertise(dist_mgr, redis_rt);
 
-            /* Unlock the extra lock */
+            /* Drop the delete-path safety reference. */
             rt_redist_route_dereference(dist_mgr, redis_rt);
         }
         break;
@@ -371,6 +575,15 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
             assert(0);
     }
 }
+
+/* ------------------------------------------------------------------------- */
+/* Main redistribution queue (dist_mgr->redis_queue)                         */
+/*                                                                               */
+/* Multiple routes may be linked before the one-shot redis_task runs. Each      */
+/* enqueue takes a ref; the job drops it after rtm_dist_mgr_distribute_route_* . */
+/* If redis_glue is already on the queue, schedule_route_advertise is a no-op   */
+/* (coalescing duplicate schedule for the same route).                          */
+/* ------------------------------------------------------------------------- */
 
 static void 
 dist_mgr_redistrbution_job_cbk(
@@ -393,11 +606,13 @@ dist_mgr_redistrbution_job_cbk(
 void 
 dist_mgr_schedule_route_advertise(dist_mgr_t *dist_mgr, rt_redist_route_t *dist_rt) {
 
+    /* Already queued — wait for pending job to process this route. */
     if (!IS_GLTHREAD_LIST_EMPTY(&dist_rt->redis_glue)) return;
 
     Fglthread_add_last (&dist_mgr->redis_queue, &dist_rt->redis_glue);
     rt_redist_route_reference(dist_rt);
 
+    /* Only one outstanding redis_task; it will drain the whole queue. */
     if (dist_mgr->redis_task) return;
 
     dist_mgr->redis_task = task_create_new_job (EV(dist_mgr->node), 
@@ -407,21 +622,10 @@ dist_mgr_schedule_route_advertise(dist_mgr_t *dist_mgr, rt_redist_route_t *dist_
                                     TASK_PRIORITY_COMPUTE);
 }
 
-/* CLIENT Redistribution of Routes */
+/* ------------------------------------------------------------------------- */
+/* Policy: rule matching and per-target client delivery                       */
+/* ------------------------------------------------------------------------- */
 
-/* Algorithm : 
-
-1. For all Target clients TC
-2.   For all Rules in TC
-3.     For all Filters in Rule
-4.       If Filter matches dist_rt
-5.         Add dist_rt to TC's client_redis_queue as rt_advert_info_t
-6.           invoke clients Callback to notify of this route
-7.     End For
-8.   End For
-9. End For
-
-*/
 static bool
 rtm_dist_mgr_rule_source_matches (dist_rule_t *rule, rtm_nh_proto_t *nh_proto) {
 
@@ -454,7 +658,7 @@ rtm_dist_mgr_rule_filter_permits (dist_rule_t *rule, cmn_prefix_t *prefix) {
 }
 
 /* First rule on this target that permits redistribution of dist_rt (VRF + policy). */
-static bool
+bool
 rtm_dist_mgr_target_first_permitting_rule(
     redist_target_t *target,
     rt_redist_route_t *dist_rt,
@@ -493,8 +697,10 @@ rtm_dist_mgr_advert_fill_from_route(
     advert_info->Cnhidx = dist_rt->Cnhidx;
 }
 
+/* Per-protocol entry points (IS-IS, OSPF, …) registered elsewhere. */
 extern void (*RT_DIST_HANDLERS[])(node_t *, rt_advert_info_t  *);
 
+/* Drains target->client_redis_queue; each advert_info is malloc’d, freed here. */
 static void 
 target_redis_cbk (
         event_dispatcher_t *ev_dis, 
@@ -533,6 +739,9 @@ rtm_dist_mgr_schedule_rt_advert_info_to_target (
                                     TASK_PRIORITY_COMPUTE);
 }
 
+/* Walk every registered target: apply rules, enqueue RTM_CLIENT_RT_ADD/DEL to
+ * the target’s client queue, and sync rtm_redist_target_record_rt_advertisement. */
+
 void rtm_dist_mgr_distribute_route_to_target_clients(
             dist_mgr_t *dist_mgr, 
             rt_redist_route_t *dist_rt)
@@ -550,7 +759,7 @@ void rtm_dist_mgr_distribute_route_to_target_clients(
     /* This route has been deleted , withdraw it from all targets */
     if (dist_rt->is_deleted)
     {
-        /* IF the route is deleted, withdraw it from all clientd we advertised it before */
+        /* Withdraw from every target that still has this route in rt_advertised. */
         for (target = dist_mgr->target_lst; target; target = target->next)
         {
             if (redist_route_is_advertised_to_client(dist_rt, target))
@@ -629,13 +838,12 @@ void rtm_dist_mgr_distribute_route_to_target_clients(
 
             else
             {
-
-                // goto next rule without breaking out of the loop to check if any other rule permits this route for this target
+                /* Deny from this rule only; a later rule may still permit. */
                 continue;
             }
-        } // rule loop ends
+        } /* for each rule */
 
-        /* If none of the rule permits, and if the route is already advertised, withdraw it */
+        /* No rule matched: if we had advertised earlier, send explicit withdraw. */
         if (!policy_permits &&
             (redist_route_is_advertised_to_client(dist_rt, target)))
         {
@@ -655,11 +863,11 @@ void rtm_dist_mgr_distribute_route_to_target_clients(
             rtm_redist_target_record_rt_advertisement(dist_mgr, target, dist_rt, false);
         }
 
-    } // target loop ends 
+    } /* for each target */
 }
 
-/* This fn is called when route distribution Rule is added/deleted 
-    under a protocol */
+/* Called when a target’s rule list changes: recompute add vs withdraw for every
+ * redist route still indexed by nhidx_tree (full scan). */
 void
 rtm_dist_mgr_refresh_dist_routes_to_target(
                         dist_mgr_t *dist_mgr,
@@ -724,6 +932,10 @@ rtm_dist_mgr_refresh_dist_routes_to_target(
     ITERATE_AVL_TREE_END;
 }
 
+/* Target (e.g. IS-IS) restarted or missed updates: replay from what we believe
+ * is currently advertised in target->rt_advertised.  Note: successful replay
+ * of ADD does not call rtm_redist_target_record_rt_advertisement (see inline
+ * comment in ADD branch) — state is already consistent in the AVL. */
 void 
 rtm_dist_mgr_client_request_route_replay (
         dist_mgr_t *dist_mgr, 
@@ -805,11 +1017,16 @@ rtm_dist_mgr_client_request_route_replay (
                    target->vrf);
 
             rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
-            //rtm_redist_target_record_rt_advertisement (dist_mgr, target, dist_rt, true);
+            /* Intentionally no record_rt_advertisement(true): adv_node already
+             * links dist_rt in rt_advertised; replay only refreshes the client. */
         }
     }
     ITERATE_AVL_TREE_END;
 }
+
+/* ------------------------------------------------------------------------- */
+/* Deferred GC — destroy targets after client queues are empty                  */
+/* ------------------------------------------------------------------------- */
 
 typedef struct dist_mgr_gc_container_ {
 
@@ -872,6 +1089,8 @@ dist_mgr_release_all_target_resources (dist_mgr_t *dist_mgr, redist_target_t *ta
     } ITERATE_AVL_TREE_END;
 }
 
+/* Processes gc_queue; for DIST_MGR_GC_TYPE_TARGET tears down rules, advertised
+ * routes, and frees the redist_target_t. */
 static void 
 dist_mgr_gc_job_cbk(
         event_dispatcher_t *ev_dis, 
@@ -900,6 +1119,7 @@ dist_mgr_gc_job_cbk(
     }
 }
 
+/* Enqueue object for asynchronous free; coalesces to one gc_task like redis. */
 void 
 rtm_dis_mgr_gc (dist_mgr_t *dist_mgr, void *object, DIST_MGR_GC_TYPE_T type) {
 
@@ -913,7 +1133,7 @@ rtm_dis_mgr_gc (dist_mgr_t *dist_mgr, void *object, DIST_MGR_GC_TYPE_T type) {
 
     if (dist_mgr->gc_task) return;
 
-    dist_mgr->gc_task = task_create_new_job (EV_PURGER(dist_mgr->node), 
+    dist_mgr->gc_task = task_create_new_job (EV(dist_mgr->node), 
                                     (void *)dist_mgr, 
                                     dist_mgr_gc_job_cbk,
                                     TASK_ONE_SHOT, 

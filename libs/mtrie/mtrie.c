@@ -117,13 +117,13 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
         glthread_add_next(&mtrie->list_head, &new_node->list_glue);
     }
 
+    new_node->prefix_len = node->prefix_len - split_offset;
+
     /* COPY Prefix : copy node->prefix_len - split_offset + 1 bits 
         from parent node starting from split_offset to end of the prefix */
     bitmap_copy_at_offset(&node->prefix, &new_node->prefix, split_offset, 0, node->prefix_len - split_offset );
     /* COPY wildcard in the same way as above*/
     bitmap_copy_at_offset(&node->wildcard, &new_node->wildcard, split_offset, 0, node->prefix_len - split_offset );
-    /* Set prefix len in new Node */
-    new_node->prefix_len = node->prefix_len - split_offset;
 
     /* Now move all the Children from parent node to new node */
     mtrie_move_children(node, new_node);
@@ -155,6 +155,8 @@ mtrie_node_split (mtrie_t *mtrie, mtrie_node_t *node, uint8_t split_offset) {
 
     /* now update prefix len */
     node->prefix_len = split_offset;
+    node->prefix.next = split_offset;
+    node->wildcard.next = split_offset;
 
     /* Node which has just splitted cannot be leaf node anymore */
     remove_glthread(&node->list_glue);
@@ -270,7 +272,6 @@ stack_push_node (Stack_t *stack, mtrie_node_t *node, bitmap_t *prefix) {
                                     
     if (!node) return;
     bitmap_fast_copy(prefix, &node->stacked_prefix, prefix->next);
-    node->stacked_prefix.next = prefix->next;
     push(stack , (void *)node);
 }
 
@@ -309,7 +310,6 @@ mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix) {
 
                 n_back_tracks++;
                 bitmap_fast_copy(&node->stacked_prefix, prefix, node->stacked_prefix.next);
-                prefix->next = node->stacked_prefix.next;
                 bitmap_reset(&node->stacked_prefix);
                 stack_push_node(mtrie->stack, mtrie->root->child[DONT_CARE], prefix);
                 continue;
@@ -387,7 +387,7 @@ mtrie_merge_child_node (mtrie_t *mtrie, mtrie_node_t *node, void *unused) {
         node->prefix_len, child_node->prefix_len);
 
     node->prefix_len += child_node->prefix_len;
-    
+
     mtrie_move_children(child_node, node);
 
     if (mtrie_is_leaf_node(node)) {
@@ -419,8 +419,8 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wild
 
     bitmap_init (&prefix_dup, prefix->tsize);
     bitmap_init (&wildcard_dup, wildcard->tsize);
-    bitmap_fast_copy (prefix, &prefix_dup, prefix->tsize);
-    bitmap_fast_copy (wildcard, &wildcard_dup, wildcard->tsize);
+    bitmap_fast_copy (prefix, &prefix_dup, prefix->next);
+    bitmap_fast_copy (wildcard, &wildcard_dup, wildcard->next);
 
     while (true) {
 

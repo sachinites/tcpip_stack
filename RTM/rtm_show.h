@@ -22,6 +22,9 @@ void rtm_show_dist_mgr_policies (dist_mgr_t *dist_mgr);
 void rtm_show_dist_mgr_targets (dist_mgr_t *dist_mgr, 
         char *vrf_name, char *proto_name, uint32_t instance_no);
 
+void rtm_show_dist_mgr_target_route (dist_mgr_t *dist_mgr,
+        const char *prefix_str);
+
 #ifdef __cplusplus
 }
 #endif

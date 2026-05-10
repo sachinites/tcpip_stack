@@ -163,8 +163,10 @@ bitmap_copy_at_offset(bitmap_t *src,
     assert(count <= (uint16_t)(src->tsize - src_start_offset));
     assert(count <= (uint16_t)(dst->tsize - dst_start_offset));
 
-    if (count == 0)
+    if (count == 0) {
+        /* When copying 0 bits, don't modify dst->next */
         return;
+    }
 
     /*
      * Overlap-safe handling when same bitmap and ranges overlap.
@@ -179,12 +181,18 @@ bitmap_copy_at_offset(bitmap_t *src,
         bool overlap = !(d1 <= s0 || s1 <= d0);
 
         if (overlap && d0 > s0) {
+            uint16_t original_count = count;
             while (count--) {
                 bool bit = bitmap_at(src, src_start_offset + count);
                 if (bit)
                     bitmap_set_bit_at(dst, dst_start_offset + count);
                 else
                     bitmap_unset_bit_at(dst, dst_start_offset + count);
+            }
+            /* Update next field: for offset copies, next tracks the end position of copied data */
+            uint16_t end_pos = dst_start_offset + original_count;
+            if (end_pos > dst->next) {
+                dst->next = end_pos;
             }
             return;
         }
@@ -319,6 +327,11 @@ bitmap_copy_at_offset(bitmap_t *src,
         dst_start_offset++;
         count--;
     }
+    
+    /* Update next field: for offset copies, next tracks the end position of copied data */
+    if (dst_start_offset > dst->next) {
+        dst->next = dst_start_offset;
+    }
 }
 
 void
@@ -330,7 +343,10 @@ bitmap_fast_copy(bitmap_t *src,
     assert(count <= src->tsize);
     assert(count <= dst->tsize);
 
-    if (count == 0) return;
+    if (count == 0) {
+        dst->next = 0;
+        return;
+    }
 
     uint16_t n_full_words = count / 32;
     uint16_t rem_bits = count % 32;
@@ -339,13 +355,19 @@ bitmap_fast_copy(bitmap_t *src,
         *(dst->bits + i) = *(src->bits + i);
     }
 
-    if (!rem_bits) return;
+    if (!rem_bits) {
+        dst->next = count;
+        return;
+    }
 
     /* Copy tail bits with bit-accurate helper (handles offsets/endian safely). */
     bitmap_copy_at_offset(src, dst,
                           (uint16_t)(n_full_words * 32),
                           (uint16_t)(n_full_words * 32),
                           rem_bits);
+    
+    /* Update next field to reflect number of valid bits copied */
+    dst->next = count;
 }
 
 static void

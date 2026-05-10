@@ -669,7 +669,17 @@ lsp_pkt_flood_timer_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_siz
     ted_node_t *ted_node;
     isis_lsp_pkt_t *lsp_pkt;
     isis_node_info_t *node_info;
-    
+
+    /* Race: wheel_fn may have already dispatched this task to the event
+     * queue before isis_lsp_pkt_flood_timer_stop() ran. The stop path uses
+     * wt_elem_get_and_set_app_data(t, NULL) to atomically null out the
+     * timer's arg under the wt_elem mutex, but that nulling can also be
+     * observed by wheel_fn itself between iteration and the locked read of
+     * wt_elem->arg, in which case a job is queued with arg == NULL. Either
+     * way, a NULL arg here means the timer has been stopped/deregistered
+     * by the application and there is nothing to do. */
+    if (!arg) return;
+
     isis_timer_data_t *timer_data = (isis_timer_data_t *)arg;
     
     lsp_pkt = (isis_lsp_pkt_t *)timer_data->data;

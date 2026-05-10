@@ -60,6 +60,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 #include <arpa/inet.h>
 #include "../libs/Tree/libtree.h"
 #include "../libs/gluethread/glthread.h"
@@ -76,6 +77,7 @@
 #include "rtm_dist_mgr.h"
 #include "../libs/prefix-list/prefixlst.h"
 #include "../libs/common/mpls_lstack.h"
+#include "../libs/common/cmn_prefix.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 typedef struct graph_ graph_t;
@@ -1322,7 +1324,145 @@ rtm_show_dist_mgr_targets (dist_mgr_t *dist_mgr,
     cprintf("\nTotal advertised routes : %d\n\n", idx);
 }
 
+/* For each redistribution source row (same prefix, different NH / Cnhidx), list
+ * every target client that currently has this route in rt_advertised and show
+ * the metric/tag/community from the first matching redistribute rule (same
+ * logic as live advertisement).  Attributes are not stored per-advertisement;
+ * they are derived from policy at show time. */
+void
+rtm_show_dist_mgr_target_route(dist_mgr_t *dist_mgr, const char *prefix_str)
+{
+    cmn_prefix_t key;
+    avltree_node_t *avl_node;
+    avl_prefix_node_t *pfx_node;
+    glthread_t *curr;
+    int inst = 0;
+
+    if (!dist_mgr) {
+        cprintf("Error : distribution manager is NULL\n");
+        return;
+    }
+    if (!prefix_str || !prefix_str[0]) {
+        cprintf("Error : prefix is required\n");
+        return;
+    }
+    memset(&key, 0, sizeof(key));
+    if (!cmn_parse_prefix_string(prefix_str, &key)) {
+        cprintf("Error : invalid prefix '%s'\n", prefix_str);
+        return;
+    }
+
+    avl_prefix_node_t pfx_tmplate;
+    memcpy(&pfx_tmplate.prefix, &key, sizeof(pfx_tmplate.prefix));
+    avltree_node_init(&pfx_tmplate.glue);
+
+    avl_node = avltree_lookup(&pfx_tmplate.glue, &dist_mgr->route_tree_by_prefix);
+    if (!avl_node) {
+        char ps[128];
+        rtm_format_prefix(&key, ps, sizeof(ps));
+        cprintf("\nNo redistribution state for prefix %s (prefix not in dist-mgr)\n\n", ps);
+        return;
+    }
+
+    pfx_node = avltree_container_of(avl_node, avl_prefix_node_t, glue);
+    if (Fglthread_list_is_empty(&pfx_node->rt_pfx_lst)) {
+        char ps[128];
+        rtm_format_prefix(&key, ps, sizeof(ps));
+        cprintf("\nNo redistribution entries linked for prefix %s\n\n", ps);
+        return;
+    }
+
+    char ps[128];
+    rtm_format_prefix(&key, ps, sizeof(ps));
+    cprintf("\nRTM dist-mgr: redistribution by target for prefix %s\n", ps);
+    cprintf("============================================================\n");
+
+    ITERATE_GLTHREAD_BEGIN(&pfx_node->rt_pfx_lst.head, curr)
+    {
+        rt_redist_route_t *dist_rt = (rt_redist_route_t *)((char *)curr -
+                offsetof(rt_redist_route_t, rt_pfx_lst_glue));
+        redist_target_t *target;
+        char rt_line[128];
+        int n_clients = 0;
+
+        if (!dist_rt->nh_proto)
+            continue;
+
+        inst++;
+        rtm_format_prefix(&dist_rt->prefix, rt_line, sizeof(rt_line));
+        cprintf("\nRedist source #%d  %s\n", inst, rt_line);
+        cprintf("  Cnhidx       : 0x%llx\n",
+                (unsigned long long)dist_rt->Cnhidx);
+        cprintf("  Source       : %s / %s  vrf=%s  instance=%u\n",
+                rtm_proto_to_string(dist_rt->nh_proto->proto),
+                rtm_sub_proto_to_string(dist_rt->nh_proto->sub_proto),
+                vrf_name(dist_mgr->node, dist_rt->nh_proto->vrf_id)
+                    ? vrf_name(dist_mgr->node, dist_rt->nh_proto->vrf_id)
+                    : "?",
+                dist_rt->nh_proto->instance_no);
+        cprintf("  State        : %s\n",
+                dist_rt->is_deleted ? "deleted (withdraw pending)" : "active");
+
+        cprintf("  Advertised to clients:\n");
+
+        for (target = dist_mgr->target_lst; target; target = target->next) {
+
+            if (!redist_route_is_advertised_to_client(dist_rt, target))
+                continue;
+
+            n_clients++;
+
+            char vrf_buf[48];
+            const char *vrf_str = vrf_name(dist_mgr->node, target->vrf);
+            if (vrf_str)
+                snprintf(vrf_buf, sizeof(vrf_buf), "%s", vrf_str);
+            else
+                snprintf(vrf_buf, sizeof(vrf_buf), "id%u", target->vrf);
+
+            cprintf("    - %s.%s.%u\n",
+                    vrf_buf,
+                    rtm_proto_to_string(target->proto),
+                    (unsigned)target->instance_no);
+
+            if (dist_rt->is_deleted) {
+                cprintf("        Note: route deleted; client should receive withdraw\n");
+                continue;
+            }
+
+            dist_rule_t *rule = NULL;
+            if (!rtm_dist_mgr_target_first_permitting_rule(target, dist_rt,
+                                                            &rule)) {
+                cprintf("        Policy: no matching permit rule now "
+                        "(advertised; may be stale until policy refresh)\n");
+                continue;
+            }
+
+            char comm_buf[24];
+            rtm_show_dist_mgr_comm_fmt(rule->out_community, comm_buf,
+                                       sizeof(comm_buf));
+
+            cprintf("        Rule metric (out_cost) : %u\n",
+                    (unsigned)rule->out_cost);
+            cprintf("        Rule tag               : %u\n",
+                    (unsigned)rule->out_tag);
+            cprintf("        Rule community         : %s\n", comm_buf);
+            if (rule->pfx_lst) {
+                cprintf("        Prefix-list filter     : %s\n",
+                        (const char *)rule->pfx_lst->name);
+            } else {
+                cprintf("        Prefix-list filter     : (none)\n");
+            }
+        }
+
+        if (n_clients == 0)
+            cprintf("    (not advertised to any redistribution target)\n");
+
+    } ITERATE_GLTHREAD_END(&pfx_node->rt_pfx_lst.head, curr);
+
+    cprintf("\n");
 }
+
+} /* extern "C" */
 
 int 
 rtm_show_dist_mgr_database_handler (int cmdcode,
@@ -1438,6 +1578,52 @@ rtm_show_dist_mgr_targets_handler(int cmdcode,
                               (char *)vrf_name_in,
                               (char *)proto_name,
                               instance_no);
+    return 0;
+}
+
+int
+rtm_show_dist_mgr_target_route_handler(int cmdcode,
+                                       Stack_t *tlv_stack,
+                                       op_mode enable_or_disable)
+{
+    node_t *node = NULL;
+    c_string node_name = NULL;
+    c_string route_prefix = NULL;
+    tlv_struct_t *tlv = NULL;
+
+    (void)cmdcode;
+    (void)enable_or_disable;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv)
+    {
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "route-prefix"))
+            route_prefix = tlv->value;
+    }
+    TLV_LOOP_END;
+
+    if (!node_name) {
+        cprintf("Error : node-name missing\n");
+        return -1;
+    }
+    if (!route_prefix) {
+        cprintf("Error : route-prefix missing\n");
+        return -1;
+    }
+
+    node = node_get_node_by_name(topo, node_name);
+    if (!node) {
+        cprintf("Error : Node %s not found\n", node_name);
+        return -1;
+    }
+    if (!node->dist_mgr) {
+        cprintf("Error : distribution manager not initialized for node %s\n",
+                node_name);
+        return -1;
+    }
+
+    rtm_show_dist_mgr_target_route(node->dist_mgr, (const char *)route_prefix);
     return 0;
 }
 

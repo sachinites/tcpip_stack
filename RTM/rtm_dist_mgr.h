@@ -2,6 +2,7 @@
 #define __RTM_DIST_MGR__
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "../libs/gluethread/glthread.h"
 #include "../libs/common/cmn_prefix.h"
 #include "../libs/Tree/libtree.h"
@@ -224,6 +225,15 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
 void 
 rtm_dist_mgr_refresh_dist_routes_to_target (
         dist_mgr_t *dist_mgr, redist_target_t *target);
+
+/* First rule on `target` that permits redistribution of `dist_rt` (source +
+ * prefix-list).  When true, optionally sets *rule_out to that rule (for metric,
+ * tag, community).  Used by show CLI and internal policy refresh paths. */
+bool
+rtm_dist_mgr_target_first_permitting_rule(
+        redist_target_t *target,
+        rt_redist_route_t *dist_rt,
+        dist_rule_t **rule_out);
 
 void 
 rtm_distribution_manager_show (dist_mgr_t *dist_mgr);

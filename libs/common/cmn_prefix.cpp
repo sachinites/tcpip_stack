@@ -122,6 +122,8 @@ cmn_prefix_to_bitmap(cmn_prefix_t *prefix, bitmap_t *bm) {
             /* For IPv4, convert to network byte order and store in bitmap */
             uint32_t bin_ip = htonl(prefix->u.v4_addr);
             bm->bits[0] = bin_ip;
+            /* mtrie exact-match uses bitmap_fast_copy(..., prefix->next); must match stride */
+            bm->next = 32;
             break;
         }
         case AF_IPV6: {
@@ -130,6 +132,7 @@ cmn_prefix_to_bitmap(cmn_prefix_t *prefix, bitmap_t *bm) {
             for (int i = 0; i < 16; i++) {
                 bm_array[i] = ((uint8_t *)prefix->u.v6_addr)[i];
             }
+            bm->next = 128;
             break;
         }
         default:
@@ -151,6 +154,11 @@ cmn_prefix_to_wildcard_bitmap(cmn_prefix_t *prefix, bitmap_t *wildcard) {
     
     /* Invert to get wildcard (1 = don't care, 0 = care) */
     bitmap_inverse(wildcard, prefix->afi == AF_IPV4 ? 32 : 128);
+
+    if (prefix->afi == AF_IPV4)
+        wildcard->next = 32;
+    else if (prefix->afi == AF_IPV6)
+        wildcard->next = 128;
 }
 
 /* Helper function to parse prefix string into cmn_prefix_t structure
@@ -299,6 +307,9 @@ cmn_prefix_to_bitmap(cmn_prefix_t *prefix,
             }
             /* Wildcard mask: 1 means don't care, 0 means care */
             bm_mask->bits[0] = htonl(~mask_bits);
+            /* mtrie exact-match copies prefix->next bits; must reflect stride */
+            bm_prefix->next = stride_len;
+            bm_mask->next = stride_len;
             break;
             
         case AF_IPV6:
@@ -338,6 +349,8 @@ cmn_prefix_to_bitmap(cmn_prefix_t *prefix,
                     }
                 }
             }
+            bm_prefix->next = stride_len;
+            bm_mask->next = stride_len;
             break;
             
         case AF_LABEL:
@@ -352,6 +365,8 @@ cmn_prefix_to_bitmap(cmn_prefix_t *prefix,
                 mask_bits = (0xFFFFF << (20 - prefix->prefix_len)) << 12;
             }
             bm_mask->bits[0] = ~mask_bits;
+            bm_prefix->next = stride_len;
+            bm_mask->next = stride_len;
             break;
             
         case AF_MAC:
@@ -384,6 +399,8 @@ cmn_prefix_to_bitmap(cmn_prefix_t *prefix,
                 }
                 bm_mask->bits[1] = 0xFFFFFFFF;
             }
+            bm_prefix->next = stride_len;
+            bm_mask->next = stride_len;
             break;
             
         default:

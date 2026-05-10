@@ -100,6 +100,7 @@ extern void display_cbk_all_vrfs(param_t *param, Stack_t *tlv_stack) ;
 extern int rtm_show_dist_mgr_database_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int rtm_show_dist_mgr_policies_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int rtm_show_dist_mgr_targets_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int rtm_show_dist_mgr_target_route_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 
 static int
 display_mem_usage(int cmdcode, Stack_t *tlv_stack,
@@ -1200,6 +1201,23 @@ nw_init_cli(){
                             init_param(&dist_mgr_target, CMD, "dist-mgr-target", 0, 0, INVALID, 0,
                                        "Show routes advertised to a redistribution target");
                             libcli_register_param(&rtm, &dist_mgr_target);
+                            {
+                                /* show node <node-name> rtm dist-mgr-target route <prefix> */
+                                static param_t dist_target_route;
+                                init_param(&dist_target_route, CMD, "route", 0, 0, INVALID, 0,
+                                           "Per-prefix redistribution: clients and advertised attributes");
+                                libcli_register_param(&dist_mgr_target, &dist_target_route);
+                                {
+                                    static param_t route_prefix;
+                                    init_param(&route_prefix, LEAF, 0,
+                                               rtm_show_dist_mgr_target_route_handler,
+                                               0, STRING, "route-prefix",
+                                               "IPv4/IPv6 prefix (e.g. 10.0.0.0/24 or 2001:db8::/64)");
+                                    libcli_register_param(&dist_target_route, &route_prefix);
+                                    libcli_set_param_cmd_code(&route_prefix,
+                                                              CMDCODE_SHOW_NODE_RTM_DIST_MGR_TARGET_ROUTE);
+                                }
+                            }
                             {
                                 /* show node <node-name> rtm dist-mgr-target <proto-name> */
                                 static param_t proto_name;
