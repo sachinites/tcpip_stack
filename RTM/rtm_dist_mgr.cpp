@@ -426,6 +426,8 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
             init_glthread (&redis_rt->rt_src_lst_glue);
 
             redis_rt->nh_proto = presentation_data->rtm_nh_proto;
+            redis_rt->nh_proto = presentation_data->inh ? \
+                                 presentation_data->inh->rtm_nh_proto : presentation_data->nh->rtm_nh_proto;
             rtm_nh_proto_reference(redis_rt->nh_proto);
 
             init_glthread (&redis_rt->redis_glue);
@@ -470,13 +472,13 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
             rt_redist_route_reference(redis_rt);
 
             avl_vrf_node_t avl_vrf_node_tmplate;
-            avl_vrf_node_tmplate.vrf_no = presentation_data->rtm_nh_proto->vrf_id;
-            avl_vrf_node_tmplate.instance_no = presentation_data->rtm_nh_proto->instance_no;
+            avl_vrf_node_tmplate.vrf_no = redis_rt->nh_proto->vrf_id;
+            avl_vrf_node_tmplate.instance_no = redis_rt->nh_proto->instance_no;
             avltree_node_init (&avl_vrf_node_tmplate.glue);
 
             avl_node = avltree_lookup (&avl_vrf_node_tmplate.glue, 
                         &dist_mgr->route_tree[presentation_data->route.afi]
-                                             [presentation_data->rtm_nh_proto->proto]);
+                                             [redis_rt->nh_proto->proto]);
 
             
             avl_vrf_node_t *avl_vrf_node = NULL;
@@ -490,7 +492,7 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
                 init_Fglthread(&avl_vrf_node->rt_src_lst); 
                 assert(!avltree_insert (&avl_vrf_node->glue, 
                     &dist_mgr->route_tree[presentation_data->route.afi]
-                                         [presentation_data->rtm_nh_proto->proto]));
+                                         [redis_rt->nh_proto->proto]));
             }
             else {
 
@@ -716,7 +718,9 @@ target_redis_cbk (
     while ((curr = dequeue_glthread_first(&target->client_redis_queue.head))) {
 
         advert_info = redis_glue_to_rt_advert_info(curr);
-        RT_DIST_HANDLERS[target->proto](node, advert_info);
+        if (RT_DIST_HANDLERS[target->proto]) {
+            RT_DIST_HANDLERS[target->proto](node, advert_info);
+        }
         XFREE(advert_info);
     }
 }
@@ -1140,3 +1144,15 @@ rtm_dis_mgr_gc (dist_mgr_t *dist_mgr, void *object, DIST_MGR_GC_TYPE_T type) {
                                     TASK_PRIORITY_GARBAGE_COLLECTOR);
 
 }
+
+
+extern void (*RT_DIST_HANDLERS[])(node_t *, rt_advert_info_t  *);
+
+void 
+rtm_register_rt_distribution_cbk (
+        void (*cbk)(node_t *, rt_advert_info_t  *), 
+        RTM_PROTO_T proto) {
+
+    RT_DIST_HANDLERS[proto] = cbk;
+}
+ 

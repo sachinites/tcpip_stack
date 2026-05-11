@@ -500,10 +500,9 @@ rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
         rtm == NODE_DEF_VRF_VRF_MEMBER(node, inet3) ||
         rtm == NODE_DEF_VRF_VRF_MEMBER(node, inet63) ) {
 
-        for (i = 0; i < MAX_VRF_PER_NODE; i++) {
+        for (i = 1; i < MAX_VRF_PER_NODE; i++) {
 
             vrf_t *vrf = node->vrf[i];
-
             if (!vrf) continue;
 
             /* Customer VRF RIB*/
@@ -516,7 +515,7 @@ rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
     if (rtm == NODE_DEF_VRF_VRF_MEMBER(node, inet6) || 
         rtm == NODE_DEF_VRF_VRF_MEMBER(node, inet63) )  {
    
-        for (i = 0; i < MAX_VRF_PER_NODE; i++) {
+        for (i = 1; i < MAX_VRF_PER_NODE; i++) {
 
             vrf_t *vrf = node->vrf[i];
             if (!vrf) continue;

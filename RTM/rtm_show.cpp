@@ -1265,7 +1265,7 @@ rtm_show_dist_mgr_targets (dist_mgr_t *dist_mgr,
     }
 
     if (!target) {
-        cprintf("Error : redistribution target %s.%s.%u not found\n",
+        cprintf("redistribution target %s.%s.%u not found\n",
                 vrf->vrf_name,
                 rtm_proto_to_string(target_proto),
                 instance_no);

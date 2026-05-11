@@ -17,51 +17,16 @@ redistribute connected|static|bgp|ospf|isis [prefix-list <pfx-lst-name>] [metric
 extern graph_t *topo;
 extern int cprintf(const char *format, ...);
 
-static void static_rt_dist_handler(node_t *node, rt_advert_info_t *rt_advert)
-{
-    (void)node;
-    (void)rt_advert;
-}
-static void connected_rt_dist_handler(node_t *node, rt_advert_info_t *rt_advert)
-{
-    (void)node;
-    (void)rt_advert;
-}
-static void local_rt_dist_handler(node_t *node, rt_advert_info_t *rt_advert)
-{
-    (void)node;
-    (void)rt_advert;
-}
-static void bgp_rt_dist_handler(node_t *node, rt_advert_info_t *rt_advert)
-{
-    (void)node;
-    (void)rt_advert;
-}
-static void ldp_rt_dist_handler(node_t *node, rt_advert_info_t *rt_advert)
-{
-    (void)node;
-    (void)rt_advert;
-}
-static void ospf_rt_dist_handler(node_t *node, rt_advert_info_t *rt_advert)
-{
-    (void)node;
-    (void)rt_advert;
-}
-static void isis_rt_dist_handler(node_t *node, rt_advert_info_t *rt_advert)
-{
-    (void)node;
-    (void)rt_advert;
-}
-
+/* Caution : Order is maintained as per enum : RTM_PROTO_T */
 void (*RT_DIST_HANDLERS[])(node_t *, rt_advert_info_t *) = {
 
-    static_rt_dist_handler,
-    connected_rt_dist_handler,
-    local_rt_dist_handler,
-    bgp_rt_dist_handler,
-    isis_rt_dist_handler,
-    ospf_rt_dist_handler,
-    ldp_rt_dist_handler,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
     NULL,
 };
 
@@ -99,7 +64,6 @@ dist_mgr_target_delink (dist_mgr_t *dist_mgr, redist_target_t *target) {
         prev = curr;
         curr = curr->next;
     }
-    assert(0);
 }
 
 extern int
@@ -108,6 +72,8 @@ rtm_isis_rt_distribution_policy_config_cli_handler(
     Stack_t *tlv_stack,
     op_mode enable_or_disable) {
 
+    tlv_struct *tlv;
+    char *node_name = NULL;
     dist_mgr_t *dist_mgr = NULL;
 
     redist_target_t *target = rtm_protocol_rt_distribution_policy_config_cli_handler(
@@ -524,6 +490,19 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
     return rule->owning_target;
 }
 
+void 
+rtm_unregister_rt_distribution_cbk (
+    dist_mgr_t *dist_mgr,
+    RTM_PROTO_T proto, 
+    uint8_t vrf_id, uint32_t instance_no) {
+
+    redist_target_t *target = 
+        redist_target_find(dist_mgr, proto, instance_no, vrf_id);
+    
+    if (!target) return;
+    dist_mgr_target_delink (dist_mgr, target);
+    rtm_dis_mgr_gc (dist_mgr, target, DIST_MGR_GC_TYPE_TARGET);
+}
 
 
 

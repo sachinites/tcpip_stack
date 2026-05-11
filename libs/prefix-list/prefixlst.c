@@ -150,7 +150,7 @@ print_pfx_lst_node ( prefix_list_t *prefix_lst, pfx_lst_node_t *pfx_lst_node) {
 
     uint32_t ip_addr_int = htonl(pfx_lst_node->pfx);
 
-    stdlib_printf ("prefix-list %s %s %u %s/%d ge %d le %d (hit-count = %lu)\n",  
+    stdlib_printf (" prefix-list %s %s %u %s/%d ge %d le %d (hit-count = %lu)\n",  
         prefix_lst->name,
         pfx_lst_node->res == PFX_LST_DENY ? "deny" : "permit",
         pfx_lst_node->seq_no,
@@ -167,6 +167,8 @@ prefix_list_show (prefix_list_t *prefix_lst) {
 
     glthread_t *curr;
     pfx_lst_node_t *pfx_lst_node;
+
+    stdlib_printf ("prefix-list %s\n", prefix_lst->name);
 
     ITERATE_GLTHREAD_BEGIN(&prefix_lst->pfx_lst_head, curr) {
 

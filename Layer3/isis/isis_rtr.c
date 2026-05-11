@@ -357,10 +357,10 @@ isis_de_init(vrf_t *vrf) {
 
     prefix_list_unregister_client(vrf->node, isis_prefix_list_change, vrf, 0);
 
-    tracer (ISIS_TR(vrf->isis_node_info), TR_ISIS_EVENTS, 
-            "ISIS pkt trap disabled\n");
+    rtm_unregister_rt_distribution_cbk (
+            vrf->node->dist_mgr, RTM_PROTO_ISIS,
+            vrf->vrf_id, 0);
 
-    //nfc_ipv4_rt_un_subscribe(node, isis_ipv4_rt_notif_cbk);
     isis_protocol_shut_down(vrf->isis_node_info);
 }
 
@@ -381,7 +381,7 @@ isis_init (vrf_t *vrf) {
 			node->dp_ctx,
             isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
 
-    rtm_register_rt_distribution_cbk(vrf->node, 
+    rtm_register_rt_distribution_cbk(
         isis_rtm_route_notif, RTM_PROTO_ISIS);
 
     prefix_list_register_client(node, isis_prefix_list_change, vrf, 0);

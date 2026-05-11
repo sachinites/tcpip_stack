@@ -1506,13 +1506,3 @@ cp_rtm_get_route_target_rtm(
 
     return rtm_get_route_target_rtm(vrf, afi, proto, sub_proto);
 }
-
-
-extern void (*RT_DIST_HANDLERS[])(node_t *, rt_advert_info_t  *);
-
-void 
-rtm_register_rt_distribution_cbk (
-        node_t *node, void (*cbk)(node_t *, rt_advert_info_t  *), RTM_PROTO_T proto) {
-
-    RT_DIST_HANDLERS[proto] = cbk;
-}
