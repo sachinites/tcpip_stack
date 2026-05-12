@@ -252,6 +252,7 @@ isis_export_route (isis_node_info_t *node_info, cmn_prefix_t *prefix, uint32_t m
     exported_rt->u.pfx.metric = metric ? metric : ISIS_DEFAULT_INTF_COST;
     exported_rt->u.pfx.flags = 0;
     init_glthread (&exported_rt->glue);
+    SET_BIT(exported_rt->flags, ISIS_ADVT_DATA_F_IP_REACH_EXPORTED);
     exported_rt->tlv_size = isis_get_adv_data_size (exported_rt);
 
     if (mtrie_insert_prefix (&node_info->exported_routes,

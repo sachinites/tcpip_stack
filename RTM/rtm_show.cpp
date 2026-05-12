@@ -1496,23 +1496,7 @@ rtm_show_dist_mgr_policies_handler(int cmdcode,
     }
     TLV_LOOP_END;
 
-    if (!node_name) {
-        cprintf("Error : node-name missing\n");
-        return -1;
-    }
-
     node = node_get_node_by_name(topo, node_name);
-    if (!node) {
-        cprintf("Error : Node %s not found\n", node_name);
-        return -1;
-    }
-
-    if (!node->dist_mgr) {
-        cprintf("Error : distribution manager not initialized for node %s\n",
-                node_name);
-        return -1;
-    }
-
     rtm_show_dist_mgr_policies(node->dist_mgr);
     return 0;
 }
@@ -1545,27 +1529,7 @@ rtm_show_dist_mgr_targets_handler(int cmdcode,
     }
     TLV_LOOP_END;
 
-    if (!node_name) {
-        cprintf("Error : node-name missing\n");
-        return -1;
-    }
-
-    if (!proto_name) {
-        cprintf("Error : proto-name missing\n");
-        return -1;
-    }
-
     node = node_get_node_by_name(topo, node_name);
-    if (!node) {
-        cprintf("Error : Node %s not found\n", node_name);
-        return -1;
-    }
-
-    if (!node->dist_mgr) {
-        cprintf("Error : distribution manager not initialized for node %s\n",
-                node_name);
-        return -1;
-    }
 
     rtm_show_dist_mgr_targets(node->dist_mgr,
                               (char *)vrf_name_in,
@@ -1596,28 +1560,7 @@ rtm_show_dist_mgr_target_route_handler(int cmdcode,
     }
     TLV_LOOP_END;
 
-    if (!node_name) {
-        cprintf("Error : node-name missing\n");
-        return -1;
-    }
-    if (!route_prefix) {
-        cprintf("Error : route-prefix missing\n");
-        return -1;
-    }
-
     node = node_get_node_by_name(topo, node_name);
-    if (!node) {
-        cprintf("Error : Node %s not found\n", node_name);
-        return -1;
-    }
-    if (!node->dist_mgr) {
-        cprintf("Error : distribution manager not initialized for node %s\n",
-                node_name);
-        return -1;
-    }
-
     rtm_show_dist_mgr_target_route(node->dist_mgr, (const char *)route_prefix);
     return 0;
 }
-
-

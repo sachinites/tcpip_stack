@@ -118,8 +118,6 @@ typedef struct rtm_presentation_data_ {
     prefix_list_t *prefix_list;
     /* Add or Delete operation , Update not supported*/
     rtm_ppt_operation_t operation;  /* ADD, DELETE, or UPDATE */
-    /* Callback function to notify the client */
-    void (*cbk)(rtm_t *, uint32_t , rtm_nh *, rtm_nh_proto_t *, rtm_ppt_operation_t);
     
     /* Used to delete route from FIB in delete case*/
     struct {

@@ -1310,32 +1310,6 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
             /* Now Advertise it to Routing Protocols */
             rtm_distribution_manager_update (rtm->node->dist_mgr, presentation_data);
 
-            if (!presentation_data->cbk) {
-                rtm_check_and_delete_presentation_data (rtm, presentation_data);
-                continue;
-            }
-
-            /* Evaluate against prefix list */
-            if (!presentation_data->prefix_list)
-            {
-
-                presentation_data->cbk(rtm, presentation_data->nh_idx,
-                                       presentation_data->nh,
-                                       presentation_data->rtm_nh_proto,
-                                       presentation_data->operation);
-            }
-            else if (presentation_data->nh &&
-                     ((prefix_list_evaluate(presentation_data->nh->owner_route->prefix.u.v4_addr,
-                                            presentation_data->nh->owner_route->prefix.prefix_len,
-                                            presentation_data->prefix_list) == PFX_LST_PERMIT)))
-            {
-
-                presentation_data->cbk(rtm, presentation_data->nh_idx,
-                                       presentation_data->nh,
-                                       presentation_data->rtm_nh_proto,
-                                       presentation_data->operation);
-            }
-
             rtm_check_and_delete_presentation_data(rtm, presentation_data);
             
             count++;

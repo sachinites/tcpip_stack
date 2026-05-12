@@ -62,6 +62,8 @@ typedef struct isis_advt_db_ {
 #define ISIS_ADVT_DATA_F_WAIT_LISTED  (1 << 0)
 /* This TLV is being advertised */
 #define ISIS_ADVT_DATA_F_ADVERTISED    (1 << 1)  
+/* This TLV is IP-REACH which is exported Route*/
+#define ISIS_ADVT_DATA_F_IP_REACH_EXPORTED      (1 << 2)
 
 /* A Data structure which holds the data to be advertised as TLVs in 
     LSPs */

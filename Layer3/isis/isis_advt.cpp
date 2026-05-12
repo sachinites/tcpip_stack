@@ -262,12 +262,16 @@ isis_free_advt_data (isis_adv_data_t *adv_data) {
 void
 isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t * adv_data) {
 
+    void *app_data;
+    cmn_prefix_t prefix;
+    mtrie_ops_result_code_t rc;
+    bitmap_t prefix_bm, mask_bm;
+
     switch (adv_data->tlv_no) {
         case ISIS_TLV_HOSTNAME:
             break;
         case ISIS_IS_REACH_TLV:
         case ISIS_TLV_RTR_CAP:
-        case ISIS_TLV_IP_REACH:
         case ISIS_TLV_IPV6_REACH:
         case ISIS_TLV_IPV6_MT_REACH:
         case ISIS_LOCATOR_PFX_SID_SUBTLV:
@@ -275,34 +279,34 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
                 *(adv_data->src.holder) = NULL;
             adv_data->src.holder = NULL;
             break;
-        #if 0
+
         case ISIS_TLV_IP_REACH:
-        /* To Do : Make linkage of exported prefixes same as other
-            TLVs*/
         {
-            void *app_data;
-            mtrie_ops_result_code_t rc;
-            uint32_t bin_ip, bin_mask;
-            bitmap_t prefix_bm, mask_bm;
-            bin_ip = adv_data->u.pfx.prefix;
-            bin_mask = tcp_ip_convert_dmask_to_bin_mask(adv_data->u.pfx.mask);
-            bin_mask = ~bin_mask;
-            bin_mask = htonl(bin_mask);
-            bitmap_init(&prefix_bm, 32);
-            bitmap_init(&mask_bm, 32);
-            prefix_bm.bits[0] = bin_ip;
-            mask_bm.bits[0] = bin_mask;
-            rc = mtrie_delete_prefix (&node_info->exported_routes,
-                                                 &prefix_bm, &mask_bm,
-                                                 &app_data);
-            if (rc == MTRIE_DELETE_SUCCESS) {
+            if (IS_BIT_SET(adv_data->flags, ISIS_ADVT_DATA_F_IP_REACH_EXPORTED)) 
+            {
+                cmn_prefix_initialize_v4(&prefix, 
+                    adv_data->u.pfx.prefix, adv_data->u.pfx.mask);
+                
+                cmn_prefix_to_bitmap (&prefix, &prefix_bm, &mask_bm);
+
+                rc = mtrie_delete_prefix (&node_info->exported_routes,
+                                          &prefix_bm, &mask_bm,
+                                          &app_data);
+
+                assert (rc == MTRIE_DELETE_SUCCESS);
                 assert (adv_data == (isis_adv_data_t *)app_data);
+                bitmap_free_internal(&prefix_bm);
+                bitmap_free_internal(&mask_bm);      
             }
-            bitmap_free_internal(&prefix_bm);
-            bitmap_free_internal(&mask_bm);            
+            else 
+            {
+                if (adv_data->src.holder && *adv_data->src.holder)
+                    *(adv_data->src.holder) = NULL;
+                adv_data->src.holder = NULL;
+            }
         }
         break;
-        #endif
+
         case ISIS_TLV_LOCATOR:
         {
             remove_glthread(&adv_data->u.srv6_loc.sibling_glue);
@@ -1193,33 +1197,6 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     
     SET_BIT (node_info->event_control_flags, ISIS_EVENT_FULL_LSP_REGEN_BIT);
 
-    /* IMPORTANT - Tear down exported (TLV130 IP-REACH) routes FIRST, before
-     * destroying the advt_db below.
-     *
-     * Rationale: isis_destroy_advt_db() -> isis_discard_fragment() iterates
-     * fragment->tlv_list_head and calls isis_free_advt_data() on every TLV,
-     * including IP_REACH adv_data that originated from exported routes.
-     * However, IP_REACH adv_data does NOT have working back-linkage to its
-     * mtrie leaf - isis_advt_data_clear_backlinkage() for ISIS_TLV_IP_REACH
-     * only touches adv_data->src.holder (which exported routes never set),
-     * and the alternative mtrie-delete block in that function is #if 0'd.
-     *
-     * If we let isis_destroy_advt_db() run first, every leaf in
-     * node_info->exported_routes ends up holding a dangling pointer to
-     * freed adv_data. The later call to isis_free_all_exported_rt_advt_data()
-     * then reads advt_data->fragment (use-after-free), and because freed
-     * chunks usually read as 0 in that field, it enters the !fragment branch
-     * and double-frees advt_data. That corrupts glibc's free-list and the
-     * next free() in mtrie_node_delete() aborts inside unlink_chunk().
-     *
-     * Tearing down exported_routes first walks the mtrie while leaves still
-     * point at valid adv_data, withdraws each IP_REACH TLV from its fragment
-     * cleanly, frees the adv_data and deletes the mtrie node. By the time we
-     * reach isis_destroy_advt_db() below, fragments only contain non
-     * IP_REACH TLVs (IS_REACH, IPV6_REACH, etc.) which have proper back
-     * linkage via src.holder. */
-    isis_free_all_exported_rt_advt_data (node_info);
-
     /* Cleanup all existing fragments and local LSP pkts*/
     for (i = 0; i < ISIS_MAX_PN_SUPPORTED; i++) {
 
@@ -1228,6 +1205,8 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
         isis_destroy_advt_db(node_info, i);
     }
     
+    isis_free_all_exported_rt_advt_data (node_info);
+
     /* Now Regen all fragments by advertising all TLVs*/
     isis_regen_zeroth_fragment (node_info);
     
@@ -1276,15 +1255,6 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
         isis_srv6_advertise_all_prefix_sids (node_info);
     }
 
-    /* Advertise IP REACH TLVs : Exported Routes.
-     *
-     * The exported_routes mtrie was already drained at the top of this
-     * function (see comment there for why it must run before
-     * isis_destroy_advt_db). Here we just ask the route distribution
-     * manager to replay every route that ISIS is allowed to advertise; the
-     * replay will land in isis_rtm_route_notif() which re-runs
-     * isis_export_route() and rebuilds the mtrie + TLV130 fragments from
-     * scratch. */
     rtm_dist_mgr_client_request_route_replay (
         node_info->vrf->node->dist_mgr,
         RTM_PROTO_ISIS, 0, node_info->vrf->vrf_id);
