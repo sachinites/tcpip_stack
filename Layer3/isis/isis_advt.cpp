@@ -1193,6 +1193,33 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
     
     SET_BIT (node_info->event_control_flags, ISIS_EVENT_FULL_LSP_REGEN_BIT);
 
+    /* IMPORTANT - Tear down exported (TLV130 IP-REACH) routes FIRST, before
+     * destroying the advt_db below.
+     *
+     * Rationale: isis_destroy_advt_db() -> isis_discard_fragment() iterates
+     * fragment->tlv_list_head and calls isis_free_advt_data() on every TLV,
+     * including IP_REACH adv_data that originated from exported routes.
+     * However, IP_REACH adv_data does NOT have working back-linkage to its
+     * mtrie leaf - isis_advt_data_clear_backlinkage() for ISIS_TLV_IP_REACH
+     * only touches adv_data->src.holder (which exported routes never set),
+     * and the alternative mtrie-delete block in that function is #if 0'd.
+     *
+     * If we let isis_destroy_advt_db() run first, every leaf in
+     * node_info->exported_routes ends up holding a dangling pointer to
+     * freed adv_data. The later call to isis_free_all_exported_rt_advt_data()
+     * then reads advt_data->fragment (use-after-free), and because freed
+     * chunks usually read as 0 in that field, it enters the !fragment branch
+     * and double-frees advt_data. That corrupts glibc's free-list and the
+     * next free() in mtrie_node_delete() aborts inside unlink_chunk().
+     *
+     * Tearing down exported_routes first walks the mtrie while leaves still
+     * point at valid adv_data, withdraws each IP_REACH TLV from its fragment
+     * cleanly, frees the adv_data and deletes the mtrie node. By the time we
+     * reach isis_destroy_advt_db() below, fragments only contain non
+     * IP_REACH TLVs (IS_REACH, IPV6_REACH, etc.) which have proper back
+     * linkage via src.holder. */
+    isis_free_all_exported_rt_advt_data (node_info);
+
     /* Cleanup all existing fragments and local LSP pkts*/
     for (i = 0; i < ISIS_MAX_PN_SUPPORTED; i++) {
 
@@ -1249,13 +1276,18 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
         isis_srv6_advertise_all_prefix_sids (node_info);
     }
 
-    /* Advertise IP REACH TLVs : Exported Routes*/
-    if (node_info->export_policy) {
-        isis_free_all_exported_rt_advt_data (node_info);
-        rtm_dist_mgr_client_request_route_replay (
-            node_info->vrf->node->dist_mgr,
-            RTM_PROTO_ISIS, 0, node_info->vrf->vrf_id);
-    }
+    /* Advertise IP REACH TLVs : Exported Routes.
+     *
+     * The exported_routes mtrie was already drained at the top of this
+     * function (see comment there for why it must run before
+     * isis_destroy_advt_db). Here we just ask the route distribution
+     * manager to replay every route that ISIS is allowed to advertise; the
+     * replay will land in isis_rtm_route_notif() which re-runs
+     * isis_export_route() and rebuilds the mtrie + TLV130 fragments from
+     * scratch. */
+    rtm_dist_mgr_client_request_route_replay (
+        node_info->vrf->node->dist_mgr,
+        RTM_PROTO_ISIS, 0, node_info->vrf->vrf_id);
 
     UNSET_BIT64 (node_info->event_control_flags, ISIS_EVENT_FULL_LSP_REGEN_BIT);
    

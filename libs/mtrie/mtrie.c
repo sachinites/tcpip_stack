@@ -513,10 +513,11 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void 
 /* Mtrie Traversal in longest prefix first search order. Useful to  display user entries 
     in priority order*/
 static void
-_mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 
-                                                            mtrie_node_t *node,
-                                                            void (*process_fn_ptr)(mtrie_t *, mtrie_node_t *, void *),
-                                                            void *app_data) {
+_mtrie_longest_prefix_first_traverse(mtrie_t *mtrie,
+                                     mtrie_node_t *node,
+                                     void (*process_fn_ptr)(mtrie_t *, mtrie_node_t *, void *),
+                                     void *app_data)
+{
 
     if (!node) return;
 
@@ -526,10 +527,10 @@ _mtrie_longest_prefix_first_traverse(mtrie_t *mtrie,
     process_fn_ptr(mtrie, node, app_data);
 }
 
-void
-mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 
-                                                         void (*process_fn_ptr)(mtrie_t *,mtrie_node_t *, void *),
-                                                         void *app_data) {
+void mtrie_longest_prefix_first_traverse(mtrie_t *mtrie,
+                                         void (*process_fn_ptr)(mtrie_t *, mtrie_node_t *, void *),
+                                         void *app_data)
+{
 
     _mtrie_longest_prefix_first_traverse(mtrie, mtrie->root, process_fn_ptr, app_data);
 }

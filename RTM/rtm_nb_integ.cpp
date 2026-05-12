@@ -321,6 +321,8 @@ cp_rtm_install_local_or_connected_v4_routes (
     fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
     nh_template.oif = Oif->ifindex;
     nh_template.is_resolved = true;
+
+    cmn_prefix_initialize_v4(&nh_template.gateway, 0, 32);
     
     /* Local routes have metric 0, connected routes have metric 1 */
     nh_template.metric = (nh_template.proto == RTM_PROTO_LOCAL) ? 0 : 1;
@@ -400,6 +402,8 @@ cp_rtm_install_local_or_connected_v6_routes (
     /* Local routes metric 0, connected routes metric 1 */
     nh_template.metric = (nh_template.proto == RTM_PROTO_LOCAL) ? 0 : 1;
 
+    cmn_prefix_initialize_v6(&nh_template.gateway, 0, 128);
+    
     /* Create protocol information structure */
     rtm_error_t rc = rtm_nh_proto_info_create(
             nh_template.proto, RTM_SUB_PROTO_NA, 0, rtm->vrf, &nh_proto);

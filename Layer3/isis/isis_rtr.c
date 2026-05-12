@@ -107,7 +107,6 @@ isis_protocol_shutdown_now (isis_node_info_t *node_info) {
     isis_free_dummy_lsp_pkt(node_info);
     isis_cleanup_spf_logc(node_info);
     isis_unconfig_import_policy(node_info, NULL);
-    isis_unconfig_export_policy(node_info, NULL);
 
     ITERATE_NODE_ISIS_INTERFACES_BEGIN(node_info, intf) { 
         
@@ -280,9 +279,6 @@ isis_show_node_protocol_state(vrf_t *vrf) {
 
     if (node_info->import_policy) {
         cprintf("Import Policy : %s\n", node_info->import_policy->name);
-    }
-    if (node_info->export_policy) {
-        cprintf("Export Policy : %s\n", node_info->export_policy->name);
     }
 
     cprintf("Overload Status : %s\n", node_info->ovl_data.ovl_status ? "On" : "Off");

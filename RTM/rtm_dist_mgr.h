@@ -223,7 +223,7 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
                                  rtm_presentation_data_t *presentation_data);
 
 void 
-rtm_dist_mgr_refresh_dist_routes_to_target (
+rtm_dist_mgr_broadcast_dist_routes_to_target (
         dist_mgr_t *dist_mgr, redist_target_t *target);
 
 /* First rule on `target` that permits redistribution of `dist_rt` (source +

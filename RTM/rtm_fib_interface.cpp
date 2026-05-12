@@ -43,8 +43,20 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
     bool is_mpls_label_stck = false;
 
     fwd_info_out->oif = dnh->oif;
-    fwd_info_out->nh_addr = dnh->prefix;
     fwd_info_out->fwd_flags = inh->fwd_flags;
+    fwd_info_out->nh_addr = dnh->prefix;
+
+    /* If INHs resolves over local/connected route , ex, configuring BGP route
+        with IGP like nexthop (which is actually very common) */
+    if (inh->is_indirect &&
+        inh->prefix.afi == AF_IPV4 &&
+        dnh->fwd_flags & (FIB_NH_FWD_F_CONNECTED | FIB_NH_FWD_F_LOCAL)) {
+
+        assert(fwd_info_out->nh_addr.u.v4_addr == 0);
+
+        cmn_prefix_initialize_v4(&fwd_info_out->nh_addr,
+                                 inh->prefix.u.v4_addr, 32);
+    }
 
     mpls_lstack_init (&fwd_info_out->u.mpls_fwd.label_stack);
 

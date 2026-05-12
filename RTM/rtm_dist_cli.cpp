@@ -85,7 +85,7 @@ rtm_isis_rt_distribution_policy_config_cli_handler(
 
     /* Invoke redistribution callback for all routes currently 
         redistributed to this target */
-    rtm_dist_mgr_refresh_dist_routes_to_target(dist_mgr, target);
+    rtm_dist_mgr_broadcast_dist_routes_to_target(dist_mgr, target);
     
     /* If target's rule list is empty, then Queue the target for deletion.
         Deletion of the target should be done asynchronously (deferred) 

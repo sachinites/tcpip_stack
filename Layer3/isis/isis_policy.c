@@ -44,44 +44,6 @@ isis_config_import_policy(isis_node_info_t *node_info, const char *prefix_lst_na
 }
 
 int
-isis_config_export_policy(isis_node_info_t *node_info, const char *prefix_lst_name) {
-
-    node_t *node = node_info->vrf->node;
-
-    prefix_list_t *prefix_lst = prefix_lst_lookup_by_name(
-                                &node->prefix_lst_db, prefix_lst_name);
-    
-    if (!prefix_lst) {
-        cprintf ("Error : Prefix List Do Not Exist\n");
-        return -1;
-    }
-
-    if ( !isis_is_protocol_enable_on_node(node_info->vrf) ||
-          isis_is_protocol_shutdown_in_progress(node_info)) {
-        return -1;
-    }
-
-    if (node_info->export_policy == prefix_lst ) return 0;
-
-    if (node_info->export_policy &&
-         node_info->export_policy != prefix_lst) {
-
-        cprintf ("Error : Other Export policy %s is already being used\n",
-            node_info->export_policy->name);
-        return -1;
-    }
-
-    node_info->export_policy = prefix_lst;
-    prefix_list_reference(prefix_lst);
-
-    rtm_dist_mgr_client_request_route_replay (
-            node->dist_mgr,
-            RTM_PROTO_ISIS, 0, node_info->vrf->vrf_id);
-
-    return 0;
-}
-
-int
 isis_unconfig_import_policy(isis_node_info_t *node_info, const char *prefix_lst_name) {
 
     prefix_list_t *import_policy;
@@ -177,59 +139,6 @@ isis_free_all_exported_rt_advt_data (isis_node_info_t *node_info) {
     }
 }
 
-int
-isis_unconfig_export_policy(isis_node_info_t *node_info, const char *prefix_lst_name) {
-
-    prefix_list_t *export_policy;
-
-    if (!node_info)
-        return 0;
-
-    node_t *node = node_info->vrf->node;
-
-    if (!node_info->export_policy) {
-        if (isis_is_protocol_admin_shutdown(node_info) ||
-             isis_is_protocol_shutdown_in_progress(node_info)) {
-            mtrie_destroy(&node_info->exported_routes);
-            return 0;
-        }
-    }
-
-    if (prefix_lst_name) {
-
-        export_policy =  prefix_lst_lookup_by_name(
-                            &node->prefix_lst_db, prefix_lst_name);
-        if (!export_policy) {
-            cprintf("Error : Prefix List Do Not Exist\n");
-            return -1;
-        }
-    }
-    else
-    {
-        export_policy = node_info->export_policy;
-    }
-
-    if (!export_policy && !prefix_lst_name) {
-
-        if (isis_is_protocol_shutdown_in_progress(node_info) ||
-             isis_is_protocol_admin_shutdown(node_info)) {
-            mtrie_destroy(&node_info->exported_routes);
-        }
-        return 0;
-    }
-
-    prefix_list_dereference(node_info->export_policy);
-    node_info->export_policy = NULL;
-
-    isis_free_all_exported_rt_advt_data(node_info);
-    mtrie_destroy(&node_info->exported_routes);
-
-    if (isis_is_protocol_admin_shutdown(node_info)) return 0;
-
-    init_mtrie(&node_info->exported_routes, 32, NULL);
-    return 0;
-}
-
 pfx_lst_result_t
 isis_evaluate_policy (isis_node_info_t *node_info, 
                       prefix_list_t *policy, 
@@ -269,12 +178,10 @@ isis_prefix_list_change(node_t *node, vrf_t *vrf,
             ISIS_EVENT_ADMIN_CONFIG_CHANGED_BIT);
     }
 
-    if (vrf->isis_node_info->export_policy == prefix_list) {
-
-        rtm_dist_mgr_client_request_route_replay (
+    rtm_dist_mgr_client_request_route_replay (
             node->dist_mgr,
             RTM_PROTO_ISIS, 0, vrf->vrf_id);         
-    }
+    
 }
 
 isis_adv_data_t *
@@ -506,19 +413,6 @@ isis_rtm_route_notif (node_t *node, rt_advert_info_t  *rt_advert) {
         tracer (ISIS_TR(node_info), TR_ISIS_POLICY,
                 "%s : Route %s sourced by ISIS, skip\n",
                 ISIS_EXPOLICY, rt_str);
-        return;
-    }
-
-    /* Export-policy check. If no policy is configured treat it as a
-       wildcard permit and export every route. Otherwise, the policy is
-       the authoritative ISIS-side gate. */
-    if (node_info->export_policy &&
-        isis_evaluate_policy (node_info,
-                              node_info->export_policy,
-                              rt_advert->route.u.v4_addr,
-                              rt_advert->route.prefix_len) != PFX_LST_PERMIT) {
-
-        isis_unexport_route (node_info, &rt_advert->route);
         return;
     }
 

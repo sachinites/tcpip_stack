@@ -349,15 +349,7 @@ isis_config_handler(int cmdcode,
                 default: ;
             }
             break;
-         case CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY:
-             switch (enable_or_disable) {
-             case CONFIG_ENABLE:
-                 return isis_config_export_policy(node_info, prefix_lst_name);
-             case CONFIG_DISABLE:
-                 return isis_unconfig_export_policy(node_info, prefix_lst_name);
-             default:;
-             }
-             break;
+
          default:;
     }
     return 0;
@@ -1226,20 +1218,7 @@ isis_config_cli_tree(param_t *param) {
                  libcli_set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_IMPORT_POLICY);
              }
         }
-        {
-            static param_t export_policy;
-            init_param(&export_policy, CMD, "export-policy", 0, 0, INVALID, 0, "export policy");
-            libcli_register_param(&isis_proto, &export_policy);
-            //libcli_register_display_callback(&import_policy, access_list_show_all_brief);
-            {
-                static param_t policy_name;
-                init_param(&policy_name, LEAF, 0, isis_config_handler, 0, STRING, "prefix-list-name",
-                           ("Prefix List Name"));
-                libcli_register_param(&export_policy, &policy_name);
-                libcli_param_recursive(&policy_name);
-                libcli_set_param_cmd_code(&policy_name, CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY);
-            }
-        }
+
         {
              /* conf node <node-name> [no] protocol isis overload */
             static param_t ovl;

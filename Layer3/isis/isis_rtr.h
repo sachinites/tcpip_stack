@@ -47,8 +47,6 @@ typedef struct isis_node_info_ {
     ted_db_t *ted_db;
     /* import policy */
     prefix_list_t *import_policy;
-    /* export policy */
-    prefix_list_t *export_policy;
     /* Dummy LSP PKT for lookup */
     isis_lsp_pkt_t *lsp_dummy_pkt;
     /* SRv6 Config*/

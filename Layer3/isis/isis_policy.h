@@ -14,13 +14,7 @@ int
 isis_config_import_policy (isis_node_info_t *node_info, const char *access_lst_name);
 
 int
-isis_config_export_policy (isis_node_info_t *node_info, const char *access_lst_name);
-
-int
 isis_unconfig_import_policy (isis_node_info_t *node_info, const char *access_lst_name);
-
-int
-isis_unconfig_export_policy (isis_node_info_t *node_info, const char *access_lst_name);
 
 pfx_lst_result_t
 isis_evaluate_policy (isis_node_info_t *node_info, prefix_list_t *policy, uint32_t dest_nw, uint8_t mask);

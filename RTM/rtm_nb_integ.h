@@ -158,7 +158,7 @@ config node H1 rtm-route prefix 11.0.0.0/24 5 10 0 2 10 gateway 192.168.0.12 int
 BGP :
 config node H1 rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.12 interface eth1
 config node H1 rtm-route prefix 20.0.0.0/16 0 0 0 2 10 gateway 192.168.0.13 interface eth1
-config node H1 rtm-route prefix 122.1.1.0/24 3 6 0 2 10 gateway 10.0.0.1
+config node H1 rtm-route prefix 122.1.1.2/32 3 6 0 2 10 gateway 20.1.1.2
 config node H1 rtm-route prefix 123.1.1.0/24 3 6 0 2 10 gateway 122.1.1.2
 
 
@@ -204,8 +204,8 @@ cp_rtm_protocol_unregister (rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no,
 
 rtm_error_t
 cp_rtm_subscribe(rtm_t *rtm, 
-                            uint8_t src_vrf, uint8_t src_instance_no, RTM_PROTO_T src_proto, 
-                            rtm_rt_subscription_t *sub_template) ;
+                 uint8_t src_vrf, uint8_t src_instance_no, RTM_PROTO_T src_proto, 
+                 rtm_rt_subscription_t *sub_template) ;
 
 rtm_error_t 
 cp_rtm_unsubscribe (rtm_t *rtm, rtm_rt_subscription_t *sub_template);

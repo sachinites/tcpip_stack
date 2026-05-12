@@ -55,8 +55,6 @@
 /* Policies */
 /* config node <node-name> protocol isis import-policy <pfx-list-name> */
 #define CMDCODE_CONF_NODE_ISIS_PROTO_IMPORT_POLICY 25
-/* config node <node-name> protocol isis export-policy <pfx-list-name> */
-#define CMDCODE_CONF_NODE_ISIS_PROTO_EXPORT_POLICY 26
 
 /* Interface Types*/
 /* config node <node-name> protocol isis interface <if-name> p2p */

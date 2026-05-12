@@ -187,6 +187,10 @@ teardown.
 
 */
 
+
+#define DIST_MGR_PREEMPT_THRESHOLD 1000 
+
+
 /* Pack indirect + direct next-hop indices into one 64-bit key (Cnhidx) used as
  * the AVL sort key for nhidx_tree.  Presentation events always supply both. */
 extern inline void 
@@ -425,7 +429,6 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
             init_glthread (&redis_rt->rt_pfx_lst_glue);
             init_glthread (&redis_rt->rt_src_lst_glue);
 
-            redis_rt->nh_proto = presentation_data->rtm_nh_proto;
             redis_rt->nh_proto = presentation_data->inh ? \
                                  presentation_data->inh->rtm_nh_proto : presentation_data->nh->rtm_nh_proto;
             rtm_nh_proto_reference(redis_rt->nh_proto);
@@ -443,7 +446,6 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
             /* Duplicate Cnhidx would mean two redist entries for same NH keys. */
             assert(!avl_node);
             rt_redist_route_reference(redis_rt);
-
 
             avl_prefix_node_t pfx_node_tmplate;
             memcpy(&pfx_node_tmplate.prefix, 
@@ -593,15 +595,29 @@ dist_mgr_redistrbution_job_cbk(
         void *arg, uint32_t arg_size) {
 
     glthread_t *curr;
+    uint32_t count = 0;
     dist_mgr_t *dist_mgr = (dist_mgr_t *)arg;
     rt_redist_route_t *dist_rt = NULL;
-
+    
     dist_mgr->redis_task = NULL;
 
     while ((curr = dequeue_glthread_first(&dist_mgr->redis_queue.head))) {
+        
         dist_rt = rt_redist_route_redis_glue_to_rt(curr);
         rtm_dist_mgr_distribute_route_to_target_clients (dist_mgr, dist_rt);
         rt_redist_route_dereference(dist_mgr, dist_rt);
+
+        count++;
+
+        if (count % DIST_MGR_PREEMPT_THRESHOLD == 0) {
+            /* Yield to avoid starving other jobs if the queue is very long. */
+            dist_mgr->redis_task = task_create_new_job (EV(dist_mgr->node), 
+                                        (void *)dist_mgr, 
+                                        dist_mgr_redistrbution_job_cbk,
+                                        TASK_ONE_SHOT, 
+                                        TASK_PRIORITY_COMPUTE);
+            return;
+        }
     }
 }
 
@@ -708,8 +724,9 @@ target_redis_cbk (
         event_dispatcher_t *ev_dis, 
         void *arg, uint32_t arg_size) {
 
-    redist_target_t *target = (redist_target_t *)arg;
     glthread_t *curr;
+    uint32_t count = 0 ;
+    redist_target_t *target = (redist_target_t *)arg;
     rt_advert_info_t *advert_info;
 
     target->client_flash_job = NULL;
@@ -722,6 +739,18 @@ target_redis_cbk (
             RT_DIST_HANDLERS[target->proto](node, advert_info);
         }
         XFREE(advert_info);
+
+        count++;
+
+        if (count % DIST_MGR_PREEMPT_THRESHOLD == 0) {
+            /* Yield to avoid starving other jobs if the queue is very long. */
+            target->client_flash_job = task_create_new_job (EV(node), 
+                                        (void *)target, 
+                                        target_redis_cbk,
+                                        TASK_ONE_SHOT, 
+                                        TASK_PRIORITY_COMPUTE);
+            return;
+        }
     }
 }
 
@@ -873,7 +902,7 @@ void rtm_dist_mgr_distribute_route_to_target_clients(
 /* Called when a target’s rule list changes: recompute add vs withdraw for every
  * redist route still indexed by nhidx_tree (full scan). */
 void
-rtm_dist_mgr_refresh_dist_routes_to_target(
+rtm_dist_mgr_broadcast_dist_routes_to_target(
                         dist_mgr_t *dist_mgr,
                         redist_target_t *target)
 {
@@ -1054,7 +1083,7 @@ dist_mgr_target_check_and_delete (redist_target_t *target) {
 }
 
 static void 
-dist_mgr_release_all_target_resources (dist_mgr_t *dist_mgr, redist_target_t *target) {
+rtm_dist_mgr_target_release_all_resources (dist_mgr_t *dist_mgr, redist_target_t *target) {
 
     /* Free the Rule list. Each rule may hold a reference on its filter
        prefix-list which must be released before the rule itself is freed. */
@@ -1113,7 +1142,7 @@ dist_mgr_gc_job_cbk(
         switch (container->type) {
 
             case DIST_MGR_GC_TYPE_TARGET:
-                dist_mgr_release_all_target_resources (dist_mgr, (redist_target_t *)container->object);
+                rtm_dist_mgr_target_release_all_resources (dist_mgr, (redist_target_t *)container->object);
                 dist_mgr_target_check_and_delete((redist_target_t *)container->object);
                 break;
             default: ;

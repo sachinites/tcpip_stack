@@ -1174,6 +1174,18 @@ tcp_ip_debug_handler(int cmdcode,
         }
         break;
 
+        case DREDIS:
+        case DREDIS_DET:
+        switch (enable_or_disable) {
+            case CONFIG_ENABLE:
+		        tracer_log_bit_set(node->cptr, cmdcode);
+            break;
+            case CONFIG_DISABLE:
+	    	    tracer_log_bit_unset(node->cptr, cmdcode);
+            break;
+        }
+        break;        
+
 
         /* Only : DP */
         case DARP:
@@ -1268,6 +1280,15 @@ tcp_ip_build_debug_cli_tree (param_t *root) {
             libcli_register_param(&debug, &rtm);
             libcli_set_param_cmd_code(&rtm, DRTM);
             libcli_register_param_detail (&rtm, tcp_ip_debug_handler, DRTM_DET);
+        }
+
+        {
+            /* config node <node-name> [no] debug redis [detail]*/
+            static param_t redis;
+            init_param(&redis, CMD, "redis", tcp_ip_debug_handler, 0, INVALID, 0, "Route Redistribution");
+            libcli_register_param(&debug, &redis);
+            libcli_set_param_cmd_code(&redis, DREDIS);
+            libcli_register_param_detail (&redis, tcp_ip_debug_handler, DREDIS_DET);
         }
 
         {
