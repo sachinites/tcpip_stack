@@ -13,12 +13,13 @@ redistribute connected|static|bgp|ospf|isis [prefix-list <pfx-lst-name>] [metric
 #include "../libs/prefix-list/prefixlst.h"
 #include "rtm_dist_mgr.h"
 #include "rtm_enums.h"
+#include "../vrf/vrf.h"
 
 extern graph_t *topo;
 extern int cprintf(const char *format, ...);
 
 /* Caution : Order is maintained as per enum : RTM_PROTO_T */
-void (*RT_DIST_HANDLERS[])(node_t *, rt_advert_info_t *) = {
+void (*RT_DIST_HANDLERS[])(vrf_t *, rt_advert_info_t *) = {
 
     NULL,
     NULL,
@@ -262,7 +263,7 @@ redist_target_find(
 
     for (t = dm->target_lst; t; t = t->next) {
         if (t->proto == dst_proto && t->instance_no == dst_inst
-            && t->vrf == dst_vrf)
+            && t->vrf->vrf_id == dst_vrf)
             return t;
     }
     return NULL;
@@ -295,7 +296,7 @@ redist_target_get_or_create(
     t = (redist_target_t *)XCALLOC2(0, 1, redist_target_t);
     t->proto = dst_proto;
     t->instance_no = dst_inst;
-    t->vrf = dst_vrf;
+    t->vrf = vrf_get_by_id(dm->node, dst_vrf);
     init_Fglthread(&t->client_redis_queue);
     t->client_flash_job = NULL;
     avltree_init(&t->rt_advertised, rt_advertised_node_tree_comp_fn);

@@ -1125,13 +1125,9 @@ rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
     for (target = dist_mgr->target_lst; target; target = target->next) {
         char vrf_buf[48];
         char client_id[128];
-        const char *vrf_str =
-            vrf_name(dist_mgr->node, target->vrf);
+        const char *vrf_str = target->vrf->vrf_name;
 
-        if (vrf_str)
-            snprintf(vrf_buf, sizeof(vrf_buf), "%s", vrf_str);
-        else
-            snprintf(vrf_buf, sizeof(vrf_buf), "id%u", target->vrf);
+        snprintf(vrf_buf, sizeof(vrf_buf), "%s", vrf_str);
 
         snprintf(
             client_id,
@@ -1258,7 +1254,7 @@ rtm_show_dist_mgr_targets (dist_mgr_t *dist_mgr,
     for (redist_target_t *t = dist_mgr->target_lst; t; t = t->next) {
         if (t->proto == target_proto &&
             t->instance_no == instance_no &&
-            t->vrf == target_vrf_id) {
+            t->vrf->vrf_id == target_vrf_id) {
             target = t;
             break;
         }
@@ -1413,11 +1409,8 @@ rtm_show_dist_mgr_target_route(dist_mgr_t *dist_mgr, const char *prefix_str)
             n_clients++;
 
             char vrf_buf[48];
-            const char *vrf_str = vrf_name(dist_mgr->node, target->vrf);
-            if (vrf_str)
-                snprintf(vrf_buf, sizeof(vrf_buf), "%s", vrf_str);
-            else
-                snprintf(vrf_buf, sizeof(vrf_buf), "id%u", target->vrf);
+            const char *vrf_str = target->vrf->vrf_name;
+            snprintf(vrf_buf, sizeof(vrf_buf), "%s", vrf_str);
 
             cprintf("    - %s.%s.%u\n",
                     vrf_buf,

@@ -382,11 +382,11 @@ isis_unexport_route (isis_node_info_t *node_info, cmn_prefix_t *prefix) {
 }
 
 void
-isis_rtm_route_notif (node_t *node, rt_advert_info_t  *rt_advert) {
+isis_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
 
     char rt_str[48];
     isis_advt_tlv_return_code_t rc;
-    isis_node_info_t *node_info = ISIS_NODE_INFO(node);
+    isis_node_info_t *node_info = vrf->isis_node_info;
 
     if (!node_info) return;
     if (!rt_advert) return;

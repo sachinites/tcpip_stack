@@ -1,3 +1,4 @@
+
 #ifndef __RTM_DIST_MGR__
 #define __RTM_DIST_MGR__
 
@@ -110,7 +111,7 @@ typedef struct redist_target_ {
     /* keys */
     RTM_PROTO_T proto;
     uint32_t instance_no; // default 0
-    uint8_t vrf;
+    vrf_t *vrf;
 
     dist_rule_t *rule_list;
 
@@ -130,7 +131,7 @@ static inline bool
 redist_route_is_advertised_to_client(rt_redist_route_t *dist_rt, redist_target_t *target) {
 
     if (bitmap_at(&dist_rt->client_advert_tracker.proto_bitmap, (uint16_t)target->proto) &&
-        bitmap_at(&dist_rt->client_advert_tracker.vrf_id, (uint16_t)target->vrf) &&
+        bitmap_at(&dist_rt->client_advert_tracker.vrf_id, (uint16_t)target->vrf->vrf_id) &&
         bitmap_at(&dist_rt->client_advert_tracker.instance_no, target->instance_no)) {
         
         return true;

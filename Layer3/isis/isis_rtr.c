@@ -32,7 +32,7 @@ isis_prefix_list_change(node_t *node, vrf_t *vrf,
         uint32_t instance_no, prefix_list_t *prefix_list);
 
 extern void
-isis_rtm_route_notif (node_t *node, rt_advert_info_t  *rt_advert);
+isis_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert);
 
 /* Checking if protocol enable at node & intf level */
 bool

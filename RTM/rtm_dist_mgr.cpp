@@ -360,7 +360,7 @@ rtm_redist_target_record_rt_advertisement
         rt_redist_route_reference(dist_rt);
         assert(!avltree_insert(&node->glue, &target->rt_advertised));
         bitmap_set_bit_at (&dist_rt->client_advert_tracker.proto_bitmap, target->proto);
-        bitmap_set_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf);
+        bitmap_set_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf->vrf_id);
         bitmap_set_bit_at (&dist_rt->client_advert_tracker.instance_no, target->instance_no);
         return;
     }
@@ -378,7 +378,7 @@ rtm_redist_target_record_rt_advertisement
 
     node->dist_rt = NULL;
     bitmap_unset_bit_at (&dist_rt->client_advert_tracker.proto_bitmap, target->proto);
-    bitmap_unset_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf);
+    bitmap_unset_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf->vrf_id);
     bitmap_unset_bit_at (&dist_rt->client_advert_tracker.instance_no, target->instance_no);
     rt_redist_route_dereference(dist_mgr, dist_rt);
 }
@@ -716,7 +716,7 @@ rtm_dist_mgr_advert_fill_from_route(
 }
 
 /* Per-protocol entry points (IS-IS, OSPF, …) registered elsewhere. */
-extern void (*RT_DIST_HANDLERS[])(node_t *, rt_advert_info_t  *);
+extern void (*RT_DIST_HANDLERS[])(vrf_t *, rt_advert_info_t  *);
 
 /* Drains target->client_redis_queue; each advert_info is malloc’d, freed here. */
 static void 
@@ -736,7 +736,7 @@ target_redis_cbk (
 
         advert_info = redis_glue_to_rt_advert_info(curr);
         if (RT_DIST_HANDLERS[target->proto]) {
-            RT_DIST_HANDLERS[target->proto](node, advert_info);
+            RT_DIST_HANDLERS[target->proto](target->vrf, advert_info);
         }
         XFREE(advert_info);
 
@@ -807,7 +807,7 @@ void rtm_dist_mgr_distribute_route_to_target_clients(
                        rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
                        rtm_proto_to_string(target->proto),
                        target->instance_no,
-                       target->vrf);
+                       target->vrf->vrf_id);
 
                 rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
                 rtm_redist_target_record_rt_advertisement (dist_mgr, target, dist_rt, false);
@@ -844,7 +844,7 @@ void rtm_dist_mgr_distribute_route_to_target_clients(
                            rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
                            rtm_proto_to_string(target->proto),
                            target->instance_no,
-                           target->vrf);
+                           target->vrf->vrf_id);
                     break;
                 }
 
@@ -862,7 +862,7 @@ void rtm_dist_mgr_distribute_route_to_target_clients(
                        rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
                        rtm_proto_to_string(target->proto),
                        target->instance_no,
-                       target->vrf);
+                       target->vrf->vrf_id);
 
                 rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
                 rtm_redist_target_record_rt_advertisement(dist_mgr, target, dist_rt, true);
@@ -890,7 +890,7 @@ void rtm_dist_mgr_distribute_route_to_target_clients(
                    rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
                    rtm_proto_to_string(target->proto),
                    target->instance_no,
-                   target->vrf);
+                   target->vrf->vrf_id);
 
             rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
             rtm_redist_target_record_rt_advertisement(dist_mgr, target, dist_rt, false);
@@ -935,7 +935,7 @@ rtm_dist_mgr_broadcast_dist_routes_to_target(
                    rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
                    rtm_proto_to_string(target->proto),
                    target->instance_no,
-                   target->vrf);
+                   target->vrf->vrf_id);
 
             rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
             rtm_redist_target_record_rt_advertisement (dist_mgr, target, dist_rt, false);
@@ -956,7 +956,7 @@ rtm_dist_mgr_broadcast_dist_routes_to_target(
                    rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
                    rtm_proto_to_string(target->proto),
                    target->instance_no,
-                   target->vrf);
+                   target->vrf->vrf_id);
 
             rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
             rtm_redist_target_record_rt_advertisement (dist_mgr, target, dist_rt, true);
@@ -992,7 +992,7 @@ rtm_dist_mgr_client_request_route_replay (
 
     for (target = dist_mgr->target_lst; target; target = target->next) {
         if (target->proto == proto && target->instance_no == instance_no
-            && target->vrf == vrf_id)
+            && target->vrf->vrf_id == vrf_id)
             break;
     }
 
@@ -1026,7 +1026,7 @@ rtm_dist_mgr_client_request_route_replay (
                    rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
                    rtm_proto_to_string(target->proto),
                    target->instance_no,
-                   target->vrf);
+                   target->vrf->vrf_id);
 
             rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
             rtm_redist_target_record_rt_advertisement (dist_mgr, target, dist_rt, false);
@@ -1047,7 +1047,7 @@ rtm_dist_mgr_client_request_route_replay (
                    rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
                    rtm_proto_to_string(target->proto),
                    target->instance_no,
-                   target->vrf);
+                   target->vrf->vrf_id);
 
             rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
             /* Intentionally no record_rt_advertisement(true): adv_node already
@@ -1115,7 +1115,7 @@ rtm_dist_mgr_target_release_all_resources (dist_mgr_t *dist_mgr, redist_target_t
         XFREE(adv_node);
 
         bitmap_unset_bit_at (&dist_rt->client_advert_tracker.proto_bitmap, target->proto);
-        bitmap_unset_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf);
+        bitmap_unset_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf->vrf_id);
         bitmap_unset_bit_at (&dist_rt->client_advert_tracker.instance_no, target->instance_no);
         rt_redist_route_dereference(dist_mgr, dist_rt);
 
@@ -1175,7 +1175,7 @@ rtm_dis_mgr_gc (dist_mgr_t *dist_mgr, void *object, DIST_MGR_GC_TYPE_T type) {
 }
 
 
-extern void (*RT_DIST_HANDLERS[])(node_t *, rt_advert_info_t  *);
+extern void (*RT_DIST_HANDLERS[])(vrf_t *, rt_advert_info_t  *);
 
 void 
 rtm_register_rt_distribution_cbk (

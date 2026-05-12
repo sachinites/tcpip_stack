@@ -8,7 +8,7 @@
 typedef struct isis_node_info_ isis_node_info_t;
 typedef struct isis_adv_data_ isis_adv_data_t;
 typedef struct rt_advert_info_ rt_advert_info_t;
-typedef struct node_ node_t;
+typedef struct vrf_ vrf_t;
 
 int
 isis_config_import_policy (isis_node_info_t *node_info, const char *access_lst_name);
@@ -32,6 +32,6 @@ void
 isis_free_all_exported_rt_advt_data (isis_node_info_t *node_info);
 
 void
-isis_rtm_route_notif (node_t *node, rt_advert_info_t *rt_advert);
+isis_rtm_route_notif (vrf_t *vrf, rt_advert_info_t *rt_advert);
 
 #endif 
