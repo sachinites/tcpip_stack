@@ -1204,8 +1204,6 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
         if (!advt_db) continue;
         isis_destroy_advt_db(node_info, i);
     }
-    
-    isis_free_all_exported_rt_advt_data (node_info);
 
     /* Now Regen all fragments by advertising all TLVs*/
     isis_regen_zeroth_fragment (node_info);

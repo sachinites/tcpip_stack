@@ -9,6 +9,7 @@
 #include "../libs/Tree/libtree.h"
 #include "../libs/EventDispatcher/event_dispatcher.h"
 #include "../libs/BitOp/bitmap.h"
+#include "../libs/prefix-list/prefixlst.h"
 
 #include "rtm_fib_common.h"
 #include "rtm_enums.h"
@@ -210,6 +211,8 @@ typedef struct dist_mgr_ {
     Fglthread_t redis_queue;
     
     Fglthread_t gc_queue;
+
+    Fglthread_t pfxlst_book_keep;
 
 } dist_mgr_t;
 

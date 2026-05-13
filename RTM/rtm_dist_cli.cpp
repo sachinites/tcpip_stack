@@ -11,6 +11,7 @@ redistribute connected|static|bgp|ospf|isis [prefix-list <pfx-lst-name>] [metric
 #include "../router_init.h"
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../libs/prefix-list/prefixlst.h"
+#include "../libs/Tracer/tracer.h"
 #include "rtm_dist_mgr.h"
 #include "rtm_enums.h"
 #include "../vrf/vrf.h"
@@ -39,14 +40,26 @@ void (*RT_DIST_HANDLERS[])(vrf_t *, rt_advert_info_t *) = {
 #define CMDCODE_RTM_REDIST_OSPF       5
 #define CMDCODE_RTM_REDIST_ISIS       6
 
-redist_target_t *
+static int
 rtm_protocol_rt_distribution_policy_config_cli_handler(
-    RTM_PROTO_T proto,
     int cmdcode,
     Stack_t *tlv_stack,
-    op_mode enable_or_disable,
-    dist_mgr_t **dist_mgr_out);
+    op_mode enable_or_disable);
 
+static void 
+dist_mgr_process_prefix_list_update (
+                              dist_mgr_t *dist_mgr, 
+                              prefix_list_t *pfxlst);
+
+static bool
+dist_mgr_pfxlst_book_keep_del (dist_mgr_t *dist_mgr, 
+                              prefix_list_t *pfxlst, 
+                              redist_target_t *target);
+
+static void 
+dist_mgr_pfxlst_book_keep_add (dist_mgr_t *dist_mgr, 
+                           prefix_list_t *pfxlst, 
+                           redist_target_t *target);
 
 static void 
 dist_mgr_target_delink (dist_mgr_t *dist_mgr, redist_target_t *target) {
@@ -65,40 +78,6 @@ dist_mgr_target_delink (dist_mgr_t *dist_mgr, redist_target_t *target) {
         prev = curr;
         curr = curr->next;
     }
-}
-
-extern int
-rtm_isis_rt_distribution_policy_config_cli_handler(
-    int cmdcode,
-    Stack_t *tlv_stack,
-    op_mode enable_or_disable) {
-
-    tlv_struct *tlv;
-    char *node_name = NULL;
-    dist_mgr_t *dist_mgr = NULL;
-
-    redist_target_t *target = rtm_protocol_rt_distribution_policy_config_cli_handler(
-                    RTM_PROTO_ISIS, 
-                    cmdcode, 
-                    tlv_stack, enable_or_disable, &dist_mgr);
-
-    if (!target) return -1;
-
-    /* Invoke redistribution callback for all routes currently 
-        redistributed to this target */
-    rtm_dist_mgr_broadcast_dist_routes_to_target(dist_mgr, target);
-    
-    /* If target's rule list is empty, then Queue the target for deletion.
-        Deletion of the target should be done asynchronously (deferred) 
-        through Garbage collector because we need to send DELETE to this 
-        target for all routes we have flashed to it */
-
-    if (!target->rule_list) {
-        dist_mgr_target_delink (dist_mgr, target);
-        rtm_dis_mgr_gc (dist_mgr, target, DIST_MGR_GC_TYPE_TARGET);
-    }
-
-    return 0;
 }
 
 static void 
@@ -155,8 +134,9 @@ rtm_distribution_policy_common_subtree_cli(
 }
 
 void
-rtm_build_distribution_policy_cli_tree(param_t *mount_point, 
-            int (*cbk)(int, Stack_t*, op_mode), RTM_PROTO_T exempt_proto) {
+rtm_build_distribution_policy_cli_tree(
+                param_t *mount_point, 
+                RTM_PROTO_T exempt_proto) {
 
     param_t *redistribute = (param_t *)calloc(1, sizeof (param_t));
     init_param(redistribute, CMD, "redistribute", 0, 0, INVALID, 0,
@@ -166,67 +146,79 @@ rtm_build_distribution_policy_cli_tree(param_t *mount_point,
     if (exempt_proto != RTM_PROTO_CONNECTED)
     {
         param_t *connected = (param_t *)calloc(1, sizeof (param_t));
-        init_param(connected, CMD, "connected", cbk, 0, INVALID, 0,
+        init_param(connected, CMD, "connected", 
+        rtm_protocol_rt_distribution_policy_config_cli_handler, 0, INVALID, 0,
             "Redistribute connected routes");
         libcli_register_param(redistribute, connected);
         libcli_set_param_cmd_code(connected, CMDCODE_RTM_REDIST_CONNECTED);
         libcli_disable_batch_processing(connected);
-        rtm_distribution_policy_common_subtree_cli (connected, CMDCODE_RTM_REDIST_CONNECTED, cbk);
+        rtm_distribution_policy_common_subtree_cli (connected, CMDCODE_RTM_REDIST_CONNECTED, 
+            rtm_protocol_rt_distribution_policy_config_cli_handler);
     }
 
     if (exempt_proto != RTM_PROTO_CONNECTED)
     {
         param_t *local = (param_t *)calloc(1, sizeof (param_t));
-        init_param(local, CMD, "local", cbk, 0, INVALID, 0,
+        init_param(local, CMD, "local", 
+            rtm_protocol_rt_distribution_policy_config_cli_handler, 0, INVALID, 0,
             "Redistribute local routes");
         libcli_register_param(redistribute, local);
         libcli_set_param_cmd_code(local, CMDCODE_RTM_REDIST_LOCAL);
         libcli_disable_batch_processing(local);
-        rtm_distribution_policy_common_subtree_cli (local, CMDCODE_RTM_REDIST_LOCAL, cbk);
+        rtm_distribution_policy_common_subtree_cli (local, CMDCODE_RTM_REDIST_LOCAL, 
+            rtm_protocol_rt_distribution_policy_config_cli_handler);
     }    
 
     if (exempt_proto != RTM_PROTO_STATIC)
     {
         param_t *static_rt = (param_t *)calloc(1, sizeof (param_t));
-        init_param(static_rt, CMD, "static", cbk, 0, INVALID, 0,
+        init_param(static_rt, CMD, "static", 
+            rtm_protocol_rt_distribution_policy_config_cli_handler, 0, INVALID, 0,
             "Redistribute static routes");
         libcli_register_param(redistribute, static_rt);
         libcli_set_param_cmd_code(static_rt, CMDCODE_RTM_REDIST_STATIC);
         libcli_disable_batch_processing(static_rt);
-        rtm_distribution_policy_common_subtree_cli (static_rt, CMDCODE_RTM_REDIST_STATIC, cbk);
+        rtm_distribution_policy_common_subtree_cli (static_rt, CMDCODE_RTM_REDIST_STATIC, 
+            rtm_protocol_rt_distribution_policy_config_cli_handler);
     }
 
     if (exempt_proto != RTM_PROTO_BGP)
     {
         param_t *bgp = (param_t *)calloc(1, sizeof (param_t));
-        init_param(bgp, CMD, "bgp", cbk, 0, INVALID, 0,
+        init_param(bgp, CMD, "bgp", 
+            rtm_protocol_rt_distribution_policy_config_cli_handler, 0, INVALID, 0,
             "Redistribute BGP routes");
         libcli_register_param(redistribute, bgp);
         libcli_set_param_cmd_code(bgp, CMDCODE_RTM_REDIST_BGP);
         libcli_disable_batch_processing(bgp);
-        rtm_distribution_policy_common_subtree_cli (bgp, CMDCODE_RTM_REDIST_BGP, cbk);
+        rtm_distribution_policy_common_subtree_cli (bgp, CMDCODE_RTM_REDIST_BGP,
+            rtm_protocol_rt_distribution_policy_config_cli_handler);
     }
 
     if (exempt_proto != RTM_PROTO_OSPF)
     {
         param_t *ospf = (param_t *)calloc(1, sizeof (param_t));
-        init_param(ospf, CMD, "ospf", cbk, 0, INVALID, 0,
+        init_param(ospf, CMD, "ospf", 
+            rtm_protocol_rt_distribution_policy_config_cli_handler, 0, INVALID, 0,
             "Redistribute OSPF routes");
         libcli_register_param(redistribute, ospf);
         libcli_set_param_cmd_code(ospf, CMDCODE_RTM_REDIST_OSPF);
         libcli_disable_batch_processing(ospf); 
-        rtm_distribution_policy_common_subtree_cli (ospf, CMDCODE_RTM_REDIST_OSPF, cbk);
+        rtm_distribution_policy_common_subtree_cli (ospf, CMDCODE_RTM_REDIST_OSPF, 
+            rtm_protocol_rt_distribution_policy_config_cli_handler);
     }
 
     if (exempt_proto != RTM_PROTO_ISIS)
     {
         param_t *isis = (param_t *)calloc(1, sizeof (param_t));
-        init_param(isis, CMD, "isis", cbk, 0, INVALID, 0,
+        init_param(isis, CMD, "isis", 
+            rtm_protocol_rt_distribution_policy_config_cli_handler, 0, INVALID, 0,
             "Redistribute ISIS routes");
         libcli_register_param(redistribute, isis);
         libcli_set_param_cmd_code(isis, CMDCODE_RTM_REDIST_ISIS);
         libcli_disable_batch_processing(isis); 
-        rtm_distribution_policy_common_subtree_cli (isis, CMDCODE_RTM_REDIST_ISIS, cbk);
+        rtm_distribution_policy_common_subtree_cli (isis, CMDCODE_RTM_REDIST_ISIS,
+            rtm_protocol_rt_distribution_policy_config_cli_handler);
     }
 
 }
@@ -363,17 +355,16 @@ dist_rule_find(redist_target_t *target, const dist_rule_t *key)
 }
 
 /* Generic Route policy function handler for all protocols */
-redist_target_t *
-rtm_protocol_rt_distribution_policy_config_cli_handler(
+int
+rtm_protocol_rt_distribution_policy_config_cli_handler(       
+                    int cmdcode,
+                    Stack_t *tlv_stack,
+                    op_mode enable_or_disable) {
 
-    RTM_PROTO_T target_proto,
-    int cmdcode,
-    Stack_t *tlv_stack,
-    op_mode enable_or_disable,
-    dist_mgr_t **dist_mgr_out)
-{
     tlv_struct_t *tlv;
     dist_rule_t *rule;
+    bool proto_readname = false;
+    RTM_PROTO_T target_proto;
     c_string node_name = NULL;
     c_string vrf_name = NULL;
     c_string pfx_lst_name = NULL;
@@ -381,7 +372,11 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv)
     {
-        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+        if (proto_readname) {
+            target_proto = rtm_string_to_protocol_enum((const char *)tlv->value);
+            proto_readname = false;
+        }
+        else if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
             node_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
             vrf_name = tlv->value;
@@ -389,24 +384,24 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
             pfx_lst_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "metric-val"))
             metric_str = (const char *)tlv->value;
+        else if (parser_match_param(tlv, "protocol"))
+            proto_readname = true;
     }
     TLV_LOOP_END;
 
     RTM_PROTO_T src_proto = rtm_redist_cmdcode_to_src_proto(cmdcode);
 
-    if (src_proto >= RTM_PROTO_MAX) {
-        cprintf("Error: unknown redistribute source for command\n");
-        return NULL;
+    if (src_proto >= RTM_PROTO_MAX || target_proto >= RTM_PROTO_MAX) {
+        cprintf("Error: Unknown Target/src protocol name specified\n");
+        return -1;
     }
 
     node_t *node = node_get_node_by_name(topo, node_name);
     vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
 
-    *dist_mgr_out = node->dist_mgr;
-
     if (!vrf) {
         cprintf("Error: VRF not found\n");
-        return NULL;
+        return -1;
     }
 
     uint32_t metric_u = 0;
@@ -421,7 +416,7 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
             &node->prefix_lst_db, (unsigned char *)pfx_lst_name);
         if (!pfx_lst) {
             cprintf("Error: prefix-list does not exist\n");
-            return NULL;
+            return -1;
         }
     }
 
@@ -444,51 +439,80 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
     redist_target_t *target =
         redist_target_find(node->dist_mgr, target_proto, 0, vrf->vrf_id);
 
-    if (enable_or_disable == CONFIG_DISABLE) {
+    switch (enable_or_disable) {
 
-        if (!target) {
-            cprintf("Error: target protocol not found\n");
-            return NULL;
+        case CONFIG_DISABLE:
+        {
+            if (!target) {
+                cprintf("Error: target protocol not found\n");
+                return -1;
+            }
+
+            rule = dist_rule_find(target, &key);
+
+            if (!rule) {
+                cprintf("Error: rule not found\n");
+                return -1;
+            }
+
+            dist_rule_list_remove(target, rule);
+
+            if (rule->pfx_lst) {
+                assert (dist_mgr_pfxlst_book_keep_del (
+                        node->dist_mgr, rule->pfx_lst, target));
+            }
+
+            if (rule->pfx_lst) prefix_list_dereference(rule->pfx_lst);
+            XFREE(rule);
         }
+        break;
 
-        rule = dist_rule_find(target, &key);
+        case CONFIG_ENABLE:
+        {
+            if (target && dist_rule_find(target, &key))
+            {
+                // cprintf("Error: same rule already exists\n");
+                return -1;
+            }
 
-        if (!rule) {
-            cprintf("Error: rule not found\n");
-            return NULL;
+            if (!target) {
+                target = redist_target_get_or_create(
+                    node->dist_mgr, target_proto, 0, vrf->vrf_id);
+            }
+
+            /* Materialize the rule from the template. memcpy preserves every
+               identity field that was matched above, so the lookup and the
+               allocation can never drift apart. */
+            rule = (dist_rule_t *)XCALLOC2(0, 1, dist_rule_t);
+            memcpy(rule, &key, sizeof(*rule));
+            rule->next = NULL;
+            rule->owning_target = target;
+            if (rule->pfx_lst) prefix_list_reference(rule->pfx_lst);
+
+            dist_rule_list_append(target, rule);
+
+            if (rule->pfx_lst) {
+                dist_mgr_pfxlst_book_keep_add (node->dist_mgr, rule->pfx_lst, target);
+            }
         }
-
-        dist_rule_list_remove(target, rule);
-
-        if (rule->pfx_lst) prefix_list_dereference(rule->pfx_lst);
-
-        XFREE(rule);
-        return target;
+        break;
     }
 
-    /* CONFIG_ENABLE */
+    /* Invoke redistribution callback for all routes currently 
+        redistributed to this target */
+    rtm_dist_mgr_broadcast_dist_routes_to_target(node->dist_mgr, target);
+    
+    /* If target's rule list is empty, then Queue the target for deletion.
+        Deletion of the target should be done asynchronously (deferred) 
+        through Garbage collector because we need to send DELETE to this 
+        target for all routes we have flashed to it */
 
-    if (target && dist_rule_find(target, &key)) {
-        //cprintf("Error: same rule already exists\n");
-        return NULL;
+    if (!target->rule_list) {
+        dist_mgr_target_delink (node->dist_mgr, target);
+        rtm_dis_mgr_gc (node->dist_mgr, target, DIST_MGR_GC_TYPE_TARGET);
     }
 
-    if (!target) {
-
-        target = redist_target_get_or_create(
-            node->dist_mgr, target_proto, 0, vrf->vrf_id);
-    }
-
-    /* Materialize the rule from the template. memcpy preserves every
-       identity field that was matched above, so the lookup and the
-       allocation can never drift apart. */
-    rule = (dist_rule_t *)XCALLOC2(0, 1, dist_rule_t);
-    memcpy(rule, &key, sizeof(*rule));
-    rule->next = NULL;
-    rule->owning_target = target;
-    if (rule->pfx_lst) prefix_list_reference(rule->pfx_lst);
-    dist_rule_list_append(target, rule);
-    return rule->owning_target;
+    return 0;    
 }
 
 void 
@@ -506,4 +530,162 @@ rtm_unregister_rt_distribution_cbk (
 }
 
 
+void 
+dist_mgr_prefix_lst_change_cbk(node_t *node,
+                               vrf_t *vrf,
+                               uint32_t instance_no,
+                               prefix_list_t *prefix_lst) {
 
+    tracer (node->cptr, DREDIS, "REDIS-MGR : Prefix lst %s update recvd by DIST-MGR\n", 
+            prefix_lst->name);
+
+    dist_mgr_process_prefix_list_update (node->dist_mgr, prefix_lst);
+}
+
+/* Prefix list Book Keeping by DIST-MGR 
+    Whenever prefix list is changed/deleted, we need to update all
+    targets whose atleast one redistribution rules is using 
+    the said prefix list as a filter */
+
+#pragma pack(push, 8)
+typedef struct pfxlst_target_ {
+
+    /* pointer to target */
+    redist_target_t *target;
+    /* How many rules of this target using the prefix list */
+    uint16_t count;
+    /* A node Glue to the linkedlist*/
+    glthread_t glue;
+
+} pfxlst_target_t;
+
+#pragma pack(pop)
+
+GLTHREAD_TO_STRUCT(glue_to_pfxlst_target, pfxlst_target_t, glue);
+
+void 
+dist_mgr_pfxlst_book_keep_add (dist_mgr_t *dist_mgr, 
+                           prefix_list_t *pfxlst, 
+                           redist_target_t *target) {
+
+    glthread_t *curr, *curr2;
+    prefix_list_t *pflst_ptr;
+    glthread_data_node_t *data_node;
+    pfxlst_target_t *pfxlst_target;
+
+    ITERATE_GLTHREAD_BEGIN (&dist_mgr->pfxlst_book_keep.head, curr) {
+
+        data_node = glue_to_glthread_data_node(curr);
+        if (data_node->data != (void *)pfxlst) continue;
+
+        ITERATE_GLTHREAD_BEGIN (&data_node->glue, curr2) {
+
+            pfxlst_target = (pfxlst_target_t *)glue_to_pfxlst_target(curr2);
+            pfxlst_target->count++;
+            return;
+
+        } ITERATE_GLTHREAD_END (&data_node->glue, curr2);
+
+        /* Target not found , add it */
+        pfxlst_target = (pfxlst_target_t *) XCALLOC2 (0, 1, pfxlst_target_t );
+        pfxlst_target->target = target;
+        pfxlst_target->count = 1;
+        init_glthread(&pfxlst_target->glue);
+        glthread_add_next(&data_node->glue, &pfxlst_target->glue);
+        return;
+
+    } ITERATE_GLTHREAD_END (&dist_mgr->pfxlst_book_keep.head, curr) 
+
+    /* Prefix list itself is not found */
+    data_node = (glthread_data_node_t *)XCALLOC2(0, 1, glthread_data_node_t);
+    data_node->data = (void *)pfxlst;
+    init_glthread (&data_node->glue);
+    prefix_list_reference(pfxlst);
+
+    Fglthread_add_last(&dist_mgr->pfxlst_book_keep, &data_node->glue);
+
+    /* Add the target */
+    pfxlst_target = (pfxlst_target_t *)XCALLOC2(0, 1, pfxlst_target_t);
+    pfxlst_target->target = target;
+    pfxlst_target->count = 1;
+    init_glthread(&pfxlst_target->glue);
+    glthread_add_next(&data_node->glue, &pfxlst_target->glue);
+}
+
+bool
+dist_mgr_pfxlst_book_keep_del (dist_mgr_t *dist_mgr, 
+                              prefix_list_t *pfxlst, 
+                              redist_target_t *target) {
+
+    glthread_t *curr, *curr2;
+    glthread_data_node_t *data_node;
+    pfxlst_target_t *pfxlst_target;
+
+    ITERATE_GLTHREAD_BEGIN (&dist_mgr->pfxlst_book_keep.head, curr) {
+
+        data_node = glue_to_glthread_data_node(curr);
+
+        if (data_node->data != (void *)pfxlst) continue;
+
+        /* Prefix list found, now find target */
+        ITERATE_GLTHREAD_BEGIN (&data_node->glue, curr2) {
+
+            pfxlst_target = (pfxlst_target_t *)glue_to_pfxlst_target(curr2);
+
+            if (pfxlst_target->target != target) continue;
+
+            /* Found target → decrement */
+            pfxlst_target->count--;
+
+            /* If no references left → delete target */
+            if (pfxlst_target->count == 0) {
+
+                remove_glthread(&pfxlst_target->glue);
+                XFREE(pfxlst_target);
+
+                /* If no targets left for this prefix-list */
+                if (IS_GLTHREAD_LIST_EMPTY(&data_node->glue)) {
+
+                    remove_Fglthread(&dist_mgr->pfxlst_book_keep, &data_node->glue);
+                    prefix_list_dereference(pfxlst);
+                    XFREE(data_node);
+                }
+            }
+
+            return true;;
+
+        } ITERATE_GLTHREAD_END (&data_node->glue, curr2);
+
+        /* Prefix list found, but target not found */
+        return false;
+
+    } ITERATE_GLTHREAD_END (&dist_mgr->pfxlst_book_keep.head, curr);
+
+    return false;
+}
+
+void 
+dist_mgr_process_prefix_list_update (
+                              dist_mgr_t *dist_mgr, 
+                              prefix_list_t *pfxlst) {
+
+    glthread_t *curr, *curr2;
+    pfxlst_target_t *pfxlst_target;
+    glthread_data_node_t *data_node;
+
+    ITERATE_GLTHREAD_BEGIN (&dist_mgr->pfxlst_book_keep.head, curr) {
+
+        data_node = glue_to_glthread_data_node(curr);
+
+        if (data_node->data != (void *)pfxlst) continue;
+
+        ITERATE_GLTHREAD_BEGIN (&data_node->glue, curr2) {
+
+            pfxlst_target = (pfxlst_target_t *)glue_to_pfxlst_target(curr2);
+            rtm_dist_mgr_broadcast_dist_routes_to_target(dist_mgr, pfxlst_target->target);
+
+        } ITERATE_GLTHREAD_END (&data_node->glue, curr2);
+
+    } ITERATE_GLTHREAD_END (&dist_mgr->pfxlst_book_keep.head, curr) 
+
+}

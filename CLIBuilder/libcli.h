@@ -66,6 +66,17 @@ parser_match_leaf_id (unsigned char *tlv_leaf_id, const char *leaf_id_manual) {
     return (strncmp((const char *)tlv_leaf_id, leaf_id_manual, len) == 0); 
 }
 
+static inline bool
+parser_match_param (tlv_struct_t *tlv, char *cmd_name){
+
+    if (tlv->tlv_type != TLV_TYPE_CMD_NAME) return false;
+    int rc1 = strlen ((const char *)tlv->value);
+    int rc2 = strlen ((const char *)cmd_name);
+    if (rc1 != rc2) return false;
+    return (strncmp ((const char *)tlv->value, cmd_name, rc1) == 0);
+}
+
+
 void
 libcli_register_display_callback (param_t *param, display_possible_values_callback cbk);
 

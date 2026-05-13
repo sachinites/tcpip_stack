@@ -19,6 +19,8 @@ typedef struct rtm_rt_subscription_ rtm_rt_subscription_t;
 typedef struct mpls_lstack_ mpls_lstack_t;
 typedef struct rt_advert_info_ rt_advert_info_t;
 typedef struct node_ node_t;
+typedef struct vrf_ vrf_t;
+typedef struct _param_t_ param_t;
 
 #pragma pack(push, 8)
 
@@ -221,7 +223,7 @@ rtm_nh_template_free_internals (cp_nexthop_template_t *nh_template);
 
 void 
 rtm_register_rt_distribution_cbk (
-        void (*cbk)(node_t *, rt_advert_info_t  *), RTM_PROTO_T proto);
+        void (*cbk)(vrf_t *, rt_advert_info_t  *), RTM_PROTO_T proto);
 
 void 
 rtm_unregister_rt_distribution_cbk (
@@ -232,5 +234,10 @@ rtm_dist_mgr_client_request_route_replay (
         dist_mgr_t *dist_mgr, 
         RTM_PROTO_T proto, 
         uint32_t instance_no, uint8_t vrf_id);
+
+extern void
+rtm_build_distribution_policy_cli_tree(
+                param_t *mount_point, 
+                RTM_PROTO_T exempt_proto);
 
 #endif 

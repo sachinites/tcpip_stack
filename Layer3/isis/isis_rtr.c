@@ -76,7 +76,7 @@ isis_check_delete_node_info(isis_node_info_t *node_info) {
     /*Hooked up Data Structures should be empty */
     assert (avltree_is_empty(&node_info->intf_grp_avl_root));
     assert (!node_info->ted_db);
-    assert (!node_info->exported_routes.root);
+    assert (mtrie_is_leaf_node(node_info->exported_routes.root));
     assert (!node_info->isis_event_count [isis_event_tlv_wait_listed]);
     assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv236);
     assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv237);
@@ -400,8 +400,6 @@ isis_init (vrf_t *vrf) {
 
     node_info->ted_db = XCALLOC2(0, 1, ted_db_t);
     ted_init_teddb(node_info->ted_db, NULL, isis_spf_cleanup_spf_data);
-
-    //nfc_ipv4_rt_subscribe(node, isis_ipv4_rt_notif_cbk);
 
     isis_init_spf_logc(node_info);
 

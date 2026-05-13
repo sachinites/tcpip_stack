@@ -190,6 +190,8 @@ teardown.
 
 #define DIST_MGR_PREEMPT_THRESHOLD 1000 
 
+typedef struct prefix_lst_ prefix_list_t;
+typedef struct node_ node_t;
 
 /* Pack indirect + direct next-hop indices into one 64-bit key (Cnhidx) used as
  * the AVL sort key for nhidx_tree.  Presentation events always supply both. */
@@ -198,6 +200,12 @@ fib_set_nh_idx(
     uint64_t *p, 
     uint32_t inhidx, 
     uint32_t nhidx);
+
+extern void 
+dist_mgr_prefix_lst_change_cbk(node_t *node,
+                               vrf_t *vrf,
+                               uint32_t instance_no,
+                               prefix_list_t *prefix_lst);
 
 static void 
 dist_mgr_schedule_route_advertise(dist_mgr_t *dist_mgr, rt_redist_route_t *dist_route);
@@ -285,7 +293,7 @@ rtm_dist_mgr_init (node_t *node) {
     avltree_init(&dist_mgr->nhidx_tree, nhidx_tree_comp_fn);
     avltree_init(&dist_mgr->route_tree_by_prefix, prefix_tree_comp_fn);
 
-    for (i = 0; i < (uint32_t)RTM_SUB_PROTO_MAX; i++) {
+    for (i = 0; i < (uint32_t)RTM_PROTO_MAX; i++) {
 
         avltree_init(&dist_mgr->route_tree[AF_IPV4][i],  vrf_instance_tree_comp_fn);
         avltree_init(&dist_mgr->route_tree[AF_IPV6][i],  vrf_instance_tree_comp_fn);
@@ -295,8 +303,13 @@ rtm_dist_mgr_init (node_t *node) {
 
     init_Fglthread(&dist_mgr->redis_queue);
     init_Fglthread(&dist_mgr->gc_queue);
-
+    init_Fglthread(&dist_mgr->pfxlst_book_keep);
+    
     node->dist_mgr = dist_mgr;
+
+    prefix_list_register_client (node, dist_mgr_prefix_lst_change_cbk, 
+        0,   // prefix list is VRF independent Concept
+        0);  // No instance 
 }
 
 /* ------------------------------------------------------------------------- */
@@ -660,19 +673,24 @@ rtm_dist_mgr_rule_source_matches (dist_rule_t *rule, rtm_nh_proto_t *nh_proto) {
     return true;
 }
 
-static bool
-rtm_dist_mgr_rule_filter_permits (dist_rule_t *rule, cmn_prefix_t *prefix) {
+/* Returns PERMIT, DENY, or SKIP (no match).
+   PERMIT  – prefix-list matched and permitted, or no filter is configured.
+   DENY    – prefix-list matched and explicitly denied; callers must stop
+             processing further rules for this route.
+   SKIP    – prefix-list had no matching entry; caller may try the next rule. */
+static pfx_lst_result_t
+rtm_dist_mgr_rule_filter_eval (dist_rule_t *rule, cmn_prefix_t *prefix) {
 
     /* No filter configured => permit by default */
-    if (!rule->pfx_lst) return true;
+    if (!rule->pfx_lst) return PFX_LST_PERMIT;
 
     /* prefix-list library currently supports IPv4 only.
        For non-IPv4 routes with a configured filter, deny to be safe. */
-    if (prefix->afi != AF_IPV4) return false;
+    if (prefix->afi != AF_IPV4) return PFX_LST_DENY;
 
     return prefix_list_evaluate (prefix->u.v4_addr,
                                  prefix->prefix_len,
-                                 rule->pfx_lst) == PFX_LST_PERMIT;
+                                 rule->pfx_lst);
 }
 
 /* First rule on this target that permits redistribution of dist_rt (VRF + policy). */
@@ -694,11 +712,18 @@ rtm_dist_mgr_target_first_permitting_rule(
 
         if (!rtm_dist_mgr_rule_source_matches(rule, dist_rt->nh_proto))
             continue;
-        if (!rtm_dist_mgr_rule_filter_permits(rule, &dist_rt->prefix))
-            continue;
-        if (rule_out)
-            *rule_out = rule;
-        return true;
+
+        switch (rtm_dist_mgr_rule_filter_eval(rule, &dist_rt->prefix)) {
+            case PFX_LST_PERMIT:
+                if (rule_out) *rule_out = rule;
+                return true;
+            case PFX_LST_DENY:
+                /* Explicit deny is terminal; no further rule can override. */
+                return false;
+            case PFX_LST_SKIP:
+            default:
+                continue;
+        }
     }
     return false;
 }
@@ -820,35 +845,21 @@ void rtm_dist_mgr_distribute_route_to_target_clients(
     /* 1. For all Target clients TC */
     for (target = dist_mgr->target_lst; target; target = target->next)
     {
-        
-        bool policy_permits = false;
-
-        /* 2. For all Rules in TC */
-        for (rule = target->rule_list; rule; rule = rule->next)
+        if (rtm_dist_mgr_target_first_permitting_rule(target, dist_rt, &rule))
         {
+            /* Skip if this route already advertised */
+            if (redist_route_is_advertised_to_client(dist_rt, target)) {
 
-            /* 3/4. Filter check : source protocol + prefix-list */
-            if (!rtm_dist_mgr_rule_source_matches(rule, dist_rt->nh_proto)) continue;
-
-            /* Policy permits this Route*/
-            if (rtm_dist_mgr_rule_filter_permits(rule, &dist_rt->prefix))
+                tracer(dist_mgr->node->cptr, DREDIS_DET,
+                       "REDIS-MGR : Route %s already advertised to target proto %s instance %u vrf %u, skip re-advertisement\n",
+                       rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
+                       rtm_proto_to_string(target->proto),
+                       target->instance_no,
+                       target->vrf->vrf_id);
+            }
+            else
             {
-
-                policy_permits = true;
-
-                /* Skip if this route already advertised */
-                if (redist_route_is_advertised_to_client(dist_rt, target)) {
-
-                    tracer(dist_mgr->node->cptr, DREDIS_DET,
-                           "REDIS-MGR : Route %s already advertised to target proto %s instance %u vrf %u, skip re-advertisement\n",
-                           rtm_format_prefix(&dist_rt->prefix, rt_str, sizeof(rt_str)),
-                           rtm_proto_to_string(target->proto),
-                           target->instance_no,
-                           target->vrf->vrf_id);
-                    break;
-                }
-
-                /* 5. Clone base advertisement, apply rule action and queue by pointer */
+                /* Clone base advertisement, apply rule action and queue by pointer */
                 advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
                 memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
                 advert_info->out_cost = rule->out_cost;
@@ -866,20 +877,11 @@ void rtm_dist_mgr_distribute_route_to_target_clients(
 
                 rtm_dist_mgr_schedule_rt_advert_info_to_target(dist_mgr, target, advert_info);
                 rtm_redist_target_record_rt_advertisement(dist_mgr, target, dist_rt, true);
-                break;
             }
-
-            else
-            {
-                /* Deny from this rule only; a later rule may still permit. */
-                continue;
-            }
-        } /* for each rule */
-
-        /* No rule matched: if we had advertised earlier, send explicit withdraw. */
-        if (!policy_permits &&
-            (redist_route_is_advertised_to_client(dist_rt, target)))
+        }
+        else if (redist_route_is_advertised_to_client(dist_rt, target))
         {
+            /* No rule permits this route; withdraw if previously advertised. */
             advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
             memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
             init_glthread(&advert_info->redis_glue);
@@ -1179,7 +1181,7 @@ extern void (*RT_DIST_HANDLERS[])(vrf_t *, rt_advert_info_t  *);
 
 void 
 rtm_register_rt_distribution_cbk (
-        void (*cbk)(node_t *, rt_advert_info_t  *), 
+        void (*cbk)(vrf_t *, rt_advert_info_t  *), 
         RTM_PROTO_T proto) {
 
     RT_DIST_HANDLERS[proto] = cbk;
