@@ -1314,7 +1314,7 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
             
             count++;
 
-            if (count == RTM_ADVT_COUNT_PREEMPTION_LIMIT)
+            if (count % RTM_ADVT_COUNT_PREEMPTION_LIMIT == 0)
             {
                 rtm_schedule_presentation_job(rtm);
                 return;

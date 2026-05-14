@@ -1,5 +1,17 @@
 CC=g++
-CFLAGS=-g -Wall -Wextra -fpermissive -I..
+
+export DPDK_CFLAGS := $(shell pkg-config --cflags libdpdk)
+
+ARCH := $(shell uname -m)
+ifeq ($(ARCH),x86_64)
+    DPDK_CFLAGS += -mssse3
+endif
+
+ifeq ($(ARCH),aarch64)
+    DPDK_CFLAGS += -march=armv8-a+simd
+endif
+
+CFLAGS=-g -Wall -Wextra -fpermissive -I.. ${DPDK_CFLAGS}
 AR=ar
 
 TARGET=libfib.a

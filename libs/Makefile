@@ -4,25 +4,17 @@ SANITIZER_FLAGS =
 
 #https://stackoverflow.com/questions/69212557/dpdk-compilation-error-while-freeing-mbuf
 
-ARCH := $(shell uname -m)
-ifeq ($(ARCH),x86_64)
-    DPDK_FLAGS += -mssse3
-endif
-
-ifeq ($(ARCH),aarch64)
-    DPDK_FLAGS += -march=armv8-a+simd
-endif
-
-CFLAGS = -g -Wcast-align -fpermissive ${DPDK_FLAGS} -Wall -Wextra -Wmissing-prototypes \
+export DPDK_CFLAGS := $(shell pkg-config --cflags libdpdk)
+CFLAGS = -g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes \
          -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 \
-         -Wignored-qualifiers $(SANITIZER_FLAGS)
+         -Wignored-qualifiers $(SANITIZER_FLAGS) ${DPDK_CFLAGS}
 
 TARGET = libstd.a
 
 # Install external dependent libs:  sudo apt-get install libpq-dev
 
 OBJS = std_lib_init.o 					  \
-	   BitOp/bitmap.o                     \
+       BitOp/bitmap.o                     \
        c-hashtable/hashtable.o            \
        c-hashtable/hashtable_itr.o        \
        EventDispatcher/event_dispatcher.o \

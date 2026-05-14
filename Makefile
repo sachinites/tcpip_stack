@@ -1,17 +1,21 @@
 export CC=g++
 #SANITIZER_FLAGS=-fsanitize=address,undefined
 
+
+export DPDK_CFLAGS := $(shell pkg-config --cflags libdpdk)
+export DPDK_LIBS   := $(shell pkg-config --libs libdpdk)
+
 ARCH := $(shell uname -m)
 ifeq ($(ARCH),x86_64)
-    DPDK_FLAGS += -mssse3
+    DPDK_CFLAGS += -mssse3
 endif
 
 ifeq ($(ARCH),aarch64)
-    DPDK_FLAGS += -march=armv8-a+simd
+    DPDK_CFLAGS += -march=armv8-a+simd
 endif
 
 SANITIZER_FLAGS=
-export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_FLAGS} -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
+export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_CFLAGS} -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 TARGET:tcpstack.exe pkt_gen.exe
 
 # Install external dependent libs :   sudo apt-get install libpq-dev
@@ -31,7 +35,8 @@ DPDK=-I$HOME/OpenSrc-Codes/dpdk/build/include \
 	 -lrte_eal -lrte_mbuf -lrte_ring -lrte_mempool -lrte_ethdev \
 	 -lpthread -ldl -lnuma -lm
 
-LIBS= ${ISIS_LIB_PATH} \
+export LIBS=            ${ISIS_LIB_PATH} \
+			${DPDK_LIBS} \
 			${SRV6_LIB_PATH} \
 			${LFA_LIB_PATH} \
 			-LCLIBuilder -lclibuilder \

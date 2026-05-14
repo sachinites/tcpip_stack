@@ -1,17 +1,19 @@
 CC=g++
 #SANITIZER_FLAGS=-fsanitize=address,undefined
 
+export DPDK_CFLAGS := $(shell pkg-config --cflags libdpdk)
+
 ARCH := $(shell uname -m)
 ifeq ($(ARCH),x86_64)
-    DPDK_FLAGS += -mssse3
+    DPDK_CFLAGS += -mssse3
 endif
 
 ifeq ($(ARCH),aarch64)
-    DPDK_FLAGS += -march=armv8-a+simd
+    DPDK_CFLAGS += -march=armv8-a+simd
 endif
 
 SANITIZER_FLAGS=
-export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_FLAGS} -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
+export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_CFLAGS} -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
 AR=ar
 
 TARGET=libdp.a
