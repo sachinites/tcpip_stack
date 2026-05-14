@@ -377,9 +377,6 @@ isis_init (vrf_t *vrf) {
 			node->dp_ctx,
             isis_hello_pkt_trap_rule, isis_hello_pkt_recieve_cbk);
 
-    rtm_register_rt_distribution_cbk(
-        isis_rtm_route_notif, RTM_PROTO_ISIS);
-
     prefix_list_register_client(node, isis_prefix_list_change, vrf, 0);
 
     isis_node_info_t *node_info = XCALLOC2(0, 1, isis_node_info_t);

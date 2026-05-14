@@ -221,13 +221,14 @@ cp_rtm_get_route_target_rtm(
 void 
 rtm_nh_template_free_internals (cp_nexthop_template_t *nh_template);
 
-void 
-rtm_register_rt_distribution_cbk (
-        void (*cbk)(vrf_t *, rt_advert_info_t  *), RTM_PROTO_T proto);
+typedef void (*RT_DIST_HANDLERS)(vrf_t *, rt_advert_info_t *);
 
 void 
 rtm_unregister_rt_distribution_cbk (
-        dist_mgr_t *dist_mgr, RTM_PROTO_T proto, uint8_t vrf_id, uint32_t instance_no);
+        dist_mgr_t *dist_mgr, 
+        RTM_PROTO_T proto, 
+        uint8_t vrf_id, 
+        uint32_t instance_no);
 
 void 
 rtm_dist_mgr_client_request_route_replay (

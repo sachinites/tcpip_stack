@@ -19,19 +19,6 @@ redistribute connected|static|bgp|ospf|isis [prefix-list <pfx-lst-name>] [metric
 extern graph_t *topo;
 extern int cprintf(const char *format, ...);
 
-/* Caution : Order is maintained as per enum : RTM_PROTO_T */
-void (*RT_DIST_HANDLERS[])(vrf_t *, rt_advert_info_t *) = {
-
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-};
-
 /* Per-file command codes for redistribution policy CLI */
 #define CMDCODE_RTM_REDIST_CONNECTED  1
 #define CMDCODE_RTM_REDIST_LOCAL      2

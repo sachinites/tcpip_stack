@@ -184,6 +184,7 @@ typedef struct avl_vrf_node_ {
 
 } avl_vrf_node_t;
 
+typedef void (*RT_DIST_HANDLERS)(vrf_t *, rt_advert_info_t *);
 
 typedef struct dist_mgr_ {
 
@@ -213,6 +214,8 @@ typedef struct dist_mgr_ {
     Fglthread_t gc_queue;
 
     Fglthread_t pfxlst_book_keep;
+
+    RT_DIST_HANDLERS target_cbks[RTM_PROTO_MAX];
 
 } dist_mgr_t;
 

@@ -193,6 +193,9 @@ teardown.
 typedef struct prefix_lst_ prefix_list_t;
 typedef struct node_ node_t;
 
+/* Mention Application CBKs here*/
+extern void isis_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert);
+
 /* Pack indirect + direct next-hop indices into one 64-bit key (Cnhidx) used as
  * the AVL sort key for nhidx_tree.  Presentation events always supply both. */
 extern inline void 
@@ -305,6 +308,10 @@ rtm_dist_mgr_init (node_t *node) {
     init_Fglthread(&dist_mgr->gc_queue);
     init_Fglthread(&dist_mgr->pfxlst_book_keep);
     
+    for (i = 0; i < RTM_PROTO_MAX; i++) dist_mgr->target_cbks[i] = NULL;
+    dist_mgr->target_cbks[RTM_PROTO_ISIS] = isis_rtm_route_notif;
+
+
     node->dist_mgr = dist_mgr;
 
     prefix_list_register_client (node, dist_mgr_prefix_lst_change_cbk, 
@@ -740,9 +747,6 @@ rtm_dist_mgr_advert_fill_from_route(
     advert_info->Cnhidx = dist_rt->Cnhidx;
 }
 
-/* Per-protocol entry points (IS-IS, OSPF, …) registered elsewhere. */
-extern void (*RT_DIST_HANDLERS[])(vrf_t *, rt_advert_info_t  *);
-
 /* Drains target->client_redis_queue; each advert_info is malloc’d, freed here. */
 static void 
 target_redis_cbk (
@@ -756,12 +760,14 @@ target_redis_cbk (
 
     target->client_flash_job = NULL;
     node_t *node = (node_t *)ev_dis->app_data;
+    dist_mgr_t *dist_mgr = node->dist_mgr;
 
     while ((curr = dequeue_glthread_first(&target->client_redis_queue.head))) {
 
         advert_info = redis_glue_to_rt_advert_info(curr);
-        if (RT_DIST_HANDLERS[target->proto]) {
-            RT_DIST_HANDLERS[target->proto](target->vrf, advert_info);
+
+        if ((dist_mgr->target_cbks)[target->proto]) {
+            (*dist_mgr->target_cbks[target->proto])(target->vrf, advert_info);
         }
         XFREE(advert_info);
 
@@ -1175,15 +1181,3 @@ rtm_dis_mgr_gc (dist_mgr_t *dist_mgr, void *object, DIST_MGR_GC_TYPE_T type) {
                                     TASK_PRIORITY_GARBAGE_COLLECTOR);
 
 }
-
-
-extern void (*RT_DIST_HANDLERS[])(vrf_t *, rt_advert_info_t  *);
-
-void 
-rtm_register_rt_distribution_cbk (
-        void (*cbk)(vrf_t *, rt_advert_info_t  *), 
-        RTM_PROTO_T proto) {
-
-    RT_DIST_HANDLERS[proto] = cbk;
-}
- 
