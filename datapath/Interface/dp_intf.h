@@ -18,6 +18,7 @@
 #define __DP_INTF__
 
 #include <stdint.h>
+#include <atomic>
 #include "../../tcp_ip_trace.h"
 #include "intf_cons.h"
 #include "../../libs/common/cmn_struct.h"
@@ -27,6 +28,7 @@ typedef struct dp_vrf_ dp_vrf_t;
 typedef struct node_ node_t;
 typedef struct bitmap_ bitmap_t;
 typedef struct dp_ctx_ dp_ctx_t;
+typedef struct mtrie_ mtrie_t;
 
 #pragma pack(push, 8)
 
@@ -50,10 +52,14 @@ typedef struct dp_intf_ {
     uint8_t v6mask;
     uint32_t ip_addr;
     uint8_t mask;
+    std::atomic<mtrie_t *> l3_acl_ingress;
+    std::atomic<mtrie_t *> l3_acl_egress;
 
     /* L2 Properties */
     mac_addr_t mac_add;
     bool switchport;
+    std::atomic<mtrie_t *> l2_acl_ingress;
+    std::atomic<mtrie_t *> l2_acl_egress;
 
     /* Pointer to parent vlan if this interface is switchport
         in access mode , 

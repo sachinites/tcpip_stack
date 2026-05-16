@@ -117,6 +117,14 @@ typedef struct dp_intf_log_update_ {
 #define CP2DP_CODE_ACCESS_INTF_VLAN_ADD 18
 #define CP2DP_CODE_ACCESS_INTF_VLAN_DEL  19
 
+#define CP2DP_CODE_INTF_ADD_ACL 20
+typedef struct dp_intf_acl_update_ {
+
+    uintptr_t acl;
+    uint8_t layer;
+    uint8_t ingress;
+
+} dp_intf_acl_update_t;
 
 typedef struct dp_intf_cp2dp_msg_ {
 

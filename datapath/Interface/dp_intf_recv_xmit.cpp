@@ -21,6 +21,9 @@
 #include "../../libs/common/l2_hdrs.h"
 #include "../../libs/common/l3_hdrs.h"
 
+// Firewall Lib
+#include "../../FireWall/acl/acldb.h"
+
 #include <rte_ethdev.h>
 #include <rte_mbuf.h>
 
@@ -641,11 +644,23 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
 void 
 dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block) {
 
+    if (intf->l3_acl_egress) {
+
+        if (access_list_evaluate_pkt_block (
+            intf->l3_acl_egress.load(std::memory_order_acquire), pkt_block) != ACL_PERMIT) 
+        {
+            tracer(dp_ctx->dptr, DL3FWD_DET,
+                "Egress L3 ACL Denied on intf %s, Pkt %s Dropped\n", 
+                intf->if_name, pkt_block_str(pkt_block));
+
+            return;
+        }
+
+    }
+
     tracer(dp_ctx->dptr, DL3FWD_DET | DL2FWD_DET | DL2SW_DET,
         "Sending out frame %s out of interface %s\n", 
         pkt_block_str(pkt_block), intf->if_name);
-
-    assert (pkt_block);
 
     (intf_xmit_cbk[intf->if_type])(dp_ctx, intf, pkt_block);
 }
@@ -663,24 +678,26 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
 
     vlan_id_t vlan_id_to_tag = 0;
   
-      if (!interface->is_up){
+    if (!interface->is_up){
         return;
     }
     
+    if (interface->l3_acl_ingress.load(std::memory_order_acquire)) {
+
+        if (access_list_evaluate_pkt_block (
+            interface->l3_acl_ingress.load(std::memory_order_acquire), pkt_block) != ACL_PERMIT) 
+        {
+            tracer(dp_ctx->dptr, DL3FWD_DET,
+                "Ingress L3 ACL Denied on intf %s, Pkt %s Dropped\n", 
+                interface->if_name, pkt_block_str(pkt_block));
+
+            return;
+        }
+
+    }
+
     interface->pkt_recv++;
     tcp_dump_recv_logger(dp_ctx, interface, pkt_block, ETHERNET_HEADER);
-
-    /* Access List Evaluation at Layer 2 Entry point*/ 
-    #if 0
-    if (access_list_evaluate_ethernet_packet (
-                node, interface, pkt_block, true) 
-                == ACL_DENY) {
-        tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
-            "Pkt : %s : Pkt Dropped : L2 ACL Denied on ingress interface %s\n", 
-            pkt_block_str(pkt_block), interface->if_name);
-        return;
-    }
-    #endif
 
     if (l2_frame_recv_qualify_on_interface(dp_ctx,
                                           vrf,

@@ -80,6 +80,7 @@ OBJS=             router_init.o   \
 		  Interface/Interface.o \
 		  Interface/InterfaceUApi.o \
 		  Interface/InterfaceCli.o \
+		  Interface/ifm.o \
 		  dpal/cp2dp.o \
 		  lmm_reg.o \
 		  Linux/LinuxInterface.o \
@@ -199,6 +200,9 @@ Interface/InterfaceUApi.o:Interface/InterfaceUApi.cpp
 
 Interface/InterfaceCli.o:Interface/InterfaceCli.cpp
 	${CC} ${CFLAGS} -c Interface/InterfaceCli.cpp -o Interface/InterfaceCli.o
+
+Interface/ifm.o:Interface/ifm.cpp
+	${CC} ${CFLAGS} -c Interface/ifm.cpp -o Interface/ifm.o
 
 vrf/vrf_cli.o:vrf/vrf_cli.cpp
 	${CC} ${CFLAGS} -c vrf/vrf_cli.cpp -o vrf/vrf_cli.o 

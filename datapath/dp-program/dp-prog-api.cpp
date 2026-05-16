@@ -476,6 +476,39 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
             /* Process update based on update_code */
             switch (msg->update_code) {
 
+                case CP2DP_CODE_INTF_ADD_ACL:
+                {
+                    dp_intf_acl_update_t *acl_update = 
+                        (dp_intf_acl_update_t *)(msg + 1);
+                    
+                    tracer(dp_ctx->dptr, DCONF, 
+                        "Adding ACL %p to if_name=%s layer=%u ingress=%u\n",
+                        (void*)acl_update->acl, intf->if_name, acl_update->layer, acl_update->ingress);
+                    
+                    mtrie_t *acl = (mtrie_t *)acl_update->acl;
+
+                    switch (acl_update->layer) {
+
+                        case 2: // L2 ACL
+                            if (acl_update->ingress)
+                                intf->l2_acl_ingress.store(acl, std::memory_order_release);
+                            else
+                                intf->l2_acl_egress.store(acl, std::memory_order_release);
+                            break;
+                            
+                        case 3: // L3 ACL
+                            if (acl_update->ingress)
+                                intf->l3_acl_ingress.store(acl, std::memory_order_release);
+                            else
+                                intf->l3_acl_egress.store(acl, std::memory_order_release);
+                            break;
+                        default:
+                            assert(0);
+                    }
+           
+                }
+                break;
+
                 case CP2DP_CODE_INTF_IPV4_ADDR:
                 {
                     dp_intf_ipv4_addr_update_t *ipv4_update = 

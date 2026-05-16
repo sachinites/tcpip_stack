@@ -792,18 +792,10 @@ int traceoptions_handler(int cmdcode,
                 if (log_info->acc_lst_filter && (log_info->acc_lst_filter != access_list))
                 {
                     access_list_dereference(node, log_info->acc_lst_filter);
-                    if (access_list_should_decompile(log_info->acc_lst_filter))
-                    {
-                        access_list_trigger_uninstall_job(node, log_info->acc_lst_filter, NULL);
-                    }
                     log_info->acc_lst_filter = NULL;
                 }
                 log_info->acc_lst_filter = access_list;
-                access_list_reference(log_info->acc_lst_filter);
-                if (access_list_should_compile(log_info->acc_lst_filter))
-                {
-                    access_list_trigger_install_job(node, log_info->acc_lst_filter, NULL);
-                }
+                access_list_reference(node, log_info->acc_lst_filter);
                 break;
         case CONFIG_DISABLE:
                 if (!log_info->acc_lst_filter) {
@@ -814,10 +806,6 @@ int traceoptions_handler(int cmdcode,
                     return -1;
                 }
                 access_list_dereference (node, log_info->acc_lst_filter);
-                if (access_list_should_decompile(log_info->acc_lst_filter))
-                {
-                    access_list_trigger_uninstall_job(node, log_info->acc_lst_filter, NULL);
-                }
                  log_info->acc_lst_filter = NULL;
                 break;
         }
@@ -851,18 +839,10 @@ int traceoptions_handler(int cmdcode,
                 if (log_info->acc_lst_filter && (log_info->acc_lst_filter != access_list))
                 {
                     access_list_dereference(node, log_info->acc_lst_filter);
-                    if (access_list_should_decompile(log_info->acc_lst_filter))
-                    {
-                        access_list_trigger_uninstall_job(node, log_info->acc_lst_filter, NULL);
-                    }
                     log_info->acc_lst_filter = NULL;
                 }
                 log_info->acc_lst_filter = access_list;
-                access_list_reference(log_info->acc_lst_filter);
-                if (access_list_should_compile(log_info->acc_lst_filter))
-                {
-                    access_list_trigger_install_job(node, log_info->acc_lst_filter, NULL);
-                }
+                access_list_reference(node, log_info->acc_lst_filter);
                 break;
         case CONFIG_DISABLE:
                 if (!log_info->acc_lst_filter)
@@ -875,10 +855,6 @@ int traceoptions_handler(int cmdcode,
                     return -1;
                 }
                 access_list_dereference(node, log_info->acc_lst_filter);
-                if (access_list_should_decompile(log_info->acc_lst_filter))
-                {
-                    access_list_trigger_uninstall_job(node, log_info->acc_lst_filter, NULL);
-                }
                 log_info->acc_lst_filter = NULL;
                 break;
         }

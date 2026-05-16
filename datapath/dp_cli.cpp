@@ -145,6 +145,17 @@ dp_print_interface(dp_intf_t *intf)
     cprintf("    IPv6 Address    : %s\n", ipv6_str);
     cprintf("    IPv6 Link-Local : %s\n", ipv6_ll_str);
 
+    if (intf->l3_acl_ingress.load(std::memory_order_acquire)) {
+
+        cprintf("    L3 Ingress ACL Applied\n",
+            intf->l3_acl_ingress.load(std::memory_order_acquire) ? "Yes" : "No");
+    }
+    if (intf->l3_acl_egress.load(std::memory_order_acquire)) {
+
+        cprintf("    L3 Eggress ACL Applied\n",
+            intf->l3_acl_egress.load(std::memory_order_acquire) ? "Yes" : "No");
+    } 
+
     /* Layer 2 */
     cprintf("\n  Layer 2 Configuration:\n");
     cprintf("    Switchport      : %s\n", intf->switchport ? "Yes" : "No");
@@ -190,6 +201,17 @@ dp_print_interface(dp_intf_t *intf)
         if (vlan_count == 0) cprintf("None");
         printw("\n");
     }
+
+    if (intf->l2_acl_ingress.load(std::memory_order_acquire)) {
+
+        cprintf("    L2 Ingress ACL Applied\n",
+            intf->l2_acl_ingress.load(std::memory_order_acquire) ? "Yes" : "No");
+    }
+    if (intf->l2_acl_egress.load(std::memory_order_acquire)) {
+
+        cprintf("    L2 Eggress ACL Applied\n",
+            intf->l2_acl_egress.load(std::memory_order_acquire) ? "Yes" : "No");
+    } 
 
     /* Tunnel / overlay */
     if (intf->gre_tunnel_dst_ip) {

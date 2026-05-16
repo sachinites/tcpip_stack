@@ -609,6 +609,38 @@ cp2dp_interface_delete (node_t *node, uint32_t ifindex) {
 }
 
 void 
+cp2dp_interface_add_acl (node_t *node, 
+                         uintptr_t acl,
+                         uint8_t layer,
+                         uint32_t ifindex, 
+                         bool ingress) {
+
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_hdr_t *intf_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + 
+                        sizeof(dp_intf_acl_update_t);
+    
+    /* Fill in the header */
+    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
+    intf_msg->port_id = ifindex;
+    intf_msg->iftype = 0; // not required
+    intf_msg->update_code = CP2DP_CODE_INTF_ADD_ACL;
+    
+    dp_intf_acl_update_t *acl_msg = (dp_intf_acl_update_t *)(intf_msg + 1);
+    acl_msg->acl = acl;
+    acl_msg->layer = layer;
+    acl_msg->ingress = ingress;
+
+    cp2dp_submit(node, dp_msg, true);    
+
+}
+
+void 
 cp2dp_send_intf_grp_bind_to_vlan_update(node_t *node, 
                                         TransportService *tsp, 
                                         uint16_t vlan_id, bool add) {

@@ -3,34 +3,40 @@
 #include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
+#include <unistd.h>
+
+#include "acldb.h"
+#include "acl_builder.h"
+
+#include "../../CLIBuilder/libcli.h"
+
 #include "../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../libs/Tracer/tracer.h"
-#include "../../router_init.h"
-#include "../../Interface/Interface.h"
 #include "../../libs/common/l2_hdrs.h"
 #include "../../libs/common/l3_hdrs.h"
-#include "acldb.h"
+#include "../../libs/common/protoIds.h"
 #include "../../libs/mtrie/mtrie.h"
+#include "../../libs/EventDispatcher/event_dispatcher.h"
+#include "../../libs/pkt-block/pkt_block.h"
+#include "../../libs/pkt-block/cp_pkt_block.h"
+
+#include "../../router_init.h"
+#include "../../Interface/Interface.h"
+
 #include "../../Layer2/layer2.h"
 #include "../../Layer3/layer3.h"
-#include "../../libs/pkt-block/pkt_block.h"
+
 #include "../../Layer4/udp.h"
 #include "../object_network/objnw.h"
-#include "../../libs/EventDispatcher/event_dispatcher.h"
+
 #include "../object_network/object_group.h"
 #include "../fwall_trace_const.h"
 #include "../object_network/objects_common.h"
 #include "../object_network/object_grp_update.h"
-#include "../../CLIBuilder/libcli.h"
-#include "../../lmm_enums.h"
-#include "acl_builder.h"
 
-static void 
-access_list_config_change_cbk (node_t *node, 
-                               vrf_t *vrf, 
-                               access_list_t *access_list,
-                               void *data, 
-                               mtrie_t *mtrie_out);
+#include "../../lmm_enums.h"
+#include "../../dpal/cp2dp.h"
+
 static void
 acl_get_member_tcam_entry (
                 acl_entry_t *acl_entry,                              /* Input */
@@ -176,7 +182,10 @@ acl_decompile (acl_entry_t *acl_entry) {
         acl_entry->tcam_dport_wcard = NULL;
    }
    acl_entry->is_compiled = false;
-   acl_entry->expected_tcam_count = acl_entry_get_tcam_entry_count (acl_entry);
+   acl_entry->hit_count = 0;
+   acl_entry->tcam_total_count = 0;
+   acl_entry->tcam_self_conflicts_count = 0;
+   acl_entry->tcam_other_conflicts_count = 0;
 }
 
 /* mtrie Callback function definitions */
@@ -193,6 +202,28 @@ GLTHREAD_TO_STRUCT(glthread_to_mnode_acl_list_node, mnode_acl_list_node_t, glue)
     mnode - leaf node 
     app_Data - ptr to acl_entry_t being inserted
  */
+void
+access_list_mtrie_allocate_mnode_data2 (mtrie_node_t *mnode, void *app_data) {
+
+    assert(!mnode->data);
+    assert(app_data);
+    mnode->data = app_data;
+}
+
+void
+access_list_mtrie_duplicate_entry_found2 (mtrie_node_t *mnode, void *app_data) {
+
+    acl_entry_t *acl_entry_old = (acl_entry_t *)mnode->data;
+    assert (acl_entry_old);
+
+    acl_entry_t *acl_entry_new = (acl_entry_t *)app_data;
+    assert (acl_entry_new);
+
+    if (acl_entry_new->seq_no < acl_entry_old->seq_no) {
+        mnode->data = (void *)acl_entry_new;
+    }
+}
+
 void
 access_list_mtrie_allocate_mnode_data (mtrie_node_t *mnode, void *app_data) {
 
@@ -267,7 +298,7 @@ access_list_mtrie_duplicate_entry_found (mtrie_node_t *mnode, void *app_data) {
 
     } ITERATE_GLTHREAD_END(list_head, curr);
 
-    mnode_acl_list_node2 = (mnode_acl_list_node_t *)XCALLOC(0, 1, mnode_acl_list_node_t);
+    mnode_acl_list_node2 = (mnode_acl_list_node_t *)XCALLOC2(0, 1, mnode_acl_list_node_t);
     mnode_acl_list_node2->acl_entry = acl_entry;
     mnode_acl_list_node2->ref_count = 1;
     init_glthread(&mnode_acl_list_node2->glue);
@@ -321,24 +352,10 @@ access_list_mtrie_deallocate_mnode_data (mtrie_node_t *mnode, void *app_data) {
 
 void
 access_list_mtrie_app_data_free_cbk (mtrie_node_t *mnode) {
-
-    glthread_t *curr, *list_head;
-    mnode_acl_list_node_t *mnode_acl_list_node;
     
     if (!mnode->data) return;
-
-    list_head = (glthread_t *)mnode->data;
-
-    ITERATE_GLTHREAD_BEGIN(list_head, curr) {
-
-        mnode_acl_list_node = glthread_to_mnode_acl_list_node(curr);
-        remove_glthread(&mnode_acl_list_node->glue);
-        XFREE(mnode_acl_list_node);
-
-    }ITERATE_GLTHREAD_END(list_head, curr);
-
-    XFREE(list_head);
     mnode->data = NULL;
+    return;
 }
 
 /* Convert the ACL entry into TCAM entry format */
@@ -552,8 +569,6 @@ acl_compile (acl_entry_t *acl_entry) {
     }
 
      acl_entry->is_compiled = true;
-     assert(acl_entry->expected_tcam_count = 
-        acl_entry_get_tcam_entry_count (acl_entry));
 }
 
 access_list_t *
@@ -586,14 +601,14 @@ access_list_get_new_tcam_mtrie () {
 access_list_t *
 acl_create_new_access_list(char *access_list_name) {
 
-    access_list_t *acc_lst = (access_list_t *)XCALLOC(0, 1, access_list_t);
+    access_list_t *acc_lst = (access_list_t *)XCALLOC2(0, 1, access_list_t);
     string_copy((char *)acc_lst->name, access_list_name, ACCESS_LIST_MAX_NAMELEN);
     init_glthread(&acc_lst->head);
     init_glthread(&acc_lst->glue);
     pthread_rwlock_init(&acc_lst->mtrie_update_lock, NULL);
     acc_lst->mtrie = access_list_get_new_tcam_mtrie();
     acc_lst->ref_count = 0;
-    acc_lst->build_in_progress = false;
+    acc_lst->state = ACL_LST_STATE_UNCOMPILED;
     return acc_lst;
 }
 
@@ -662,7 +677,7 @@ acl_process_user_config (node_t *node,
     access_list = access_list_lookup_by_name(node, access_list_name);
 
     if (access_list && 
-        access_list->build_in_progress) {
+        access_list->state == ACL_LST_STATE_COMPILATION_IN_PROGRESS) {
 
         cprintf ("Config Rejected : Access List %s is being built, Immutable for now\n", 
                 access_list_name);  
@@ -679,19 +694,17 @@ acl_process_user_config (node_t *node,
 
     if (new_access_list) {
         glthread_add_next (&node->access_lists_db, &access_list->glue);
-        access_list_reference (access_list);
+        access_list_reference (node, access_list);
     }
 
     #if 1
 
-    if (1 || access_list_should_compile (access_list)) {
-
-        acl_compile(acl_entry);
+    if (access_list_is_in_use (access_list)) {
 
         acl_builder_submit_access_list_build_request(
                 node->acl_builder, access_list,
                 NODE_DEF_VRF(node), NULL, 
-                access_list_config_change_cbk);
+                NULL);
 
         return true;
     }
@@ -727,10 +740,7 @@ access_list_delete_complete(node_t *node, access_list_t *access_list) {
     glthread_t *curr;
     acl_entry_t *acl_entry;
 
-    if (access_list->ref_count > 1) {
-        cprintf ("Access List is in use, Cannot delete\n");
-        return false;
-    }
+    assert (access_list->ref_count == 0);
 
     if (access_list->mtrie) {
         access_list_purge_tcam_mtrie(node, access_list->mtrie);
@@ -745,8 +755,6 @@ access_list_delete_complete(node_t *node, access_list_t *access_list) {
 
     }ITERATE_GLTHREAD_END(&access_list->head, curr);
 
-    remove_glthread(&access_list->glue);
-    access_list->ref_count--;
     pthread_rwlock_destroy(&access_list->mtrie_update_lock);
     access_list_check_delete(access_list);
     cprintf ("Access List Deleted\n");
@@ -754,16 +762,63 @@ access_list_delete_complete(node_t *node, access_list_t *access_list) {
 }
 
 
-void access_list_reference(access_list_t *acc_lst) {
+void access_list_reference(node_t *node, access_list_t *acc_lst) {
 
     acc_lst->ref_count++;
+
+    if (acc_lst->state == 
+            ACL_LST_STATE_COMPILATION_IN_PROGRESS) return;
+
+    if (acc_lst->ref_count == 2) {
+
+        assert (acc_lst->state == ACL_LST_STATE_UNCOMPILED);
+
+        acl_builder_submit_access_list_build_request(
+                node->acl_builder, acc_lst,
+                NODE_DEF_VRF(node), NULL, 
+                NULL);        
+    }
+
 }
 
 void access_list_dereference(node_t *node, access_list_t *acc_lst) {
 
+    glthread_t *curr;
+    acl_entry_t *acl_entry;
+
     assert (acc_lst->ref_count) ;
 
     acc_lst->ref_count--;
+
+    if (acc_lst->ref_count > 1) return;
+
+    /* Could be possible if this Access list is being built
+        by ACL Builder. In this case, dont touch it , let the builder
+        complete it, we will handle this case in Builder CBK acl_builder_notify_cbk.
+        Its risky to abort builder progression , so not taking this path  */
+
+    if (acc_lst->state ==
+        ACL_LST_STATE_COMPILATION_IN_PROGRESS) {
+
+        return;
+    }
+
+    /* Nobody using access-list, and ACL-list rest in its housing object*/
+    if (acc_lst->ref_count == 1) {
+
+        ITERATE_GLTHREAD_BEGIN(&acc_lst->head, curr)
+        {
+            acl_entry = glthread_to_acl_entry(curr);
+            acl_decompile(acl_entry);
+        }
+        ITERATE_GLTHREAD_END(&acc_lst->head, curr);
+
+        mtrie_t *old_mtrie = acc_lst->mtrie;
+        acc_lst->mtrie = NULL;
+        access_list_purge_tcam_mtrie(node, old_mtrie);
+        acc_lst->state = ACL_LST_STATE_UNCOMPILED;
+        return;
+    }
 
     if (acc_lst->ref_count == 0) {
         access_list_delete_complete(node, acc_lst);
@@ -812,29 +867,26 @@ bitmap_fill_with_params(
 }
 
 acl_action_t
-access_list_evaluate (access_list_t *acc_lst,
-                                uint16_t l3proto,
-                                uint16_t l4proto,
-                                uint32_t src_addr,
-                                uint32_t dst_addr,
-                                uint16_t src_port, 
-                                uint16_t dst_port) {
+access_list_evaluate(mtrie_t *mtrie,
+                     uint16_t l3proto,
+                     uint16_t l4proto,
+                     uint32_t src_addr,
+                     uint32_t dst_addr,
+                     uint16_t src_port,
+                     uint16_t dst_port)
+{
 
     acl_action_t action;
-    glthread_t *list_head;
     acl_entry_t *hit_acl = NULL;
     mtrie_node_t *hit_node = NULL;
-    mnode_acl_list_node_t *mnode_acl_list_node;
 
     bitmap_t input;
     bitmap_init(&input, ACL_PREFIX_LEN);
 
     bitmap_fill_with_params(&input, l3proto, l4proto, src_addr, dst_addr, src_port, dst_port);
-    
-    pthread_rwlock_rdlock(&acc_lst->mtrie_update_lock);
 
     hit_node = mtrie_longest_prefix_match_search(
-                            acc_lst->mtrie, &input);
+                            mtrie, &input);
 
     /* Deny by default */
     if (!hit_node) {
@@ -842,24 +894,18 @@ access_list_evaluate (access_list_t *acc_lst,
         goto done;
     }
 
-    list_head = (glthread_t *)(hit_node->data);
-    assert(list_head);
-    assert(!IS_GLTHREAD_LIST_EMPTY(list_head));
-
-    mnode_acl_list_node = glthread_to_mnode_acl_list_node(glthread_get_next(list_head));
-    hit_acl = mnode_acl_list_node->acl_entry;
-    hit_acl->hit_count++;
+    hit_acl = (acl_entry_t *)hit_node->data;
+    hit_acl->hit_count++; // ToDo : Drop it or make it atomic increment
     action = hit_acl->action;
     goto done;
 
     done:
-    pthread_rwlock_unlock(&acc_lst->mtrie_update_lock);
     bitmap_free_internal(&input);
     return action;
 }
 
 acl_action_t 
-access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_block) {
+access_list_evaluate_pkt_block (mtrie_t *mtrie, pkt_block_t *pkt_block) {
 
     byte *pkt;
     pkt_size_t pkt_size;
@@ -870,10 +916,10 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
 
     uint16_t l4proto = 0;
     uint32_t src_ip = 0,
-                  dst_ip = 0;
+             dst_ip = 0;
                  
     uint16_t src_port = 0,
-                  dst_port = 0;
+             dst_port = 0;
 
     switch (starting_hdr)
     {
@@ -881,11 +927,11 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
     {
         eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
 
-        if (ntohs(eth_hdr->type) == IP_PROTO_IP_IN_IP)
+        if (eth_hdr->type == htons(ETH_TYPE_IPv4))
         {
             ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
-            src_ip = htonl(ip_hdr->src_ip);
-            dst_ip = htonl(ip_hdr->dst_ip);
+            src_ip = ntohl(ip_hdr->src_ip);
+            dst_ip = ntohl(ip_hdr->dst_ip);
             l4proto = ip_hdr->protocol;
 
             switch (l4proto)
@@ -893,29 +939,29 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
             case IP_PROTO_UDP:
             {
                 udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
-                src_port = htons(udp_hdr->src_port_no);
-                dst_port = htons(udp_hdr->dst_port_no);
+                src_port = ntohs(udp_hdr->src_port_no);
+                dst_port = ntohs(udp_hdr->dst_port_no);
             }
             break;
             case IP_PROTO_TCP:
                 break;
             }
 
-            return access_list_evaluate(access_list, 
-                                                IP_PROTO_IP_IN_IP, 
-                                                l4proto,
-                                                src_ip,
-                                                dst_ip,
-                                                src_port,
-                                                dst_port);
+            return access_list_evaluate(mtrie,
+                                        ETH_TYPE_IPv4,
+                                        l4proto,
+                                        src_ip,
+                                        dst_ip,
+                                        src_port,
+                                        dst_port);
         }
     }
     break;
     case IP_PROTO_IP_IN_IP:
         {
             ip_hdr =  (ip_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
-            src_ip = htonl(ip_hdr->src_ip);
-            dst_ip = htonl(ip_hdr->dst_ip);
+            src_ip = ntohl(ip_hdr->src_ip);
+            dst_ip = ntohl(ip_hdr->dst_ip);
             l4proto = ip_hdr->protocol;
 
             switch (l4proto)
@@ -923,26 +969,26 @@ access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_blo
             case IP_PROTO_UDP:
             {
                 udp_hdr_t *udp_hdr = (udp_hdr_t *)(INCREMENT_IPHDR(ip_hdr));
-                src_port = htons(udp_hdr->src_port_no);
-                dst_port = htons(udp_hdr->dst_port_no);
+                src_port = ntohs(udp_hdr->src_port_no);
+                dst_port = ntohs(udp_hdr->dst_port_no);
             }
             break;
             case IP_PROTO_TCP:
                 break;
             }
 
-            return access_list_evaluate(access_list, 
-                                                IP_PROTO_IP_IN_IP, 
-                                                l4proto,
-                                                src_ip,
-                                                dst_ip,
-                                                src_port,
-                                                dst_port);
+            return access_list_evaluate(mtrie,
+                                        ETH_TYPE_IPv4,
+                                        l4proto,
+                                        src_ip,
+                                        dst_ip,
+                                        src_port,
+                                        dst_port);
         }
         break;
-    default: ;
+        default: ;
     }
-    return ACL_DENY;
+    return ACL_PERMIT;
 }
 
 acl_action_t
@@ -961,8 +1007,8 @@ access_list_evaluate_ip_packet(node_t *node,
 
     access_list_t *access_list;
     
-    access_list = ingress ? intf-> l3_ingress_acc_lst : \
-                                   intf->l3_egress_acc_lst;
+    access_list = ingress ? intf->l3_ingress_acc_lst : \
+                            intf->l3_egress_acc_lst;
 
     if (!access_list) return ACL_PERMIT;
 
@@ -982,7 +1028,7 @@ access_list_evaluate_ip_packet(node_t *node,
             break;
     }
 
-    return access_list_evaluate(access_list,
+    return access_list_evaluate(access_list->mtrie,
                                 IP_PROTO_IP_IN_IP,
                                 l4proto,
                                 src_ip,
@@ -1009,6 +1055,9 @@ int access_group_config(node_t *node,
                         access_list_t *acc_lst)
 {
 
+    bool compiled_status = (acc_lst->state == ACL_LST_STATE_COMPILED);
+    bool ingress = false;
+
     if (string_compare(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
         if (intf->l3_ingress_acc_lst) {
             cprintf ("Error : Access List already applied\n");
@@ -1028,28 +1077,34 @@ int access_group_config(node_t *node,
 
     if (string_compare(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
         intf->l3_ingress_acc_lst = acc_lst;
-        access_list_reference(acc_lst);
+        ingress = true;
+        access_list_reference(node, acc_lst);
     }
     else if (string_compare(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
         intf->l3_egress_acc_lst = acc_lst;
-        access_list_reference(acc_lst);
+        access_list_reference(node, acc_lst);
     }
 
-    if (!access_list_is_compiled (acc_lst) &&
-         access_list_should_compile (acc_lst)) {
+    if (compiled_status) {
 
-        access_list_trigger_install_job(node, acc_lst, NULL);
+        /* Access List was already compiled, 
+            simply update Data path for this interface*/
+
+        cp2dp_interface_add_acl(node, 
+            (uintptr_t)acc_lst, 
+            3,
+            intf->ifindex, ingress);
     }
 
     return 0;
 }
 
-int 
-access_group_unconfig (node_t *node, 
-                                       Interface *intf, 
-                                       char *dirn, 
-                                      access_list_t *acc_lst) {
-    
+int access_group_unconfig(node_t *node,
+                          Interface *intf,
+                          char *dirn,
+                          access_list_t *acc_lst)
+{
+
     if (string_compare(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
         if (intf->l3_ingress_acc_lst != acc_lst) {
             cprintf ("Error : Access List not applied\n");
@@ -1067,24 +1122,17 @@ access_group_unconfig (node_t *node,
         return -1;
     }
 
-    access_list_reference(acc_lst);  
-
     if (string_compare(dirn, "in", 2) == 0 && strlen(dirn) == 2) {
         intf->l3_ingress_acc_lst = NULL;
+        cp2dp_interface_add_acl(node, (uintptr_t)0, 3, intf->ifindex, true);
         access_list_dereference(node, acc_lst);  
     }
     else if (string_compare(dirn, "out", 3) == 0 && strlen(dirn) == 3) {
         intf->l3_egress_acc_lst = NULL;
+        cp2dp_interface_add_acl(node, (uintptr_t)0, 3, intf->ifindex, false);
         access_list_dereference(node, acc_lst);  
     }
 
-    if ( access_list_is_compiled(acc_lst) &&
-           access_list_should_decompile (acc_lst)) {
-
-        access_list_trigger_uninstall_job (node, acc_lst, NULL);
-    }
-
-    access_list_dereference(node, acc_lst);  
     return 0;
 }
 
@@ -1356,14 +1404,14 @@ acl_entry_link_object_networks(acl_entry_t *acl_entry, obj_nw_t *objnw) {
 
     if (!db) {
 
-        objnw->db = (objects_linkage_db_t *)XCALLOC(0, 1, objects_linkage_db_t);
+        objnw->db = (objects_linkage_db_t *)XCALLOC2(0, 1, objects_linkage_db_t);
         db = objnw->db;
         init_glthread(&db->acls_list);
         init_glthread(&db->nat_list);
     }
 
     objects_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node = 
-        (objects_linked_acl_thread_node_t *)XCALLOC(0, 1, objects_linked_acl_thread_node_t);
+        (objects_linked_acl_thread_node_t *)XCALLOC2(0, 1, objects_linked_acl_thread_node_t);
 
     obj_nw_linked_acl_thread_node->acl = acl_entry;
     init_glthread(&obj_nw_linked_acl_thread_node->glue);
@@ -1415,14 +1463,14 @@ acl_entry_link_object_group(acl_entry_t *acl_entry, object_group_t *og) {
 
     if (!db) {
 
-        og->db = (objects_linkage_db_t *)XCALLOC(0, 1, objects_linkage_db_t);
+        og->db = (objects_linkage_db_t *)XCALLOC2(0, 1, objects_linkage_db_t);
         db = og->db;
         init_glthread(&db->acls_list);
         init_glthread(&db->nat_list);
     }
 
     objects_linked_acl_thread_node_t *obj_nw_linked_acl_thread_node = 
-        (objects_linked_acl_thread_node_t *)XCALLOC(0, 1, objects_linked_acl_thread_node_t);
+        (objects_linked_acl_thread_node_t *)XCALLOC2(0, 1, objects_linked_acl_thread_node_t);
 
     obj_nw_linked_acl_thread_node->acl = acl_entry;
     init_glthread(&obj_nw_linked_acl_thread_node->glue);
@@ -1696,7 +1744,7 @@ access_list_schedule_notification (node_t *node, access_list_t *access_list) {
                                                             TASK_ONE_SHOT,
                                                             TASK_PRIORITY_COMPUTE);
 
-    access_list_reference(access_list);
+    access_list_reference(node, access_list);
 }
 
 acl_entry_t *
@@ -1769,26 +1817,28 @@ access_list_delete_acl_entry_by_seq_no (node_t *node, access_list_t *access_list
 bool 
 access_list_should_decompile (access_list_t *access_list) {
 
-    return (!access_list->build_in_progress && access_list->ref_count <= 1);
+    return ((access_list->state != ACL_LST_STATE_COMPILATION_IN_PROGRESS) 
+            && access_list->ref_count <= 1);
 }
 
 bool 
 access_list_should_compile (access_list_t *access_list) {
 
-    return (!access_list->build_in_progress && access_list->ref_count > 1);
+    return ((access_list->state != ACL_LST_STATE_COMPILATION_IN_PROGRESS) && 
+        access_list->ref_count > 1);
 }
 
 bool 
 access_list_is_in_use (access_list_t *access_list) {
 
-    return (!access_list->build_in_progress && access_list->ref_count > 1);
+    return (access_list->ref_count > 1);
 }
 
 bool 
 access_list_is_compiled (access_list_t *access_list) {
 
     if (access_list->mtrie && 
-            !mtrie_is_leaf_node(access_list->mtrie->root)) {
+        !mtrie_is_leaf_node(access_list->mtrie->root)) {
         
         return true;
      }
@@ -2571,13 +2621,13 @@ access_list_trigger_install_job(node_t *node,
     objects_linked_acl_thread_node_t *objects_linked_acl_thread_node;
 
     access_list_builder_t *access_list_processing_info = 
-        (access_list_builder_t *)XCALLOC(0, 1, access_list_builder_t);
+        (access_list_builder_t *)XCALLOC2(0, 1, access_list_builder_t);
     
     access_list_processing_info->is_installation = true;
     access_list_processing_info->node = node;
     access_list_processing_info->og_update_info = og_update_info;
     access_list_processing_info->access_list = access_list;
-    access_list_reference (access_list);
+    access_list_reference (node, access_list);
     access_list_processing_info->mtrie = access_list_get_new_tcam_mtrie();
     access_list_processing_info->acl_tcams_installed = 0;
     access_list->access_lst_builder = access_list_processing_info;
@@ -2587,7 +2637,7 @@ access_list_trigger_install_job(node_t *node,
 
         acl_entry = glthread_to_acl_entry(curr);
         objects_linked_acl_thread_node = 
-            (objects_linked_acl_thread_node_t *)XCALLOC(0, 1, objects_linked_acl_thread_node_t);
+            (objects_linked_acl_thread_node_t *)XCALLOC2(0, 1, objects_linked_acl_thread_node_t);
         objects_linked_acl_thread_node->acl = acl_entry;
         acl_entry_reset_counters(acl_entry);
         init_glthread(&objects_linked_acl_thread_node->glue);
@@ -2613,13 +2663,13 @@ access_list_trigger_uninstall_job(node_t *node,
     objects_linked_acl_thread_node_t *objects_linked_acl_thread_node;
 
     access_list_builder_t *access_list_processing_info = 
-        (access_list_builder_t *)XCALLOC(0, 1, access_list_builder_t);
+        (access_list_builder_t *)XCALLOC2(0, 1, access_list_builder_t);
     
     access_list_processing_info->is_installation = false;
     access_list_processing_info->node = node;
     access_list_processing_info->og_update_info = og_update_info;
     access_list_processing_info->access_list = access_list;
-    access_list_reference (access_list);
+    access_list_reference (node, access_list);
     access_list_processing_info->mtrie = access_list->mtrie;
     access_list->mtrie = access_list_get_new_tcam_mtrie();
     access_list ->access_lst_builder = access_list_processing_info;
@@ -2628,7 +2678,7 @@ access_list_trigger_uninstall_job(node_t *node,
 
         acl_entry = glthread_to_acl_entry(curr);
         objects_linked_acl_thread_node = 
-            (objects_linked_acl_thread_node_t *)XCALLOC(0, 1, objects_linked_acl_thread_node_t);
+            (objects_linked_acl_thread_node_t *)XCALLOC2(0, 1, objects_linked_acl_thread_node_t);
         objects_linked_acl_thread_node->acl = acl_entry;
         init_glthread(&objects_linked_acl_thread_node->glue);
         glthread_add_next(&access_list_processing_info->pending_acls, &objects_linked_acl_thread_node->glue);
@@ -2721,6 +2771,8 @@ access_list_cancel_un_installation_operation (access_list_t *access_list) {
 static void
 mtrie_purge_cbk (event_dispatcher_t *ev_dis, void *mtrie, uint32_t arg_size) {
 
+    /* Give some rest time as per QSBR */
+    sleep(3);
     mtrie_destroy((mtrie_t *)mtrie);
     XFREE(mtrie);
     return NULL;
@@ -2728,7 +2780,9 @@ mtrie_purge_cbk (event_dispatcher_t *ev_dis, void *mtrie, uint32_t arg_size) {
 
 void
 access_list_purge_tcam_mtrie (node_t *node, 
-                             mtrie_t *mtrie) {
+                              mtrie_t *mtrie) {
+
+    if (!mtrie) return;
 
     task_create_new_job(EV_PURGER(node), 
                          (void *)mtrie, 
@@ -2859,21 +2913,4 @@ acl_entry_get_tcam_entry_count (acl_entry_t *acl_entry) {
 
     count *= acl_entry->tcam_dport_count;
     return count;
-}
-
-static void 
-access_list_config_change_cbk (node_t *node, 
-                               vrf_t *vrf, 
-                               access_list_t *access_list,
-                               void *data, 
-                               mtrie_t *mtrie_out) {
-
-    mtrie_t *old_mtrie = access_list->mtrie;
-    access_list->mtrie = mtrie_out;
-
-    /* Notify the application about ACL config change */
-    access_list_schedule_notification (node, access_list);
-
-    /* Purge old mtrie */
-    access_list_purge_tcam_mtrie(node, old_mtrie);  
 }
