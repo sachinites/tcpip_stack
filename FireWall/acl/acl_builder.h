@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <pthread.h>
+#include <atomic>
+#include <semaphore.h>
 #include "../../libs/gluethread/glthread.h"
 
 typedef struct access_list_ access_list_t;
@@ -45,6 +47,9 @@ typedef struct acl_builder_ {
 
     pthread_t thread;
 
+    std::atomic<bool> abort;
+    sem_t wait_for_abort;
+
 }acl_builder_t;
 
 #pragma pack(pop)
@@ -60,5 +65,7 @@ acl_builder_submit_access_list_build_request
      vrf_t *client_vrf, void *client_data,
      acl_builder_notification_cbk cbk);
 
+void 
+acl_builder_abort (acl_builder_t *acl_builder);
 
 #endif 

@@ -29,14 +29,18 @@ tcp_dump_recv_logger(
         if (log_file1 && 
              dp_ctx->log.acc_lst_filter ) {
 
-            acl_action = access_list_evaluate_pkt_block (dp_ctx->log.acc_lst_filter, pkt_block);
+            acl_action = access_list_evaluate_pkt_block (
+                dp_ctx->log.acc_lst_filter->mtrie, pkt_block);
+
            if (acl_action == ACL_DENY) log_file1 = NULL;
         }
 
         if (log_file2 && 
              intf->log_info.acc_lst_filter ) {
 
-            acl_action = access_list_evaluate_pkt_block (intf->log_info.acc_lst_filter, pkt_block);
+            acl_action = access_list_evaluate_pkt_block (
+                intf->log_info.acc_lst_filter->mtrie, pkt_block);
+
            if (acl_action == ACL_DENY) log_file2 = NULL;
         }
 
@@ -115,14 +119,18 @@ tcp_dump_send_logger(dp_ctx_t *dp_ctx,
         if (log_file1 && 
              dp_ctx->log.acc_lst_filter ) {
 
-            acl_action = access_list_evaluate_pkt_block (dp_ctx->log.acc_lst_filter, pkt_block);
+            acl_action = access_list_evaluate_pkt_block (
+                dp_ctx->log.acc_lst_filter->mtrie, pkt_block);
+
            if (acl_action == ACL_DENY) log_file1 = NULL;
         }
 
         if (log_file2 && 
              intf->log_info.acc_lst_filter ) {
 
-            acl_action = access_list_evaluate_pkt_block (intf->log_info.acc_lst_filter, pkt_block);
+            acl_action = access_list_evaluate_pkt_block (
+                intf->log_info.acc_lst_filter->mtrie, pkt_block);
+                
            if (acl_action == ACL_DENY) log_file2 = NULL;
         }
 

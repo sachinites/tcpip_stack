@@ -121,6 +121,12 @@ void
 cp2dp_interface_delete (node_t *node, uint32_t ifindex);
 
 void 
+cp2dp_interface_add_acl (node_t *node, 
+                         uintptr_t acl,
+                         uint8_t layer,
+                         uint32_t ifindex, bool ingress);
+
+void 
 cp2dp_send_rmac(node_t *node, uint8_t (*mac)[6]);
 
 void 

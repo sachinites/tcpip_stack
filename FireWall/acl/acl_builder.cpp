@@ -53,6 +53,8 @@ acl_builder_rebuild_access_list (acl_builder_t *acl_builder) {
 
     access_list_t *access_list = acl_builder->current_client_data->access_list;
 
+    access_list->installation_start_time = time(NULL);
+
     mtrie_t *new_mtrie = access_list_get_new_tcam_mtrie();
 
     bitmap_init(&tcam_entry_template.prefix, ACL_PREFIX_LEN);
@@ -61,7 +63,29 @@ acl_builder_rebuild_access_list (acl_builder_t *acl_builder) {
 
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
+        /* Cancellation point after cooking up each tcam entry*/
+        if (acl_builder->abort.load(std::memory_order_acquire)) {
+
+            /* Free up all the resources */
+            access_list_purge_tcam_mtrie(acl_builder->node, new_mtrie);
+            acl_tcam_iterator_deinit(&src_it);
+            acl_tcam_iterator_deinit(&dst_it);
+            acl_tcam_iterator_deinit(&src_port_it);
+            acl_tcam_iterator_deinit(&dst_port_it);
+            bitmap_free_internal(&tcam_entry_template.prefix);
+            bitmap_free_internal(&tcam_entry_template.mask);
+            acl_builder->abort.store(false, std::memory_order_release);   
+            sem_post(&acl_builder->wait_for_abort); 
+            return NULL;
+        }
+
         acl_entry_t *acl_entry = glthread_to_acl_entry(curr);
+
+        acl_entry->installation_start_time = time(NULL);
+
+        if (acl_entry->is_compiled == false) { 
+            acl_compile(acl_entry);
+        }
 
         acl_tcam_iterator_init(acl_entry, &src_it,      acl_iterator_src_addr);
         acl_tcam_iterator_init(acl_entry, &dst_it,      acl_iterator_dst_addr);
@@ -86,10 +110,10 @@ acl_builder_rebuild_access_list (acl_builder_t *acl_builder) {
                                      &mnode);
             switch (rc) {
                 case MTRIE_INSERT_SUCCESS:
-                    access_list_mtrie_allocate_mnode_data(mnode, (void *)acl_entry);
+                    access_list_mtrie_allocate_mnode_data2(mnode, (void *)acl_entry);
                     break;
                 case MTRIE_INSERT_DUPLICATE:
-                    access_list_mtrie_duplicate_entry_found(mnode, (void *)acl_entry);
+                    access_list_mtrie_duplicate_entry_found2(mnode, (void *)acl_entry);
                     break;
                 case MTRIE_INSERT_FAILED:
                     assert(0);
@@ -102,11 +126,14 @@ acl_builder_rebuild_access_list (acl_builder_t *acl_builder) {
         acl_tcam_iterator_deinit(&src_port_it);
         acl_tcam_iterator_deinit(&dst_port_it);
 
+        acl_entry->installation_end_time = time(NULL);
+
     } ITERATE_GLTHREAD_END(&access_list->head, curr);
 
     bitmap_free_internal(&tcam_entry_template.prefix);
     bitmap_free_internal(&tcam_entry_template.mask);
 
+    access_list->installation_end_time = time(NULL);
     return new_mtrie;
 }
 
@@ -115,19 +142,60 @@ acl_builder_notify_cbk(event_dispatcher_t *ev_dis,
                        void *arg, 
                        uint32_t arg_size) {
 
+    glthread_t *curr;
+    acl_entry_t *acl_entry;
     node_t *node = (node_t *)ev_dis->app_data;
     client_data_t *client_data = (client_data_t *)arg;
 
-    client_data->cbk(node, client_data->client_vrf, 
+    /* This access list ref count was reduced to zero while 
+        builder was building it */
+    if (client_data->access_list->ref_count == 1) {
+
+        ITERATE_GLTHREAD_BEGIN(&client_data->access_list->head, curr)
+        {
+            acl_entry = glthread_to_acl_entry(curr);
+            acl_decompile(acl_entry);
+        }
+        ITERATE_GLTHREAD_END(&client_data->access_list->head, curr);
+
+        mtrie_t *old_mtrie = client_data->access_list->mtrie;
+        client_data->access_list->mtrie = NULL;
+        access_list_purge_tcam_mtrie(node, old_mtrie);
+        client_data->access_list->state = ACL_LST_STATE_UNCOMPILED;
+        client_data->access_list->flags = 0;
+        XFREE(client_data);
+        return;
+    }
+
+    /* User deleted the Access list altogether*/
+    if (client_data->access_list->ref_count == 0) {
+
+        access_list_delete_complete(node, client_data->access_list);
+        XFREE(client_data);
+        return;
+    }
+
+    /* Update ACL */
+    mtrie_t *old_mtrie = client_data->access_list->mtrie;
+    client_data->access_list->mtrie = client_data->mtrie_out;
+    access_list_purge_tcam_mtrie(node, old_mtrie);  
+
+    if (client_data->cbk) {
+
+        client_data->cbk(node, client_data->client_vrf, 
                      client_data->access_list,
                      client_data->client_data, client_data->mtrie_out);
+    }
                                       
-    client_data->access_list->build_in_progress = false;
+    client_data->access_list->state = ACL_LST_STATE_COMPILED;
 
     /* Notify to all clients here */
     access_list_notify_clients (node, client_data->access_list);
 
-    access_list_dereference (node, client_data->access_list);
+    /* Clear the flags */
+    client_data->access_list->flags = 0;
+
+    //access_list_dereference (node, client_data->access_list);
     XFREE(client_data);
 }
 
@@ -150,11 +218,14 @@ acl_builder_thread_func (void *arg) {
         acl_builder->current_client_data->mtrie_out =
             acl_builder_rebuild_access_list (acl_builder);
 
-        /* Notify back to the client */
-        task_create_new_job(EV(acl_builder->node),
-                            (void *)acl_builder->current_client_data,
-                            acl_builder_notify_cbk, 
-                            TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE);
+        if (acl_builder->current_client_data->mtrie_out) {
+
+            /* Notify back to the client */
+            task_create_new_job(EV(acl_builder->node),
+                                (void *)acl_builder->current_client_data,
+                                acl_builder_notify_cbk, 
+                                TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE);
+        }
 
         /* Clear the current client data */
         pthread_mutex_lock (&acl_builder->mutex);
@@ -186,6 +257,8 @@ acl_builder_init (node_t *node, acl_builder_t **_acl_builder) {
     acl_builder->task = NULL;
     acl_builder->node = node;
     acl_builder->current_client_data = NULL;
+    acl_builder->abort.store(false, std::memory_order_relaxed);    
+    sem_init(&acl_builder->wait_for_abort, 0, 0);
     pthread_mutex_init(&acl_builder->mutex, NULL);
     pthread_cond_init (&acl_builder->cv, NULL);
     init_Fglthread(&acl_builder->pending_access_list);
@@ -208,10 +281,20 @@ acl_builder_submit_access_list_build_request (
 
     client_data_t *client_data;
 
-    if (access_list->build_in_progress) return -1;
+    if (access_list->state == 
+        ACL_LST_STATE_COMPILATION_IN_PROGRESS) return -1;
 
-    access_list->build_in_progress = true;
-    access_list_reference (access_list);
+    if (IS_GLTHREAD_LIST_EMPTY(&access_list->head)) return -1;
+
+    access_list->state = 
+        ACL_LST_STATE_COMPILATION_IN_PROGRESS;
+
+    // Consiser user attach access-list to an interface and immediately
+    //    dettach it
+    //assert (access_list_is_in_use(access_list));
+    
+    /* ACL Builder has no business to take ref-count on Access-List */
+    //access_list_reference (acl_builder->node, access_list);
 
     pthread_mutex_lock (&acl_builder->mutex);
 
@@ -235,4 +318,11 @@ acl_builder_submit_access_list_build_request (
     pthread_cond_signal(&acl_builder->cv);
     pthread_mutex_unlock (&acl_builder->mutex);
     return 0;
+}
+
+void 
+acl_builder_abort (acl_builder_t *acl_builder) {
+
+    acl_builder->abort.store(true, std::memory_order_release);
+    sem_wait(&acl_builder->wait_for_abort);
 }

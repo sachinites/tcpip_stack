@@ -35,7 +35,7 @@ equalkeys_acl(void *k1, void *k2)
 }
 
 static void
-object_group_collect_dependent_access_lists(object_group_t *og, hashtable_t *ht)
+object_group_collect_dependent_access_lists(node_t *node, object_group_t *og, hashtable_t *ht)
 {
     void *ht_key;
     glthread_t *curr;
@@ -58,34 +58,35 @@ object_group_collect_dependent_access_lists(object_group_t *og, hashtable_t *ht)
         void *temp = (void *)acl->access_list;
         memcpy(ht_key, &temp, sizeof(void *));
         hashtable_insert(ht, (void *)ht_key, (void *)acl->access_list);
-        access_list_reference(acl->access_list);
+        access_list_reference(node, acl->access_list);
 
     } ITERATE_GLTHREAD_END(&og->db->acls_list, curr)
 }
 
 static void
-object_group_collect_dependent_access_lists_wrapper(object_group_t *og, void *ht)
+object_group_collect_dependent_access_lists_wrapper(node_t *node, object_group_t *og, void *ht)
 {
-    object_group_collect_dependent_access_lists(og, (hashtable_t *)ht);
+    object_group_collect_dependent_access_lists(node, og, (hashtable_t *)ht);
 }
 
 static void
-object_group_traverse_bottom_up(
-    object_group_t *og,
-    void (*og_processing_fn_ptr)(object_group_t *, void *),
-    void *arg)
+object_group_traverse_bottom_up(node_t *node,
+                                object_group_t *og,
+                                void (*og_processing_fn_ptr)(node_t *, object_group_t *, void *),
+                                void *arg)
 {
     glthread_t *curr;
     obj_grp_list_node_t *obj_grp_list_node;
 
     // process root
-    og_processing_fn_ptr(og, arg);
+    og_processing_fn_ptr(node, og, arg);
 
     ITERATE_GLTHREAD_BEGIN(&og->parent_og_list_head, curr)
     {
 
         obj_grp_list_node = glue_to_obj_grp_list_node(curr);
         object_group_traverse_bottom_up(
+            node,
             obj_grp_list_node->og,
             object_group_collect_dependent_access_lists_wrapper,
             arg);
@@ -94,15 +95,16 @@ object_group_traverse_bottom_up(
 }
 
 static hashtable_t *
-object_group_collect_dependent_access_lists_bottom_up_traversal(object_group_t *og)
+object_group_collect_dependent_access_lists_bottom_up_traversal(node_t *node, object_group_t *og)
 {
-
     hashtable_t *h = create_hashtable(128, hashfromkey_acl, equalkeys_acl);
-    assert(h);
+
     object_group_traverse_bottom_up(
-        og,
-        object_group_collect_dependent_access_lists_wrapper,
-        (void *)h);
+            node,
+            og,
+            object_group_collect_dependent_access_lists_wrapper,
+            (void *)h);
+
     return h;
 }
 
@@ -148,7 +150,7 @@ og_update_acls_task(event_dispatcher_t *ev, void *arg, uint32_t arg_size)
     case og_update_fsm_stage_init:
         assert(!og_update_info->access_lists_ht);
         og_update_info->access_lists_ht =
-            object_group_collect_dependent_access_lists_bottom_up_traversal(og_update_info->p_og);
+            object_group_collect_dependent_access_lists_bottom_up_traversal(node, og_update_info->p_og);
 
         og_update_info->access_list_to_be_processed_count = hashtable_count(og_update_info->access_lists_ht);
         og_update_info->access_list_processed_count = 0;

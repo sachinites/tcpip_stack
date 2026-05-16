@@ -34,7 +34,7 @@ typedef struct acl_client_ acl_client_t;
 #define ACL_ENTRY_TCAM_COUNT_THRESHOLD 10000
 
 typedef enum {
-    ACL_IP = IP_PROTO_IP_IN_IP,
+    ACL_IP = ETH_TYPE_IPv4,
     ACL_ICMP = IP_PROTO_ICMP,
     ACL_IGMP,
     ACL_GGP,
@@ -207,22 +207,60 @@ typedef struct access_list_builder_ {
 
 } __attribute__((aligned(8))) access_list_builder_t;
 
+#define ACL_LIST_F_CHANGE 1
+#define ACL_LST_F_APPLIED 2
+
+typedef enum ACL_LST_STATE_ {
+
+    ACL_LST_STATE_UNCOMPILED,
+    ACL_LST_STATE_COMPILATION_IN_PROGRESS,
+    ACL_LST_STATE_COMPILED
+
+} ACL_LST_STATE;
+
+#pragma pack(push, 8)
+
 struct access_list_ {
+
+    // Access Lst Name
     unsigned char name[ACCESS_LIST_MAX_NAMELEN];
-    glthread_t head; // list of acl_entry_t in this access list
-    glthread_t glue; // glues into node->access_list. A node can have many access lists
-    mtrie_t *mtrie;     // Mtrie for this access list, assignment to this ptr should be atomic
-    /* lock the mtrie if we are updating it, only when being updated synchronously*/
+
+    // list of acl_entry_t in this access list
+    glthread_t head; 
+
+    // Glue to node's access list list. A node can have many access lists
+    glthread_t glue; 
+
+    // Mtrie for this access list
+    mtrie_t *mtrie;   
+    
+    // Obsolete
     pthread_rwlock_t mtrie_update_lock;
-    uint8_t ref_count; // how many sub-systems using this access list
+
+    // how many sub-systems using this access list, 
+    // if 1 - nobody is using, ACL LST should be decompiled 
+    // if 0 - ACL LST must be permanently destroyed 
+    // if > 1 - ACL LST is in use, and must be compiled
+    uint8_t ref_count; 
+
+    // Obsolete
     task_t *notif_job; /* Used when notification is to be sent async to appln */
+    
     /* Store the context for   access-list install & uninstall operations */
     access_list_builder_t *access_lst_builder;   
-    bool build_in_progress; /* To indicate if ACL is being built, used to avoid multiple build for same ACL */
-    /*Stats */
+    
     time_t installation_start_time;
     time_t installation_end_time;
-}  __attribute__((aligned(8)));
+
+    // State of the Access Lst
+    ACL_LST_STATE state;
+
+    // Flags, not used
+    uint8_t flags;
+};
+
+#pragma pack(pop)
+
 GLTHREAD_TO_STRUCT(glthread_to_access_list, access_list_t, glue);
 
 acl_proto_t acl_string_to_proto(unsigned char *proto_name) ;
@@ -255,15 +293,15 @@ void acl_entry_reset_counters(acl_entry_t *acl_entry);
 void access_list_reset_acl_counters (access_list_t *access_list);
 
 acl_action_t
-access_list_evaluate (access_list_t *acc_lst,
-                                uint16_t l3proto,
-                                uint16_t l4roto,
-                                uint32_t src_addr,
-                                uint32_t dst_addr,
-                                uint16_t src_port, 
-                                uint16_t dst_port);
+access_list_evaluate(mtrie_t *mtrie,
+                     uint16_t l3proto,
+                     uint16_t l4roto,
+                     uint32_t src_addr,
+                     uint32_t dst_addr,
+                     uint16_t src_port,
+                     uint16_t dst_port);
 
-void access_list_reference(access_list_t *acc_lst);
+void access_list_reference(node_t *node, access_list_t *acc_lst);
 void access_list_dereference(node_t *node, access_list_t *acc_lst);
 acl_action_t
 access_list_evaluate_ip_packet (node_t *node, 
@@ -418,6 +456,8 @@ access_list_purge_tcam_mtrie (node_t *node, mtrie_t *mtrie);
 typedef struct mtrie_node_ mtrie_node_t;
 void access_list_mtrie_allocate_mnode_data (mtrie_node_t *mnode, void *app_data);
 void access_list_mtrie_duplicate_entry_found (mtrie_node_t *mnode, void *app_data);
+void access_list_mtrie_allocate_mnode_data2 (mtrie_node_t *mnode, void *app_data);
+void access_list_mtrie_duplicate_entry_found2 (mtrie_node_t *mnode, void *app_data);
 
 void
 acl_get_member_tcam_entry (
@@ -487,13 +527,6 @@ uint32_t
 acl_entry_get_tcam_entry_count (acl_entry_t *acl_entry);
 
 acl_action_t 
-access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_block);
-
-void 
-access_list_config_change_cbk (node_t *node, 
-                               vrf_t *vrf, 
-                               access_list_t *access_list,
-                               void *data, 
-                               mtrie_t *mtrie_out) ;
+access_list_evaluate_pkt_block (mtrie_t *mtrie, pkt_block_t *pkt_block);
 
 #endif

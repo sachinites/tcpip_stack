@@ -69,6 +69,7 @@ typedef struct dist_mgr_ dist_mgr_t;
 typedef struct prefix_lst_client_ prefix_lst_client_t;
 typedef struct acl_client_ acl_client_t;
 typedef struct acl_builder_ acl_builder_t;
+typedef struct ifm_ ifm_t;
 
 struct node_ {
 
@@ -119,6 +120,8 @@ struct node_ {
     dp_ctx_t *dp_ctx;
     /* Route distribution manager */
     dist_mgr_t *dist_mgr;
+    /* Interface Manager */
+    ifm_t *ifm;
     /* Transport Svc profiles DB*/
     std::unordered_map<std::string , TransportService *> *TransPortSvcDB;
     /* Vlan Interface Created*/

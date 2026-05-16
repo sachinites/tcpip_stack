@@ -9,6 +9,7 @@
 #include "../../tcpconst.h"
 #include "../object_network/objnw.h"
 #include "../object_network/object_group.h"
+#include "acl_builder.h"
 
 extern graph_t *topo;
 extern void display_node_interfaces(param_t *param, Stack_t *tlv_stack);
@@ -134,6 +135,7 @@ acl_parse_ace_config_entries(
     acl_entry->dport.lb = dst_port_no1;
     acl_entry->dport.ub = dst_port_no2;
 
+    acl_entry->expected_tcam_count = acl_entry_get_tcam_entry_count (acl_entry);
     return true;
 }
 
@@ -234,10 +236,29 @@ access_list_unconfig(node_t *node,
         return -1;
     }
 
+
+    if (access_list && 
+        access_list->state == ACL_LST_STATE_COMPILATION_IN_PROGRESS) {
+
+        cprintf ("Config Rejected : Access List %s is being built, Immutable for now\n", 
+                access_list_name);  
+                
+        return false;
+    }    
+
     /* If user has triggered only no <access-list-name>, then delete the entire access list */
     if (seq_no == ~0)
     {
-        if (!access_list_delete_complete(node, access_list)) return -1;
+        // ref count > 1
+        if (access_list_is_in_use (access_list)) {
+
+            cprintf ("%s : Access List %s is in use, Cannot delete\n",
+                node->node_name, access_list->name);
+            return -1;
+        }
+
+        remove_glthread(&access_list->glue);
+        access_list_dereference(node, access_list);
     }
     else
     {
@@ -254,8 +275,7 @@ access_list_unconfig(node_t *node,
             /* Update the Access List Mtrie and notify clients */
             acl_builder_submit_access_list_build_request(
                 node->acl_builder, access_list,
-                NODE_DEF_VRF(node), NULL, 
-                access_list_config_change_cbk);
+                NODE_DEF_VRF(node), NULL,  NULL);
 
             return 0;
         }
@@ -1418,7 +1438,7 @@ acl_print (acl_entry_t *acl_entry) {
         else if (acl_entry->dport.lb > 0 && acl_entry->dport.ub == ACL_MAX_PORTNO)
             cprintf(" gt %d", acl_entry->dport.lb);
         else if (acl_entry->dport.lb == acl_entry->dport.ub)
-            cprintf(" eq %d", acl_entry->dport.lb);
+            cprintf(" eq %d", acl_entry->dport.lb); 
         else
             cprintf(" range %d %d", acl_entry->dport.lb, acl_entry->dport.ub);
         break;
@@ -1558,8 +1578,6 @@ access_list_unregister_client(node_t *node,
                                vrf_t *vrf,
                                uint32_t instance_no)
 {
-    if (!node || !cbk) return;
-
     auto &clients = node->acl_clients;
     for (auto it = clients.begin(); it != clients.end(); ++it) {
 
