@@ -90,8 +90,8 @@ Interface::Interface(std::string if_name, InterfaceType_t iftype)
     this->l2_egress_acc_lst = NULL;
     this->l2_ingress_acc_lst = NULL;
 
-    this->l3_ingress_acc_lst2 = NULL;
-    this->l3_egress_acc_lst2 = NULL;
+    this->l3_ingress_acc_lst = NULL;
+    this->l3_egress_acc_lst = NULL;
 
     this->isis_intf_info = NULL;
     this->intfP.reset(); 
@@ -111,8 +111,8 @@ Interface::~Interface()
     
     assert (!l2_ingress_acc_lst);
     assert (!l2_egress_acc_lst);
-    assert (!l3_ingress_acc_lst2);
-    assert (!l3_egress_acc_lst2);
+    assert (!l3_ingress_acc_lst);
+    assert (!l3_egress_acc_lst);
     assert (!isis_intf_info);
     assert (!vrf);
     assert (!ifindex);
@@ -312,12 +312,12 @@ Interface::InterfaceReleaseAllResources() {
         assert(0); /* Not Supported Yet*/
     }
 
-    if (this->l3_ingress_acc_lst2) {
-        access_group_unconfig (this->att_node, this, "in", this->l3_ingress_acc_lst2);
+    if (this->l3_ingress_acc_lst) {
+        access_group_unconfig (this->att_node, this, "in", this->l3_ingress_acc_lst);
     }
 
-    if (this->l3_egress_acc_lst2) {
-        access_group_unconfig (this->att_node, this, "out", this->l3_egress_acc_lst2);
+    if (this->l3_egress_acc_lst) {
+        access_group_unconfig (this->att_node, this, "out", this->l3_egress_acc_lst);
     }
 
     /* This is configuration, this fn call must not see it set*/
@@ -834,8 +834,8 @@ bool PhysicalInterface::HasL3Config(bool matchvrf) {
     if (this->isis_intf_info) return true;
 
     /* If ACLs configured, not eligible */
-    if (this->l3_egress_acc_lst2 ||
-        this->l3_ingress_acc_lst2) return true;
+    if (this->l3_egress_acc_lst ||
+        this->l3_ingress_acc_lst) return true;
     
     /* If used by any other config , not eligible */
     //if (this->IsCrossReferenced()) return true;

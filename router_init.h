@@ -67,6 +67,8 @@ typedef struct BPlusTree BPlusTree_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct dist_mgr_ dist_mgr_t;
 typedef struct prefix_lst_client_ prefix_lst_client_t;
+typedef struct acl_client_ acl_client_t;
+typedef struct acl_builder_ acl_builder_t;
 
 struct node_ {
 
@@ -98,6 +100,9 @@ struct node_ {
     unsigned char *print_buff;
     glthread_t access_lists_db;
     glthread_t prefix_lst_db;
+    /* ACL Builder*/
+    acl_builder_t *acl_builder;
+
     /* Control Plane Tracer*/
     tracer_t *cptr;
     /* Network Object Hashtable */
@@ -130,6 +135,8 @@ struct node_ {
     bitmap_t if_index_bm;
     /* Prefix list client for updates */
     std::vector<prefix_lst_client_t *> prefix_lst_clients;
+    /* Access-list change notification clients */
+    std::vector<acl_client_t *> acl_clients;
 
     glthread_t graph_glue;
     /* Random Number Generator*/

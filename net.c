@@ -292,3 +292,5 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     lfa_init(node, &node_nw_prop->lfa);
 }
 
+event_dispatcher_t *EV(node_t *node) { return &node->ev_dis; }
+event_dispatcher_t *EV_PURGER(node_t *node) { return &(node->purger_ev_dis); }
