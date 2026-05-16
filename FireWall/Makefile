@@ -2,6 +2,7 @@ TARGET:libasa.a
 LIB=libasa.a
 OBJS=acl/acl_cli.o \
 			acl/acldb.o \
+			acl/acl_builder.o \
 			object_network/obj_nw_cli.o \
 			object_network/objnw.o \
 			Connection/conn.o \
@@ -17,7 +18,9 @@ acl/acl_cli.o:acl/acl_cli.c
 	${CC} ${CFLAGS} -c -I . -I ../ acl/acl_cli.c -o acl/acl_cli.o
 acl/acldb.o:acl/acldb.c
 	${CC} ${CFLAGS} -c -I . -I ../ acl/acldb.c -o acl/acldb.o
-
+acl/acl_builder.o:acl/acl_builder.cpp
+	${CC} ${CFLAGS} -c -I . -I ../ acl/acl_builder.cpp -o acl/acl_builder.o
+	
 object_network/obj_nw_cli.o:object_network/obj_nw_cli.c
 	${CC} ${CFLAGS} -c -I . -I ../../ object_network/obj_nw_cli.c -o object_network/obj_nw_cli.o
 object_network/objnw.o:object_network/objnw.c

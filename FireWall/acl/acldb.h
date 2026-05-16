@@ -21,6 +21,9 @@ typedef struct obj_nw_ obj_nw_t;
 typedef struct object_group_ object_group_t;
 typedef struct task_ task_t;
 typedef struct object_group_update_info_ object_group_update_info_t;
+typedef struct vrf_ vrf_t;
+typedef struct acl_client_ acl_client_t;
+
 
 #define ACL_PREFIX_LEN  128
 #define ACCESS_LIST_MAX_NAMELEN 64
@@ -185,7 +188,7 @@ typedef struct acl_tcam_iterator_ {
     uint8_t index;
 } __attribute__((aligned(8))) acl_tcam_iterator_t;
 
-typedef struct access_list_processing_info_ {
+typedef struct access_list_builder_ {
 
     task_t *task;
     node_t *node;
@@ -202,7 +205,7 @@ typedef struct access_list_processing_info_ {
     uint32_t acl_tcams_installed;
     bool is_installation;
 
-} __attribute__((aligned(8))) access_list_processing_info_t;
+} __attribute__((aligned(8))) access_list_builder_t;
 
 struct access_list_ {
     unsigned char name[ACCESS_LIST_MAX_NAMELEN];
@@ -214,7 +217,8 @@ struct access_list_ {
     uint8_t ref_count; // how many sub-systems using this access list
     task_t *notif_job; /* Used when notification is to be sent async to appln */
     /* Store the context for   access-list install & uninstall operations */
-    access_list_processing_info_t *processing_info;   
+    access_list_builder_t *access_lst_builder;   
+    bool build_in_progress; /* To indicate if ACL is being built, used to avoid multiple build for same ACL */
     /*Stats */
     time_t installation_start_time;
     time_t installation_end_time;
@@ -245,6 +249,7 @@ void acl_entry_uninstall (access_list_t *access_list, acl_entry_t *acl_entry) ;
 bool access_list_is_compiled (access_list_t *access_list);
 bool access_list_should_decompile (access_list_t *access_list) ;
 bool access_list_should_compile (access_list_t *access_list) ;
+bool access_list_is_in_use (access_list_t *access_list) ;
 void acl_compile (acl_entry_t *acl_entry);
 void acl_entry_reset_counters(acl_entry_t *acl_entry);
 void access_list_reset_acl_counters (access_list_t *access_list);
@@ -275,6 +280,24 @@ access_list_evaluate_ethernet_packet (node_t *node,
 /* Return 0 on success */                    
 int access_group_config(node_t *node, Interface *intf, char *dirn, access_list_t *acc_lst);
 int access_group_unconfig(node_t *node, Interface *intf, char *dirn, access_list_t *acc_lst);
+/* Access-list change notification.
+   Clients register a callback bound to a (vrf, instance_no) tuple; the
+   registry is per-node and otherwise opaque to the protocol identity. */
+typedef void (*acl_change_cbk)(node_t *node,
+                               vrf_t *vrf,
+                               uint32_t instance_no,
+                               access_list_t *access_list);
+
+void access_list_register_client(node_t *node,
+                                 acl_change_cbk cbk,
+                                 vrf_t *vrf,
+                                 uint32_t instance_no);
+
+void access_list_unregister_client(node_t *node,
+                                   acl_change_cbk cbk,
+                                   vrf_t *vrf,
+                                   uint32_t instance_no);
+
 void access_list_notify_clients(node_t *node, access_list_t *acc_lst);
 
 
@@ -392,6 +415,19 @@ acl_tcam_iterator_deinit (acl_tcam_iterator_t *acl_tcam_iterator);
 void
 access_list_purge_tcam_mtrie (node_t *node, mtrie_t *mtrie);
 
+typedef struct mtrie_node_ mtrie_node_t;
+void access_list_mtrie_allocate_mnode_data (mtrie_node_t *mnode, void *app_data);
+void access_list_mtrie_duplicate_entry_found (mtrie_node_t *mnode, void *app_data);
+
+void
+acl_get_member_tcam_entry (
+                acl_entry_t *acl_entry,                              /* Input */
+                acl_tcam_iterator_t *acl_tcam_src_it,      /* Input */
+                acl_tcam_iterator_t * src_port_it,             /* Input */
+                acl_tcam_iterator_t *acl_tcam_dst_it,      /* Input */
+                acl_tcam_iterator_t * dst_port_it,             /* Input */
+                acl_tcam_t *tcam_entry);
+                
 void
 access_list_trigger_install_job(node_t *node, 
                                 access_list_t *access_list,
@@ -417,10 +453,10 @@ static inline bool
 access_list_is_installation_in_progress (access_list_t *access_list) {
 
 
-    if (!access_list->processing_info) return false;
+    if (!access_list->access_lst_builder) return false;
 
-    access_list_processing_info_t *processing_info = 
-        access_list->processing_info;
+    access_list_builder_t *processing_info = 
+        access_list->access_lst_builder;
     
     if (processing_info->is_installation) return true;
     return false;
@@ -429,10 +465,10 @@ access_list_is_installation_in_progress (access_list_t *access_list) {
 static inline bool
 access_list_is_uninstallation_in_progress (access_list_t *access_list){
 
-   if (!access_list->processing_info) return false;
+   if (!access_list->access_lst_builder) return false;
 
-    access_list_processing_info_t *processing_info = 
-        access_list->processing_info;
+    access_list_builder_t *processing_info = 
+        access_list->access_lst_builder;
     
     if (!processing_info->is_installation) return true;
     return false;
@@ -452,5 +488,12 @@ acl_entry_get_tcam_entry_count (acl_entry_t *acl_entry);
 
 acl_action_t 
 access_list_evaluate_pkt_block (access_list_t *access_list, pkt_block_t *pkt_block);
+
+void 
+access_list_config_change_cbk (node_t *node, 
+                               vrf_t *vrf, 
+                               access_list_t *access_list,
+                               void *data, 
+                               mtrie_t *mtrie_out) ;
 
 #endif

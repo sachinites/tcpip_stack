@@ -176,8 +176,8 @@ void interface_assign_mac_address (Interface *interface);
         }                                                                    \
     }while(0);
 
-#define EV(node_ptr)    (&node_ptr->ev_dis)
-#define EV_PURGER(node_ptr) (&(node_ptr->purger_ev_dis))
+event_dispatcher_t *EV(node_t *node);
+event_dispatcher_t *EV_PURGER(node_t *node);
 #define CP_TIMER(node_ptr)  (node_ptr->cp_wt)
 
 uint16_t

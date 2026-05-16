@@ -119,8 +119,8 @@ class Interface {
         access_list_t *l2_egress_acc_lst;
 
         /* L3 properties :  Ingress & egress L3 Access_list */
-        std::atomic<access_list_t *> l3_ingress_acc_lst2;
-        std::atomic<access_list_t *> l3_egress_acc_lst2;
+        access_list_t *l3_ingress_acc_lst;
+        access_list_t *l3_egress_acc_lst;
 
         /* L3 protocols */
         isis_intf_info_t *isis_intf_info;

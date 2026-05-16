@@ -52,6 +52,7 @@
 
 extern void cp_init_ipc_pub_sub(node_t *node);
 extern void rtm_dist_mgr_init (node_t *node);
+extern void acl_builder_init (node_t *, acl_builder_t **acl_builder);
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -206,6 +207,7 @@ Router_Create(graph_t *graph, const c_string node_name){
     node->acl_cptr = tracer_init (node_name, file_name, 
             node->node_name, STDOUT_FILENO,  debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->acl_cptr, true);
+    acl_builder_init(node, &node->acl_builder);
     
     /* Start Control plane Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "CP-%s", node_name);
