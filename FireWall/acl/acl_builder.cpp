@@ -53,7 +53,7 @@ acl_builder_rebuild_access_list (acl_builder_t *acl_builder) {
 
     access_list_t *access_list = acl_builder->current_client_data->access_list;
 
-    access_list->installation_start_time = time(NULL);
+    access_list->installation_start_ms = wall_clock_ms_now();
 
     mtrie_t *new_mtrie = access_list_get_new_tcam_mtrie();
 
@@ -81,7 +81,10 @@ acl_builder_rebuild_access_list (acl_builder_t *acl_builder) {
 
         acl_entry_t *acl_entry = glthread_to_acl_entry(curr);
 
-        acl_entry->installation_start_time = time(NULL);
+        acl_entry->installation_start_ms = wall_clock_ms_now();
+        acl_entry->tcam_total_count = 0;
+        acl_entry->tcam_self_conflicts_count = 0;
+        acl_entry->tcam_other_conflicts_count = 0;
 
         if (acl_entry->is_compiled == false) { 
             acl_compile(acl_entry);
@@ -126,14 +129,15 @@ acl_builder_rebuild_access_list (acl_builder_t *acl_builder) {
         acl_tcam_iterator_deinit(&src_port_it);
         acl_tcam_iterator_deinit(&dst_port_it);
 
-        acl_entry->installation_end_time = time(NULL);
+        acl_entry->installation_end_ms = wall_clock_ms_now();
+        acl_entry->is_installed = true;
 
     } ITERATE_GLTHREAD_END(&access_list->head, curr);
 
     bitmap_free_internal(&tcam_entry_template.prefix);
     bitmap_free_internal(&tcam_entry_template.mask);
 
-    access_list->installation_end_time = time(NULL);
+    access_list->installation_end_ms = wall_clock_ms_now();
     return new_mtrie;
 }
 

@@ -158,9 +158,15 @@ range2_prefix_wildcard_conversion32 (uint32_t lb,  /* Input Lower bound */
 #define string_copy(dst, src, len) (strncpy((char *)dst, (const char *)src, len))
 bool  mac_address_compare ( unsigned char *mac1, unsigned char *mac2);
 
-#define HRS_MIN_SEC_FMT_TIME_LEN    16
+#define HRS_MIN_SEC_FMT_TIME_LEN    24
 c_string
 hrs_min_sec_format(unsigned int seconds, c_string time_f, size_t size);
+
+c_string
+hrs_min_sec_ms_format(uint64_t elapsed_ms, c_string time_f, size_t size);
+
+uint64_t
+wall_clock_ms_now(void);
 
 #define DEADCODE    (assert(0))
 #define PERCENT_ASCII_CODE  37

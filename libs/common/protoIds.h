@@ -151,6 +151,7 @@ proto_id_str(uint16_t proto)
     case IP_PROTO_IGMP:             return "IGMP";
     case IP_PROTO_IP_IN_IP:         return "IP-in-IP";
     case IP_PROTO_TCP:              return "TCP";
+    case IP_PROTO_UDP:              return "UDP";
     case IP_PROTO_GRE:              return "GRE";
     case IP_PROTO_ESP:              return "ESP";
     case IP_PROTO_AH:               return "AH";

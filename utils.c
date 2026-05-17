@@ -380,6 +380,39 @@ hrs_min_sec_format(unsigned int seconds, c_string time_f, size_t size){
     return time_f;
 }
 
+uint64_t
+wall_clock_ms_now(void) {
+
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        return (uint64_t)time(NULL) * 1000;
+    }
+    return (uint64_t)ts.tv_sec * 1000 + (uint64_t)ts.tv_nsec / 1000000;
+}
+
+c_string
+hrs_min_sec_ms_format(uint64_t elapsed_ms, c_string time_f, size_t size) {
+
+    unsigned int hrs = 0, min = 0, sec = 0;
+    unsigned int ms = (unsigned int)(elapsed_ms % 1000);
+    unsigned int total_sec = (unsigned int)(elapsed_ms / 1000);
+
+    if (total_sec > 3600) {
+        min = total_sec / 60;
+        sec = total_sec % 60;
+        hrs = min / 60;
+        min = min % 60;
+    } else {
+        min = total_sec / 60;
+        sec = total_sec % 60;
+    }
+
+    memset(time_f, 0, sizeof(byte) * size);
+    sprintf((char *)time_f, "%u::%u::%u::%u", hrs, min, sec, ms);
+    return time_f;
+}
+
 bool 
 mac_address_compare ( unsigned char *mac1, unsigned char *mac2) {
     
