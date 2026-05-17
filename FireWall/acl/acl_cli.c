@@ -135,7 +135,7 @@ acl_parse_ace_config_entries(
     acl_entry->dport.lb = dst_port_no1;
     acl_entry->dport.ub = dst_port_no2;
 
-    acl_entry->expected_tcam_count = acl_entry_get_tcam_entry_count (acl_entry);
+    acl_entry->expected_tcam_count = 0;
     return true;
 }
 
@@ -1446,11 +1446,12 @@ acl_print (acl_entry_t *acl_entry) {
     default:;
     }
 
-    cprintf("\n   (Hits[%lu] Tcam-Count[T:%u Sc:%u Oc:%u])",
+    cprintf("\n   (Hits[%lu] Tcam-Count[T:%u Sc:%u Oc:%u Ex:%u])",
            acl_entry->hit_count,
            acl_entry->tcam_total_count,
            acl_entry->tcam_self_conflicts_count,
-           acl_entry->tcam_other_conflicts_count);
+           acl_entry->tcam_other_conflicts_count,
+           acl_entry->expected_tcam_count);
 
     time_str = acl_entry_get_installation_time_duration(acl_entry, time_buff, sizeof(time_buff));
     cprintf (  "    [Install Duration : %s]  %u%c\n", time_str ? time_str : (c_string) "NA",

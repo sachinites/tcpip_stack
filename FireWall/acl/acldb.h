@@ -160,8 +160,8 @@ typedef struct acl_entry_{
     glthread_t glue;
 
     /*Stats */
-    time_t installation_start_time;
-    time_t installation_end_time;
+    uint64_t installation_start_ms;
+    uint64_t installation_end_ms;
     uint32_t expected_tcam_count;
     bool installation_in_progress;
 
@@ -249,8 +249,8 @@ struct access_list_ {
     /* Store the context for   access-list install & uninstall operations */
     access_list_builder_t *access_lst_builder;   
     
-    time_t installation_start_time;
-    time_t installation_end_time;
+    uint64_t installation_start_ms;
+    uint64_t installation_end_ms;
 
     // State of the Access Lst
     ACL_LST_STATE state;
@@ -525,6 +525,9 @@ acl_entry_get_installation_time_duration (acl_entry_t *acl_entry, c_string time_
 
 uint32_t 
 acl_entry_get_tcam_entry_count (acl_entry_t *acl_entry);
+
+uint32_t
+acl_entry_compute_expected_tcam_count (acl_entry_t *acl_entry);
 
 acl_action_t 
 access_list_evaluate_pkt_block (mtrie_t *mtrie, pkt_block_t *pkt_block);

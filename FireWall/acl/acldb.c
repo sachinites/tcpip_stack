@@ -91,16 +91,8 @@ void
 acl_decompile (acl_entry_t *acl_entry) {
 
     if (!acl_entry->is_compiled) {
-
-        sprintf (tlb, "%s : Acl %s-%u is already decompiled\n", 
-            FWALL_ACL, acl_entry->access_list->name, acl_entry->seq_no);
-        tcp_trace(0, 0, tlb);        
         return;
     }
-
-    sprintf (tlb, "%s : Acl %s-%u is being decompiled\n", 
-            FWALL_ACL, acl_entry->access_list->name, acl_entry->seq_no);
-    tcp_trace(0, 0, tlb);
 
     switch (acl_entry->src_addr.acl_addr_format) {
         case ACL_ADDR_NOT_SPECIFIED:
@@ -186,6 +178,7 @@ acl_decompile (acl_entry_t *acl_entry) {
    acl_entry->tcam_total_count = 0;
    acl_entry->tcam_self_conflicts_count = 0;
    acl_entry->tcam_other_conflicts_count = 0;
+  acl_entry->expected_tcam_count = 0;
 }
 
 /* mtrie Callback function definitions */
@@ -205,9 +198,12 @@ GLTHREAD_TO_STRUCT(glthread_to_mnode_acl_list_node, mnode_acl_list_node_t, glue)
 void
 access_list_mtrie_allocate_mnode_data2 (mtrie_node_t *mnode, void *app_data) {
 
+    acl_entry_t *acl_entry = (acl_entry_t *)app_data;
+
     assert(!mnode->data);
     assert(app_data);
     mnode->data = app_data;
+    acl_entry->tcam_total_count++;
 }
 
 void
@@ -218,6 +214,17 @@ access_list_mtrie_duplicate_entry_found2 (mtrie_node_t *mnode, void *app_data) {
 
     acl_entry_t *acl_entry_new = (acl_entry_t *)app_data;
     assert (acl_entry_new);
+
+    #if 0
+    if (acl_entry_new == acl_entry_old) {
+        acl_entry_new->tcam_self_conflicts_count++;
+    } else {
+        acl_entry_old->tcam_other_conflicts_count++;
+        acl_entry_new->tcam_other_conflicts_count++;
+    }
+#endif
+
+    acl_entry_new->tcam_total_count++;
 
     if (acl_entry_new->seq_no < acl_entry_old->seq_no) {
         mnode->data = (void *)acl_entry_new;
@@ -365,15 +372,8 @@ acl_compile (acl_entry_t *acl_entry) {
     uint8_t proto_layer = 0;
 
     if (acl_entry->is_compiled) {
-        sprintf (tlb, "%s : Acl %s-%u is already compiled\n", 
-            FWALL_ACL, acl_entry->access_list->name, acl_entry->seq_no);
-        tcp_trace(0, 0, tlb);
         return;
     }
-
-    sprintf (tlb, "%s : Acl %s-%u is being compiled\n", 
-            FWALL_ACL, acl_entry->access_list->name, acl_entry->seq_no);
-    tcp_trace(0, 0, tlb);
 
     assert(acl_entry->tcam_saddr_count == 0);
     assert(!acl_entry->tcam_saddr_prefix);
@@ -569,6 +569,7 @@ acl_compile (acl_entry_t *acl_entry) {
     }
 
      acl_entry->is_compiled = true;
+    acl_entry->expected_tcam_count = acl_entry_get_tcam_entry_count (acl_entry);
 }
 
 access_list_t *
@@ -1337,7 +1338,7 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
     acl_tcam_iterator_first(&src_port_it);
     acl_tcam_iterator_first(&dst_port_it);
 
-    acl_entry->installation_start_time = time(NULL);
+    acl_entry->installation_start_ms = wall_clock_ms_now();
     
     do {
 
@@ -1380,7 +1381,7 @@ acl_entry_install (access_list_t *access_list, acl_entry_t *acl_entry) {
                 &src_port_it,
                 &dst_port_it));
 
-    acl_entry->installation_end_time = time(NULL);
+    acl_entry->installation_end_ms = wall_clock_ms_now();
 
     acl_tcam_iterator_deinit(&src_it);
     acl_tcam_iterator_deinit(&dst_it);
@@ -2418,7 +2419,7 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
             tcp_trace(node, 0, tlb);
 
             if (access_list_processing_info->is_installation) {
-                access_list->installation_end_time = time(NULL);
+                access_list->installation_end_ms = wall_clock_ms_now();
             }
 
             /* Updating the Data Path */
@@ -2456,7 +2457,7 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
         access_list_processing_info->current_acl = objects_linked_acl_thread_node->acl;
         acl_entry = access_list_processing_info->current_acl;
         if (access_list_processing_info->is_installation) {
-            acl_entry->installation_start_time = time(NULL);
+            acl_entry->installation_start_ms = wall_clock_ms_now();
         }
         XFREE(objects_linked_acl_thread_node );
 
@@ -2588,7 +2589,7 @@ access_list_processing_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t a
     tcp_trace(node, 0, tlb);
 
      if (access_list_processing_info->is_installation) {
-        access_list_processing_info->current_acl->installation_end_time = time(NULL);
+        access_list_processing_info->current_acl->installation_end_ms = wall_clock_ms_now();
         access_list_processing_info->current_acl->installation_in_progress = false;
      }
 
@@ -2631,7 +2632,7 @@ access_list_trigger_install_job(node_t *node,
     access_list_processing_info->mtrie = access_list_get_new_tcam_mtrie();
     access_list_processing_info->acl_tcams_installed = 0;
     access_list->access_lst_builder = access_list_processing_info;
-    access_list->installation_start_time = time(NULL);
+    access_list->installation_start_ms = wall_clock_ms_now();
 
     ITERATE_GLTHREAD_BEGIN(&access_list->head, curr) {
 
@@ -2794,35 +2795,148 @@ access_list_purge_tcam_mtrie (node_t *node,
 c_string
 access_list_get_installation_time_duration (access_list_t *access_list, c_string time_str, size_t size) {
 
-    time_t end_time;
+    uint64_t end_ms;
 
     if (access_list_is_installation_in_progress(access_list)) {
-        end_time = time(NULL);
+        end_ms = wall_clock_ms_now();
     }
     else if (access_list_is_compiled(access_list)){
-        end_time = access_list->installation_end_time;
+        end_ms = access_list->installation_end_ms;
     }
     else return NULL;
 
-    return hrs_min_sec_format(difftime(end_time, access_list->installation_start_time),
+    if (end_ms < access_list->installation_start_ms) {
+        return NULL;
+    }
+
+    return hrs_min_sec_ms_format(end_ms - access_list->installation_start_ms,
                                                 time_str, size);
 }
 
 c_string
 acl_entry_get_installation_time_duration (acl_entry_t *acl_entry, c_string time_str, size_t size) {
 
-    time_t end_time;
+    uint64_t end_ms;
 
     if (acl_entry->installation_in_progress) {
-        end_time = time(NULL);
+        end_ms = wall_clock_ms_now();
     }
     else if (acl_entry->is_installed){
-        end_time = acl_entry->installation_end_time;
+        end_ms = acl_entry->installation_end_ms;
     }
     else return NULL;
 
-    return hrs_min_sec_format(difftime(end_time, acl_entry->installation_start_time),
+    if (end_ms < acl_entry->installation_start_ms) {
+        return NULL;
+    }
+
+    return hrs_min_sec_ms_format(end_ms - acl_entry->installation_start_ms,
                                                 time_str, size);
+}
+
+static uint32_t
+acl_port_range_expected_tcam_count (uint16_t lb, uint16_t ub) {
+
+    uint16_t prefix[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    uint16_t wcard[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    int count = 0;
+
+    if (lb == 0 && ub == 0) {
+        return 1;
+    }
+
+    range2_prefix_wildcard_conversion(lb, ub, &prefix, &wcard, &count);
+    return (uint32_t)count;
+}
+
+static uint32_t
+acl_entry_addr_expected_tcam_count (acl_entry_t *acl_entry, bool is_src) {
+
+    glthread_t *curr;
+    uint32_t og_count = 0;
+    glthread_t og_list_head = {0, 0};
+    obj_grp_list_node_t *obj_grp_list_node;
+    uint32_t prefix32[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    uint32_t wcard32[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT];
+    int count = 0;
+    acl_addr_format_t addr_format;
+    obj_nw_t *obj_nw;
+    object_group_t *og;
+
+    if (is_src) {
+        addr_format = acl_entry->src_addr.acl_addr_format;
+        obj_nw = acl_entry->src_addr.u.obj_nw;
+        og = acl_entry->src_addr.u.og;
+    } else {
+        addr_format = acl_entry->dst_addr.acl_addr_format;
+        obj_nw = acl_entry->dst_addr.u.obj_nw;
+        og = acl_entry->dst_addr.u.og;
+    }
+
+    switch (addr_format)
+    {
+    case ACL_ADDR_NOT_SPECIFIED:
+    case ACL_ADDR_HOST:
+    case ACL_ADDR_SUBNET_MASK:
+        return 1;
+    case ACL_ADDR_OBJECT_NETWORK:
+        if (object_network_is_tcam_compiled(obj_nw)) {
+            return obj_nw->count;
+        }
+        switch (obj_nw->type) {
+        case OBJ_NW_TYPE_HOST:
+        case OBJ_NW_TYPE_SUBNET:
+            return 1;
+        case OBJ_NW_TYPE_RANGE:
+            range2_prefix_wildcard_conversion32(
+                obj_nw->u.range.lb,
+                obj_nw->u.range.ub,
+                (uint32_t (*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])&prefix32,
+                (uint32_t (*)[MAX_PREFIX_WLDCARD_RANGE_CONVERSION_FCT])&wcard32,
+                &count);
+            return (uint32_t)count;
+        default:
+            return 1;
+        }
+    case ACL_ADDR_OBJECT_GROUP:
+        switch (og->og_type)
+        {
+        case OBJECT_GRP_TYPE_UNKNOWN:
+            assert(0);
+        case OBJECT_GRP_NET_ADDR:
+        case OBJECT_GRP_NET_HOST:
+        case OBJECT_GRP_NET_RANGE:
+            return og->count;
+        case OBJECT_GRP_NESTED:
+            object_group_queue_all_leaf_ogs(og, &og_list_head);
+            og_count = 0;
+            ITERATE_GLTHREAD_BEGIN(&og_list_head, curr) {
+                obj_grp_list_node = glue_to_obj_grp_list_node(curr);
+                og_count += obj_grp_list_node->og->count;
+                obj_grp_list_node->og->ref_count--;
+                remove_glthread(curr);
+                XFREE(obj_grp_list_node);
+            } ITERATE_GLTHREAD_END(&og_list_head, curr);
+            return og_count;
+        }
+        break;
+    default:;
+    }
+    return 1;
+}
+
+uint32_t
+acl_entry_compute_expected_tcam_count (acl_entry_t *acl_entry) {
+
+    uint32_t count = 1;
+
+    count *= acl_entry_addr_expected_tcam_count(acl_entry, true);
+    count *= acl_port_range_expected_tcam_count(
+        acl_entry->sport.lb, acl_entry->sport.ub);
+    count *= acl_entry_addr_expected_tcam_count(acl_entry, false);
+    count *= acl_port_range_expected_tcam_count(
+        acl_entry->dport.lb, acl_entry->dport.ub);
+    return count;
 }
 
 uint32_t 
