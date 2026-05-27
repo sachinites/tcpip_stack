@@ -740,7 +740,7 @@ cp_rtm_uninstall_route_by_idx (
     }
 
     /* Handle L3VPN route uninstallation from customer VRFs */
-    def_vrf_t *def_vrf = rtm->node->node_nw_prop.def_vrf;
+    def_vrf_t *def_vrf = (def_vrf_t *)rtm->node->vrf[0];
     if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6)) {
         rtm_uninstall_l3vpn_routes_to_all_client_ribs(rtm, idx);
     }

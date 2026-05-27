@@ -37,13 +37,13 @@
 #include "../libs/gluethread/glthread.h"
 #include "layer5.h"
 #include "../Layer3/netfilter.h"
-#include "../libs/pkt-block/pkt_block.h"
+#include "../libs/pkt-block/pkt_mbuf.h"
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
 
 void
 dp2cp_punt_pkt_to_layer5(void *_node,
 					uint32_t recv_intf_ifindex, 
-					pkt_block_t *pkt_block,
+					struct rte_mbuf *mbuf,
 					 gen_proto_id_t hdr_code) {
 
 	//nf_invoke_netfilter_hook(NF_IP_LOCAL_IN,
@@ -54,7 +54,7 @@ void
 cp_punt_pkt_from_layer2_to_layer5 (
 					 void *_node,
 					 uint32_t recv_intf_ifindex, 
-                     pkt_block_t *pkt_block,
+                     struct rte_mbuf *mbuf,
 					 gen_proto_id_t hdr_code) { 
 
 	char *pkt;
@@ -63,10 +63,10 @@ cp_punt_pkt_from_layer2_to_layer5 (
 	node_t *node = (node_t *)_node;
 	pkt_notif_data.recv_node = node;
 	pkt_notif_data.recv_intf_index = recv_intf_ifindex;
-	pkt_notif_data.pkt_block = pkt_block;
+	pkt_notif_data.mbuf = mbuf;
 	pkt_notif_data.hdr_code = hdr_code;
 
-	pkt = (char *)pkt_block_get_pkt(pkt_notif_data.pkt_block, &pkt_size);
+	pkt = (char *)pkt_mbuf_get_pkt(pkt_notif_data.mbuf, &pkt_size);
 
 	nfc_invoke_notif_chain(
 			EV(node),

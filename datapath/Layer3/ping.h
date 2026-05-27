@@ -48,8 +48,7 @@ typedef struct icmp_hdr_ {
 } icmp_hdr_t;
 #pragma pack(pop)
 
-/* Forward declarations */
-struct pkt_block_;
+struct rte_mbuf;
 
 /* This ping context is used to track the icmp echo request sent
     and their icmp echo reply recvd. It must track all info that 
@@ -116,7 +115,7 @@ void
 ping_send4 (ping_ctx_t *pctx);
 
 void 
-ping_echo_reply_recvd (ping_ctx_t *pctx, struct pkt_block_ *pkt_block);
+ping_echo_reply_recvd (ping_ctx_t *pctx, struct rte_mbuf *mbuf);
 
 
 #endif 

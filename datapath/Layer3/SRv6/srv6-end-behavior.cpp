@@ -4,7 +4,7 @@
 #include "../../../libs/common/l3_hdrs.h"
 #include "../../Layer3/ipv6/ipv6-fwd.h"
 #include "../../../router_init.h"
-#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/pkt-block/pkt_mbuf.h"
 #include "../../../libs/Tracer/tracer.h"
 #include "../../../Interface/InterfaceUApi.h"
 #include "srv6-end-behavior.h"
@@ -17,10 +17,10 @@
 #define drop_packet return;
 
 static void 
-srv6_shift (pkt_block_t *pkt_block) {
+srv6_shift (struct rte_mbuf *mbuf) {
 
-    assert (pkt_block_get_starting_hdr(pkt_block) == ETH_TYPE_IPv6); 
-    ipv6_hdr_t *ipv6_hdr = pkt_block_get_ip6_hdr(pkt_block);
+    assert (pkt_mbuf_get_starting_hdr(mbuf) == ETH_TYPE_IPv6); 
+    ipv6_hdr_t *ipv6_hdr = pkt_mbuf_get_ip6_hdr(mbuf);
     assert (ipv6_hdr->next_header == IP_PROTO_SRH);
     srh_hdr_t *srh = (srh_hdr_t *)(ipv6_hdr + 1);
     srh->segments_left--;
@@ -55,7 +55,7 @@ srv6_get_flavor (dp_ctx_t *dp_ctx, dp_vrf_t *vrf,
 static bool 
 srv6_ipv6_forward (dp_ctx_t *dp_ctx, 
                    dp_vrf_t *vrf, 
-                   pkt_block_t *pkt_block, 
+                   struct rte_mbuf *mbuf, 
                    fib_nh_t *nexthop) {
 
     if (nexthop) {
@@ -64,11 +64,11 @@ srv6_ipv6_forward (dp_ctx_t *dp_ctx,
             /* Mount seg lst here onto the pkt*/
         //}
 
-        ipv6_layer3_forward_nexthop(dp_ctx, vrf, nexthop, pkt_block);
+        ipv6_layer3_forward_nexthop(dp_ctx, vrf, nexthop, mbuf);
         return true;
     }
 
-    ipv6_hdr_t *ipv6_hdr = pkt_block_get_ip6_hdr(pkt_block);
+    ipv6_hdr_t *ipv6_hdr = pkt_mbuf_get_ip6_hdr(mbuf);
 
     cmn_prefix_t prefix;
     cmn_prefix_initialize_v6(&prefix, &ipv6_hdr->dst_addr, 128);
@@ -78,7 +78,7 @@ srv6_ipv6_forward (dp_ctx_t *dp_ctx,
     if(!nh){
         tracer(dp_ctx->dptr, DL3FWD | DERR, 
             "VRF:%s: Pkt : %s :  Pkt Dropped : No forwarding nexthop\n",
-	   vrf->vrf_name, pkt_block_str(pkt_block));
+	   vrf->vrf_name, pkt_mbuf_str(mbuf));
         return false;
     }
 
@@ -86,17 +86,17 @@ srv6_ipv6_forward (dp_ctx_t *dp_ctx,
         /* Mount seg lst here onto the pkt*/
     //}
 
-    ipv6_layer3_forward_nexthop(dp_ctx, vrf, nh, pkt_block);
+    ipv6_layer3_forward_nexthop(dp_ctx, vrf, nh, mbuf);
     return true;
 }
 
 void
 srv6_shift_and_forward(dp_ctx_t *dp_ctx, 
                        dp_vrf_t *vrf,
-                       pkt_block_t *pkt_block) {
+                       struct rte_mbuf *mbuf) {
 
-    srv6_shift(pkt_block);
-    srv6_ipv6_forward(dp_ctx, vrf, pkt_block, 0);
+    srv6_shift(mbuf);
+    srv6_ipv6_forward(dp_ctx, vrf, mbuf, 0);
 }
 
 
@@ -108,18 +108,18 @@ srv6_shift_and_forward(dp_ctx_t *dp_ctx,
 fn_template(srv6_END) {
 
     if (!srh || srh->segments_left == 0) {
-        Srv6_decapsulate (pkt_block);
-        ipv6_process_v6_payload(dp_ctx, vrf, pkt_block);
+        Srv6_decapsulate (mbuf);
+        ipv6_process_v6_payload(dp_ctx, vrf, mbuf);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf,
                             &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf, pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf, mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
  
@@ -128,18 +128,18 @@ fn_template(srv6_END) {
 fn_template(srv6_END_w_PSP) {
 
     if (!srh || srh->segments_left == 0) {
-        Srv6_decapsulate (pkt_block);
-        ipv6_process_v6_payload(dp_ctx, vrf, pkt_block);
+        Srv6_decapsulate (mbuf);
+        ipv6_process_v6_payload(dp_ctx, vrf, mbuf);
         return;
     }
 
     if (srh->segments_left == 1) {
 
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf, pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf, mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 }
@@ -147,17 +147,17 @@ fn_template(srv6_END_w_PSP) {
 fn_template(srv6_END_w_USP) {
 
     if (!srh || srh->segments_left == 0) {
-        Srv6_decapsulate (pkt_block);
-        ipv6_process_v6_payload(dp_ctx, vrf, pkt_block);
+        Srv6_decapsulate (mbuf);
+        ipv6_process_v6_payload(dp_ctx, vrf, mbuf);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 }
@@ -165,17 +165,17 @@ fn_template(srv6_END_w_USP) {
 fn_template(srv6_END_w_PSP_USP) {
 
     if (!srh || srh->segments_left == 0) {
-        Srv6_decapsulate (pkt_block);
-        ipv6_process_v6_payload(dp_ctx, vrf, pkt_block);
+        Srv6_decapsulate (mbuf);
+        ipv6_process_v6_payload(dp_ctx, vrf, mbuf);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
@@ -184,16 +184,16 @@ fn_template(srv6_END_w_PSP_USP) {
 fn_template(srv6_END_X) {
 
     if (!srh || srh->segments_left == 0) {
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
@@ -202,16 +202,16 @@ fn_template(srv6_END_X) {
 fn_template(srv6_END_X_w_PSP) {
 
     if (!srh || srh->segments_left == 0) {
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
@@ -220,16 +220,16 @@ fn_template(srv6_END_X_w_PSP) {
 fn_template(srv6_END_X_w_USP) {
 
     if (!srh || srh->segments_left == 0) {
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
@@ -238,16 +238,16 @@ fn_template(srv6_END_X_w_USP) {
 fn_template(srv6_END_X_w_PSP_USP) {
 
     if (!srh || srh->segments_left == 0) {
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
@@ -275,17 +275,17 @@ fn_template(srv6_END_B6_ENCAP) {
 
     assert (!srh || (srh->segments_left == 0));
 
-    Srv6_decapsulate(pkt_block);
+    Srv6_decapsulate(mbuf);
 
     srh_hdr_t *new_srh = srh_hdr_prepare (
                 (ipv6_addr_t *)nexthop->fwd_info->u.v6_fwd.v6segment_lst,
                 nexthop->fwd_info->u.v6_fwd.n_segment_list);
 
-    Srv6_encapsulate (pkt_block, new_srh);
+    Srv6_encapsulate (mbuf, new_srh);
     
     XFREE (new_srh);
 
-    srv6_ipv6_forward(dp_ctx, vrf, pkt_block, 0);
+    srv6_ipv6_forward(dp_ctx, vrf, mbuf, 0);
 }
 
 
@@ -316,7 +316,7 @@ extern void
 layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     dp_vrf_t *vrf,
 					dp_intf_t *interface,
-					pkt_block_t *pkt_block);
+					struct rte_mbuf *mbuf);
 
 fn_template(srv6_END_DT4) {
 
@@ -324,13 +324,13 @@ fn_template(srv6_END_DT4) {
 
     assert (!srh || (srh->segments_left == 0));
 
-    Srv6_decapsulate(pkt_block);
+    Srv6_decapsulate(mbuf);
     
-    assert (pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_IP_IN_IP);
+    assert (pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_IP_IN_IP);
 
     layer3_ip_route_pkt(dp_ctx, 
         nexthop->fwd_info->oif->srv6_data.steered_dt4_vrf,
-        NULL, pkt_block);
+        NULL, mbuf);
 }
 
 fn_template(srv6_END_DT46) {
@@ -360,17 +360,17 @@ fn_template(srv6_END_B6_ENCAPS_Red) {
 fn_template(srv6_END_w_USD) {
 
     if (!srh || srh->segments_left == 0) {
-        Srv6_decapsulate (pkt_block);
-        ipv6_process_v6_payload(dp_ctx, vrf, pkt_block);
+        Srv6_decapsulate (mbuf);
+        ipv6_process_v6_payload(dp_ctx, vrf, mbuf);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
@@ -379,17 +379,17 @@ fn_template(srv6_END_w_USD) {
 fn_template(srv6_END_w_PSP_USD) {
 
     if (!srh || srh->segments_left == 0) {
-        Srv6_decapsulate (pkt_block);
-        ipv6_process_v6_payload(dp_ctx, vrf, pkt_block);
+        Srv6_decapsulate (mbuf);
+        ipv6_process_v6_payload(dp_ctx, vrf, mbuf);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
@@ -399,17 +399,17 @@ fn_template(srv6_END_X_w_USP_USD) {
 
     if (!srh || srh->segments_left == 0) {
         /* USD take precendece over USP*/
-        Srv6_decapsulate (pkt_block);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_decapsulate (mbuf);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
     
@@ -418,17 +418,17 @@ fn_template(srv6_END_X_w_USP_USD) {
 fn_template(srv6_END_w_PSP_USP_USD) {
 
     if (!srh || srh->segments_left == 0) {
-        Srv6_decapsulate (pkt_block);
-        ipv6_process_v6_payload(dp_ctx, vrf, pkt_block);
+        Srv6_decapsulate (mbuf);
+        ipv6_process_v6_payload(dp_ctx, vrf, mbuf);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
@@ -437,17 +437,17 @@ fn_template(srv6_END_w_PSP_USP_USD) {
 fn_template(srv6_END_X_w_USD) {
 
     if (!srh || srh->segments_left == 0) {
-        Srv6_decapsulate (pkt_block);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_decapsulate (mbuf);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 }
@@ -455,17 +455,17 @@ fn_template(srv6_END_X_w_USD) {
 fn_template(srv6_END_X_w_PSP_USD) {
 
     if (!srh || srh->segments_left == 0) {
-        Srv6_decapsulate (pkt_block);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_decapsulate (mbuf);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
@@ -475,17 +475,17 @@ fn_template(srv6_END_X_w_PSP_USD) {
 fn_template(srv6_END_X_w_PSP_USP_USD) {
 
     if (!srh || srh->segments_left == 0) {
-        Srv6_decapsulate (pkt_block);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_decapsulate (mbuf);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 
     if (srh->segments_left == 1) {
-        srv6_shift (pkt_block);
+        srv6_shift (mbuf);
         fib_nh_t *nexthop = NULL;
         uint8_t flavor = srv6_get_flavor(dp_ctx, vrf, &ipv6_hdr->dst_addr, &nexthop);
-        Srv6_apply_flavor(dp_ctx, vrf,  pkt_block, flavor & PSP ? PSP : 0);
-        srv6_ipv6_forward(dp_ctx, vrf, pkt_block, nexthop);
+        Srv6_apply_flavor(dp_ctx, vrf,  mbuf, flavor & PSP ? PSP : 0);
+        srv6_ipv6_forward(dp_ctx, vrf, mbuf, nexthop);
         return;
     }
 

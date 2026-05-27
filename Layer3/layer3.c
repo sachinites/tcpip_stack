@@ -44,7 +44,6 @@
 #include "../libs/common/l3_hdrs.h"
 #include "../utils.h"
 #include "../dpal/cp2dp.h"
-#include "../libs/pkt-block/pkt_block.h"
 #include "../cmdcodes.h"
 #include "../datapath/Layer3/ping.h"
 
@@ -55,23 +54,18 @@ layer3_ero_ping_fn(node_t *node,
                     c_string dst_ip_addr, 
                     c_string ero_ip_address){
 
-    #if 0
-    pkt_block_t *pkt_block = pkt_block_get_new_pkt_buffer (sizeof (ip_hdr_t));
-    #else 
-    pkt_block_t *pkt_block = NULL;
-    #endif 
-    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
-    ip_hdr_t *inner_ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr (pkt_block);
-    initialize_ip_hdr(inner_ip_hdr);
-    inner_ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE);
-    inner_ip_hdr->protocol = IP_PROTO_ICMP;
-    uint32_t addr_int = tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node));
-    inner_ip_hdr->src_ip = htonl(addr_int);
-    addr_int =  tcp_ip_convert_ip_p_to_n(dst_ip_addr);
-    inner_ip_hdr->dst_ip = htonl(addr_int);
-    addr_int = tcp_ip_convert_ip_p_to_n(ero_ip_address);
-    //cp2dp_send_ip_data (node, NODE_DEF_VRF(node), /*pkt_block*/NULL, addr_int, IP_PROTO_IP_IN_IP);
-    pkt_block_dereference(pkt_block);
+    ip_hdr_t inner_ip_hdr;
+
+    initialize_ip_hdr(&inner_ip_hdr);
+    inner_ip_hdr.total_length = htons(IP_HDR_DEFAULT_SIZE);
+    inner_ip_hdr.protocol = IP_PROTO_ICMP;
+    inner_ip_hdr.src_ip = htonl(tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node)));
+    inner_ip_hdr.dst_ip = htonl(tcp_ip_convert_ip_p_to_n(dst_ip_addr));
+
+    cp2dp_send_ip_data(node, NODE_DEF_VRF(node),
+                       (uint8_t *)&inner_ip_hdr, IP_HDR_DEFAULT_SIZE,
+                       tcp_ip_convert_ip_p_to_n(ero_ip_address),
+                       IP_PROTO_IP_IN_IP);
 }
 
 

@@ -12,7 +12,7 @@
 
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_ctx_ dp_ctx_t;
-typedef struct pkt_block_ pkt_block_t;
+typedef struct rte_mbuf pkt_mbuf_t;
 
 #pragma pack (push,8)
 
@@ -80,6 +80,6 @@ void mac_table_entry_clear_oifs(mac_table_entry_t *mac_entry);
 void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
                            uint16_t vlan_id,
                            dp_intf_t *interface,
-                           pkt_block_t *pkt_block);
+                           struct rte_mbuf *mbuf);
 
 #endif /* __MAC_TABLE_H__ */

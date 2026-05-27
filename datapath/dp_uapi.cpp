@@ -16,7 +16,7 @@
 #include "dp_ctx.h"
 #include "dp-program/dp-prog-struct.h"
 
-#include "../libs/pkt-block/pkt_block.h"
+#include "../libs/pkt-block/pkt_mbuf.h"
 
 #include "dp_uapi.h"
 #include "dp_ctx.h"
@@ -42,14 +42,14 @@ dp_uapi_link_connect (dp_ctx_t *dp_ctx1, uint32_t ifindex1,
 
 int
 dp_uapi_inject_packet(dp_ctx_t *dp_ctx,
-                      pkt_block_t *pkt_block,
+                      struct rte_mbuf *mbuf,
                       uint32_t ifindex) {
 
     dp_intf_t *recv_intf = dp_ctx->intf_table[ifindex];
 
     if (!recv_intf) return -1;
 
-    dp_pkt_entry_point(dp_ctx, recv_intf->vrf, recv_intf, pkt_block);
+    dp_pkt_entry_point(dp_ctx, recv_intf->vrf, recv_intf, mbuf);
                       
     return 0;
 }

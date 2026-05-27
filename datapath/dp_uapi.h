@@ -18,7 +18,7 @@
 #define __DP_UAPI__
 
 typedef struct dp_ctx_ dp_ctx_t;
-typedef struct pkt_block_ pkt_block_t;
+typedef struct rte_mbuf pkt_mbuf_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_msg_ dp_msg_t;
 typedef struct dp_vrf_ dp_vrf_t;
@@ -36,14 +36,14 @@ dp_uapi_ctx_init(dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
 /** Inject a packet into the datapath on the given interface (e.g. from CP). */
 int
 dp_uapi_inject_packet(dp_ctx_t *dp_ctx,
-                      pkt_block_t *pkt_block,
+                      struct rte_mbuf *mbuf,
                       uint32_t ifindex);
 
 /* The Control plane use this API to send the pkt out of interface*/
 void 
 dp_uapi_xmit_pkt(dp_ctx_t *dp_ctx, 
                  uint32_t ifindex, 
-                 pkt_block_t *pkt_block);
+                 struct rte_mbuf *mbuf);
 
 void 
 dp_uapi_link_connect (dp_ctx_t *dp_ctx1, uint32_t ifindex1, 
@@ -86,7 +86,7 @@ void
 dp_pkt_entry_point(dp_ctx_t *dp_ctx, 
                     dp_vrf_t *vrf,
                     dp_intf_t *interface,
-                    pkt_block_t *pkt_block);
+                    struct rte_mbuf *mbuf);
 
 
 #endif /* __DP_UAPI__ */

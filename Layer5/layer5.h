@@ -35,14 +35,14 @@
 #include "../tcpip_notif.h"
 
 typedef struct node_ node_t;
-typedef struct pkt_block_ pkt_block_t;
+struct rte_mbuf;
 typedef struct notif_chain_ notif_chain_t;
 
 typedef struct pkt_notif_data_{
 
 	node_t *recv_node;
 	uint32_t recv_intf_index;
-	pkt_block_t *pkt_block;
+	struct rte_mbuf *mbuf;
 	gen_proto_id_t hdr_code;
 	int8_t return_code;
 } pkt_notif_data_t;
@@ -51,13 +51,13 @@ void
 cp_punt_pkt_from_layer2_to_layer5(
 					  void *node,
 					  uint32_t recv_intf_ifindex,
-        			  pkt_block_t *pkt_block,
+        			  struct rte_mbuf *mbuf,
 					  gen_proto_id_t hdr_code);
 
 void
 dp2cp_punt_pkt_to_layer5(void *node,
 					  uint32_t recv_intf_ifindex,
-        			  pkt_block_t *pkt_block,
+        			  struct rte_mbuf *mbuf,
 					  gen_proto_id_t hdr_code);
 
 void

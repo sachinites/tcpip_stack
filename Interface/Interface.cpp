@@ -29,7 +29,6 @@
 #include "../libs/BitOp/bitsop.h"
 #include "../FireWall/acl/acldb.h"
 #include "../router_init.h"
-#include "../libs/pkt-block/pkt_block.h"
 #include "../libs/EventDispatcher/event_dispatcher.h"
 #include "../Layer2/layer2.h"
 #include "../Layer3/layer3.h"

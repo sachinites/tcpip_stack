@@ -7,15 +7,15 @@
 typedef struct dp_vrf_ dp_vrf_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct dp_intf_ dp_intf_t;
-typedef struct pkt_block_ pkt_block_t;
+typedef struct rte_mbuf pkt_mbuf_t;
 
 void layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                          dp_vrf_t *vrf,
                          dp_intf_t *interface,
-                         pkt_block_t *pkt_block);
+                         struct rte_mbuf *mbuf);
 
 void dp_send_ip_data(dp_ctx_t *dp_ctx,
                      dp_vrf_t *vrf,
-                     pkt_block_t *pkt_block);
+                     struct rte_mbuf *mbuf);
 
 #endif /* __IPV4_FWD__ */

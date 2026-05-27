@@ -216,7 +216,7 @@ isis_lsp_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_size
     gen_proto_id_t hdr_code;
     ethernet_hdr_t *eth_hdr;
     isis_pkt_hdr_t *pkt_hdr;
-    pkt_block_t *pkt_block;
+    struct rte_mbuf *mbuf;
     isis_pkt_type_t isis_pkt_type;
     pkt_notif_data_t *pkt_notif_data;
 
@@ -225,8 +225,8 @@ isis_lsp_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_size
     node        = pkt_notif_data->recv_node;
     iif         = node_get_intf_by_ifindex (node, pkt_notif_data->recv_intf_index);
     node_info   = iif->vrf->isis_node_info;
-    pkt_block   = pkt_notif_data->pkt_block;
-    eth_hdr     = (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
+    mbuf        = pkt_notif_data->mbuf;
+    eth_hdr     = (ethernet_hdr_t *) pkt_mbuf_get_pkt(mbuf, &pkt_size);
 	hdr_code    = pkt_notif_data->hdr_code;	
     
     if (hdr_code != ETHERNET_HEADER) goto done;
@@ -249,8 +249,8 @@ isis_lsp_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_size
     }
     done:
     /* Free the pkt resources */
-    pkt_block_dereference(pkt_notif_data->pkt_block);
-    pkt_notif_data->pkt_block = NULL;
+    pkt_mbuf_dereference(pkt_notif_data->mbuf);
+    pkt_notif_data->mbuf = NULL;
     XFREE(pkt_notif_data);    
 }
 
@@ -262,7 +262,7 @@ isis_hello_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_si
     pkt_size_t pkt_size;
     gen_proto_id_t hdr_code;
     ethernet_hdr_t *eth_hdr;
-    pkt_block_t *pkt_block;
+    struct rte_mbuf *mbuf;
     isis_common_hdr_t *cmn_hdr;
     isis_node_info_t *node_info;
     isis_pkt_type_t isis_pkt_type;
@@ -273,8 +273,8 @@ isis_hello_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_si
     node        = pkt_notif_data->recv_node;
     iif         = node_get_intf_by_ifindex(node, pkt_notif_data->recv_intf_index);
     node_info   = iif->vrf->isis_node_info;
-    pkt_block   = pkt_notif_data->pkt_block;
-    eth_hdr     = (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
+    mbuf        = pkt_notif_data->mbuf;
+    eth_hdr     = (ethernet_hdr_t *) pkt_mbuf_get_pkt(mbuf, &pkt_size);
 	hdr_code    = pkt_notif_data->hdr_code;	
    
     if (hdr_code != ETHERNET_HEADER) goto done;
@@ -298,8 +298,8 @@ isis_hello_pkt_recieve_cbk (event_dispatcher_t *ev_dis, void *arg, size_t arg_si
     }
     done:
     /* Free the pkt resources */
-    pkt_block_dereference(pkt_notif_data->pkt_block);
-    pkt_notif_data->pkt_block = NULL;
+    pkt_mbuf_dereference(pkt_notif_data->mbuf);
+    pkt_notif_data->mbuf = NULL;
     XFREE(pkt_notif_data);    
 }
 
@@ -586,12 +586,12 @@ isis_print_lsp_pkt_cbk (event_dispatcher_t*ev_dis, void *arg, size_t arg_size) {
     pkt_size_t pkt_size;
     pkt_info_t *pkt_info;
     isis_pkt_hdr_t *pkt_hdr;
-    pkt_block_t *pkt_block;
+    struct rte_mbuf *mbuf;
 
     pkt_info = (pkt_info_t *)arg;
 	buff = pkt_info->pkt_print_buffer;
-    pkt_block = pkt_info->pkt_block;
-    pkt_hdr = (isis_pkt_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size); 
+    mbuf = pkt_info->mbuf;
+    pkt_hdr = (isis_pkt_hdr_t *) pkt_mbuf_get_pkt(mbuf, &pkt_size); 
 
     pkt_info->bytes_written = 0;
 	assert(pkt_info->protocol_no == ISIS_LSP_ETH_PKT_TYPE);
@@ -604,13 +604,13 @@ isis_print_hello_pkt_cbk (event_dispatcher_t*ev_dis, void *arg, unsigned int arg
     byte *buff;
     pkt_size_t pkt_size;
     pkt_info_t *pkt_info;
-    pkt_block_t *pkt_block;
+    struct rte_mbuf *mbuf;
     isis_common_hdr_t *cmn_hdr;
 
     pkt_info = (pkt_info_t *)arg;
 	buff = pkt_info->pkt_print_buffer;
-    pkt_block = pkt_info->pkt_block;
-    cmn_hdr = (isis_common_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size); 
+    mbuf = pkt_info->mbuf;
+    cmn_hdr = (isis_common_hdr_t *) pkt_mbuf_get_pkt(mbuf, &pkt_size); 
 
     pkt_info->bytes_written = 0;
 	assert(pkt_info->protocol_no == ISIS_HELLO_ETH_PKT_TYPE);

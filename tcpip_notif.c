@@ -114,13 +114,13 @@ nfc_register_for_pkt_tracing(
 int
 nfc_pkt_trace_invoke_notif_to_sbscribers(
 					uint32_t protocol_no,
-					pkt_block_t *pkt_block,
+					struct rte_mbuf *mbuf,
 					c_string pkt_print_buffer){
 
 	pkt_info_t pkt_info;
 	
 	pkt_info.protocol_no = protocol_no;
-	pkt_info.pkt_block = pkt_block;
+	pkt_info.mbuf = mbuf;
 	pkt_info.pkt_print_buffer = pkt_print_buffer;
 	pkt_info.bytes_written = 0;
 

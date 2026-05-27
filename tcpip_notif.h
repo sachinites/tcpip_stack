@@ -22,6 +22,7 @@
 #include "libs/notifc/notif.h"
 
 #include "Interface/InterfaceUApi.h"
+struct rte_mbuf;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct intf_nw_props_ intf_nw_props_t;
 /* 
@@ -57,7 +58,7 @@ nfc_intf_invoke_notification_to_sbscribers(
 typedef struct pkt_info_{
 
 	uint32_t protocol_no;
-	pkt_block_t *pkt_block;
+	struct rte_mbuf *mbuf;
 	char *pkt_print_buffer;
 	uint32_t bytes_written;
 } pkt_info_t;
@@ -70,7 +71,7 @@ nfc_register_for_pkt_tracing(
 int
 nfc_pkt_trace_invoke_notif_to_sbscribers(
                     uint32_t protocol_no,
-                    pkt_block_t *pkt_block,
+                    struct rte_mbuf *mbuf,
 					c_string pkt_print_buffer);
 
 #endif /* __TCPIP_NOTIF_C */

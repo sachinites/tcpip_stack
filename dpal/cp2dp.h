@@ -10,11 +10,11 @@ typedef struct dp_msg_ dp_msg_t;
 typedef struct ping_ctx_ ping_ctx_t;
 typedef struct dp_raw_pkt_info_ dp_raw_pkt_info_t;
 typedef struct cp_pkt_block_ cp_pkt_block_t;
-typedef struct pkt_block_ pkt_block_t;
+typedef struct dp_ctx_ dp_ctx_t;
+struct rte_mbuf;
 class TransportService;
 
 #include <semaphore.h>
-#include "../libs/pkt-block/pkt_block.h"
 #include "../libs/pkt-block/cp_pkt_block.h"
 #include "../libs/common/cmn_prefix.h"
 #include "../Interface/InterfaceFwd.h"
@@ -146,10 +146,10 @@ cp2dp_srv6_dt4_intf_steered_vrf (node_t *node, Interface *intf, bool add);
 void 
 cp2dp_ping_request(node_t *node, ping_ctx_t *pctx);
 
-pkt_block_t *
+struct rte_mbuf *
 cp2dp_convert_pkt_block (dp_ctx_t *dp_ctx, cp_pkt_block_t *cp_pkt_block);
 
 cp_pkt_block_t *
-dp2cp_convert_pkt_block (pkt_block_t *pkt_block);
+dp2cp_convert_pkt_block (struct rte_mbuf *mbuf);
 
 #endif 

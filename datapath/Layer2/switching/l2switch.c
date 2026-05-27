@@ -36,7 +36,7 @@
 #include "../../../libs/common/l2_hdrs.h"
 #include "../../../libs/gluethread/glthread.h"
 #include "../../../libs/LinuxMemoryManager/uapi_mm.h"
-#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/pkt-block/pkt_mbuf.h"
 #include "../../../tcpconst.h"
 #include "../../../libs/Tracer/tracer.h"
 #include "mac_table.h"
@@ -51,7 +51,7 @@ extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface, 
-                      pkt_block_t *pkt_block);
+                      struct rte_mbuf *mbuf);
 
 void
 l2_switch_perform_mac_learning (dp_ctx_t *dp_ctx,
@@ -105,14 +105,14 @@ l2_switch_perform_mac_learning (dp_ctx_t *dp_ctx,
 static void 
 mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
                             mac_table_entry_t *mac_entry, 
-                            pkt_block_t *pkt_block, 
+                            struct rte_mbuf *mbuf, 
                             dp_intf_t *recv_intf) 
 {
     dp_intf_t *oif; 
     glthread_t *curr;
     uint32_t vni_id = 0;
     uint16_t vlan_id = 0;
-    pkt_block_t *pkt_block2;
+    struct rte_mbuf *mbuf2;
     mac_oif_entry_t *oif_entry;
     pkt_mbuf_pvt_data_t *pvt_data;
     pkt_mbuf_encap_meta_data_t *encap_data = NULL;
@@ -146,19 +146,19 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
 
         /* Create a copy of pkt blocks, and xmit them because they can be modified*/
         /* Flush old encap data if any*/
-        pvt_data = pkt_block_get_pvt_data(pkt_block);
+        pvt_data = pkt_mbuf_get_pvt_data(mbuf);
 
         if (pvt_data && pvt_data->encap_data) {
             XFREE(pvt_data->encap_data);
             pvt_data->encap_data = NULL;
         }
 
-        pkt_block2 = PKT_BLOCK_DUP(pkt_block);
-        pvt_data = pkt_block_get_pvt_data(pkt_block2);
+        mbuf2 = PKT_MBUF_DUP(mbuf);
+        pvt_data = pkt_mbuf_get_pvt_data(mbuf2);
         pvt_data->encap_data = encap_data;
         encap_data = NULL;
-        dp_send_pkt_out(dp_ctx, oif, pkt_block2);
-        pkt_block_dereference(pkt_block2);
+        dp_send_pkt_out(dp_ctx, oif, mbuf2);
+        pkt_mbuf_dereference(mbuf2);
 
     } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
 
@@ -167,11 +167,11 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
 static void
 l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
                                 dp_intf_t *exempted_intf,
-                                pkt_block_t *pkt_block)
+                                struct rte_mbuf *mbuf)
 {
 
     dp_intf_t *oif;
-    pkt_block_t *dup_pkt_block;
+    struct rte_mbuf *dup_mbuf;
     vlan_8021q_hdr_t *vlan_8021q_hdr;
     mac_table_entry_t *mac_flood_entry = NULL;
 
@@ -186,20 +186,20 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
     }
 
     assert ((vlan_8021q_hdr = 
-            is_pkt_vlan_tagged ((ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL))));
+            is_pkt_vlan_tagged ((ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, NULL))));
 
     tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
-            pkt_block_str (pkt_block), 
+            pkt_mbuf_str (mbuf), 
             TCI_VID(vlan_8021q_hdr->tci));
 
-    mac_table_entry_xmit_frame (dp_ctx, mac_flood_entry, pkt_block, exempted_intf);
+    mac_table_entry_xmit_frame (dp_ctx, mac_flood_entry, mbuf, exempted_intf);
 }
 
 void
 l2_switch_forward_frame(
                         dp_ctx_t *dp_ctx,
                         dp_intf_t *recv_intf, 
-                        pkt_block_t *pkt_block) {
+                        struct rte_mbuf *mbuf) {
 
     uint16_t vlan_id;
     pkt_size_t pkt_size;
@@ -207,15 +207,15 @@ l2_switch_forward_frame(
     mac_table_entry_t *mac_table_entry = NULL;
     vlan_8021q_hdr_t *vlan_8021q_hdr = NULL;
 
-    ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     assert ((vlan_8021q_hdr = is_pkt_vlan_tagged (ethernet_hdr))) ;  
 
     tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in vlan %d\n",  
-        pkt_block_str (pkt_block), 
+        pkt_mbuf_str (mbuf), 
         GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
 
-     pkt_block_set_ingress_intf (pkt_block, recv_intf);
+     pkt_mbuf_set_ingress_intf (mbuf, recv_intf);
      vlan_id = (uint16_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
 
     mac_table_entry = mac_table_lookup(dp_ctx->mac_table, 
@@ -223,7 +223,7 @@ l2_switch_forward_frame(
                                       ethernet_hdr->dst_mac.mac);
 
     if (mac_table_entry) {
-        mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, pkt_block, recv_intf);
+        mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf, recv_intf);
         if (!(mac_table_entry->flags & MAC_STATIC)) {
             mac_table_entry_cancel_expiry_timer(mac_table_entry);
             mac_table_entry_init_timer(dp_ctx, mac_table_entry);
@@ -239,7 +239,7 @@ l2_switch_forward_frame(
                                         BROADCAST_MAC);
 
             if (mac_table_entry) {
-                mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, pkt_block, recv_intf);
+                mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf, recv_intf);
                 return;
             }        
 
@@ -252,7 +252,7 @@ l2_switch_forward_frame(
                 return;
             }
        
-            mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, pkt_block, recv_intf);
+            mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf, recv_intf);
             return;
     }
 
@@ -269,7 +269,7 @@ l2_switch_forward_frame(
             return;
         }
 
-        mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, pkt_block, recv_intf);
+        mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf, recv_intf);
         return;
     }
 
@@ -285,28 +285,28 @@ l2_switch_forward_frame(
             ethernet_hdr->dst_mac.mac[4],
             ethernet_hdr->dst_mac.mac[5]);
 
-        l2_switch_flood_unknown_unicast(dp_ctx, recv_intf, pkt_block);
+        l2_switch_flood_unknown_unicast(dp_ctx, recv_intf, mbuf);
 }
 
 void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
                           uint16_t vlan_id,
                           dp_intf_t *interface,
-                          pkt_block_t *pkt_block)
+                          struct rte_mbuf *mbuf)
 {
     pkt_size_t pkt_size;
 
-    if (pkt_block_get_starting_hdr (pkt_block) != ETHERNET_HEADER){
+    if (pkt_mbuf_get_starting_hdr (mbuf) != ETHERNET_HEADER){
         return;
     }
 
     vlan_ethernet_hdr_t *vlan_ethernet_hdr = 
-        (vlan_ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+        (vlan_ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     c_string src_mac = (c_string)vlan_ethernet_hdr->src_mac.mac;
 
     tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Frame Received on Interface %s in vlan %d\n", 
-        pkt_block_str (pkt_block), interface->if_name, vlan_id);
+        pkt_mbuf_str (mbuf), interface->if_name, vlan_id);
 
     l2_switch_perform_mac_learning(dp_ctx, vlan_id, src_mac, interface, 0);
-    l2_switch_forward_frame(dp_ctx, interface, pkt_block);
+    l2_switch_forward_frame(dp_ctx, interface, mbuf);
 }

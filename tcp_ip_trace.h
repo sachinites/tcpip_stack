@@ -36,7 +36,7 @@
 #include "libs/BitOp/bitsop.h"
 #include "utils.h"
 #include "libs/common/protoIds.h"
-#include "libs/pkt-block/pkt_block.h"
+#include "libs/pkt-block/pkt_mbuf.h"
 
 #define TCP_PRINT_BUFFER_SIZE 1528
 
@@ -62,7 +62,7 @@ void
 tcp_dump(int sock_fd, 
          FILE *log_file1,
          FILE *log_file2,
-         pkt_block_t *pkt_block,
+         struct rte_mbuf *mbuf,
          gen_proto_id_t hdr_type,
          c_string out_buff, 
          uint32_t write_OFFset,

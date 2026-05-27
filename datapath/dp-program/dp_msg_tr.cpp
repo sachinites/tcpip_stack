@@ -90,7 +90,7 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
 
         case PKT_BLOCK:
             tracer(dp_ctx->dptr, DCONF,
-                "  payload: pkt_block pointer (L3 northbound)\n");
+                "  payload: mbuf pointer (L3 northbound)\n");
             break;
 
         case FIB_TABLE:

@@ -10,7 +10,7 @@
 #include "../l2fwd/ipv4-l2fwd.h"
 #include "../../../tcp_ip_trace.h"
 #include "../../../libs/libtimer/WheelTimer.h"
-#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/pkt-block/pkt_mbuf.h"
 #include "../../../utils.h"
 #include "../../../libs/Tracer/tracer.h"
 #include "../../../lmm_enums.h"
@@ -55,17 +55,17 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
         vlan_id = oif->vlan_id;
     }
 
-    pkt_block_t *pkt_block = dp_pkt_block_get_new_pkt_buffer(dp_ctx,
+    struct rte_mbuf *mbuf = dp_pkt_mbuf_get_new(dp_ctx,
                                 (vlan_id ? sizeof(vlan_ethernet_hdr_t) : sizeof(ethernet_hdr_t)) + 
                                 payload_size + ETH_FCS_SIZE);
 
     ethernet_hdr_t *ethernet_hdr = (ethernet_hdr_t *) 
-        pkt_block_get_pkt(pkt_block, &pkt_size);
+        pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     /* Tag the pkt with Vlan id if not already tagged */
     if (vlan_id) {
-        tag_pkt_with_vlan_id (pkt_block, vlan_id);
-        ethernet_hdr = (ethernet_hdr_t *) pkt_block_get_pkt(pkt_block, &pkt_size);
+        tag_pkt_with_vlan_id (mbuf, vlan_id);
+        ethernet_hdr = (ethernet_hdr_t *) pkt_mbuf_get_pkt(mbuf, &pkt_size);
     }
     
     if (!oif) {
@@ -77,7 +77,7 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
             tracer(dp_ctx->dptr, DARP | DERR, 
                 "VRF:%s: Error : No eligible subnet for ARP resolution for IP-Address : %s\n",
                  vrf->vrf_name, ip_addr_str);
-            pkt_block_dereference(pkt_block);
+            pkt_mbuf_dereference(mbuf);
             return;
         }
 
@@ -86,7 +86,7 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
              tracer(dp_ctx->dptr, DARP | DERR,  
                 "VRF:%s: Error : Attempt to resolve ARP for local IP-Address : %s\n", 
                 vrf->vrf_name, ip_addr_str);
-             pkt_block_dereference(pkt_block);
+             pkt_mbuf_dereference(mbuf);
             return;
         }
     }
@@ -112,12 +112,12 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     SET_COMMON_ETH_FCS(ethernet_hdr, sizeof(arp_hdr_t), 0); /*Not used*/
 
     /*STEP 3 : Now dispatch the ARP Broadcast Request Packet out of interface*/
-    pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
+    pkt_mbuf_update_new_hdr_type(mbuf, ETHERNET_HEADER);
     tracer(dp_ctx->dptr, DARP, 
         "VRF:%s: Sending ARP Broadcast Request for IP : %s out of interface %s\n",
         vrf->vrf_name, ip_addr_str, oif->if_name);
-    dp_send_pkt_out (dp_ctx, oif, pkt_block);
-    pkt_block_dereference(pkt_block);
+    dp_send_pkt_out (dp_ctx, oif, mbuf);
+    pkt_mbuf_dereference(mbuf);
 }
 
 void 
@@ -146,14 +146,14 @@ l2_prepare_arp_reply_msg(
 static void
 send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *ethernet_hdr_in, dp_intf_t *oif){
 
-    pkt_block_t *pkt_block;
+    struct rte_mbuf *mbuf;
     char ip_addr_str[IPV4_ADDR_LEN_STR];
 
     arp_hdr_t *arp_hdr_in = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_in));
     pkt_size_t total_pkt_size = sizeof(ethernet_hdr_t) + (pkt_size_t)sizeof(arp_hdr_t) + ETH_FCS_SIZE;
-    pkt_block = dp_pkt_block_get_new_pkt_buffer (dp_ctx, total_pkt_size);
-    pkt_block_update_new_hdr_type(pkt_block, ETHERNET_HEADER);
-    ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, 0);
+    mbuf = dp_pkt_mbuf_get_new (dp_ctx, total_pkt_size);
+    pkt_mbuf_update_new_hdr_type(mbuf, ETHERNET_HEADER);
+    ethernet_hdr_t *ethernet_hdr_reply = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, 0);
 
     l2_prepare_arp_reply_msg(ethernet_hdr_reply, 
             &arp_hdr_in->src_mac, 
@@ -173,8 +173,8 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *ethernet_hdr_in, dp_intf_t 
             arp_hdr_reply->dst_mac.mac[5],
             oif->if_name);
 
-    dp_send_pkt_out(dp_ctx, oif, pkt_block);
-    pkt_block_dereference(pkt_block);
+    dp_send_pkt_out(dp_ctx, oif, mbuf);
+    pkt_mbuf_dereference(mbuf);
 }
 
 void
@@ -463,13 +463,13 @@ pending_arp_processing_callback_function(dp_ctx_t *dp_ctx,
 
     pkt_size_t pkt_size;
     ethernet_hdr_t *ethernet_hdr = NULL;
-    pkt_block_t *pkt_block = arp_pending_entry->pkt_block;
-    ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    struct rte_mbuf *mbuf = arp_pending_entry->mbuf;
+    ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
     memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, MAC_ADDR_SIZE);
     memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
     SET_COMMON_ETH_FCS(ethernet_hdr, 
         pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(ethernet_hdr), 0);
-    dp_send_pkt_out (dp_ctx, oif, pkt_block);
+    dp_send_pkt_out (dp_ctx, oif, mbuf);
 }
 
 static void
@@ -484,7 +484,7 @@ static void
 delete_arp_pending_entry (arp_pending_entry_t *arp_pending_entry){
 
     remove_glthread(&arp_pending_entry->arp_pending_entry_glue);
-    pkt_block_dereference(arp_pending_entry->pkt_block);
+    pkt_mbuf_dereference(arp_pending_entry->mbuf);
     XFREE(arp_pending_entry);
 }
 
@@ -629,15 +629,15 @@ void
 add_arp_pending_entry (dp_ctx_t *dp_ctx,
         arp_entry_t *arp_entry,
         arp_processing_fn cb,
-        pkt_block_t *pkt_block){
+        struct rte_mbuf *mbuf){
     
     arp_pending_entry_t *arp_pending_entry = 
         (arp_pending_entry_t *)XCALLOC2(0, 1, arp_pending_entry_t);
 
     init_glthread(&arp_pending_entry->arp_pending_entry_glue);
     arp_pending_entry->cb = cb;
-    arp_pending_entry->pkt_block = pkt_block;
-    pkt_block_reference(pkt_block);
+    arp_pending_entry->mbuf = mbuf;
+    pkt_mbuf_ref_inc(mbuf);
 
     glthread_add_next(&arp_entry->arp_pending_list, 
                     &arp_pending_entry->arp_pending_entry_glue);
@@ -654,7 +654,7 @@ void create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
                            dp_vrf_t *vrf,
                            arp_table_t *arp_table,
                            uint32_t ip_addr,
-                           pkt_block_t *pkt_block)
+                           struct rte_mbuf *mbuf)
 {
     arp_table_wrlock(arp_table);
 
@@ -672,7 +672,7 @@ void create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
         /*ARP sane entry already exists, append the arp pending entry to it*/
         add_arp_pending_entry(dp_ctx, arp_entry, 
                               pending_arp_processing_callback_function, 
-                              pkt_block);
+                              mbuf);
 	    arp_entry_refresh_expiration_timer(arp_entry);	
         arp_table_unlock(arp_table);
         return;
@@ -694,7 +694,7 @@ void create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
     arp_entry->proto = ETH_TYPE_ARP;
     add_arp_pending_entry(dp_ctx, arp_entry, 
                           pending_arp_processing_callback_function, 
-                          pkt_block);
+                          mbuf);
     assert (arp_table_entry_add_nolock(dp_ctx, vrf, arp_table, arp_entry, 0));
     arp_table_unlock(arp_table);
 }

@@ -11,7 +11,7 @@
 #include "../../dp_utils.h"
 #include "../../Vrfs/dp_vrf.h"
 #include "../../Interface/dp_intf.h"
-#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/pkt-block/pkt_mbuf.h"
 
 #include "../../FIB/fib_nh.h"
 #include "../Gre/gre-fwd.h"
@@ -23,19 +23,19 @@ extern int cprintf (const char* format, ...) ;
 extern void 
 vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx, 
                              dp_vrf_t *vrf, 
-                             pkt_block_t *pkt_block, 
+                             struct rte_mbuf *mbuf, 
                              fib_nh_t *srv6_nh);
                              
 extern void 
 dp2cp_punt_pkt_to_layer4(void *_node,
                            Interface *recv_intf,
-                           pkt_block_t *pkt_block,
+                           struct rte_mbuf *mbuf,
                            int L4_protocol_number);
 
 extern void
 dp2cp_punt_pkt_to_layer5(void *_node,
                                   uint32_t recv_intf_ifindex,
-                                  pkt_block_t *pkt_block,
+                                  struct rte_mbuf *mbuf,
                                   gen_proto_id_t hdr_code);
 
 extern void
@@ -43,28 +43,28 @@ dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                      dp_vrf_t *vrf,
                      uint32_t next_hop_ip,
                      dp_intf_t *oif,
-                     pkt_block_t *pkt_block,
+                     struct rte_mbuf *mbuf,
                      gen_proto_id_t hdr_type);
 
 extern void
 layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface,
-                      pkt_block_t *pkt_block,
+                      struct rte_mbuf *mbuf,
                       fib_nh_t *nh);
 
 extern void 
 vxlan_decapsulate (dp_ctx_t *dp_ctx,
-                   pkt_block_t *pkt_block, uint32_t src_vtep_ip);
+                   struct rte_mbuf *mbuf, uint32_t src_vtep_ip);
 
 extern void
-dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) ;
+dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *mbuf) ;
 
 void
 layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     dp_vrf_t *vrf,
 					dp_intf_t *interface,
-					pkt_block_t *pkt_block) {
+					struct rte_mbuf *mbuf) {
 
     char nh_str[48];
     int8_t nf_result;
@@ -74,9 +74,9 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     char dest_ip_addr[IPV4_ADDR_LEN_STR];
 
     /* We are in L3 IP land, so starting hdr type must be IP_PROTO_IP_IN_IP */
-    assert (pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_IP_IN_IP);
+    assert (pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_IP_IN_IP);
 
-    ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr(pkt_block);
+    ip_hdr = (ip_hdr_t *)pkt_mbuf_get_ip_hdr(mbuf);
 
     tcp_ip_covert_ip_n_to_p(ntohl(ip_hdr->dst_ip), (c_string)dest_ip_addr);
 
@@ -85,7 +85,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
         nf_result = nf_invoke_netfilter_hook(
             NF_IP_PRE_ROUTING,
-            pkt_block, 
+            mbuf, 
             dp_ctx->ctx_pvt_data,
             interface,
             IP_PROTO_IP_IN_IP);
@@ -104,7 +104,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     /* Re-fetch ip_hdr: the NF hook above may have expanded/reallocated the
      * packet buffer, invalidating the pointer cached before the hook call. */
-    ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr(pkt_block);
+    ip_hdr = (ip_hdr_t *)pkt_mbuf_get_ip_hdr(mbuf);
 
     cmn_prefix_t prefix;
     cmn_prefix_initialize_v4(&prefix, ntohl(ip_hdr->dst_ip), 32);
@@ -152,7 +152,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             "for VPNv4 case where nexthop is SRv6\n", 
             vrf->vrf_name, dest_ip_addr);
 
-        return vpnv4_ingress_pe_encap_srv6(dp_ctx, vrf, pkt_block, nh);
+        return vpnv4_ingress_pe_encap_srv6(dp_ctx, vrf, mbuf, nh);
     }
 
     /*L3 route exist, 3 cases now : 
@@ -190,14 +190,14 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
                         /* Build an ICMP echo reply and route it back to the sender */
                         pkt_size_t icmp_size = (pkt_size_t)
-                            (pkt_block_get_data_size(pkt_block) - IP_HDR_LEN_IN_BYTES(ip_hdr));
+                            (pkt_mbuf_get_data_size(mbuf) - IP_HDR_LEN_IN_BYTES(ip_hdr));
 
-                        pkt_block_t *reply = dp_pkt_block_get_new_pkt_buffer(dp_ctx,
+                        struct rte_mbuf *reply = dp_pkt_mbuf_get_new(dp_ctx,
                                                 sizeof(ip_hdr_t) + icmp_size);
 
-                        pkt_block_update_new_hdr_type(reply, IP_PROTO_IP_IN_IP);
+                        pkt_mbuf_update_new_hdr_type(reply, IP_PROTO_IP_IN_IP);
 
-                        ip_hdr_t *rip = (ip_hdr_t *)pkt_block_get_ip_hdr(reply);
+                        ip_hdr_t *rip = (ip_hdr_t *)pkt_mbuf_get_ip_hdr(reply);
                         initialize_ip_hdr(rip);
                         rip->src_ip       = ip_hdr->dst_ip;   /* our local address */
                         rip->dst_ip       = ip_hdr->src_ip;   /* reply to the sender */
@@ -213,12 +213,12 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                         ricmp->checksum = icmp_checksum(ricmp, icmp_size);
 
                         dp_send_ip_data(dp_ctx, vrf, reply);
-                        pkt_block_dereference(reply);
+                        pkt_mbuf_dereference(reply);
 
                     } else if (icmp_hdr->type == ICMP_ECHO_REP) {
 
                         if (dp_ctx->active_ping_ctx) {
-                            ping_echo_reply_recvd(dp_ctx->active_ping_ctx, pkt_block);
+                            ping_echo_reply_recvd(dp_ctx->active_ping_ctx, mbuf);
                         } else {
                             cprintf("IP Address : %s, ping success\n", dest_ip_addr);
                         }
@@ -231,13 +231,13 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     {
                         /* Check if this is VxLAN pkt, then no need to punt to CP */
                         pkt_size_t ip_hr_size;
-                        ip_hdr_t *ip_hdr = (ip_hdr_t *)pkt_block_get_pkt(pkt_block, &ip_hr_size);
+                        ip_hdr_t *ip_hdr = (ip_hdr_t *)pkt_mbuf_get_pkt(mbuf, &ip_hr_size);
                         udp_hdr_t *udp_hdr = (udp_hdr_t *)INCREMENT_IPHDR(ip_hdr);
                         ip_hr_size = (pkt_size_t)((char *)udp_hdr - (char *)ip_hdr);
                         /* Strip the IP header: shrink head by ip_hr_size. */
-                        pkt_block_slide(pkt_block, -1, 1, (uint16_t)ip_hr_size);
-                        pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_UDP);
-                        vxlan_decapsulate(dp_ctx, pkt_block, ntohl(ip_hdr->src_ip));
+                        pkt_mbuf_slide(mbuf, -1, 1, (uint16_t)ip_hr_size);
+                        pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_UDP);
+                        vxlan_decapsulate(dp_ctx, mbuf, ntohl(ip_hdr->src_ip));
                         return;
                     }
 
@@ -245,7 +245,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     dp2cp_punt_pkt_to_layer4(
                                             dp_ctx->ctx_pvt_data,
                                             (Interface *)NULL,
-                                            pkt_block,
+                                            mbuf,
                                             IP_PROTO_UDP);
 
                     return;
@@ -254,10 +254,10 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     /*Packet has reached ERO, now set the packet onto its new 
                       Journey from ERO to final destination*/
                     /* Strip the outer IP header: shrink head by its length. */
-                    pkt_block_slide(pkt_block, -1, 1,
+                    pkt_mbuf_slide(mbuf, -1, 1,
                                     (uint16_t)IP_HDR_LEN_IN_BYTES(ip_hdr));
 
-                    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
+                    pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_IP_IN_IP);
                      
                     tracer (dp_ctx->dptr, DL3FWD, 
                         "VRF %s: Pkt : %s : Pkt is being subjected to L3 Routing again a per Inner Header\n",
@@ -265,7 +265,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
                     layer3_ip_route_pkt(dp_ctx, vrf,
                                         interface, 
-                                        pkt_block);
+                                        mbuf);
                     return;
 
                 case IP_PROTO_GRE:
@@ -274,10 +274,10 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     char gre_t_dst_addr[IPV4_ADDR_LEN_STR];
 
                     /* Strip the IP header to expose the GRE header. */
-                    pkt_block_slide(pkt_block, -1, 1,
+                    pkt_mbuf_slide(mbuf, -1, 1,
                                     (uint16_t)IP_HDR_LEN_IN_BYTES(ip_hdr));
 
-                    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_GRE);
+                    pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_GRE);
                     tcp_ip_covert_ip_n_to_p ( htonl (ip_hdr->dst_ip), (c_string)gre_t_src_addr);
                     tcp_ip_covert_ip_n_to_p ( htonl (ip_hdr->src_ip), (c_string)gre_t_dst_addr);
 
@@ -286,7 +286,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                            vrf->vrf_name, dest_ip_addr, gre_t_src_addr, gre_t_dst_addr);
 
                     // FIX ME
-                    gre_decapsulate (dp_ctx, vrf, pkt_block, NULL
+                    gre_decapsulate (dp_ctx, vrf, mbuf, NULL
                             /*gre_lookup_tunnel_intf (node, htonl(ip_hdr->dst_ip), htonl(ip_hdr->src_ip))*/);
                     return;
                 }
@@ -294,12 +294,12 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             }
 
             tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s : Pkt is being subjected to Layer 5\n",
-                vrf->vrf_name, pkt_block_str (pkt_block));
+                vrf->vrf_name, pkt_mbuf_str (mbuf));
 
             /* TODO: dp2cp_punt_pkt_to_layer5 needs old Interface type */
             dp2cp_punt_pkt_to_layer5(
                 dp_ctx->ctx_pvt_data, NULL,
-                pkt_block,
+                mbuf,
                 IP_PROTO_IP_IN_IP);
 
             return;
@@ -319,7 +319,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     }
 
     tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s :  Nexthop found OIF %s, Gw : %s\n", 
-        vrf->vrf_name, pkt_block_str (pkt_block), 
+        vrf->vrf_name, pkt_mbuf_str (mbuf), 
         nh->fwd_info->oif->if_name, 
         cmn_prefix_to_string(&nh->fwd_info->nh_addr, &nh_str));
 
@@ -329,7 +329,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         char ip_addr_str[IPV4_ADDR_LEN_STR];
         ip_hdr->src_ip = htonl(nh->fwd_info->oif->ip_addr);
         tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt: %s : Using OIF IP as Src IP : %s\n", 
-            vrf->vrf_name, pkt_block_str (pkt_block), 
+            vrf->vrf_name, pkt_mbuf_str (mbuf), 
             tcp_ip_covert_ip_n_to_p(htonl(ip_hdr->src_ip), (c_string)ip_addr_str)); 
 
     }
@@ -341,14 +341,14 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     ip_hdr->checksum = ip_checksum(ip_hdr);
 
     tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n",
-        vrf->vrf_name, pkt_block_str (pkt_block));
+        vrf->vrf_name, pkt_mbuf_str (mbuf));
 
     dp_demote_pkt_to_layer2 (
             dp_ctx,
             vrf,           /*Current processing node*/
             ntohl(ip_hdr->dst_ip),     /*next hop IP is dest itself as dest is present in local subnet*/
             nh->fwd_info->oif,           /*No oif as dest is present in local subnet*/
-            pkt_block,  /*Network Layer payload and size*/
+            mbuf,  /*Network Layer payload and size*/
             IP_PROTO_IP_IN_IP);        /*Network Layer need to tell Data link layer, what type of payload it is passing down*/
 
         return;
@@ -380,7 +380,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     nf_result = nf_invoke_netfilter_hook(
                         NF_IP_FORWARD,
-                        pkt_block,
+                        mbuf,
                         dp_ctx->ctx_pvt_data,
                         nh->fwd_info->oif,
                         IP_PROTO_IP_IN_IP);
@@ -402,7 +402,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     nf_result = nf_invoke_netfilter_hook(
                     NF_IP_POST_ROUTING,
-		            pkt_block,
+		            mbuf,
 		            dp_ctx->ctx_pvt_data, 
                     nh->fwd_info->oif,
                     IP_PROTO_IP_IN_IP);
@@ -423,7 +423,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             vrf, 
             next_hop_ip,
             nh->fwd_info->oif,
-            pkt_block,
+            mbuf,
             IP_PROTO_IP_IN_IP); /*Network Layer need to tell Data link layer, 
                                 what type of payload it is passing down*/
 }
@@ -432,7 +432,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
  * stack to layer 3*/
 void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
                              uint8_t vrf_id,
-                             pkt_block_t *pkt_block,
+                             struct rte_mbuf *mbuf,
                              gen_proto_id_t protocol_number, /*L4 or L5 protocol type*/
                              uint32_t dest_ip_address)
 {
@@ -450,13 +450,13 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
 
     if (!vrf) {
         tracer (dp_ctx->dptr, DL3FWD | DERR, "Error : Invalid Vrf for packet Dest %s\n",
-            pkt_block_str(pkt_block));
+            pkt_mbuf_str(mbuf));
         return;
     }
 
     initialize_ip_hdr(&iphdr);  
       
-    pkt = pkt_block_get_pkt(pkt_block,  &pkt_size);
+    pkt = pkt_mbuf_get_pkt(mbuf,  &pkt_size);
 
     /*Now fill the non-default fields*/
     iphdr.protocol = (uint8_t)protocol_number;
@@ -471,12 +471,12 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
     pkt_size_t new_pkt_size = 0 ;
 
     /* Make a room in pkt to accomodate IP Hdr */
-    if (!pkt_block_expand_buffer_left (pkt_block, IP_HDR_LEN_IN_BYTES((&iphdr)))) {
+    if (!pkt_mbuf_expand_buffer_left (mbuf, IP_HDR_LEN_IN_BYTES((&iphdr)))) {
         return;
     }
 
-    new_pkt = pkt_block_get_pkt (pkt_block,  &new_pkt_size);
-    pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IP_IN_IP);
+    new_pkt = pkt_mbuf_get_pkt (mbuf,  &new_pkt_size);
+    pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
 
     memcpy((char *)new_pkt, (char *)&iphdr, IP_HDR_LEN_IN_BYTES((&iphdr)));
 
@@ -487,7 +487,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
     if(!nh){
         tracer (dp_ctx->dptr, DL3FWD | DERR, 
             "VRF %s: Pkt : %s :  Pkt Dropped :  No L3 Route\n", 
-            vrf->vrf_name, pkt_block_str(pkt_block));
+            vrf->vrf_name, pkt_mbuf_str(mbuf));
         return;
     }
 
@@ -498,7 +498,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
 
         int8_t nf_result = nf_invoke_netfilter_hook(
                 NF_IP_LOCAL_OUT,
-				pkt_block,
+				mbuf,
 				dp_ctx->ctx_pvt_data, NULL,
                 IP_PROTO_IP_IN_IP);
 
@@ -519,7 +519,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
                          vrf,
                          dest_ip_address,
                          0,
-                         pkt_block,
+                         mbuf,
                          IP_PROTO_IP_IN_IP);
         return;
     }
@@ -542,10 +542,10 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
 #if 0
     if (access_list_evaluate_ip_packet(node, 
                 nexthop->oif, 
-                (ip_hdr_t *)pkt_block_get_ip_hdr(pkt_block),
+                (ip_hdr_t *)pkt_mbuf_get_ip_hdr(mbuf),
                 false) == ACL_DENY) {
 
-        pkt_block_dereference (pkt_block);
+        pkt_mbuf_dereference (mbuf);
         l3_route_unlock(l3_route);
         thread_using_route_done(l3_route);
         return;
@@ -559,7 +559,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
 
     int8_t nf_result = nf_invoke_netfilter_hook(
             NF_IP_LOCAL_OUT,
-			pkt_block,
+			mbuf,
 			dp_ctx->ctx_pvt_data, 
             nh->fwd_info->oif,
             IP_PROTO_IP_IN_IP);
@@ -581,7 +581,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
     dp_demote_pkt_to_layer2(dp_ctx, vrf,
             next_hop_ip,
             nh->fwd_info->oif,
-            pkt_block,
+            mbuf,
             IP_PROTO_IP_IN_IP);
 
     nh->hit_count++;
@@ -589,13 +589,13 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
 
 
 void
-dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) {
+dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *mbuf) {
 
     char ip_addr_str[IPV4_ADDR_LEN_STR];
 
-    assert (pkt_block_verify_pkt (pkt_block, IP_PROTO_IP_IN_IP));
+    assert (pkt_mbuf_verify_pkt (mbuf, IP_PROTO_IP_IN_IP));
 
-    ip_hdr_t *ip_hdr = (ip_hdr_t *)pkt_block_get_ip_hdr(pkt_block);
+    ip_hdr_t *ip_hdr = (ip_hdr_t *)pkt_mbuf_get_ip_hdr(mbuf);
 
     /* This API expects that IP-HDR must have following fields set */
     assert (ip_hdr->protocol);
@@ -612,9 +612,9 @@ dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) {
     assert (ip_hdr->total_length);
 
     tracer (dp_ctx->dptr, DL3FWD, "VRF:%s Dest:%s  NP Recvd Routing Request\n",
-            vrf->vrf_name, pkt_ip(pkt_block, ip_addr_str));
+            vrf->vrf_name, pkt_mbuf_ip(mbuf, ip_addr_str));
 
-    layer3_ip_route_pkt (dp_ctx, vrf, (dp_intf_t *)NULL, pkt_block); 
+    layer3_ip_route_pkt (dp_ctx, vrf, (dp_intf_t *)NULL, mbuf); 
 }
 
 

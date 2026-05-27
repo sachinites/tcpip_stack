@@ -33,12 +33,12 @@
 #include <stdint.h>
 #include "../router_init.h"
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
-#include "../libs/pkt-block/pkt_block.h"
+#include "../libs/pkt-block/pkt_mbuf.h"
 #include "../tcpconst.h"
 #include "../libs/common/l4_hdrs.h"
 #include "../libs/common/l3_hdrs.h"
 
-extern void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_vtep_ip);
+extern void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vtep_ip);
 
 class Interface;
 
@@ -47,7 +47,7 @@ class Interface;
 void 
 dp2cp_punt_pkt_to_layer4(  void *_node,
                            Interface *recv_intf,
-                           pkt_block_t *pkt_block,
+                           struct rte_mbuf *mbuf,
                            int L4_protocol_number)
 {
 
@@ -60,7 +60,7 @@ dp2cp_punt_pkt_to_layer4(  void *_node,
 
         case IP_PROTO_UDP:
         {
-            udp_hdr = (udp_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+            udp_hdr = (udp_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
         }
         break;
 

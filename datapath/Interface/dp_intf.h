@@ -23,7 +23,7 @@
 #include "intf_cons.h"
 #include "../../libs/common/cmn_struct.h"
 
-typedef struct pkt_block_ pkt_block_t;
+typedef struct rte_mbuf pkt_mbuf_t;
 typedef struct dp_vrf_ dp_vrf_t;
 typedef struct node_ node_t;
 typedef struct bitmap_ bitmap_t;
@@ -117,6 +117,6 @@ typedef struct dp_intf_ {
 #pragma pack(pop)
 
 void
-dp_send_pkt_out(dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block);
+dp_send_pkt_out(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf);
 
 #endif /* __DP_INTF__ */

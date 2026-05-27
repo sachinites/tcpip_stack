@@ -50,21 +50,21 @@ dp_intf_get_matching_subnet_interface(dp_ctx_t *dp_ctx,
     return NULL;
 }
 
-pkt_block_t *
-dp_pkt_block_copy_and_wrap_raw_pkt_copy (
+struct rte_mbuf *
+dp_pkt_mbuf_copy_and_wrap_raw_pkt_copy (
         dp_ctx_t *dp_ctx, 
         uint8_t *pkt, 
         uint16_t pkt_size) {
 
     /* Get the mempool on this socket*/
     struct rte_mempool *mpool = dp_uapi_get_current_socket_mpool(dp_ctx);
-    return PKT_BLOCK_WRAP(mpool, pkt, (pkt_size_t)pkt_size);
+    return PKT_MBUF_WRAP(mpool, pkt, (pkt_size_t)pkt_size);
 }
 
-pkt_block_t *
-dp_pkt_block_get_new_pkt_buffer (dp_ctx_t *dp_ctx, uint16_t pkt_size) {
+struct rte_mbuf *
+dp_pkt_mbuf_get_new (dp_ctx_t *dp_ctx, uint16_t pkt_size) {
 
     /* Get the mempool on this socket*/
     struct rte_mempool *mpool = dp_uapi_get_current_socket_mpool(dp_ctx);
-    return  PKT_BLOCK_GET_NEW(mpool, (pkt_size_t)pkt_size);
+    return  PKT_MBUF_GET_NEW(mpool, (pkt_size_t)pkt_size);
 }

@@ -4,7 +4,6 @@
 #include "isis_events.h"
 #include "isis_const.h"
 #include "isis_struct.h"
-#include "../../libs/pkt-block/pkt_block.h"
 
 typedef uint16_t isis_pkt_type_t;
 typedef struct event_dispatcher_ event_dispatcher_t;

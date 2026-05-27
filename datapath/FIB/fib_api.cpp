@@ -20,7 +20,7 @@
 #include "fib_route.h"
 #include "fib_nh.h"
 #include "../../libs/common/mpls_lstack.h"
-#include "../../libs/pkt-block/pkt_block.h"
+#include "../../libs/pkt-block/pkt_mbuf.h"
 #include "../../libs/common/l3_hdrs.h"
 #include "../../tcpconst.h"
 #include "../../libs/LinuxMemoryManager/uapi_mm.h"
@@ -31,20 +31,20 @@ dp_demote_pkt_to_layer2 (dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       uint32_t next_hop_ip,
                       dp_intf_t *outgoing_intf,
-                      pkt_block_t *pkt_block,
+                      struct rte_mbuf *mbuf,
                       gen_proto_id_t hdr_type);
 
 /* Extract destination address from packet based on header type */
-bool fib_extract_dest_from_pkt(pkt_block_t *pkt, cmn_prefix_t *dest) {
+bool fib_extract_dest_from_pkt(struct rte_mbuf *pkt, cmn_prefix_t *dest) {
     
-    gen_proto_id_t hdr_type = pkt_block_get_starting_hdr(pkt);
+    gen_proto_id_t hdr_type = pkt_mbuf_get_starting_hdr(pkt);
     pkt_size_t pkt_size;
     
     switch (hdr_type) {
 
         case IP_PROTO_IP_IN_IP: 
         {
-            ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt);
+            ip_hdr_t *ip_hdr = pkt_mbuf_get_ip_hdr(pkt);
             if (!ip_hdr) return false;
             
             dest->afi = AF_IPV4;
@@ -60,7 +60,7 @@ bool fib_extract_dest_from_pkt(pkt_block_t *pkt, cmn_prefix_t *dest) {
         
         case ETH_TYPE_MPLS_UC: {
             /* Extract MPLS label from packet */
-            uint32_t *label_ptr = (uint32_t *)pkt_block_get_pkt(pkt, &pkt_size);
+            uint32_t *label_ptr = (uint32_t *)pkt_mbuf_get_pkt(pkt, &pkt_size);
             if (!label_ptr || pkt_size < 4) return false;
             
             dest->afi = AF_LABEL;
@@ -102,7 +102,7 @@ fib_get_active_nexthop(fib_route_t *route) {
 }
 
 static void 
-mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
+mpls_apply_label_stack_on_pkt (struct rte_mbuf *mbuf, mpls_lstack_t *lstack) {
 
     int i = 0;
     bool s_bit = false;
@@ -116,23 +116,23 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
         switch (lstack->labels[i].op ) {
 
             case MPLS_OP_POP:
-                if (pkt_block_get_starting_hdr (pkt_block) == ETH_TYPE_MPLS_UC) {
-                    pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
+                if (pkt_mbuf_get_starting_hdr (mbuf) == ETH_TYPE_MPLS_UC) {
+                    pkt_label = (mpls_label_val_t *)pkt_mbuf_get_pkt (mbuf, &pkt_size);
                     if (mpls_label_is_stack_bottom (*pkt_label)) s_bit = true;
                     /* Pop the top MPLS label: shrink head by one label. */
-                    pkt_block_slide (pkt_block, -1, 1,
+                    pkt_mbuf_slide (mbuf, -1, 1,
                                      (uint16_t)sizeof (mpls_label_val_t));
-                    if (s_bit) pkt_block_update_new_hdr_type (pkt_block,  PROTO_MISC_APP);
+                    if (s_bit) pkt_mbuf_update_new_hdr_type (mbuf,  PROTO_MISC_APP);
                 }
             break;
 
 
             case MPLS_OP_PUSH:
-                pkt_block_expand_buffer_left (pkt_block, sizeof (mpls_label_val_t));
-                pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
+                pkt_mbuf_expand_buffer_left (mbuf, sizeof (mpls_label_val_t));
+                pkt_label = (mpls_label_val_t *)pkt_mbuf_get_pkt (mbuf, &pkt_size);
                 mpls_label_set_value (pkt_label, mpls_label_get_value (lstack->labels[i].label_val ));
-                if (pkt_block_get_starting_hdr (pkt_block) != ETH_TYPE_MPLS_UC) {
-                    pkt_block_update_new_hdr_type (pkt_block, ETH_TYPE_MPLS_UC);
+                if (pkt_mbuf_get_starting_hdr (mbuf) != ETH_TYPE_MPLS_UC) {
+                    pkt_mbuf_update_new_hdr_type (mbuf, ETH_TYPE_MPLS_UC);
                     mpls_label_set_stack_bottom (pkt_label);
                 }
             break;
@@ -140,8 +140,8 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
 
             case MPLS_OP_SWAP:
                 s_bit = false;
-                if (pkt_block_get_starting_hdr (pkt_block) == ETH_TYPE_MPLS_UC) {
-                    pkt_label = (mpls_label_val_t *)pkt_block_get_pkt (pkt_block, &pkt_size);
+                if (pkt_mbuf_get_starting_hdr (mbuf) == ETH_TYPE_MPLS_UC) {
+                    pkt_label = (mpls_label_val_t *)pkt_mbuf_get_pkt (mbuf, &pkt_size);
                     if (mpls_label_is_stack_bottom (*pkt_label)) s_bit = true;
                     mpls_label_set_value (pkt_label, mpls_label_get_value (lstack->labels[i].label_val ));
                     if (s_bit) mpls_label_set_stack_bottom (pkt_label);
@@ -156,20 +156,20 @@ mpls_apply_label_stack_on_pkt (pkt_block_t *pkt_block, mpls_lstack_t *lstack) {
 fib_error_t 
 fib_forward_pkt_to_nh(dp_ctx_t *dp_ctx, 
                       dp_vrf_t *vrf, 
-                      pkt_block_t *pkt_block, fib_nh_t *nh) {
+                      struct rte_mbuf *mbuf, fib_nh_t *nh) {
     
     /* Apply MPLS label stack operations if present */
     if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) {
-        mpls_apply_label_stack_on_pkt  (pkt_block, 
+        mpls_apply_label_stack_on_pkt  (mbuf, 
             &nh->fwd_info->u.mpls_fwd.label_stack);
     }
     
     /* Decrement TTL if IP packet */
-    gen_proto_id_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
+    gen_proto_id_t hdr_type = pkt_mbuf_get_starting_hdr(mbuf);
 
     if (hdr_type == ETHERNET_HEADER || hdr_type == IP_PROTO_IP_IN_IP) {
 
-        ip_hdr_t *ip_hdr = pkt_block_get_ip_hdr(pkt_block);
+        ip_hdr_t *ip_hdr = pkt_mbuf_get_ip_hdr(mbuf);
 
         if (ip_hdr) {
 
@@ -192,7 +192,7 @@ fib_forward_pkt_to_nh(dp_ctx_t *dp_ctx,
         vrf,
         hdr_type == ETH_TYPE_IPv6 ? 0 : nh->fwd_info->nh_addr.u.v4_addr,
         nh->fwd_info->oif,
-        pkt_block, hdr_type);
+        mbuf, hdr_type);
 
     /* Packet successfully processed - would be sent out OIF in real hardware */
     return FIB_ERROR_SUCCESS;

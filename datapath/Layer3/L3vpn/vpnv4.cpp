@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/pkt-block/pkt_mbuf.h"
 #include "../../../libs/common/ipv6_hdrs.h"
 #include "../../../libs/common/l3_hdrs.h"
 #include "../../../libs/LinuxMemoryManager/uapi_mm.h"
@@ -60,7 +60,7 @@ There is no BGP control plane signalling support yet. VPNv4 routes over SRv6 SID
 void 
 vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx, 
                              dp_vrf_t *vrf, 
-                             pkt_block_t *pkt_block, 
+                             struct rte_mbuf *mbuf, 
                              fib_nh_t *srv6_nh) {
 
     srh_hdr_t *srh_hdr = NULL;
@@ -77,15 +77,15 @@ vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx,
     assert(srv6_nh->fwd_info->fwd_flags & FIB_NH_FWD_F_IPV6_STCK);
 
     /* Perform Srv6 Encapsulation of ipv4 pkt*/
-    assert (pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_IP_IN_IP);
+    assert (pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_IP_IN_IP);
 
     srh_hdr = srh_hdr_prepare(
         (ipv6_addr_t *)srv6_nh->fwd_info->u.v6_fwd.v6segment_lst,
         srv6_nh->fwd_info->u.v6_fwd.n_segment_list);
 
-    Srv6_encapsulate(pkt_block, srh_hdr);
+    Srv6_encapsulate(mbuf, srh_hdr);
     XFREE(srh_hdr);
 
     /* Have to do forwarding in Default VRF */
-    ipv6_layer3_forward_nexthop(dp_ctx, dp_ctx->default_vrf, srv6_nh, pkt_block);
+    ipv6_layer3_forward_nexthop(dp_ctx, dp_ctx->default_vrf, srv6_nh, mbuf);
 }

@@ -17,8 +17,8 @@
 #include "../../libs/common/protoIds.h"
 #include "../../libs/mtrie/mtrie.h"
 #include "../../libs/EventDispatcher/event_dispatcher.h"
-#include "../../libs/pkt-block/pkt_block.h"
 #include "../../libs/pkt-block/cp_pkt_block.h"
+#include "../../libs/pkt-block/pkt_block.h"
 
 #include "../../router_init.h"
 #include "../../Interface/Interface.h"
@@ -905,15 +905,15 @@ access_list_evaluate(mtrie_t *mtrie,
     return action;
 }
 
-acl_action_t 
-access_list_evaluate_pkt_block (mtrie_t *mtrie, pkt_block_t *pkt_block) {
+acl_action_t
+access_list_evaluate_mbuf (mtrie_t *mtrie, struct rte_mbuf *mbuf) {
 
     byte *pkt;
     pkt_size_t pkt_size;
     ip_hdr_t *ip_hdr = NULL;
     ethernet_hdr_t *eth_hdr = NULL;
 
-    gen_proto_id_t starting_hdr = pkt_block_get_starting_hdr (pkt_block);
+    gen_proto_id_t starting_hdr = pkt_mbuf_get_starting_hdr(mbuf);
 
     uint16_t l4proto = 0;
     uint32_t src_ip = 0,
@@ -926,7 +926,7 @@ access_list_evaluate_pkt_block (mtrie_t *mtrie, pkt_block_t *pkt_block) {
     {
     case ETHERNET_HEADER:
     {
-        eth_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+        eth_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
         if (eth_hdr->type == htons(ETH_TYPE_IPv4))
         {
@@ -960,7 +960,7 @@ access_list_evaluate_pkt_block (mtrie_t *mtrie, pkt_block_t *pkt_block) {
     break;
     case IP_PROTO_IP_IN_IP:
         {
-            ip_hdr =  (ip_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+            ip_hdr =  (ip_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
             src_ip = ntohl(ip_hdr->src_ip);
             dst_ip = ntohl(ip_hdr->dst_ip);
             l4proto = ip_hdr->protocol;
@@ -990,6 +990,12 @@ access_list_evaluate_pkt_block (mtrie_t *mtrie, pkt_block_t *pkt_block) {
         default: ;
     }
     return ACL_PERMIT;
+}
+
+acl_action_t
+access_list_evaluate_pkt_block (mtrie_t *mtrie, pkt_block_t *pkt_block)
+{
+    return access_list_evaluate_mbuf(mtrie, pkt_block->mbuf);
 }
 
 acl_action_t

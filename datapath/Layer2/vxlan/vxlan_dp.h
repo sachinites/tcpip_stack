@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-typedef struct pkt_block_ pkt_block_t;
+typedef struct rte_mbuf pkt_mbuf_t;
 typedef struct dp_ctx_ dp_ctx_t;
 
-void vxlan_encapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block);
-void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_vtep_ip);
+void vxlan_encapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf);
+void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vtep_ip);
 
 #endif /* __VXLAN_DP_H__ */
