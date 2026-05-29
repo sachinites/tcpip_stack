@@ -39,6 +39,35 @@ void init_nfc_layer2_proto_reg_db2(notif_chain_t *nfc);
 extern void dp_pkt_xmit_intf_job_cbk(event_dispatcher_t *ev_dis,
                               void *pkt, uint32_t pkt_size);
 
+extern uint8_t 
+system_get_max_numa_node_count ();
+
+#define NUM_MBUFS_PER_PORT 8191
+#define MBUF_CACHE_SIZE 250
+
+static void
+dp_init_memory_pools(dp_ctx_t *dp_ctx)
+{
+    char numa_node_name[32];
+
+    uint8_t max_numa_nodes = system_get_max_numa_node_count ();
+
+    dp_ctx->dpdk_mempool = 
+        (struct rte_mempool **) calloc (max_numa_nodes, sizeof (struct rte_mempool *));
+
+    for (int i = 0; i < max_numa_nodes; i++) {
+
+        memset (numa_node_name, 0, sizeof (numa_node_name));
+        snprintf (numa_node_name, sizeof (numa_node_name), "NUMA_MEM_POOL%u", i);
+
+        dp_ctx->dpdk_mempool[i] = rte_pktmbuf_pool_create(
+                    (const char *)numa_node_name,
+                    NUM_MBUFS_PER_PORT *  64 /* port cnt on device*/,
+                    MBUF_CACHE_SIZE, 
+                    sizeof (pkt_mbuf_pvt_data_t), 
+                    RTE_MBUF_DEFAULT_BUF_SIZE, i );
+    }
+}
 /**
  * Initialize datapath context: event loops, queues, timer, tracer, tables,
  * netfilter, and logging. Special interfaces and default_vrf are set by CP.
@@ -97,8 +126,10 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     tcp_ip_register_default_l3_pkt_trap_rules(&dp_ctx->nf_hook_db);
     init_nfc_layer2_proto_reg_db2(&dp_ctx->layer2_proto_reg_db);
 
-    /* Packet logging — flags and log_file are set by tcp_ip_init_node_log_info() */
+    /* intialize memory pools per Numa node*/
+    dp_init_memory_pools (dp_ctx);
 
+    /* Packet logging — flags and log_file are set by tcp_ip_init_node_log_info() */
     dp_ctx->ctx_pvt_data = arg;
 
     /* Members below are filled by control plane */

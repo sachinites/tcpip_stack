@@ -50,8 +50,6 @@ typedef int (*SendPacketOut_fptr)(
 extern bool LinuxRtr;
 extern int cprintf (const char* format, ...);
 
-#define NUM_MBUFS_PER_PORT 8191
-#define MBUF_CACHE_SIZE 250
 #define RX_RING_SIZE 1024
 #define TX_RING_SIZE 1024
 
@@ -1039,7 +1037,7 @@ etc ...
 #define MAX_CPUS_PER_NUMA   64
 #define MAX_PORTS_PER_CPU   16
 
-static uint8_t 
+uint8_t 
 system_get_max_numa_node_count () {
 
     DIR *dir;
@@ -1511,36 +1509,14 @@ void
 DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
 
     dp_intf_t *dp_intf;
-    char numa_node_name[32];
-    struct rte_mempool **mempools_array_per_numa = NULL;
 
     uint16_t port_cnt = 0;
+
     for (int _i = 0; _i < DP_MAX_INTF; _i++) {
         if (dp_ctx->intf_table[_i]) port_cnt++;
     }
 
     if (!port_cnt) return;
-
-    /* Create mrmpool for each numa nodes in the system */
-    uint8_t max_numa_nodes = system_get_max_numa_node_count ();
-    
-    mempools_array_per_numa = 
-        (struct rte_mempool **) calloc (max_numa_nodes, sizeof (struct rte_mempool *));
-
-    dp_ctx->dpdk_mempool = mempools_array_per_numa;
-
-    for (int i = 0; i < max_numa_nodes; i++) {
-
-        memset (numa_node_name, 0, sizeof (numa_node_name));
-        snprintf (numa_node_name, sizeof (numa_node_name), "NUMA_MEM_POOL%u", i);
-
-        mempools_array_per_numa[i] = rte_pktmbuf_pool_create(
-                    (const char *)numa_node_name,
-                    NUM_MBUFS_PER_PORT *  port_cnt,
-                    MBUF_CACHE_SIZE, 
-                    sizeof (pkt_mbuf_pvt_data_t), 
-                    RTE_MBUF_DEFAULT_BUF_SIZE, i );
-    }
 
     for (int _i = 0; _i < DP_MAX_INTF; _i++) {
 
@@ -1554,6 +1530,6 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
         uint16_t port_numa_node = socket_id < 0 ? 0 : socket_id;
 
         dpdk_port_configure(dp_intf, dpdk_port_id,
-            mempools_array_per_numa[port_numa_node]);
+            dp_ctx->dpdk_mempool[port_numa_node]);
     }
 }
