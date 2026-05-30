@@ -23,7 +23,6 @@
 
 #include "Interface/InterfaceUApi.h"
 struct rte_mbuf;
-typedef struct pkt_block_ pkt_block_t;
 typedef struct intf_nw_props_ intf_nw_props_t;
 /* 
  * Structures for interface events notification

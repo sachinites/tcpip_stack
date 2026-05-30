@@ -58,7 +58,6 @@ typedef enum struct_index_
     MM_INDEX(rt_route_flash_request_t),
 
     /* Pkt Block */
-    MM_INDEX(pkt_block_t),
     MM_INDEX(cp_pkt_block_t),
     MM_INDEX(pkt_mbuf_encap_meta_data_t),
 

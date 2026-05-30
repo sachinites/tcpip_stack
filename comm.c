@@ -44,7 +44,6 @@
 #include "router_init.h"
 #include "datapath/dp_uapi.h"
 #include "datapath/dp_utils.h"
-#include "libs/pkt-block/pkt_block.h"
 
 extern graph_t *topo;
 
@@ -99,20 +98,20 @@ _pkt_receive(dp_ctx_t *dp_ctx,
             c_string pkt_with_aux_data, 
             uint32_t pkt_size){
 
-    pkt_block_t *pkt_block;
     ev_dis_pkt_data_t *ev_dis_pkt_data;
     uint32_t ifindex = *(uint32_t *)pkt_with_aux_data;
 
     const uint16_t aux_data_size = sizeof (uint32_t);
 
-    ev_dis_pkt_data = (ev_dis_pkt_data_t *)
-        XCALLOC2(0, 1, ev_dis_pkt_data_t);
+    ev_dis_pkt_data = (ev_dis_pkt_data_t *)XCALLOC2(0, 1, ev_dis_pkt_data_t);
 
     ev_dis_pkt_data->ifindex = ifindex;
     ev_dis_pkt_data->pkt = (unsigned char *)XCALLOC_BUFF(0, pkt_size - aux_data_size);
+
     memcpy(ev_dis_pkt_data->pkt, 
-        pkt_with_aux_data + aux_data_size, 
-        pkt_size - aux_data_size);
+           pkt_with_aux_data + aux_data_size, 
+           pkt_size - aux_data_size);
+           
     ev_dis_pkt_data->pkt_size = pkt_size - aux_data_size;
 
 	pkt_q_enqueue(EV_DP(dp_ctx), 

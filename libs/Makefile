@@ -25,7 +25,6 @@ OBJS = std_lib_init.o 					  \
        mtrie/mtrie.o                     \
 	   mtrie/atomic_mtrie.o              \
        notifc/notif.o                    \
-       pkt-block/pkt_block.o             \
 	   pkt-block/cp_pkt_block.o          \
        prefix-list/prefixlst.o           \
        stack/stack.o                     \
@@ -84,10 +83,6 @@ mtrie/atomic_mtrie.o: mtrie/atomic_mtrie.cpp
 # notifc
 notifc/notif.o: notifc/notif.c
 	$(CC) $(CFLAGS) -c -I notifc -I . notifc/notif.c -o notifc/notif.o
-
-# pkt-block
-pkt-block/pkt_block.o: pkt-block/pkt_block.c
-	$(CC) $(CFLAGS) -c -I . -I pkt-block pkt-block/pkt_block.c -o pkt-block/pkt_block.o
 
 pkt-block/cp_pkt_block.o: pkt-block/cp_pkt_block.c
 	$(CC) $(CFLAGS) -c -I . -I pkt-block pkt-block/cp_pkt_block.c -o pkt-block/cp_pkt_block.o

@@ -22,7 +22,6 @@
 #include "Interface/InterfaceUApi.h"
 #include "net.h"
 #include "tcpip_notif.h"
-#include "libs/pkt-block/pkt_block.h"
 
 /* Create a notif chain for interface
  * config change notification to applications */

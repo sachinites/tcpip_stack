@@ -38,8 +38,6 @@
 #include "../RTM/rtm.h"
 #include "../RTM/rtm_nb_integ.h"
 
-#include "../libs/pkt-block/pkt_block.h"
-
 
 bool LinuxRtr = false;
 

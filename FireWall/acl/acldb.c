@@ -17,7 +17,6 @@
 #include "../../libs/common/protoIds.h"
 #include "../../libs/mtrie/mtrie.h"
 #include "../../libs/EventDispatcher/event_dispatcher.h"
-#include "../../libs/pkt-block/pkt_block.h"
 #include "../../libs/pkt-block/cp_pkt_block.h"
 
 #include "../../router_init.h"
@@ -990,12 +989,6 @@ access_list_evaluate_mbuf (mtrie_t *mtrie, struct rte_mbuf *mbuf) {
         default: ;
     }
     return ACL_PERMIT;
-}
-
-acl_action_t
-access_list_evaluate_pkt_block (mtrie_t *mtrie, pkt_block_t *pkt_block)
-{
-    return access_list_evaluate_mbuf(mtrie, pkt_block->mbuf);
 }
 
 acl_action_t
