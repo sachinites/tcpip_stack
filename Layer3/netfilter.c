@@ -20,7 +20,7 @@
 #include "../router_init.h"
 #include "netfilter.h"
 #include "../Layer5/layer5.h"
-#include "../libs/pkt-block/pkt_block.h"
+#include "../libs/pkt-block/pkt_mbuf.h"
 #include "../libs/EventDispatcher/event_dispatcher.h"
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../datapath/Interface/dp_intf.h"
@@ -47,8 +47,8 @@ netfilter_pkt_notif_data_dup_fn (void *arg) {
 	pkt_notif_data_t *pkt_notif_data2 = (pkt_notif_data_t *)XCALLOC(0, 1, pkt_notif_data_t);
 	pkt_notif_data2->recv_node = pkt_notif_data->recv_node;
 	pkt_notif_data2->recv_intf_index = pkt_notif_data->recv_intf_index;
-	pkt_notif_data2->pkt_block = pkt_notif_data->pkt_block;
-	pkt_block_reference(pkt_notif_data2->pkt_block);
+	pkt_notif_data2->mbuf = pkt_notif_data->mbuf;
+	pkt_mbuf_ref_inc(pkt_notif_data2->mbuf);
 	pkt_notif_data2->hdr_code = pkt_notif_data->hdr_code;
 	pkt_notif_data2->return_code = pkt_notif_data->return_code;
 	return (void *)pkt_notif_data2;
@@ -72,7 +72,7 @@ nf_init_netfilters(nf_hook_db_t *nf_hook_db) {
 int8_t
 nf_invoke_netfilter_hook(
 						 nf_hook_t nf_hook_type,
-						 pkt_block_t *pkt_block,
+						 struct rte_mbuf *mbuf,
 						 void *_node,
 						 dp_intf_t *intf,
 						 gen_proto_id_t hdr_code) {
@@ -84,11 +84,11 @@ nf_invoke_netfilter_hook(
 
     pkt_notif_data.recv_node = node;
     pkt_notif_data.recv_intf_index = intf ? intf->port_id : 0;
-    pkt_notif_data.pkt_block = pkt_block;
+    pkt_notif_data.mbuf = mbuf;
 	pkt_notif_data.hdr_code = hdr_code;
     pkt_notif_data.return_code = NF_ACCEPT;
 
-	pkt = (char *) pkt_block_get_pkt(pkt_block, &pkt_size);
+	pkt = (char *) pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     nfc_invoke_notif_chain(
 			EV(node),

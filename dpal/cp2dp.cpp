@@ -11,7 +11,7 @@
 #include "../Interface/InterfaceUApi.h"
 #include "../libs/Tracer/tracer.h"
 #include "../libs/common/ipv6_hdrs.h"
-#include "../libs/pkt-block/pkt_block.h"
+#include "../libs/pkt-block/pkt_mbuf.h"
 #include "../libs/pkt-block/cp_pkt_block.h"
 #include "../lmm_enums.h"
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
@@ -32,9 +32,9 @@
 void
 cp2dp_xmit_pkt (node_t *node, cp_pkt_block_t *pkt_block, Interface *xmit_interface) {
 
-    pkt_block_t *dp_pkt_block = cp2dp_convert_pkt_block (node->dp_ctx, pkt_block);
-    dp_uapi_xmit_pkt(node->dp_ctx, xmit_interface->ifindex, dp_pkt_block);
-    pkt_block_dereference(dp_pkt_block);
+    struct rte_mbuf *mbuf = cp2dp_convert_pkt_block (node->dp_ctx, pkt_block);
+    dp_uapi_xmit_pkt(node->dp_ctx, xmit_interface->ifindex, mbuf);
+    pkt_mbuf_dereference(mbuf);
 }
 
 void 
@@ -833,24 +833,24 @@ cp2dp_ping_request(node_t *node,
     cp2dp_submit(node, dp_msg, true);
 }
 
-pkt_block_t *
+struct rte_mbuf *
 cp2dp_convert_pkt_block (dp_ctx_t *dp_ctx, cp_pkt_block_t *cp_pkt_block) {
 
-    pkt_block_t *pkt_block = 
-        dp_pkt_block_copy_and_wrap_raw_pkt_copy (
+    struct rte_mbuf *mbuf =
+        dp_pkt_mbuf_copy_and_wrap_raw_pkt_copy(
                 dp_ctx, cp_pkt_block->pkt_start, cp_pkt_block->pkt_size);
 
-    pkt_block_update_new_hdr_type(pkt_block, cp_pkt_block->hdr_type);
-    return pkt_block;
+    pkt_mbuf_update_new_hdr_type(mbuf, cp_pkt_block->hdr_type);
+    return mbuf;
 }
 
 cp_pkt_block_t *
-dp2cp_convert_pkt_block (pkt_block_t *dp_pkt_block) {
+dp2cp_convert_pkt_block (struct rte_mbuf *mbuf) {
 
-    pkt_size_t pkt_size = pkt_block_get_data_size(dp_pkt_block);
+    pkt_size_t pkt_size = pkt_mbuf_get_data_size(mbuf);
     cp_pkt_block_t *cp_pkt_block = cp_pkt_block_get_new_pkt_buffer(pkt_size);
-    uint8_t *pkt = pkt_block_get_pkt(dp_pkt_block, NULL);
-    memcpy (cp_pkt_block->pkt_start, pkt, pkt_size);
-    cp_pkt_block->hdr_type = pkt_block_get_starting_hdr(dp_pkt_block);
+    uint8_t *pkt = pkt_mbuf_get_pkt(mbuf, NULL);
+    memcpy(cp_pkt_block->pkt_start, pkt, pkt_size);
+    cp_pkt_block->hdr_type = pkt_mbuf_get_starting_hdr(mbuf);
     return cp_pkt_block;
 }

@@ -50,13 +50,13 @@ typedef struct nf_hook_db_ {
 void
 nf_init_netfilters(nf_hook_db_t *nf_hook_db);
 
-typedef struct pkt_block_ pkt_block_t;
+struct rte_mbuf;
 typedef struct dp_intf_ dp_intf_t;
 
 int8_t
 nf_invoke_netfilter_hook(
 						 nf_hook_t nf_hook_type,
-						 pkt_block_t *pkt_block,
+						 struct rte_mbuf *mbuf,
 						 void *node,
 						 dp_intf_t *intf,
 						 gen_proto_id_t hdr_code);

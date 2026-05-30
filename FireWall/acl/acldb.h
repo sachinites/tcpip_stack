@@ -12,6 +12,7 @@
 
 typedef struct mtrie_ mtrie_t;
 typedef struct node_ node_t;
+struct rte_mbuf;
 class Interface;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
 typedef struct ip_hdr_ ip_hdr_t;
@@ -530,6 +531,6 @@ uint32_t
 acl_entry_compute_expected_tcam_count (acl_entry_t *acl_entry);
 
 acl_action_t 
-access_list_evaluate_pkt_block (mtrie_t *mtrie, pkt_block_t *pkt_block);
+access_list_evaluate_mbuf (mtrie_t *mtrie, struct rte_mbuf *mbuf);
 
 #endif

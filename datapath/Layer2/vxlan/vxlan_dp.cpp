@@ -1,7 +1,7 @@
 #include <netinet/in.h>  // for htonl
 #include "vxlan_dp.h"
 #include "../../../libs/common/l2_hdrs.h"
-#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/pkt-block/pkt_mbuf.h"
 #include "../../../libs/common/l4_hdrs.h"
 #include "../../../libs/Tracer/tracer.h"
 #include "../../../Interface/InterfaceUApi.h"
@@ -18,23 +18,23 @@ extern void
 l2_switch_forward_frame(
                         dp_ctx_t *dp_ctx,
                         dp_intf_t *recv_intf, 
-                        pkt_block_t *pkt_block);
+                        struct rte_mbuf *mbuf);
 
 void
-vxlan_encapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
+vxlan_encapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf) {
 
     pkt_size_t pkt_size;
     pkt_mbuf_pvt_data_t *pvt_data;
     pkt_mbuf_encap_meta_data_t *encap_data;
 
     /* Vxlan is MAC/IP encapsulation inside VxLAN */
-    assert (pkt_block_get_starting_hdr (pkt_block) == ETHERNET_HEADER);
+    assert (pkt_mbuf_get_starting_hdr (mbuf) == ETHERNET_HEADER);
 
     /* Expland the size of the pkt by VxLAN HDR size */
-    pkt_block_expand_buffer_left (pkt_block, sizeof (vxlan_hdr_t) + sizeof (udp_hdr_t)); 
-    pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_UDP);
+    pkt_mbuf_expand_buffer_left (mbuf, sizeof (vxlan_hdr_t) + sizeof (udp_hdr_t)); 
+    pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_UDP);
 
-    udp_hdr_t *udp_hdr = (udp_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    udp_hdr_t *udp_hdr = (udp_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
     udp_hdr->src_port_no = 0;
     udp_hdr->dst_port_no = htons(PORT_VXLAN);
     udp_hdr->udp_length = htons(sizeof (udp_hdr_t));
@@ -49,7 +49,7 @@ vxlan_encapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
     vxlan_hdr->reserved[1] = 0;
     vxlan_hdr->reserved[2] = 0;
     
-    pvt_data = pkt_block_get_pvt_data(pkt_block);
+    pvt_data = pkt_mbuf_get_pvt_data(mbuf);
     encap_data = pvt_data->encap_data;
 
     /* Convert VNI to network byte order for VXLAN header */
@@ -63,7 +63,7 @@ vxlan_encapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block) {
         "VxLAN Encapsulation : VNI %u \n", encap_data->u.vxlan.vni);    
 }
 
-void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_vtep_ip) 
+void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vtep_ip) 
 {
     pkt_size_t pkt_size;
 
@@ -74,9 +74,9 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_v
         return;
     }
 
-     assert ( pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_UDP );
+     assert ( pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_UDP );
 
-     udp_hdr_t *udp_hdr = (udp_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+     udp_hdr_t *udp_hdr = (udp_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
      assert (ntohs(udp_hdr->dst_port_no) == PORT_VXLAN);
 
@@ -97,8 +97,8 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_v
     uint16_t strip = (uint16_t)((char *)eth_hdr - (char *)udp_hdr);
 
     /* Strip UDP + VxLAN headers to expose the inner ethernet header. */
-    pkt_block_slide (pkt_block, -1, 1, strip);
-    pkt_block_update_new_hdr_type (pkt_block, ETHERNET_HEADER);
+    pkt_mbuf_slide (mbuf, -1, 1, strip);
+    pkt_mbuf_update_new_hdr_type (mbuf, ETHERNET_HEADER);
 
     uint16_t vlan_id = vlan_vni_ht_vni_to_vlan_lookup (dp_ctx, vni);
 
@@ -111,7 +111,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_v
         return;
     }
 
-    tag_pkt_with_vlan_id  (pkt_block, vlan_id);
+    tag_pkt_with_vlan_id  (mbuf, vlan_id);
 
     l2_switch_perform_mac_learning (dp_ctx, vlan_id,
                             eth_hdr->src_mac.mac,
@@ -121,6 +121,6 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, pkt_block_t *pkt_block, uint32_t src_v
     tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Decapsulation : Forwarding pkt to L2 Switching\n");
         
-    l2_switch_forward_frame (dp_ctx, dp_ctx->dp_nve_intf,  pkt_block);
+    l2_switch_forward_frame (dp_ctx, dp_ctx->dp_nve_intf,  mbuf);
     dp_ctx->dp_nve_intf->pkt_recv++;
 }

@@ -263,7 +263,6 @@ tcp_dump_ethernet_hdr(char *buff,
                         pkt_size_t pkt_size){
 
     int rc = 0;
-    pkt_block_t *pkt_block;
     char string_buffer[32] = {0};
 
     vlan_ethernet_hdr_t *vlan_eth_hdr = NULL;
@@ -472,7 +471,7 @@ void
 tcp_dump(int sock_fd, 
          FILE *log_file1,
          FILE *log_file2,
-         pkt_block_t *pkt_block,
+         struct rte_mbuf *mbuf,
          gen_proto_id_t hdr_type,
          c_string out_buff, 
          uint32_t write_OFFset,
@@ -482,7 +481,7 @@ tcp_dump(int sock_fd,
     uint8_t *pkt = NULL;
     pkt_size_t pkt_size;
 
-    pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    pkt = pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     switch(hdr_type){
 
@@ -510,7 +509,7 @@ tcp_dump(int sock_fd,
      * Pass write pointer offset by rc so subscribers don't overwrite it. */
     rc += nfc_pkt_trace_invoke_notif_to_sbscribers(
         hdr_type,
-        pkt_block,
+        mbuf,
         out_buff + write_OFFset + rc);
 
     if(!rc){

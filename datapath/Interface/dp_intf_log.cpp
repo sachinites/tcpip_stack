@@ -8,7 +8,7 @@ void
 tcp_dump_recv_logger(
               dp_ctx_t *dp_ctx,
               dp_intf_t *intf,
-              pkt_block_t *pkt_block,
+              struct rte_mbuf *mbuf,
               gen_proto_id_t hdr_type){
 
     int rc = 0 ;
@@ -29,8 +29,8 @@ tcp_dump_recv_logger(
         if (log_file1 && 
              dp_ctx->log.acc_lst_filter ) {
 
-            acl_action = access_list_evaluate_pkt_block (
-                dp_ctx->log.acc_lst_filter->mtrie, pkt_block);
+            acl_action = access_list_evaluate_mbuf (
+                dp_ctx->log.acc_lst_filter->mtrie, mbuf);
 
            if (acl_action == ACL_DENY) log_file1 = NULL;
         }
@@ -38,8 +38,8 @@ tcp_dump_recv_logger(
         if (log_file2 && 
              intf->log_info.acc_lst_filter ) {
 
-            acl_action = access_list_evaluate_pkt_block (
-                intf->log_info.acc_lst_filter->mtrie, pkt_block);
+            acl_action = access_list_evaluate_mbuf (
+                intf->log_info.acc_lst_filter->mtrie, mbuf);
 
            if (acl_action == ACL_DENY) log_file2 = NULL;
         }
@@ -56,7 +56,7 @@ tcp_dump_recv_logger(
         tcp_dump(sock_fd,          /*Write the log to the FD*/
                  log_file1,                /*Write the log to the node's log file*/
                  log_file2,                /*Write the log to the interface log file*/
-                 pkt_block,                /*Pkt and Pkt size to be written in log file*/
+                 mbuf,                /*Pkt and Pkt size to be written in log file*/
                  hdr_type,                 /*Starting hdr type of the pkt*/
                  dp_ctx->recv_log_buffer,  /*Buffer into which the formatted output 
                                               is to be written*/
@@ -98,7 +98,7 @@ tcp_dump_l3_fwding_logger(
 void
 tcp_dump_send_logger(dp_ctx_t *dp_ctx,
               dp_intf_t *intf,
-              pkt_block_t *pkt_block,
+              struct rte_mbuf *mbuf,
               gen_proto_id_t hdr_type){
 
     int rc = 0;
@@ -119,8 +119,8 @@ tcp_dump_send_logger(dp_ctx_t *dp_ctx,
         if (log_file1 && 
              dp_ctx->log.acc_lst_filter ) {
 
-            acl_action = access_list_evaluate_pkt_block (
-                dp_ctx->log.acc_lst_filter->mtrie, pkt_block);
+            acl_action = access_list_evaluate_mbuf (
+                dp_ctx->log.acc_lst_filter->mtrie, mbuf);
 
            if (acl_action == ACL_DENY) log_file1 = NULL;
         }
@@ -128,8 +128,8 @@ tcp_dump_send_logger(dp_ctx_t *dp_ctx,
         if (log_file2 && 
              intf->log_info.acc_lst_filter ) {
 
-            acl_action = access_list_evaluate_pkt_block (
-                intf->log_info.acc_lst_filter->mtrie, pkt_block);
+            acl_action = access_list_evaluate_mbuf (
+                intf->log_info.acc_lst_filter->mtrie, mbuf);
                 
            if (acl_action == ACL_DENY) log_file2 = NULL;
         }
@@ -148,7 +148,7 @@ tcp_dump_send_logger(dp_ctx_t *dp_ctx,
         tcp_dump(sock_fd,                  /*Write the log to the FD*/
                  log_file1,                /*Write the log to the node's log file*/
                  log_file2,                /*Write the log to the interface log file*/
-                 pkt_block,                /*Pkt and Pkt size to be written in log file*/
+                 mbuf,                /*Pkt and Pkt size to be written in log file*/
                  hdr_type,                 /*Starting hdr type of the pkt*/
                  dp_ctx->send_log_buffer,  /*Buffer into which the formatted output is to be written*/
                  rc,                       /*write OFFset*/

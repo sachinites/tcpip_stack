@@ -3,7 +3,7 @@
 #include <semaphore.h>
 
 /* Libs */
-#include "../../libs/pkt-block/pkt_block.h"
+#include "../../libs/pkt-block/pkt_mbuf.h"
 #include "../../libs/Tracer/tracer.h"
 #include "../../libs/LinuxMemoryManager/uapi_mm.h"
 
@@ -108,7 +108,7 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
 void
 np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
 {
-    pkt_block_t *pkt_block;
+    struct rte_mbuf *mbuf;
     gen_proto_id_t hdr_type;
     dp_raw_pkt_info_t *pkt_info;
     uint8_t vrf_id = dp_msg->vrf_id;
@@ -117,11 +117,11 @@ np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
 
     pkt_info = *(dp_raw_pkt_info_t **)dp_msg->data;
 
-    pkt_block = 
-        dp_pkt_block_copy_and_wrap_raw_pkt_copy(dp_ctx,
+    mbuf = 
+        dp_pkt_mbuf_copy_and_wrap_raw_pkt_copy(dp_ctx,
         pkt_info->pkt, pkt_info->pkt_size);
     
-    pkt_block_update_new_hdr_type(pkt_block, (gen_proto_id_t)pkt_info->lead_proto);
+    pkt_mbuf_update_new_hdr_type(mbuf, (gen_proto_id_t)pkt_info->lead_proto);
     
     switch (dp_msg->opr_type)
     {
@@ -132,10 +132,10 @@ np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
             switch (hdr_type)
             {
             case IP_PROTO_IP_IN_IP:
-                dp_send_ip_data(dp_ctx, vrf, pkt_block);
+                dp_send_ip_data(dp_ctx, vrf, mbuf);
                 break;
             case IP_PROTO_IPv6:
-                dp_send_ip6_data(dp_ctx, vrf, pkt_block);
+                dp_send_ip6_data(dp_ctx, vrf, mbuf);
                 break;
             default:
                 break;
@@ -147,7 +147,7 @@ np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
         break;
     }
 
-    pkt_block_dereference(pkt_block);
+    pkt_mbuf_dereference(mbuf);
     XFREE(pkt_info);
     cp2dp_msg_free(dp_msg);
 }

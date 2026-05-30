@@ -22,9 +22,12 @@
 #include "../libs/Tracer/tracer.h"
 #include "Layer2/switching/mac_table.h"
 #include "dp_ctx.h"
+#include <rte_errno.h>
 
 typedef struct hashtable hashtable_t;
 typedef struct nf_hook_db_ nf_hook_db_t;
+
+extern int cprintf (const char* format, ...);
 
 extern void dp_init_vrf_hashtable(hashtable_t **ht);
 extern void dp_init_vlan_intf_hashtable(hashtable_t **ht);
@@ -39,6 +42,43 @@ void init_nfc_layer2_proto_reg_db2(notif_chain_t *nfc);
 extern void dp_pkt_xmit_intf_job_cbk(event_dispatcher_t *ev_dis,
                               void *pkt, uint32_t pkt_size);
 
+extern uint8_t 
+system_get_max_numa_node_count ();
+
+#define NUM_MBUFS_PER_PORT 8191
+#define MBUF_CACHE_SIZE 250
+
+static void
+dp_init_memory_pools(dp_ctx_t *dp_ctx)
+{
+    char mpool_name[64];
+
+    uint8_t max_numa_nodes = system_get_max_numa_node_count ();
+
+    dp_ctx->dpdk_mempool = 
+        (struct rte_mempool **) calloc (max_numa_nodes, sizeof (struct rte_mempool *));
+
+    for (int i = 0; i < max_numa_nodes; i++) {
+
+        memset (mpool_name, 0, sizeof (mpool_name));
+        snprintf (mpool_name, 
+            sizeof (mpool_name), 
+            "MP_%s_%u", dp_ctx->ctx_name, i);
+
+        dp_ctx->dpdk_mempool[i] = rte_pktmbuf_pool_create(
+                    (const char *)mpool_name,
+                    NUM_MBUFS_PER_PORT *  32 /* port cnt on device*/,
+                    MBUF_CACHE_SIZE, 
+                    sizeof (pkt_mbuf_pvt_data_t), 
+                    RTE_MBUF_DEFAULT_BUF_SIZE, i );
+
+        if (!dp_ctx->dpdk_mempool[i]) {
+            cprintf ("%s : Error : Memory pool creation failed on Numa Node %d, err=%s\n", 
+                dp_ctx->ctx_name, i, rte_strerror(rte_errno));
+        }
+        assert (dp_ctx->dpdk_mempool[i]);
+    }
+}
 /**
  * Initialize datapath context: event loops, queues, timer, tracer, tables,
  * netfilter, and logging. Special interfaces and default_vrf are set by CP.
@@ -97,8 +137,10 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     tcp_ip_register_default_l3_pkt_trap_rules(&dp_ctx->nf_hook_db);
     init_nfc_layer2_proto_reg_db2(&dp_ctx->layer2_proto_reg_db);
 
-    /* Packet logging — flags and log_file are set by tcp_ip_init_node_log_info() */
+    /* intialize memory pools per Numa node*/
+    dp_init_memory_pools (dp_ctx);
 
+    /* Packet logging — flags and log_file are set by tcp_ip_init_node_log_info() */
     dp_ctx->ctx_pvt_data = arg;
 
     /* Members below are filled by control plane */

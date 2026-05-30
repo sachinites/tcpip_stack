@@ -4,7 +4,7 @@
 #include "ipv6-fwd.h"
 #include "../layer3.h"
 #include "../../../tcpconst.h"
-#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/pkt-block/pkt_mbuf.h"
 
 #include "../../FIB/fib_nh.h"
 #include "../../Interface/dp_intf.h"
@@ -20,7 +20,7 @@ dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                      dp_vrf_t *vrf,
                      uint32_t next_hop_ip,
                      dp_intf_t *outgoing_intf,
-                     pkt_block_t *pkt_block,
+                     struct rte_mbuf *mbuf,
                      gen_proto_id_t hdr_type);
 
 
@@ -28,10 +28,10 @@ void
 ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx, 
                 dp_vrf_t *vrf, 
                 fib_nh_t *nexthop, 
-                pkt_block_t *pkt_block) {
+                struct rte_mbuf *mbuf) {
 
     pkt_size_t pkt_size;
-    unsigned char *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    unsigned char *pkt = pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
 
@@ -51,12 +51,12 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
     if (ipv6_hdr->hop_limit == 0) {
 
         tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Pkt Dropped : TTL Expired\n", 
-            vrf->vrf_name, pkt_block_str(pkt_block));
+            vrf->vrf_name, pkt_mbuf_str(mbuf));
         return;
     }
 
     tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Nexthop found OIF %s, Gw : %s\n", 
-        vrf->vrf_name, pkt_block_str(pkt_block), oif->if_name , "::");
+        vrf->vrf_name, pkt_mbuf_str(mbuf), oif->if_name , "::");
 
     tcp_dump_l3_fwding_logger(dp_ctx, vrf,  (c_string)oif->if_name, 0);
 
@@ -65,7 +65,7 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
             vrf,
             0,
             oif,
-            pkt_block,
+            mbuf,
             IP_PROTO_IPv6);
 
     nexthop->hit_count++;
@@ -74,7 +74,7 @@ ipv6_layer3_forward_nexthop (dp_ctx_t *dp_ctx,
 void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx, 
                            dp_vrf_t *vrf,
                            dp_intf_t *interface,
-                           pkt_block_t *pkt_block,
+                           struct rte_mbuf *mbuf,
                            fib_nh_t *_nh)
 {
     fib_nh_t *nh = _nh;
@@ -84,22 +84,22 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
     cmn_prefix_t prefix_key;
 
     #if 0
-    /* L3VPN case, on Ingress router pkt_block can be IPv4 
+    /* L3VPN case, on Ingress router mbuf can be IPv4 
         pkt with SRv6 Nexthop */
-    if (pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_IP_IN_IP && 
+    if (pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_IP_IN_IP && 
             (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_SRv6_FORWARD)) &&
              nh->fwd_info->u.v6_fwd.endfn == END_DT4) {
 
         assert (nh->fwd_info->oif->if_type == DP_INTF_TYPE_SRv6_DT4);
-        dp_send_pkt_out(dp_ctx, nh->fwd_info->oif, pkt_block);
+        dp_send_pkt_out(dp_ctx, nh->fwd_info->oif, mbuf);
         return;
     }
     #endif
 
-    unsigned char *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    unsigned char *pkt = pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     /* Should be ipv6 pkt*/
-    assert (pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_IPv6);
+    assert (pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_IPv6);
 
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
 
@@ -113,7 +113,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
 
     if(!nh){
         tracer (dp_ctx->dptr, DL3FWD | DERR, 
-            "VRF %s: Pkt : %s :  Pkt Dropped :  No L3 Route\n", vrf->vrf_name, pkt_block_str(pkt_block));
+            "VRF %s: Pkt : %s :  Pkt Dropped :  No L3 Route\n", vrf->vrf_name, pkt_mbuf_str(mbuf));
         return;
     }
 
@@ -131,21 +131,21 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
     if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_LOCAL) {
 
         tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s : L3 Route found is local route\n", 
-            vrf->vrf_name, pkt_block_str(pkt_block));
+            vrf->vrf_name, pkt_mbuf_str(mbuf));
 
         /* Strip the IPv6 header: shrink head by sizeof(ipv6_hdr_t). */
         gen_proto_id_t next = (gen_proto_id_t)ipv6_hdr->next_header;
-        pkt_block_slide(pkt_block, -1, 1, (uint16_t)sizeof(ipv6_hdr_t));
+        pkt_mbuf_slide(mbuf, -1, 1, (uint16_t)sizeof(ipv6_hdr_t));
 
-        pkt_block_update_new_hdr_type (pkt_block, next);
-        ipv6_process_v6_payload (dp_ctx, vrf, pkt_block) ;
+        pkt_mbuf_update_new_hdr_type (mbuf, next);
+        ipv6_process_v6_payload (dp_ctx, vrf, mbuf) ;
         return;
     }
 
     /* For Connnected route, forward it to in local v6 connected subnet*/
     if (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_CONNECTED | FIB_NH_FWD_F_FORWARD)) {    
 
-        ipv6_layer3_forward_nexthop (dp_ctx, vrf, nh, pkt_block);
+        ipv6_layer3_forward_nexthop (dp_ctx, vrf, nh, mbuf);
         return;
     }
 
@@ -156,7 +156,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
         Process_Srv6_Packet(dp_ctx, 
                             vrf,
                             NULL,
-                            pkt_block,
+                            mbuf,
                             ipv6_hdr,
                             ipv6_hdr->next_header == IP_PROTO_SRH ? (srh_hdr_t *)(ipv6_hdr + 1) : NULL,
                             nh);
@@ -165,13 +165,13 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
 }
 
 void
-dp_send_ip6_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) {
+dp_send_ip6_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *mbuf) {
 
     pkt_size_t pkt_size;
 
-    assert (pkt_block_verify_pkt (pkt_block, ETH_TYPE_IPv6));
+    assert (pkt_mbuf_verify_pkt (mbuf, ETH_TYPE_IPv6));
 
-    ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt_block_get_pkt (pkt_block,  &pkt_size);
+    ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt_mbuf_get_pkt (mbuf,  &pkt_size);
 
     /* This API expects that IP-HDR must have following fields set */
     assert (ipv6_hdr->next_header);
@@ -182,7 +182,7 @@ dp_send_ip6_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block) {
     assert (!is_ipv6_addr_unspecified (&ipv6_hdr->dst_addr));
 
     tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s : NP Recvd Routing Request\n", 
-        vrf->vrf_name, pkt_block_str(pkt_block));
+        vrf->vrf_name, pkt_mbuf_str(mbuf));
 
-    layer3_ipv6_route_pkt (dp_ctx, vrf, NULL, pkt_block, NULL); 
+    layer3_ipv6_route_pkt (dp_ctx, vrf, NULL, mbuf, NULL); 
 }

@@ -25,7 +25,7 @@
 
 typedef struct atomic_mtrie_ atomic_mtrie_t;
 typedef struct fib_nh_ fib_nh_t;
-typedef struct pkt_block_ pkt_block_t;
+typedef struct rte_mbuf pkt_mbuf_t;
 typedef struct node_ node_t;
 typedef struct dp_vrf_ dp_vrf_t;
 

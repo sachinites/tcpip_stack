@@ -27,7 +27,7 @@
 #include "../../libs/common/mpls_lstack.h"
 #include "../Vrfs/dp_vrf.h"
 #include "fib.h"
-#include "../../libs/pkt-block/pkt_block.h"
+#include "../../libs/pkt-block/pkt_mbuf.h"
 #include "../../libs/mtrie/mtrie.h"
 #include "../../libs/mtrie/atomic_mtrie.h"
 #include "fib_api.h"
@@ -200,7 +200,7 @@ fib_get_by_name (dp_ctx_t *dp_ctx, char *fib_name) {
  * 6. Marks packet for forwarding (simulates hardware forwarding)
  */
 fib_error_t 
-fib_forward(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt, uint8_t vrf_id) {
+fib_forward(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *pkt, uint8_t vrf_id) {
     
     /* Extract destination address from packet */
     fib_t *fib;

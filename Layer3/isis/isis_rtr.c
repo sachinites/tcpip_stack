@@ -474,6 +474,8 @@ isis_show_event_counters(isis_node_info_t *node_info) {
     int enum_int;
     isis_event_type_t event_type;
 
+    if (!node_info) return;
+
     cprintf ("Event Counters :\n");
 
     for(enum_int = (int)(isis_event_none + 1); 

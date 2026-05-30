@@ -14,7 +14,7 @@
 
 extern int cprintf (const char *format, ...);
 extern void
-dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, pkt_block_t *pkt_block);
+dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *mbuf);
 
 static uint64_t
 ping_get_time_us (void)
@@ -33,7 +33,7 @@ ping_send4 (void *_pctx)
     uint32_t     i;
     uint16_t     seq;
     pkt_size_t   ps;
-    pkt_block_t *pkt_block;
+    struct rte_mbuf *mbuf;
     struct timespec abs_timeout;
     char dst_addr_str[48];
     char src_addr_str[48];
@@ -50,12 +50,12 @@ ping_send4 (void *_pctx)
 
         seq = pctx->seq_no;
 
-        pkt_block = dp_pkt_block_get_new_pkt_buffer  (dp_ctx,
+        mbuf = dp_pkt_mbuf_get_new  (dp_ctx,
                         sizeof (ip_hdr_t) +
                         sizeof (icmp_hdr_t) +
                         PING_PAYLOAD_LEN);
 
-        ip_hdr_t *ip_hdr  = (ip_hdr_t *)pkt_block_get_pkt (pkt_block, &ps);
+        ip_hdr_t *ip_hdr  = (ip_hdr_t *)pkt_mbuf_get_pkt (mbuf, &ps);
 
         /* Prepare IPv4 header and send using dp_send_ip_data */
 
@@ -117,7 +117,7 @@ ping_send4 (void *_pctx)
 
         icmp_hdr->checksum = icmp_checksum (icmp_hdr, sizeof (icmp_hdr_t) + PING_PAYLOAD_LEN);
         
-        pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IP_IN_IP);
+        pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
         
         /* Timestamp before handing off to the DP so RTT includes queuing time */
         pctx->send_time[seq % PING_MAX_SEQ] = ping_get_time_us ();
@@ -133,9 +133,9 @@ ping_send4 (void *_pctx)
         cprintf ("\nPING %s --> %s\n", src_addr_str, dst_addr_str);
         refresh();
         
-        dp_send_ip_data(pctx->dp_ctx, vrf, pkt_block );
+        dp_send_ip_data(pctx->dp_ctx, vrf, mbuf );
 
-        pkt_block_dereference (pkt_block);
+        pkt_mbuf_dereference (mbuf);
 
         pctx->sent++;
         pctx->seq_no++;
@@ -204,14 +204,14 @@ icmp_time_exceeded_str (uint8_t code)
 }
 
 void
-ping_echo_reply_recvd (ping_ctx_t *pctx, pkt_block_t *pkt_block)
+ping_echo_reply_recvd (ping_ctx_t *pctx, struct rte_mbuf *mbuf)
 {
     ip_hdr_t   *ip_hdr;
     icmp_hdr_t *icmp_hdr;
     uint16_t    seq;
     byte        src_str[IPV4_ADDR_LEN_STR];
 
-    ip_hdr   = pkt_block_get_ip_hdr (pkt_block);
+    ip_hdr   = pkt_mbuf_get_ip_hdr (mbuf);
     icmp_hdr = (icmp_hdr_t *)INCREMENT_IPHDR (ip_hdr);
 
     tcp_ip_covert_ip_n_to_p (ntohl (ip_hdr->src_ip), src_str);

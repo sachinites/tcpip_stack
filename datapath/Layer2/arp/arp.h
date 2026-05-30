@@ -22,7 +22,7 @@
 #include "../../../libs/gluethread/glthread.h"
 #include "../../../tcpconst.h"
 
-typedef struct pkt_block_ pkt_block_t;
+typedef struct rte_mbuf pkt_mbuf_t;
 typedef struct arp_hdr_ arp_hdr_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_vrf_ dp_vrf_t;
@@ -57,7 +57,7 @@ struct arp_pending_entry_{
 
     glthread_t arp_pending_entry_glue;
     arp_processing_fn cb;
-    pkt_block_t *pkt_block;
+    struct rte_mbuf *mbuf;
 };
 
 GLTHREAD_TO_STRUCT(arp_pending_entry_glue_to_arp_pending_entry, \
@@ -156,14 +156,14 @@ void
 add_arp_pending_entry (dp_ctx_t *dp_ctx,
         arp_entry_t *arp_entry,
         arp_processing_fn cb,
-        pkt_block_t *pkt_block);
+        struct rte_mbuf *mbuf);
 
 void
 create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
 					  arp_table_t *arp_table,
                       uint32_t ip_addr, 
-					  pkt_block_t *pkt_block);
+					  struct rte_mbuf *mbuf);
 
 static bool 
 arp_entry_sane(arp_entry_t *arp_entry){

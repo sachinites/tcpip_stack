@@ -4,7 +4,6 @@
 #include "../layer3.h"
 #include "../../Interface/InterfaceUApi.h"
 #include "../../tcpip_notif.h"
-#include "../../libs/pkt-block/pkt_block.h"
 #include "../../tcpconst.h"
 #include "../../libs/Tracer/tracer.h"
 #include "../../vrf/vrf.h"

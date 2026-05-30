@@ -3,7 +3,7 @@
 #include "../../Interface/dp_intf.h"
 #include "../../Interface/dp_intf_store.h"
 #include "../../Vrfs/dp_vrf.h"
-#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/pkt-block/pkt_mbuf.h"
 #include "../../../libs/common/l2_hdrs.h"
 #include "ipv4-l2fwd.h"
 #include "../arp/arp.h"
@@ -15,13 +15,13 @@ extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface, 
-                      pkt_block_t *pkt_block);
+                      struct rte_mbuf *mbuf);
 
 extern void
 cp_punt_pkt_from_layer2_to_layer5(
 					  void *node,
 					  uint32_t recv_intf_ifindex,
-        			  pkt_block_t *pkt_block,
+        			  struct rte_mbuf *mbuf,
 					  gen_proto_id_t hdr_code);
                   
 static void
@@ -29,7 +29,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
                      dp_vrf_t *vrf,
                      uint32_t next_hop_ip,
                      dp_intf_t *oif,
-                     pkt_block_t *pkt_block)
+                     struct rte_mbuf *mbuf)
 {
 
     pkt_size_t pkt_size;
@@ -37,7 +37,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
     arp_entry_t * arp_entry = NULL;
     byte next_hop_ip_str[IPV4_ADDR_LEN_STR];
 
-    ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
     
     pkt_size_t ethernet_payload_size = 
         pkt_size - sizeof(ethernet_hdr_t) - ETH_FCS_SIZE;
@@ -49,7 +49,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         layer2_fill_with_broadcast_mac (ethernet_hdr->dst_mac.mac);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        dp_send_pkt_out(dp_ctx, oif, pkt_block);
+        dp_send_pkt_out(dp_ctx, oif, mbuf);
         return;
     }
 
@@ -65,14 +65,14 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         if (!arp_entry) {
 
             /*Time for ARP resolution*/
-            create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table,  next_hop_ip,  pkt_block);
+            create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table,  next_hop_ip,  mbuf);
             send_arp_broadcast_request(dp_ctx, vrf, oif, next_hop_ip);
             return;
         }
 
         else if (arp_entry_sane(arp_entry)) {
 
-            create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table,  next_hop_ip, pkt_block);
+            create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table,  next_hop_ip, mbuf);
              return;
         }
 
@@ -106,7 +106,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         memset(ethernet_hdr->src_mac.mac, 0, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->dst_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        dp_pkt_entry_point(dp_ctx,oif->vrf, oif, pkt_block);
+        dp_pkt_entry_point(dp_ctx,oif->vrf, oif, mbuf);
         return;
     }
 
@@ -114,10 +114,10 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
      * rebounce the pkt to Network Layer again*/
     if(next_hop_ip == dp_ctx->rtr_id) {
 
-        pkt_block_slide(pkt_block, -1, 1, (uint16_t)sizeof(ethernet_hdr_t));
-        pkt_block_slide(pkt_block, 1, -1, ETH_FCS_SIZE);
-        pkt_block_update_new_hdr_type (pkt_block, IP_PROTO_IP_IN_IP);
-        dp_promote_pkt_to_layer3(dp_ctx, vrf, 0, pkt_block);
+        pkt_mbuf_slide(mbuf, -1, 1, (uint16_t)sizeof(ethernet_hdr_t));
+        pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
+        pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_IP_IN_IP);
+        dp_promote_pkt_to_layer3(dp_ctx, vrf, 0, mbuf);
         return;
     }
 
@@ -128,7 +128,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         /*Time for ARP resolution*/
         create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table, 
                 next_hop_ip, 
-                pkt_block);
+                mbuf);
         send_arp_broadcast_request(dp_ctx, vrf, oif, next_hop_ip);
         return;
     }
@@ -137,7 +137,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        dp_send_pkt_out(dp_ctx, oif, pkt_block);
+        dp_send_pkt_out(dp_ctx, oif, mbuf);
 		arp_entry_refresh_expiration_timer(arp_entry);
     }
 
@@ -150,14 +150,14 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                           dp_vrf_t *vrf,
                           uint32_t next_hop_ip,
                           dp_intf_t *oif,
-                          pkt_block_t *pkt_block,
+                          struct rte_mbuf *mbuf,
                           gen_proto_id_t hdr_type)
 {
 
-    tcp_ip_expand_buffer_ethernet_hdr(pkt_block);
+    pkt_mbuf_tcp_ip_expand_buffer_ethernet_hdr(mbuf);
 
     ethernet_hdr_t *empty_ethernet_hdr =
-        (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, NULL);
+        (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, NULL);
 
     switch (hdr_type) {
         case IP_PROTO_IP_IN_IP:
@@ -174,7 +174,7 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                          vrf,
                          next_hop_ip,
                          oif,
-                         pkt_block);
+                         mbuf);
 }
 
 /*Vlan Management Routines*/
@@ -182,13 +182,13 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
 /* Return new packet size if pkt is tagged with new vlan id*/
 void
 tag_pkt_with_vlan_id (
-                     pkt_block_t *pkt_block,
+                     struct rte_mbuf *mbuf,
                      int vlan_id ) {
 
     pkt_size_t total_pkt_size;
 
     ethernet_hdr_t *ethernet_hdr = 
-        ( ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &total_pkt_size);
+        ( ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &total_pkt_size);
 
     uint32_t payload_size  = 0 ;
 
@@ -212,10 +212,10 @@ tag_pkt_with_vlan_id (
     payload_size = total_pkt_size - sizeof (ethernet_hdr_t) - ETH_FCS_SIZE;
 
     /* Create room for 802.1Q vlan hdr*/
-    pkt_block_slide(pkt_block, -1, -1, (uint16_t)sizeof(vlan_8021q_hdr_t));
+    pkt_mbuf_slide(mbuf, -1, -1, (uint16_t)sizeof(vlan_8021q_hdr_t));
 
     vlan_ethernet_hdr_t *vlan_ethernet_hdr = 
-            (vlan_ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &total_pkt_size);
+            (vlan_ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &total_pkt_size);
 
     memset((char *)vlan_ethernet_hdr, 0, sizeof (vlan_ethernet_hdr_t));
     memcpy(vlan_ethernet_hdr->dst_mac.mac, 
@@ -239,13 +239,13 @@ tag_pkt_with_vlan_id (
 /* Return new packet size if pkt is untagged with the existing
  * vlan 801.1q hdr*/
 void
-untag_pkt_with_vlan_id(pkt_block_t *pkt_block) {
+untag_pkt_with_vlan_id(struct rte_mbuf *mbuf) {
 
     pkt_size_t pkt_size;
     vlan_ethernet_hdr_t vlan_ethernet_hdr_old;
 
     ethernet_hdr_t *ethernet_hdr = 
-        (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+        (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     vlan_8021q_hdr_t *vlan_8021q_hdr =
         is_pkt_vlan_tagged(ethernet_hdr);
@@ -260,9 +260,9 @@ untag_pkt_with_vlan_id(pkt_block_t *pkt_block) {
            (char *)ethernet_hdr, 
             sizeof(vlan_ethernet_hdr_t));
 
-    pkt_block_slide(pkt_block, -1, 1, (uint16_t)sizeof(vlan_8021q_hdr_t));
+    pkt_mbuf_slide(mbuf, -1, 1, (uint16_t)sizeof(vlan_8021q_hdr_t));
 
-    ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
    
     memcpy(ethernet_hdr->dst_mac.mac, vlan_ethernet_hdr_old.dst_mac.mac, MAC_ADDR_SIZE);
     memcpy(ethernet_hdr->src_mac.mac, vlan_ethernet_hdr_old.src_mac.mac, MAC_ADDR_SIZE);
@@ -280,16 +280,16 @@ void
 promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                     dp_vrf_t *vrf,
                     dp_intf_t *iif, 
-                    pkt_block_t *pkt_block) {
+                    struct rte_mbuf *mbuf) {
 
     bool is_vlan_tagged;
     uint16_t eth_type;
     pkt_size_t pkt_size;
 
-    assert(pkt_block_verify_pkt(pkt_block, ETHERNET_HEADER));
+    assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
 
     ethernet_hdr_t *ethernet_hdr = 
-        (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+        (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     is_vlan_tagged = is_pkt_vlan_tagged(ethernet_hdr );
 
@@ -297,7 +297,7 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
     cp_punt_pkt_from_layer2_to_layer5(
                     dp_ctx->ctx_pvt_data, 
                     iif->port_id, 
-                    pkt_block,
+                    mbuf,
                     ETHERNET_HEADER);
 
     eth_type = ntohs(ethernet_hdr->type);
@@ -326,28 +326,28 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
         case ETH_TYPE_IPv4:
 
             /* Strip the ethernet header to expose the IP payload. */
-            pkt_block_slide(pkt_block, -1, 1, 
+            pkt_mbuf_slide(mbuf, -1, 1, 
                     is_vlan_tagged ? (uint16_t)sizeof(vlan_ethernet_hdr_t) : \
                     (uint16_t)sizeof(ethernet_hdr_t));
 
-            pkt_block_slide(pkt_block, 1, -1, ETH_FCS_SIZE);
-            pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IP_IN_IP);
+            pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
+            pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
             dp_promote_pkt_to_layer3(
                     dp_ctx,
                     vrf, iif, 
-                    pkt_block);
+                    mbuf);
             break;
 
         case ETH_TYPE_IPv6:
-            pkt_block_slide(pkt_block, -1, 1, 
+            pkt_mbuf_slide(mbuf, -1, 1, 
                     is_vlan_tagged ? (uint16_t)sizeof(vlan_ethernet_hdr_t) : \
                     (uint16_t)sizeof(ethernet_hdr_t));
-            pkt_block_slide(pkt_block, 1, -1, ETH_FCS_SIZE);
-            pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IPv6);
+            pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
+            pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IPv6);
             dp_promote_pkt_to_layer3(
                     dp_ctx,
                     vrf, iif, 
-                    pkt_block);
+                    mbuf);
             break;
 
         default: ;
@@ -358,7 +358,7 @@ bool
 l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
                                     dp_vrf_t *vrf,
                                     dp_intf_t *interface, 
-                                    pkt_block_t *pkt_block,
+                                    struct rte_mbuf *mbuf,
                                     uint16_t *output_vlan_id){
 
     pkt_size_t pkt_size;
@@ -366,7 +366,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
 
     *output_vlan_id = 0;
 
-    ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     vlan_8021q_hdr_t *vlan_8021q_hdr = 
                         is_pkt_vlan_tagged(ethernet_hdr);
@@ -380,14 +380,14 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
 
     tracer (dp_ctx->dptr, DL2FWD | DFLOW, 
         "Pkt : %s received on interface %s being tested for "
-        "RECV-Qualification test\n", pkt_block_str(pkt_block), interface->if_name);
+        "RECV-Qualification test\n", pkt_mbuf_str(mbuf), interface->if_name);
 
     if (!interface->ip_addr &&
             !interface->switchport) {
 
         tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
             "failed RECV-Qualification test : Interface is neither L3 interface or L2 switchport\n",
-            pkt_block_str(pkt_block), interface->if_name);
+            pkt_mbuf_str(mbuf), interface->if_name);
 
         return false;
     }
@@ -407,7 +407,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
                 "Pkt : %s received on interface %s "
                 "failed RECV-Qualification test : Tagged pkt "
                 "recvd on Access interface not operating in any vlan\n",
-                pkt_block_str(pkt_block), interface->if_name);
+                pkt_mbuf_str(mbuf), interface->if_name);
             return false;   /*case 4*/
         }
     }
@@ -444,7 +444,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
                 "Pkt : %s received on interface %s "
                 "failed RECV-Qualification test : Vlan Mismatch, "
                 "802.1Q vlan  %d != Interface vlan %d\n", 
-                pkt_block_str(pkt_block), interface->if_name,  
+                pkt_mbuf_str(mbuf), interface->if_name,  
                 pkt_vlan_id, intf_vlan_id);
             return false;   /*case 5*/
         }
@@ -461,7 +461,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
                 "Pkt : %s received on interface %s "
                 "failed RECV-Qualification test : Untagged "
                 "pkt recvd on Trunk Interface\n", 
-                pkt_block_str(pkt_block), interface->if_name);
+                pkt_mbuf_str(mbuf), interface->if_name);
             return false;
         }
     }
@@ -482,7 +482,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
                 "Pkt : %s received on interface %s "
                 "failed RECV-Qualification test : Trunk Interface is "
                 "not configured with Pkt vlan %d\n", 
-                pkt_block_str(pkt_block), interface->if_name,  pkt_vlan_id);
+                pkt_mbuf_str(mbuf), interface->if_name,  pkt_vlan_id);
             return false;   /*case 9*/
         }
     }
@@ -503,7 +503,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
         tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s received on interface %s "
             "failed RECV-Qualification test : Vlan tagged pkt recvd on L3 interface\n", 
-            pkt_block_str(pkt_block), interface->if_name);
+            pkt_mbuf_str(mbuf), interface->if_name);
         return false;
     }
 
@@ -528,7 +528,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
     tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
         "Pkt : %s received on interface %s "
         "failed RECV-Qualification test : Unknown Reason\n", 
-        pkt_block_str(pkt_block), interface->if_name);    
+        pkt_mbuf_str(mbuf), interface->if_name);    
 
     interface->recvd_pkt_dropped++;
     return false;
@@ -536,7 +536,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
 
 bool 
 is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx,
-                              pkt_block_t *pkt_block)
+                              struct rte_mbuf *mbuf)
 {
     uint16_t proto;
     pkt_size_t pkt_size;
@@ -547,7 +547,7 @@ is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx,
     ethernet_hdr_t *ethernet_hdr = NULL;
     vlan_ethernet_hdr_t *vlan_eth_hdr = NULL;
 
-    ethernet_hdr = (ethernet_hdr_t *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     if (is_pkt_vlan_tagged(ethernet_hdr)) {
         vlan_eth_hdr = (vlan_ethernet_hdr_t *)ethernet_hdr;
@@ -576,17 +576,17 @@ is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx,
 bool
 svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
                                 dp_vrf_t *vrf,
-                                pkt_block_t *pkt_block) {
+                                struct rte_mbuf *mbuf) {
 
     uint16_t l3_proto;
     pkt_size_t pkt_size;
     
     vlan_ethernet_hdr_t *vlan_eth_hdr;
-    dp_intf_t *interface = pkt_block_get_ingress_intf(pkt_block);
+    dp_intf_t *interface = pkt_mbuf_get_ingress_intf(mbuf);
     
-    assert(pkt_block_verify_pkt(pkt_block, ETHERNET_HEADER));
+    assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
 
-    vlan_eth_hdr = ( vlan_ethernet_hdr_t  *)pkt_block_get_pkt(pkt_block, &pkt_size);
+    vlan_eth_hdr = ( vlan_ethernet_hdr_t  *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
     uint16_t pkt_vlan_id = GET_802_1Q_VLAN_ID(&vlan_eth_hdr->vlan_8021q_hdr);
     l3_proto = ntohs(vlan_eth_hdr->type);
 
@@ -607,7 +607,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
         tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s recvd on switchport %s which is neither "
             "in Access nor in Trunk mode, Pkt Dropped\n",
-            pkt_block_str(pkt_block), interface->if_name);
+            pkt_mbuf_str(mbuf), interface->if_name);
         return true;
     }
 
@@ -616,7 +616,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
          * the interface is not operating in any vlan*/
         tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s recvd on switchport %s which is not bound to any vlan, pkt Dropped\n",
-            pkt_block_str(pkt_block), interface->if_name);
+            pkt_mbuf_str(mbuf), interface->if_name);
         return true;
     }
 
@@ -641,7 +641,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     tracer(dp_ctx->dptr, DL2FWD | DFLOW,
            "Pkt : %s recvd on SVI interface %s is ARP Broadcast "
            "request for SVI IP, Sending ARP reply\n",
-           pkt_block_str(pkt_block), vlan_intf->if_name);
+           pkt_mbuf_str(mbuf), vlan_intf->if_name);
 
     /* Overhead ARP Boradcast pkt and update ARP cache */
     arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table,
@@ -654,10 +654,10 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
                                     ETH_FCS_SIZE +
                                     (pkt_size_t)sizeof(arp_hdr_t);
 
-    pkt_block_t *pkt_block2 = dp_pkt_block_get_new_pkt_buffer(dp_ctx, arp_reply_pkt_size);
+    struct rte_mbuf *mbuf2 = dp_pkt_mbuf_get_new(dp_ctx, arp_reply_pkt_size);
 
     vlan_ethernet_hdr_t *vlan_ethernet_hdr_reply =
-        (vlan_ethernet_hdr_t *)pkt_block_get_pkt(pkt_block2, 0);
+        (vlan_ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf2, 0);
 
     vlan_ethernet_hdr_reply->vlan_8021q_hdr.tpid = htons(ETH_TYPE_VLAN_8021Q);
     vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci  = MAKE_TCI(0, 0, pkt_vlan_id);
@@ -666,7 +666,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
                              &arp_hdr_in->src_mac, ntohl(arp_hdr_in->src_ip),
                              &vlan_intf->mac_add, svi_ip_addr);
 
-    pkt_block_update_new_hdr_type(pkt_block2, ETHERNET_HEADER);
+    pkt_mbuf_update_new_hdr_type(mbuf2, ETHERNET_HEADER);
 
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(
         (ethernet_hdr_t *)vlan_ethernet_hdr_reply));
@@ -682,7 +682,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
            arp_hdr_reply->dst_mac.mac[5],
            interface->if_name);
 
-    dp_send_pkt_out(dp_ctx, interface, pkt_block2);
-    pkt_block_dereference(pkt_block2);
+    dp_send_pkt_out(dp_ctx, interface, mbuf2);
+    pkt_mbuf_dereference(mbuf2);
     return true;
 }

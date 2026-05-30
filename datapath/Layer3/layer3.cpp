@@ -2,7 +2,7 @@
 
 #include "layer3.h"
 #include "../../tcpconst.h"
-#include "../../libs/pkt-block/pkt_block.h"
+#include "../../libs/pkt-block/pkt_mbuf.h"
 
 #include "../../libs/common/l2_hdrs.h"
 #include "../../libs/Tracer/tracer.h"
@@ -15,18 +15,18 @@ extern void
 layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,
                       dp_intf_t *interface,
-                      pkt_block_t *pkt_block,
+                      struct rte_mbuf *mbuf,
                       fib_nh_t *nh);
 
 static void
 _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
                              dp_vrf_t *vrf,
                              dp_intf_t *interface,
-                             pkt_block_t *pkt_block) {
+                             struct rte_mbuf *mbuf) {
 
     pkt_size_t pkt_size;
     char ip_addr_str[IPV4_ADDR_LEN_STR];
-    gen_proto_id_t hdr_type = pkt_block_get_starting_hdr (pkt_block);
+    gen_proto_id_t hdr_type = pkt_mbuf_get_starting_hdr (mbuf);
 
     switch(hdr_type){
         
@@ -35,9 +35,9 @@ _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
             tracer (dp_ctx->dptr, DL3FWD, 
                 "VRF:%s: Dest : %s :  Pkt Arrived in L3-land from Layer 2\n",
 	            vrf->vrf_name,
-                pkt_ip(pkt_block, ip_addr_str));
+                pkt_mbuf_ip(mbuf, ip_addr_str));
 
-            layer3_ip_route_pkt(dp_ctx, vrf, interface, pkt_block);
+            layer3_ip_route_pkt(dp_ctx, vrf, interface, mbuf);
             break;
 
 
@@ -45,8 +45,8 @@ _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
 
             tracer (dp_ctx->dptr, DL3FWD, 
                 "VRF:%s: Dest : %s :  V6Pkt Arrived in L3-land from Layer 2\n",
-	            vrf->vrf_name, pkt_block_str(pkt_block));
-            layer3_ipv6_route_pkt(dp_ctx, vrf, interface, pkt_block, NULL);            
+	            vrf->vrf_name, pkt_mbuf_str(mbuf));
+            layer3_ipv6_route_pkt(dp_ctx, vrf, interface, mbuf, NULL);            
             break;
 
         default:
@@ -60,8 +60,8 @@ _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
 void dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                               dp_vrf_t *vrf,        /*Current node on which the pkt is received*/
                               dp_intf_t *interface, /*ingress interface*/
-                              pkt_block_t *pkt_block)
+                              struct rte_mbuf *mbuf)
 { 
 
-    _layer3_pkt_recv_from_layer2(dp_ctx, vrf, interface, pkt_block);
+    _layer3_pkt_recv_from_layer2(dp_ctx, vrf, interface, mbuf);
 }

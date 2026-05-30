@@ -61,10 +61,10 @@ dp_intf_get_dpdk_port_id (dp_intf_t *dp_intf) {
 }
 
 /* Wrapper Function for Data path to allocate memory buffers for packets */
-pkt_block_t *
-dp_pkt_block_copy_and_wrap_raw_pkt_copy (dp_ctx_t *dp_ctx, uint8_t *pkt, uint16_t pkt_size);
+struct rte_mbuf *
+dp_pkt_mbuf_copy_and_wrap_raw_pkt_copy (dp_ctx_t *dp_ctx, uint8_t *pkt, uint16_t pkt_size);
 
-pkt_block_t *
-dp_pkt_block_get_new_pkt_buffer (dp_ctx_t *dp_ctx, uint16_t pkt_size);
+struct rte_mbuf *
+dp_pkt_mbuf_get_new (dp_ctx_t *dp_ctx, uint16_t pkt_size);
 
 #endif /* __DP_UTILS__ */

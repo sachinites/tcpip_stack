@@ -23,7 +23,7 @@
 #include "../../Layer3/layer3.h"
 #include "../../Layer3/ipv6/ipv6-fwd.h"
 #include "../../../router_init.h"
-#include "../../../libs/pkt-block/pkt_block.h"
+#include "../../../libs/pkt-block/pkt_mbuf.h"
 #include "../../../libs/Tracer/tracer.h"
 #include "../../../Interface/InterfaceUApi.h"
 #include "srv6-end-behavior.h"
@@ -42,14 +42,14 @@ ipv6_layer3_forward_nexthop(
     dp_ctx_t *dp_ctx,
     dp_vrf_t *vrf,
     fib_nh_t *nexthop, 
-    pkt_block_t *pkt_block);
+    struct rte_mbuf *mbuf);
 
 /* Promote packet to Layer 4 for upper layer protocol processing */
 extern void
 dp2cp_punt_pkt_to_layer4(
     void *node,
     Interface *recv_intf,
-    pkt_block_t *pkt_block,
+    struct rte_mbuf *mbuf,
     int L4_protocol_number);
 
 /* Demote packet to Layer 2 for link-layer forwarding */
@@ -59,17 +59,17 @@ dp_demote_pkt_to_layer2(
     dp_vrf_t *vrf,
     uint32_t next_hop_ip,
     dp_intf_t *outgoing_intf,
-    pkt_block_t *pkt_block,
+    struct rte_mbuf *mbuf,
     gen_proto_id_t hdr_type);
 
 extern void
 layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     dp_vrf_t *vrf,
 					dp_intf_t *interface,
-					pkt_block_t *pkt_block);
+					struct rte_mbuf *mbuf);
 
 extern void 
-dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, pkt_block_t *pkt_block) ;
+dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf) ;
 
 
 /* ============================================================================
@@ -137,19 +137,19 @@ srv6_srh_get_destination_segment(srh_hdr_t *srh) {
  *   - USP: Removes SRH if present, preserving IPv6 header
  *   - USD: Removes both IPv6 header and SRH, exposing inner packet
  */
-pkt_block_t *
+struct rte_mbuf *
 Srv6_apply_flavor(
                 dp_ctx_t *dp_ctx,
                 dp_vrf_t *vrf,
-                pkt_block_t *orig_pkt,
+                struct rte_mbuf *orig_pkt,
                 uint8_t flavor)
 {
-    assert(pkt_block_verify_pkt(orig_pkt, ETH_TYPE_IPv6));
+    assert(pkt_mbuf_verify_pkt(orig_pkt, ETH_TYPE_IPv6));
 
     /* PSP (Penultimate Segment Pop) Flavor Processing */
     if (flavor & PSP) {
         pkt_size_t pkt_size = 0;
-        byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
+        byte *pkt = pkt_mbuf_get_pkt(orig_pkt, &pkt_size);
         ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
         ipv6_hdr_t ipv6_hdr_copy;
         
@@ -167,13 +167,13 @@ Srv6_apply_flavor(
         
         /* Remove IPv6 and SRH headers, keep only payload */
         uint16_t strip = (uint16_t)(sizeof(ipv6_hdr_t) + srh->hdrlen);
-        pkt_block_slide(orig_pkt, -1, 1, strip);
+        pkt_mbuf_slide(orig_pkt, -1, 1, strip);
         
         /* Add modified IPv6 header back */
-        pkt_block_expand_buffer_left(orig_pkt, sizeof(ipv6_hdr_t));
-        pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
+        pkt_mbuf_expand_buffer_left(orig_pkt, sizeof(ipv6_hdr_t));
+        pkt = pkt_mbuf_get_pkt(orig_pkt, &pkt_size);
         memcpy(pkt, &ipv6_hdr_copy, sizeof(ipv6_hdr_t));
-        pkt_block_update_new_hdr_type(orig_pkt, IP_PROTO_IPv6);
+        pkt_mbuf_update_new_hdr_type(orig_pkt, IP_PROTO_IPv6);
         
         return orig_pkt;
     }
@@ -181,7 +181,7 @@ Srv6_apply_flavor(
     /* USP (Ultimate Segment Pop) Flavor Processing */
     if (flavor & USP) {
         pkt_size_t pkt_size = 0;
-        byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
+        byte *pkt = pkt_mbuf_get_pkt(orig_pkt, &pkt_size);
         ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
         
         /* Only process if SRH is present */
@@ -198,16 +198,16 @@ Srv6_apply_flavor(
         uint8_t  srh_hdrlen  = srh->hdrlen;
         
         /* Remove IPv6 and SRH headers, keep only payload */
-        pkt_block_slide(orig_pkt, -1, 1,
+        pkt_mbuf_slide(orig_pkt, -1, 1,
                         (uint16_t)(sizeof(ipv6_hdr_t) + srh_hdrlen));
         
         /* Add IPv6 header back with updated next_header field */
-        pkt_block_expand_buffer_left(orig_pkt, sizeof(ipv6_hdr_t));
-        pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
+        pkt_mbuf_expand_buffer_left(orig_pkt, sizeof(ipv6_hdr_t));
+        pkt = pkt_mbuf_get_pkt(orig_pkt, &pkt_size);
         ipv6_hdr_copy.next_header = srh_next_hdr;
         ipv6_hdr_copy.payload_length -= srh_hdrlen;
         memcpy(pkt, &ipv6_hdr_copy, sizeof(ipv6_hdr_t));
-        pkt_block_update_new_hdr_type(orig_pkt, IP_PROTO_IPv6);
+        pkt_mbuf_update_new_hdr_type(orig_pkt, IP_PROTO_IPv6);
         
         return orig_pkt;
     }
@@ -215,15 +215,15 @@ Srv6_apply_flavor(
     /* USD (Ultimate Segment Decapsulation) Flavor Processing */
     if (flavor & USD) {
         pkt_size_t pkt_size = 0;
-        byte *pkt = pkt_block_get_pkt(orig_pkt, &pkt_size);
+        byte *pkt = pkt_mbuf_get_pkt(orig_pkt, &pkt_size);
         ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
         srh_hdr_t *srh = (srh_hdr_t *)(pkt + sizeof(ipv6_hdr_t));
         uint16_t srh_next_hdr = srh->nexthdr;
         uint16_t strip = (uint16_t)(sizeof(ipv6_hdr_t) + srh->hdrlen);
         
         /* Remove outer IPv6 and SRH headers completely */
-        pkt_block_slide(orig_pkt, -1, 1, strip);
-        pkt_block_update_new_hdr_type(orig_pkt, srh_next_hdr);
+        pkt_mbuf_slide(orig_pkt, -1, 1, strip);
+        pkt_mbuf_update_new_hdr_type(orig_pkt, srh_next_hdr);
         
         return orig_pkt;
     }
@@ -246,7 +246,7 @@ Srv6_apply_flavor(
  * 
  * Parameters:
  *   @node:       Pointer to the node performing decapsulation
- *   @pkt_block:  Packet block to be decapsulated
+ *   @mbuf:  Packet block to be decapsulated
  * 
  * Processing:
  *   1. Verify packet starts with IPv6 header
@@ -255,21 +255,21 @@ Srv6_apply_flavor(
  *   4. Update packet header type to reflect the exposed payload
  */
 void 
-Srv6_decapsulate(pkt_block_t *pkt_block) {
+Srv6_decapsulate(struct rte_mbuf *mbuf) {
     
     pkt_size_t pkt_size = 0;
     
     /* Only process IPv6 packets */
-    assert (pkt_block_get_starting_hdr(pkt_block) == IP_PROTO_IPv6);
+    assert (pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_IPv6);
     
-    byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    byte *pkt = pkt_mbuf_get_pkt(mbuf, &pkt_size);
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
     
     /* Case 1: No SRH present - remove only IPv6 header */
     if (ipv6_hdr->next_header != IP_PROTO_SRH) {
         gen_proto_id_t next = (gen_proto_id_t)ipv6_hdr->next_header;
-        pkt_block_slide(pkt_block, -1, 1, (uint16_t)sizeof(ipv6_hdr_t));
-        pkt_block_update_new_hdr_type(pkt_block, next);
+        pkt_mbuf_slide(mbuf, -1, 1, (uint16_t)sizeof(ipv6_hdr_t));
+        pkt_mbuf_update_new_hdr_type(mbuf, next);
         return;
     }
     
@@ -277,9 +277,9 @@ Srv6_decapsulate(pkt_block_t *pkt_block) {
     srh_hdr_t *srh = (srh_hdr_t *)(ipv6_hdr + 1);
     gen_proto_id_t srh_next = (gen_proto_id_t)srh->nexthdr;
     uint16_t strip = (uint16_t)(sizeof(ipv6_hdr_t) + srh->hdrlen);
-    pkt_block_slide(pkt_block, -1, 1, strip);
+    pkt_mbuf_slide(mbuf, -1, 1, strip);
     
-    pkt_block_update_new_hdr_type(pkt_block, srh_next);
+    pkt_mbuf_update_new_hdr_type(mbuf, srh_next);
 }
 
 /**
@@ -311,7 +311,7 @@ Srv6_copy_current_sid_to_DA(srh_hdr_t *srh, ipv6_hdr_t *ipv6_hdr) {
  * 
  * Parameters:
  *   @node:       Pointer to the node processing the packet
- *   @pkt_block:  Packet block containing the decapsulated payload
+ *   @mbuf:  Packet block containing the decapsulated payload
  * 
  * Processing:
  *   Examines the inner header type and routes the packet to:
@@ -323,21 +323,21 @@ Srv6_copy_current_sid_to_DA(srh_hdr_t *srh, ipv6_hdr_t *ipv6_hdr) {
 void 
 ipv6_process_v6_payload(dp_ctx_t *dp_ctx, 
                         dp_vrf_t *vrf, 
-                        pkt_block_t *pkt_block) {
+                        struct rte_mbuf *mbuf) {
 
-    gen_proto_id_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
+    gen_proto_id_t hdr_type = pkt_mbuf_get_starting_hdr(mbuf);
 
     /* Re-inject the packet into the appropriate data path pipeline */
     switch (hdr_type) {
         
         case IP_PROTO_IP_IN_IP:
             /* Inner packet is IPv4 - route it */
-            layer3_ip_route_pkt(dp_ctx, vrf,  NULL, pkt_block);
+            layer3_ip_route_pkt(dp_ctx, vrf,  NULL, mbuf);
             return;
             
         case IP_PROTO_IPv6:
             /* Inner packet is IPv6 - route it */
-            layer3_ipv6_route_pkt(dp_ctx, vrf,  NULL, pkt_block, NULL);
+            layer3_ipv6_route_pkt(dp_ctx, vrf,  NULL, mbuf, NULL);
             return;
             
         case IP_PROTO_ICMPv6:
@@ -347,12 +347,12 @@ ipv6_process_v6_payload(dp_ctx_t *dp_ctx,
             
         case IP_PROTO_TCP:
             /* Promote to Layer 4 TCP processing */
-            dp2cp_punt_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, IP_PROTO_TCP);
+            dp2cp_punt_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, mbuf, IP_PROTO_TCP);
             return;
             
         case IP_PROTO_UDP:
             /* Promote to Layer 4 UDP processing */
-            dp2cp_punt_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, pkt_block, IP_PROTO_UDP);
+            dp2cp_punt_pkt_to_layer4(dp_ctx->ctx_pvt_data, NULL, mbuf, IP_PROTO_UDP);
             return;
             
         case IP_PROTO_GRE:
@@ -433,7 +433,7 @@ srh_hdr_prepare(ipv6_addr_t *segment_lst, uint8_t n) {
  *   inserting a packet into an SRv6 segment routing path.
  * 
  * Parameters:
- *   @pkt_block: Packet block to encapsulate
+ *   @mbuf: Packet block to encapsulate
  *   @srh:       Pre-prepared Segment Routing Header
  * 
  * Processing Steps:
@@ -451,24 +451,24 @@ srh_hdr_prepare(ipv6_addr_t *segment_lst, uint8_t n) {
  *   Destination address is set to the first segment to be processed.
  */
 void 
-Srv6_encapsulate(pkt_block_t *pkt_block, srh_hdr_t *srh) {
+Srv6_encapsulate(struct rte_mbuf *mbuf, srh_hdr_t *srh) {
 
     pkt_size_t pkt_size = 0;
 
     /* Step 1: Add SRH header first */
-    gen_proto_id_t hdr_type = pkt_block_get_starting_hdr(pkt_block);
-    pkt_block_expand_buffer_left(pkt_block, srh->hdrlen);
-    byte *pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    gen_proto_id_t hdr_type = pkt_mbuf_get_starting_hdr(mbuf);
+    pkt_mbuf_expand_buffer_left(mbuf, srh->hdrlen);
+    byte *pkt = pkt_mbuf_get_pkt(mbuf, &pkt_size);
     memcpy(pkt, srh, srh->hdrlen);
     
     /* Update SRH's next_header to point to the encapsulated packet type */
     srh_hdr_t *new_srh = (srh_hdr_t *)pkt;
     new_srh->nexthdr = (uint8_t)hdr_type;
-    pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_SRH);
+    pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_SRH);
 
     /* Step 2: Add IPv6 header */
-    pkt_block_expand_buffer_left(pkt_block, sizeof(ipv6_hdr_t));
-    pkt = pkt_block_get_pkt(pkt_block, &pkt_size);
+    pkt_mbuf_expand_buffer_left(mbuf, sizeof(ipv6_hdr_t));
+    pkt = pkt_mbuf_get_pkt(mbuf, &pkt_size);
     ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
     
     /* Initialize IPv6 header with default values */
@@ -487,7 +487,7 @@ Srv6_encapsulate(pkt_block_t *pkt_block, srh_hdr_t *srh) {
            16);
 
     /* Update packet header type to indicate IPv6 packet */
-    pkt_block_update_new_hdr_type(pkt_block, IP_PROTO_IPv6);
+    pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IPv6);
 }
 
 
@@ -514,7 +514,7 @@ Srv6_encapsulate(pkt_block_t *pkt_block, srh_hdr_t *srh) {
  * 
  * Parameters:
  *   @node:       Current processing node
- *   @pkt_block:  Packet being processed
+ *   @mbuf:  Packet being processed
  *   @ipv6_hdr:   IPv6 header pointer
  *   @srh:        Segment Routing Header pointer
  *   @nexthop:    Next hop information
@@ -531,7 +531,7 @@ static void
 Process_END_flavors_penultimate(
     dp_ctx_t *dp_ctx,
     dp_vrf_t *vrf,
-    pkt_block_t *pkt_block, 
+    struct rte_mbuf *mbuf, 
     ipv6_hdr_t *ipv6_hdr, 
     srh_hdr_t *srh,  
     fib_nh_t *nexthop, 
@@ -544,27 +544,27 @@ Process_END_flavors_penultimate(
     switch (flavor) {
         case 0:
             /* Base END function without any flavor */
-            srv6_END(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP:
             /* Penultimate Segment Pop flavor */
-            srv6_END_w_PSP(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_w_PSP(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP:
             /* PSP + Ultimate Segment Pop combination */
-            srv6_END_w_PSP_USP(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_w_PSP_USP(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USD:
             /* PSP + Ultimate Segment Decapsulation combination */
-            srv6_END_w_PSP_USD(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_w_PSP_USD(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP | USD:
             /* All three flavors combined */
-            srv6_END_w_PSP_USP_USD(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_w_PSP_USP_USD(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         default:
@@ -583,7 +583,7 @@ Process_END_flavors_penultimate(
  * 
  * Parameters:
  *   @node:       Current processing node
- *   @pkt_block:  Packet being processed
+ *   @mbuf:  Packet being processed
  *   @ipv6_hdr:   IPv6 header pointer
  *   @srh:        Segment Routing Header pointer
  *   @nexthop:    Next hop information (includes explicit cross-connect info)
@@ -597,7 +597,7 @@ static void
 Process_END_X_flavors_penultimate(
     dp_ctx_t *dp_ctx, 
     dp_vrf_t *vrf,
-    pkt_block_t *pkt_block,
+    struct rte_mbuf *mbuf,
     ipv6_hdr_t *ipv6_hdr,
     srh_hdr_t *srh,
     fib_nh_t *nexthop,
@@ -610,27 +610,27 @@ Process_END_X_flavors_penultimate(
     switch (flavor) {
         case 0:
             /* Base END.X function without any flavor */
-            srv6_END_X(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP:
             /* END.X with Penultimate Segment Pop */
-            srv6_END_X_w_PSP(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X_w_PSP(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP:
             /* END.X with PSP + USP flavors */
-            srv6_END_X_w_PSP_USP(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X_w_PSP_USP(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USD:
             /* END.X with PSP + USD flavors */
-            srv6_END_X_w_PSP_USD(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X_w_PSP_USD(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP | USD:
             /* END.X with all three flavors */
-            srv6_END_X_w_PSP_USP_USD(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X_w_PSP_USP_USD(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         default:
@@ -649,7 +649,7 @@ Process_END_X_flavors_penultimate(
  * 
  * Parameters:
  *   @node:       Current processing node
- *   @pkt_block:  Packet being processed
+ *   @mbuf:  Packet being processed
  *   @ipv6_hdr:   IPv6 header pointer
  *   @srh:        Segment Routing Header pointer
  *   @nexthop:    Next hop information (includes VRF context)
@@ -663,7 +663,7 @@ static void
 Process_END_T_flavors_penultimate(
     dp_ctx_t *dp_ctx, 
     dp_vrf_t *vrf,
-    pkt_block_t *pkt_block,
+    struct rte_mbuf *mbuf,
     ipv6_hdr_t *ipv6_hdr,
     srh_hdr_t *srh,
     fib_nh_t *nexthop,
@@ -676,27 +676,27 @@ Process_END_T_flavors_penultimate(
     switch (flavor) {
         case 0:
             /* Base END.T function without any flavor */
-            srv6_END_T(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP:
             /* END.T with Penultimate Segment Pop */
-            srv6_END_T_w_PSP(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T_w_PSP(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP:
             /* END.T with PSP + USP flavors */
-            srv6_END_T_w_PSP_USP(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T_w_PSP_USP(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USD:
             /* END.T with PSP + USD flavors */
-            srv6_END_T_w_PSP_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T_w_PSP_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP | USD:
             /* END.T with all three flavors */
-            srv6_END_T_w_PSP_USP_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T_w_PSP_USP_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         default:
@@ -715,7 +715,7 @@ Process_END_T_flavors_penultimate(
  * 
  * Parameters:
  *   @node:       Current processing node
- *   @pkt_block:  Packet being processed
+ *   @mbuf:  Packet being processed
  *   @ipv6_hdr:   IPv6 header pointer
  *   @srh:        Segment Routing Header pointer
  * 
@@ -737,7 +737,7 @@ void
 Srv6_apply_penultimate_processing(
         dp_ctx_t *dp_ctx,
         dp_vrf_t *vrf, 
-        pkt_block_t *pkt_block, 
+        struct rte_mbuf *mbuf, 
         ipv6_hdr_t *ipv6_hdr, 
         srh_hdr_t *srh)
 {
@@ -753,7 +753,7 @@ Srv6_apply_penultimate_processing(
         /* No route found - drop the packet */
         tracer(dp_ctx->dptr, DL3FWD, 
                "Pkt : %s : No SRV6 route found, packet dropped\n",  
-               pkt_block_str(pkt_block));
+               pkt_mbuf_str(mbuf));
         return;
     }
 
@@ -765,19 +765,19 @@ Srv6_apply_penultimate_processing(
     switch (endfn) {
         case END:
             /* Process END function variants */
-            Process_END_flavors_penultimate(dp_ctx, vrf,  pkt_block, ipv6_hdr, 
+            Process_END_flavors_penultimate(dp_ctx, vrf,  mbuf, ipv6_hdr, 
                                             srh, nexthop, flavor);
             break;
             
         case END_X:
             /* Process END.X function variants */
-            Process_END_X_flavors_penultimate(dp_ctx, vrf,  pkt_block, ipv6_hdr, 
+            Process_END_X_flavors_penultimate(dp_ctx, vrf,  mbuf, ipv6_hdr, 
                                               srh, nexthop, flavor);
             break;
             
         case END_T:
             /* Process END.T function variants */
-            Process_END_T_flavors_penultimate(dp_ctx, vrf,  pkt_block, ipv6_hdr, 
+            Process_END_T_flavors_penultimate(dp_ctx, vrf,  mbuf, ipv6_hdr, 
                                               srh, nexthop, flavor);
             break;
             
@@ -802,7 +802,7 @@ Srv6_apply_penultimate_processing(
  * Parameters:
  *   @node:       Current processing node
  *   @recv_intf:  Interface on which packet was received
- *   @pkt_block:  Packet being processed
+ *   @mbuf:  Packet being processed
  *   @ipv6_hdr:   IPv6 header pointer
  *   @srh:        Segment Routing Header pointer (may be NULL)
  *   @nexthop:    Next hop information for forwarding
@@ -821,7 +821,7 @@ Process_Srv6_remote_packet(
     dp_ctx_t *dp_ctx, 
     dp_vrf_t *vrf, 
     Interface* recv_intf,
-    pkt_block_t *pkt_block, 
+    struct rte_mbuf *mbuf, 
     ipv6_hdr_t *ipv6_hdr, 
     srh_hdr_t *srh,
     fib_nh_t *nexthop)
@@ -833,7 +833,7 @@ Process_Srv6_remote_packet(
     // }
 
     /* Forward packet using standard IPv6 layer 3 forwarding */
-    ipv6_layer3_forward_nexthop(dp_ctx, vrf, nexthop, pkt_block);
+    ipv6_layer3_forward_nexthop(dp_ctx, vrf, nexthop, mbuf);
 }
 
 /**
@@ -846,7 +846,7 @@ Process_Srv6_remote_packet(
  * Parameters:
  *   @node:       Current processing node
  *   @recv_intf:  Interface on which packet was received
- *   @pkt_block:  Packet being processed
+ *   @mbuf:  Packet being processed
  *   @ipv6_hdr:   IPv6 header pointer
  *   @srh:        Segment Routing Header pointer (may be NULL)
  *   @nexthop:    Next hop information from route lookup
@@ -877,7 +877,7 @@ Process_Srv6_Packet(
         dp_ctx_t *dp_ctx, 
         dp_vrf_t *vrf,
         dp_intf_t* recv_intf,
-        pkt_block_t *pkt_block, 
+        struct rte_mbuf *mbuf, 
         ipv6_hdr_t *ipv6_hdr, 
         srh_hdr_t *srh,
         fib_nh_t *nexthop)
@@ -906,7 +906,7 @@ Process_Srv6_Packet(
          *   - PSP flavor: Remove SRH before forwarding to final destination
          *   - Standard forwarding to the ultimate segment node
          */
-        Srv6_apply_penultimate_processing(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh);
+        Srv6_apply_penultimate_processing(dp_ctx, vrf,  mbuf, ipv6_hdr, srh);
         return;
     }
 
@@ -929,7 +929,7 @@ Process_Srv6_Packet(
             dp_ctx, 
             vrf,
             recv_intf, 
-            pkt_block,
+            mbuf,
             ipv6_hdr, 
             srh,
             nexthop); 
@@ -949,7 +949,7 @@ Process_Srv6_Packet(
          * 
          * This is called "shift and forward" operation.
          */
-        srv6_shift_and_forward(dp_ctx, vrf, pkt_block);
+        srv6_shift_and_forward(dp_ctx, vrf, mbuf);
     }
 }
 
@@ -971,7 +971,7 @@ Process_Srv6_Packet(
  * 
  * Parameters:
  *   @node:       Current processing node
- *   @pkt_block:  Packet being processed
+ *   @mbuf:  Packet being processed
  *   @ipv6_hdr:   IPv6 header pointer
  *   @srh:        Segment Routing Header pointer (may be NULL or SL=0)
  *   @nexthop:    Next hop information
@@ -993,7 +993,7 @@ static void
 Process_END_flavors_ultimate(
     dp_ctx_t *dp_ctx, 
     dp_vrf_t *vrf,
-    pkt_block_t *pkt_block,
+    struct rte_mbuf *mbuf,
     ipv6_hdr_t *ipv6_hdr,
     srh_hdr_t *srh,
     fib_nh_t *nexthop,
@@ -1006,12 +1006,12 @@ Process_END_flavors_ultimate(
     switch (flavor) {
         case 0:
             /* Base END function without any flavor */
-            srv6_END(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case USP:
             /* Ultimate Segment Pop: Remove SRH at destination */
-            srv6_END_w_USP(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_w_USP(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP:
@@ -1019,12 +1019,12 @@ Process_END_flavors_ultimate(
              * PSP already applied at penultimate node
              * USP applies here at ultimate node
              */
-            srv6_END_w_PSP_USP(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_w_PSP_USP(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case USD:
             /* Ultimate Segment Decapsulation: Remove outer headers */
-            srv6_END_w_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_w_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USD:
@@ -1032,12 +1032,12 @@ Process_END_flavors_ultimate(
              * PSP applied at penultimate (SRH removed there)
              * USD applies here (decapsulate outer IPv6)
              */
-            srv6_END_w_PSP_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_w_PSP_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP | USD:
             /* All three flavors combined */
-            srv6_END_w_PSP_USP_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_w_PSP_USP_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         default:
@@ -1046,7 +1046,7 @@ Process_END_flavors_ultimate(
              * (e.g., PSP alone is not valid at ultimate node)
              * Fall back to base END behavior
              */
-            srv6_END(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
     }
 }
@@ -1061,7 +1061,7 @@ Process_END_flavors_ultimate(
  * 
  * Parameters:
  *   @node:       Current processing node
- *   @pkt_block:  Packet being processed
+ *   @mbuf:  Packet being processed
  *   @ipv6_hdr:   IPv6 header pointer
  *   @srh:        Segment Routing Header pointer (segments_left should be 0)
  *   @nexthop:    Pre-configured explicit next hop (no route lookup needed)
@@ -1076,7 +1076,7 @@ static void
 Process_END_X_flavors_ultimate(
     dp_ctx_t *dp_ctx, 
     dp_vrf_t *vrf,
-    pkt_block_t *pkt_block,
+    struct rte_mbuf *mbuf,
     ipv6_hdr_t *ipv6_hdr,
     srh_hdr_t *srh,
     fib_nh_t *nexthop,
@@ -1090,37 +1090,37 @@ Process_END_X_flavors_ultimate(
     switch (flavor) {
         case 0:
             /* Base END.X function without any flavor */
-            srv6_END_X(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case USP:
             /* END.X with Ultimate Segment Pop */
-            srv6_END_X_w_USP(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X_w_USP(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case USD:
             /* END.X with Ultimate Segment Decapsulation */
-            srv6_END_X_w_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X_w_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP:
             /* END.X with PSP (done at penultimate) + USP (done here) */
-            srv6_END_X_w_PSP_USP(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X_w_PSP_USP(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case USP | USD:
             /* END.X with both USP and USD flavors */
-            srv6_END_X_w_USP_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X_w_USP_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USD:
             /* END.X with PSP (done at penultimate) + USD (done here) */
-            srv6_END_X_w_PSP_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X_w_PSP_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP | USD:
             /* END.X with all three flavors combined */
-            srv6_END_X_w_PSP_USP_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_X_w_PSP_USP_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         default:
@@ -1139,7 +1139,7 @@ Process_END_X_flavors_ultimate(
  * 
  * Parameters:
  *   @node:       Current processing node
- *   @pkt_block:  Packet being processed
+ *   @mbuf:  Packet being processed
  *   @ipv6_hdr:   IPv6 header pointer
  *   @srh:        Segment Routing Header pointer (segments_left should be 0)
  *   @nexthop:    Next hop information including VRF context
@@ -1158,7 +1158,7 @@ static void
 Process_END_T_flavors_ultimate(
     dp_ctx_t *dp_ctx, 
     dp_vrf_t *vrf,
-    pkt_block_t *pkt_block, 
+    struct rte_mbuf *mbuf, 
     ipv6_hdr_t *ipv6_hdr, 
     srh_hdr_t *srh,  
     fib_nh_t *nexthop, 
@@ -1172,37 +1172,37 @@ Process_END_T_flavors_ultimate(
     switch (flavor) {
         case 0:
             /* Base END.T function without any flavor */
-            srv6_END_T(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case USP:
             /* END.T with Ultimate Segment Pop */
-            srv6_END_T_w_USP(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T_w_USP(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP:
             /* END.T with PSP (done at penultimate) + USP (done here) */
-            srv6_END_T_w_PSP_USP(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T_w_PSP_USP(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case USD:
             /* END.T with Ultimate Segment Decapsulation */
-            srv6_END_T_w_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T_w_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USD:
             /* END.T with PSP (done at penultimate) + USD (done here) */
-            srv6_END_T_w_PSP_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T_w_PSP_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case USP | USD:
             /* END.T with both USP and USD flavors */
-            srv6_END_T_w_USP_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T_w_USP_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         case PSP | USP | USD:
             /* END.T with all three flavors combined */
-            srv6_END_T_w_PSP_USP_USD(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_T_w_PSP_USP_USD(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
             
         default:
@@ -1228,7 +1228,7 @@ Process_END_T_flavors_ultimate(
  * Parameters:
  *   @node:       Current processing node
  *   @recv_intf:  Interface on which packet was received
- *   @pkt_block:  Packet being processed
+ *   @mbuf:  Packet being processed
  *   @ipv6_hdr:   IPv6 header pointer
  *   @srh:        Segment Routing Header pointer (may be NULL or SL=0)
  *   @nexthop:    Next hop containing endpoint function configuration
@@ -1273,7 +1273,7 @@ Srv6_apply_endpoint_fn(
     dp_ctx_t *dp_ctx, 
     dp_vrf_t *vrf,
     dp_intf_t *recv_intf, 
-    pkt_block_t *pkt_block, 
+    struct rte_mbuf *mbuf, 
     ipv6_hdr_t *ipv6_hdr, 
     srh_hdr_t *srh, 
     fib_nh_t *nexthop)
@@ -1287,7 +1287,7 @@ Srv6_apply_endpoint_fn(
     /* Log endpoint function application for debugging/tracing */
     tracer(dp_ctx->dptr, DL3FWD, 
            "Pkt : %s : Applying SRv6 endpoint function : %s\n", 
-           pkt_block_str(pkt_block), 
+           pkt_mbuf_str(mbuf), 
            srv6_end_fn_str(CompositeEndfn));
 
     /* Validate this is ultimate segment processing (SL == 0 or no SRH) */
@@ -1299,34 +1299,34 @@ Srv6_apply_endpoint_fn(
         case END:
             /* Process END function variants with flavors */
             /* Used when node is processing its own prefix/node SID */
-            Process_END_flavors_ultimate(dp_ctx, vrf,  pkt_block, ipv6_hdr, 
+            Process_END_flavors_ultimate(dp_ctx, vrf,  mbuf, ipv6_hdr, 
                                          srh, nexthop, flavor);
             break;
 
         case END_X:
             /* Process END.X function variants with flavors */
             /* Used when node is processing its own Adjacency SID */
-            Process_END_X_flavors_ultimate(dp_ctx, vrf,  pkt_block, ipv6_hdr, 
+            Process_END_X_flavors_ultimate(dp_ctx, vrf,  mbuf, ipv6_hdr, 
                                            srh, nexthop, flavor);
             break;
 
         case END_T:
             /* Process END.T function variants with flavors */
             /* Used for VRF-aware endpoint processing */
-            Process_END_T_flavors_ultimate(dp_ctx, vrf,  pkt_block, ipv6_hdr, 
+            Process_END_T_flavors_ultimate(dp_ctx, vrf,  mbuf, ipv6_hdr, 
                                            srh, nexthop, flavor);
             break;
 
         case END_B6_ENCAP:
             /* Process Binding SID with encapsulation */
             /* No flavors supported for this function */
-            srv6_END_B6_ENCAP(dp_ctx, vrf,  pkt_block, ipv6_hdr, srh, nexthop);
+            srv6_END_B6_ENCAP(dp_ctx, vrf,  mbuf, ipv6_hdr, srh, nexthop);
             break;
 
         case END_DT4:
             /* L3VPN case, Egress PE router processing */
-            //srv6_END_DT4(dp_ctx, vrf, pkt_block, ipv6_hdr, srh, nexthop);
-            dp_send_pkt_out(dp_ctx, nexthop->fwd_info->oif, pkt_block);
+            //srv6_END_DT4(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
+            dp_send_pkt_out(dp_ctx, nexthop->fwd_info->oif, mbuf);
             break;
 
         default:
