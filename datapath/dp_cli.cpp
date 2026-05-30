@@ -44,8 +44,57 @@ extern graph_t *topo;
 #define CMDCODE_SHOW_DP_INTF_TABLE_BRIEF 3
 #define CMDCODE_SHOW_DP_FIB              4
 #define CMDCODE_SHOW_DP_ARP              5
+#define CMDCODE_DEBUG_DP_MEMPOOL         6
 
 /* -----  Interface display helpers  ----- */
+
+static void
+rte_mempool_custom_dump(struct rte_mempool *mp)
+{
+    struct rte_mempool_memhdr *memhdr;
+    struct rte_mempool_ops *ops;
+    unsigned common_count;
+    unsigned cache_count;
+    size_t mem_len = 0;
+
+    RTE_ASSERT(mp != NULL);
+
+    cprintf("mempool <%s>@%p\n", mp->name, mp);
+    cprintf("  flags=%x\n", mp->flags);
+    cprintf("  socket_id=%d\n", mp->socket_id);
+    cprintf("  pool=%p\n", mp->pool_data);
+    cprintf("  iova=0x%" PRIx64 "\n", mp->mz->iova);
+    cprintf("  nb_mem_chunks=%u\n", mp->nb_mem_chunks);
+    cprintf("  size=%" PRIu32 "\n", mp->size);
+    cprintf("  populated_size=%" PRIu32 "\n", mp->populated_size);
+    cprintf("  header_size=%" PRIu32 "\n", mp->header_size);
+    cprintf("  elt_size=%" PRIu32 "\n", mp->elt_size);
+    cprintf("  trailer_size=%" PRIu32 "\n", mp->trailer_size);
+    cprintf("  total_obj_size=%" PRIu32 "\n",
+            mp->header_size + mp->elt_size + mp->trailer_size);
+
+    cprintf("  private_data_size=%" PRIu32 "\n", mp->private_data_size);
+
+    cprintf("  ops_index=%d\n", mp->ops_index);
+    ops = rte_mempool_get_ops(mp->ops_index);
+    cprintf("  ops_name: <%s>\n", (ops != NULL) ? ops->name : "NA");
+    
+    unsigned avail = rte_mempool_avail_count(mp);
+    unsigned inuse = rte_mempool_in_use_count(mp);
+    cprintf("  avail=%u inuse=%u\n", avail, inuse);
+
+    STAILQ_FOREACH(memhdr, &mp->mem_list, next)
+    {
+        cprintf("  memory chunk at %p, addr=%p, iova=0x%" PRIx64 ", len=%zu\n",
+                memhdr, memhdr->addr, memhdr->iova, memhdr->len);
+        mem_len += memhdr->len;
+    }
+    if (mem_len != 0)
+    {
+        cprintf("  avg bytes/object=%#Lf\n",
+                (long double)mem_len / mp->size);
+    }
+}
 
 static void
 dp_print_interface_brief(dp_intf_t *intf)
@@ -252,6 +301,7 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
     c_string fib_name = NULL;
     c_string intf_name_filter = NULL;
     c_string vrf_name = NULL;
+    int numa_id = 0;
     tlv_struct_t *tlv;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
@@ -263,6 +313,8 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
             intf_name_filter = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
             vrf_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "numaid"))
+            numa_id = atoi((const char *)tlv->value);            
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -387,6 +439,24 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
         break;
     }
 
+
+    case CMDCODE_DEBUG_DP_MEMPOOL:
+    {
+        char mpool_name[64];
+        memset (mpool_name, 0, sizeof (mpool_name));
+        snprintf (mpool_name, sizeof (mpool_name), 
+            "MP_%s_%u", node->dp_ctx->ctx_name, numa_id);
+        
+        struct rte_mempool *mpool = rte_mempool_lookup((const char *)mpool_name);
+        if (!mpool) {
+            cprintf ("Mpool Not found\n");
+            break;
+        }
+
+        rte_mempool_custom_dump(mpool);
+    }
+    break;
+
     default:
         break;
     }
@@ -469,3 +539,29 @@ dp_build_dp_show_cli_tree(param_t *node_name)
 
 }
 
+void
+dp_build_dp_debug_cli_tree(param_t *node_name) 
+{
+    /* debug node <node-name> show mpools <numa-id>*/
+    {
+        /* show ....*/
+        static param_t show;
+        init_param(&show, CMD, "show", NULL, NULL, INVALID, NULL, "Display debug data");
+        libcli_register_param(node_name, &show);
+        {
+            /* show mpool ....*/
+            static param_t mpool;
+            init_param(&mpool, CMD, "mpool", NULL, NULL, INVALID, NULL, "Memory Pool");
+            libcli_register_param(&show, &mpool);
+            {
+                /* show mpool <numa-id>*/
+                static param_t mpool_name;
+                init_param(&mpool_name, LEAF, NULL, dp_show_handler, NULL, INT, "numaid", "Numa Node number");
+                libcli_register_param(&mpool, &mpool_name);
+                libcli_set_param_cmd_code(&mpool_name, CMDCODE_DEBUG_DP_MEMPOOL);
+                libcli_set_user_flag(&mpool_name, CLI_F_DATA_PLANE);
+            }
+        }
+    }
+
+}

@@ -95,9 +95,6 @@ gen_proto_id_t
 pkt_mbuf_get_starting_hdr(struct rte_mbuf *mbuf);
 
 uint8_t *
-pkt_mbuf_get_raw_pkt(struct rte_mbuf *mbuf, uint16_t *pkt_size_out);
-
-uint8_t *
 pkt_mbuf_get_pkt(struct rte_mbuf *mbuf, pkt_size_t *pkt_size);
 
 void
@@ -118,6 +115,11 @@ pkt_mbuf_ip_str(struct rte_mbuf *mbuf, char *buffer);
 char *
 pkt_mbuf_mac_str(struct rte_mbuf *mbuf, char *buffer);
 
+bool 
+pkt_mbuf_append_pkt (struct rte_mbuf *mbuf, 
+                    uint8_t *pkt, 
+                    pkt_size_t pkt_size);
+                    
 /* ------------------------------------------------------------------------- */
 /* Packet lifecycle                                                            */
 /* ------------------------------------------------------------------------- */

@@ -184,7 +184,7 @@ pkt_mbuf_verify_pkt(struct rte_mbuf *mbuf, gen_proto_id_t hdr_type)
     return pkt_mbuf_get_starting_hdr(mbuf) == hdr_type;
 }
 
-uint8_t *
+static uint8_t *
 pkt_mbuf_get_raw_pkt(struct rte_mbuf *mbuf, uint16_t *pkt_size_out)
 {
     if (mbuf == NULL) {
@@ -207,30 +207,37 @@ pkt_mbuf_get_pkt(struct rte_mbuf *mbuf, pkt_size_t *pkt_size)
 struct rte_mbuf *
 pkt_mbuf_get_new(struct rte_mempool *mbuf_pool,
                  pkt_size_t pkt_size,
-                 const char *fn_name, uint16_t lineno)
+                 const char *fn_name, 
+                 uint16_t lineno)
 {
-    (void)fn_name;
-    (void)lineno;
-
     struct rte_mbuf *mbuf = pkt_mbuf_alloc(mbuf_pool);
-    assert(mbuf != NULL);
-    if (pkt_size > 0) {
-        uint8_t *p = pkt_mbuf_expland_left(mbuf, (uint32_t)pkt_size);
-        assert(p != NULL);
-        (void)p;
-    }
+    rte_pktmbuf_append(mbuf, pkt_size);
     return mbuf;
+}
+
+bool 
+pkt_mbuf_append_pkt (struct rte_mbuf *mbuf, 
+                    uint8_t *pkt, 
+                    pkt_size_t pkt_size) {
+
+    uint8_t *data = rte_pktmbuf_append(mbuf, pkt_size);
+    if (!data) return false;
+    rte_memcpy(data, pkt, pkt_size);
+    return true;
 }
 
 struct rte_mbuf *
 pkt_mbuf_wrap_raw_buffer(struct rte_mempool *mbuf_pool,
-                         uint8_t *pkt, pkt_size_t pkt_size,
-                         const char *fn_name, uint16_t lineno)
+                         uint8_t *pkt, 
+                         pkt_size_t pkt_size,
+                         const char *fn_name, 
+                         uint16_t lineno)
 {
-    struct rte_mbuf *mbuf =
-        pkt_mbuf_get_new(mbuf_pool, pkt_size, fn_name, lineno);
-    memcpy(pkt_mbuf_get_pkt(mbuf, NULL), pkt, pkt_size);
-    return mbuf;
+    struct rte_mbuf *mbuf = pkt_mbuf_alloc(mbuf_pool);
+    assert (mbuf);
+    if (pkt_mbuf_append_pkt(mbuf, pkt, pkt_size)) return mbuf;
+    rte_pktmbuf_free(mbuf);
+    return NULL;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -509,11 +516,14 @@ pkt_mbuf_str(struct rte_mbuf *mbuf)
 
         case ETHERNET_HEADER:
         {
-            const uint16_t N = 4 + 17 + 1;
-            pkt_mbuf_expand_buffer_left(mbuf, N);
+            uint8_t *pkt1 = pkt_mbuf_get_pkt(mbuf, 0);
+            const uint16_t N = 4 + 17 + 1; /* Accomodate : ETH:%02x:%02x:%02x:%02x:%02x:%02x */
+            assert (pkt_mbuf_expand_buffer_left(mbuf, N));
             uint8_t *mac_addr_str = pkt_mbuf_get_pkt(mbuf, NULL);
             pkt_mbuf_slide(mbuf, -1, 1, N);
             pkt_mbuf_mac_str(mbuf, (char *)mac_addr_str);
+            uint8_t *pkt2 = pkt_mbuf_get_pkt(mbuf, 0);
+            assert (pkt1 == pkt2);
             return (char *)mac_addr_str;
         }
 

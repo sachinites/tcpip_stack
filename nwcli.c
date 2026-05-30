@@ -78,7 +78,8 @@ extern void tcp_ip_build_debug_cli_tree (param_t *root);
 extern void ipv6_build_cli_tree (param_t *root);
 extern int isis_show_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int show_vrf_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
-void dp_build_dp_show_cli_tree (param_t *node_name);
+extern void dp_build_dp_show_cli_tree (param_t *node_name);
+extern void dp_build_dp_debug_cli_tree(param_t *node_name) ;
 
 extern int
 config_rtm_route_cli_handler(int cmdcode,
@@ -928,6 +929,12 @@ nw_init_cli(){
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
             libcli_register_param(&node, &node_name);
             libcli_register_display_callback(&node_name, display_graph_nodes);
+
+            {
+                /* debug node <node-name> show mpool <numa-id> */
+                dp_build_dp_debug_cli_tree(&node_name);
+            }
+
             {
                 /*debug node <node-name> access-list...*/
                 static param_t access_lst;

@@ -22,9 +22,12 @@
 #include "../libs/Tracer/tracer.h"
 #include "Layer2/switching/mac_table.h"
 #include "dp_ctx.h"
+#include <rte_errno.h>
 
 typedef struct hashtable hashtable_t;
 typedef struct nf_hook_db_ nf_hook_db_t;
+
+extern int cprintf (const char* format, ...);
 
 extern void dp_init_vrf_hashtable(hashtable_t **ht);
 extern void dp_init_vlan_intf_hashtable(hashtable_t **ht);
@@ -48,7 +51,7 @@ system_get_max_numa_node_count ();
 static void
 dp_init_memory_pools(dp_ctx_t *dp_ctx)
 {
-    char numa_node_name[32];
+    char mpool_name[64];
 
     uint8_t max_numa_nodes = system_get_max_numa_node_count ();
 
@@ -57,15 +60,23 @@ dp_init_memory_pools(dp_ctx_t *dp_ctx)
 
     for (int i = 0; i < max_numa_nodes; i++) {
 
-        memset (numa_node_name, 0, sizeof (numa_node_name));
-        snprintf (numa_node_name, sizeof (numa_node_name), "NUMA_MEM_POOL%u", i);
+        memset (mpool_name, 0, sizeof (mpool_name));
+        snprintf (mpool_name, 
+            sizeof (mpool_name), 
+            "MP_%s_%u", dp_ctx->ctx_name, i);
 
         dp_ctx->dpdk_mempool[i] = rte_pktmbuf_pool_create(
-                    (const char *)numa_node_name,
-                    NUM_MBUFS_PER_PORT *  64 /* port cnt on device*/,
+                    (const char *)mpool_name,
+                    NUM_MBUFS_PER_PORT *  32 /* port cnt on device*/,
                     MBUF_CACHE_SIZE, 
                     sizeof (pkt_mbuf_pvt_data_t), 
                     RTE_MBUF_DEFAULT_BUF_SIZE, i );
+
+        if (!dp_ctx->dpdk_mempool[i]) {
+            cprintf ("%s : Error : Memory pool creation failed on Numa Node %d, err=%s\n", 
+                dp_ctx->ctx_name, i, rte_strerror(rte_errno));
+        }
+        assert (dp_ctx->dpdk_mempool[i]);
     }
 }
 /**
