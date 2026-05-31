@@ -804,7 +804,7 @@ dp_pkt_recvr_job_cbk (event_dispatcher_t *ev_dis, void *pkt, uint32_t pkt_size){
         /* Socket lift the packet without Ethernet FCS. To compensate, pretend
             that we have FCS in the end of ethernet pkt*/
         mbuf = PKT_MBUF_WRAP(
-                    dp_ctx->dpdk_mempool[0], /* default Mem-pool as it is Non DPDK mode flow */
+                    dp_ctx->mbuf_pools[0], /* default Mem-pool as it is Non DPDK mode flow */
                     pkt_start,
                     ev_dis_pkt_data->pkt_size + (LinuxRtr ? ETH_FCS_SIZE : 0));
     
@@ -1382,7 +1382,7 @@ DPDK_PollInterfaces(dp_ctx_t *dp_ctx) {
             th_data->ports_array[p] = dp_intf;
         }
 
-        th_data->mempool = dp_ctx->dpdk_mempool[entry->numa_node_id];
+        th_data->mempool = dp_ctx->mbuf_pools[entry->numa_node_id];
 
         memset (thread_name, 0, sizeof (thread_name));
         snprintf (thread_name, sizeof (thread_name), "DPDK-C-%u", entry->cpu_id);
@@ -1531,6 +1531,6 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
         uint16_t port_numa_node = socket_id < 0 ? 0 : socket_id;
 
         dpdk_port_configure(dp_intf, dpdk_port_id,
-            dp_ctx->dpdk_mempool[port_numa_node]);
+            dp_ctx->mbuf_pools[port_numa_node]);
     }
 }

@@ -13,7 +13,7 @@ typedef struct cmn_prefix_ cmn_prefix_t;
 typedef struct isis_node_info_ isis_node_info_t;
 typedef struct cp_nexthop_template_ cp_nexthop_template_t;
 
-const RTM_AD_T&
+const RTM_AD_T
 rtm_get_admin_distance(const RTM_PROTO_T& proto, const RTM_SUB_PROTO_T& sub_proto) ;
 
 void

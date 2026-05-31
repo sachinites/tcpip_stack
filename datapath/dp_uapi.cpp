@@ -131,8 +131,8 @@ dp_uapi_get_current_socket_mpool(dp_ctx_t *dp_ctx) {
     
     if (socket_id < 0) socket_id = 0;
 
-    if (dp_ctx->dpdk_mempool)
-        return dp_ctx->dpdk_mempool[socket_id];
+    if (dp_ctx->mbuf_pools)
+        return dp_ctx->mbuf_pools[socket_id];
 
     return NULL;
 }

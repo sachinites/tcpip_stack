@@ -152,7 +152,7 @@ extern graph_t * topo;
  * 
  * @return Admin distance value
  */
-const RTM_AD_T&
+const RTM_AD_T
 rtm_get_admin_distance(const RTM_PROTO_T& proto, const RTM_SUB_PROTO_T& sub_proto) 
 {
     switch (proto) {

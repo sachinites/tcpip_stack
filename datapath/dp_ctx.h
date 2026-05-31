@@ -107,7 +107,12 @@ typedef struct dp_ctx_ {
     unsigned char *recv_log_buffer;
 
     /* Array of mempool buffer, indexed by Numa Node IDs*/
-    struct rte_mempool **dpdk_mempool;
+    struct rte_mempool **mbuf_pools;
+
+    /* Memory pools to allocate nodes for FIB*/
+    struct {
+        struct rte_mempool *fib_mempool;
+    }fib_mops;
 
     /* Active ping session; set by ping_send4, 
     cleared when done, read by DP ICMP handler */

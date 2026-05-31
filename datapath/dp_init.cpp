@@ -22,6 +22,8 @@
 #include "../libs/Tracer/tracer.h"
 #include "Layer2/switching/mac_table.h"
 #include "dp_ctx.h"
+#include "dp_const.h"
+#include "../libs/mtrie/atomic_mtrie.h"
 #include <rte_errno.h>
 
 typedef struct hashtable hashtable_t;
@@ -49,13 +51,13 @@ system_get_max_numa_node_count ();
 #define MBUF_CACHE_SIZE 250
 
 static void
-dp_init_memory_pools(dp_ctx_t *dp_ctx)
+dp_init_pkt_mbuf_memory_pools(dp_ctx_t *dp_ctx)
 {
     char mpool_name[64];
 
     uint8_t max_numa_nodes = system_get_max_numa_node_count ();
 
-    dp_ctx->dpdk_mempool = 
+    dp_ctx->mbuf_pools = 
         (struct rte_mempool **) calloc (max_numa_nodes, sizeof (struct rte_mempool *));
 
     for (int i = 0; i < max_numa_nodes; i++) {
@@ -65,20 +67,51 @@ dp_init_memory_pools(dp_ctx_t *dp_ctx)
             sizeof (mpool_name), 
             "MP_%s_%u", dp_ctx->ctx_name, i);
 
-        dp_ctx->dpdk_mempool[i] = rte_pktmbuf_pool_create(
+        dp_ctx->mbuf_pools[i] = rte_pktmbuf_pool_create(
                     (const char *)mpool_name,
                     NUM_MBUFS_PER_PORT *  32 /* port cnt on device*/,
                     MBUF_CACHE_SIZE, 
                     sizeof (pkt_mbuf_pvt_data_t), 
                     RTE_MBUF_DEFAULT_BUF_SIZE, i );
 
-        if (!dp_ctx->dpdk_mempool[i]) {
+        if (!dp_ctx->mbuf_pools[i]) {
             cprintf ("%s : Error : Memory pool creation failed on Numa Node %d, err=%s\n", 
                 dp_ctx->ctx_name, i, rte_strerror(rte_errno));
         }
-        assert (dp_ctx->dpdk_mempool[i]);
+        assert (dp_ctx->mbuf_pools[i]);
     }
 }
+
+static void 
+dp_init_fib_memory_pools (dp_ctx_t *dp_ctx) {
+
+    char mempool_name[64];
+
+    /* We dont maintain a FIB per numa node, but it is a centralized
+        entity in datapath, hence allocate pool on Default Numa node only */
+    snprintf (mempool_name, 
+             sizeof(mempool_name), 
+             "%s-%d", 
+             dp_ctx->ctx_name, 
+             DEFAULT_NUMA_NODE);
+    
+    dp_ctx->fib_mops.fib_mempool = rte_mempool_create(
+                (const char *)mempool_name,
+                MAX_FIB_MTRIE_NODES,
+                sizeof(atomic_mtrie_node_t),
+                0,
+                0,
+                NULL,
+                NULL,
+                NULL,
+                NULL,
+                DEFAULT_NUMA_NODE,
+                0);
+
+    assert (dp_ctx->fib_mops.fib_mempool);
+}
+
+
 /**
  * Initialize datapath context: event loops, queues, timer, tracer, tables,
  * netfilter, and logging. Special interfaces and default_vrf are set by CP.
@@ -138,7 +171,10 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     init_nfc_layer2_proto_reg_db2(&dp_ctx->layer2_proto_reg_db);
 
     /* intialize memory pools per Numa node*/
-    dp_init_memory_pools (dp_ctx);
+    dp_init_pkt_mbuf_memory_pools (dp_ctx);
+
+    /* Initialize Memory pools to allocate nodes for FIB Mtrie*/
+    dp_init_fib_memory_pools (dp_ctx);
 
     /* Packet logging — flags and log_file are set by tcp_ip_init_node_log_info() */
     dp_ctx->ctx_pvt_data = arg;
