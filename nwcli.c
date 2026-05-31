@@ -80,14 +80,9 @@ extern int isis_show_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or
 extern int show_vrf_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern void dp_build_dp_show_cli_tree (param_t *node_name);
 extern void dp_build_dp_debug_cli_tree(param_t *node_name) ;
-
-extern int
-config_rtm_route_cli_handler(int cmdcode,
-                              Stack_t *tlv_stack,
-                              op_mode enable_or_disable) ;
-
-extern void 
-ipv6_build_cli_run_tree (param_t *root) ;
+extern int show_scheduler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int config_rtm_route_cli_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) ;
+extern void ipv6_build_cli_run_tree (param_t *root) ;
 
 extern int ip_traffic_generate_handler(int cmdcode,
                     Stack_t *tlv_stack,
@@ -931,8 +926,20 @@ nw_init_cli(){
             libcli_register_display_callback(&node_name, display_graph_nodes);
 
             {
+                static param_t show;
+                init_param(&show, CMD, "show", NULL, NULL, INVALID, NULL, "Display debug data");
+                libcli_register_param(&node_name, &show);
+
                 /* debug node <node-name> show mpool <numa-id> */
-                dp_build_dp_debug_cli_tree(&node_name);
+                dp_build_dp_debug_cli_tree(&show);
+
+                {
+                    /* debug node <node-name> show cp-scheduler */
+                    static param_t cps;
+                    init_param(&cps, CMD, "cp-scheduler", show_scheduler, NULL, INVALID, NULL, "Show Scheduler info");
+                    libcli_register_param(&show, &cps);
+                    libcli_set_param_cmd_code(&cps, CMDCODE_DEBUG_SHOW_CPS);
+                }
             }
 
             {

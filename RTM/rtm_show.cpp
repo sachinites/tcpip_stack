@@ -398,7 +398,7 @@ extern "C" {
  */
 void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
 
-    printw("\n");
+    printw("\n%p\n", rtm);
     
     /* Display legend/codes - Cisco style */
     cprintf("Codes: I - IGRP derived, R - RIP derived, O - OSPF derived\n");

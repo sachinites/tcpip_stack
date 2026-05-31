@@ -540,19 +540,15 @@ dp_build_dp_show_cli_tree(param_t *node_name)
 }
 
 void
-dp_build_dp_debug_cli_tree(param_t *node_name) 
+dp_build_dp_debug_cli_tree(param_t *show) 
 {
     /* debug node <node-name> show mpools <numa-id>*/
     {
-        /* show ....*/
-        static param_t show;
-        init_param(&show, CMD, "show", NULL, NULL, INVALID, NULL, "Display debug data");
-        libcli_register_param(node_name, &show);
         {
-            /* show mpool ....*/
+            /* mpool ....*/
             static param_t mpool;
             init_param(&mpool, CMD, "mpool", NULL, NULL, INVALID, NULL, "Memory Pool");
-            libcli_register_param(&show, &mpool);
+            libcli_register_param(show, &mpool);
             {
                 /* show mpool <numa-id>*/
                 static param_t mpool_name;

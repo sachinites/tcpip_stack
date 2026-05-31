@@ -13,11 +13,11 @@ typedef struct cmn_prefix_ cmn_prefix_t;
 typedef struct isis_node_info_ isis_node_info_t;
 typedef struct cp_nexthop_template_ cp_nexthop_template_t;
 
-RTM_AD_T
-rtm_get_admin_distance(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_proto) ;
+const RTM_AD_T&
+rtm_get_admin_distance(const RTM_PROTO_T& proto, const RTM_SUB_PROTO_T& sub_proto) ;
 
 void
- rtm_route_add_nh_to_route_path_list (rtm_t *rtm, rtm_route *route, rtm_nh *nh);
+rtm_route_add_nh_to_route_path_list (rtm_t *rtm, rtm_route *route, rtm_nh *nh);
 
 char *rtm_format_prefix(cmn_prefix_t *prefix, char *buffer, size_t buflen) ;
 
