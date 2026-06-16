@@ -1,3 +1,5 @@
+CC=g++
+
 INCLUDES=-I .
 CLILIB=libclibuilder.a
 TARGET:${CLILIB}

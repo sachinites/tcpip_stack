@@ -1,3 +1,4 @@
+CC=g++
 TARGET:libmm.a
 OUTFILES=libmm.a
 EXTERNAL_LIBS=-lpthread

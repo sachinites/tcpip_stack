@@ -1,3 +1,8 @@
+CC     = g++
+CFLAGS = -g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes \
+         -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 \
+         -Wignored-qualifiers 
+		 
 STATIC_LIBNAME=libisis.a
 TARGET:${STATIC_LIBNAME}
 ISIS_OBJS=isis_adjacency.o \

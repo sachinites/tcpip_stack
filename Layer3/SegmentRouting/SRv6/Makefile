@@ -1,3 +1,5 @@
+CC=g++
+
 TARGET_LIB=libsrv6.a
 
 TARGET:${TARGET_LIB}
