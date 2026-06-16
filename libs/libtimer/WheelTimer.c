@@ -140,13 +140,13 @@ wheel_fn(Timer_t *timer, void *arg){
 			  
 			  if(wt->debug){ printf("Creating new Task for wt_elem %p\n", wt_elem); }
 			  pthread_mutex_lock(&wt_elem->mutex);
+			  if (!wt_elem->is_recurrence) {
+				remove_glthread(&wt_elem->glue);
+			  }
 			  task_create_new_job((event_dispatcher_t *)wt->user_data,
 				  				  wt_elem->arg,
 								  wt_elem->app_callback,
 								  TASK_ONE_SHOT, TASK_PRIORITY_TIMERS_CBK);
-			  if (!wt_elem->is_recurrence) {
-				remove_glthread(&wt_elem->glue); // appln must free it
-			  }
 			  pthread_mutex_unlock(&wt_elem->mutex);
 			  if(wt->debug){ printf("Task for wt_elem %p is submitted\n", wt_elem); }
 
@@ -173,7 +173,7 @@ wheel_fn(Timer_t *timer, void *arg){
 				if(wt->debug){ printf("wt_elem %p is rescheduled in [%u, %u]\n", wt_elem,  wt_elem->execute_cycle_no, next_slot_no); }
 			}
 			else {
-				remove_glthread(&wt_elem->glue);
+				free_wheel_timer_element(wt_elem);
 			}
 		}
 		else {

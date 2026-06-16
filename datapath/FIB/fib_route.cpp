@@ -55,7 +55,6 @@ fib_atomic_mtrie_garbage_collector_cbk(event_dispatcher_t *ev_dis,
     else 
         atomic_mtrie_prefix_delete_delete_discarded_node(gc_data->garbage_node);
 
-    free(gc_data->wh_elem);
     free (gc_data);
 }
 

@@ -61,6 +61,14 @@ layer2_fill_with_broadcast_mac(c_string mac_array);
 
 #define TLV_OVERHEAD_SIZE  2
 
+static inline uint32_t
+tlv_read_u32(const byte *p)
+{
+    uint32_t v;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
 /*Macro to Type Length Value reply
  * byte * - start_ptr, IN
  * unsigned char - type, OUT

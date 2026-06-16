@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <arpa/inet.h>
 #include <cstddef>
+#include <string.h>
 #include "cmn_struct.h"
 #include "protoIds.h"
 
@@ -71,17 +72,20 @@ typedef struct ethernet_hdr_{
 
 #define ETH_FCS_SIZE    (4)
 
-#define ETH_FCS(eth_hdr_ptr, payload_size)  \
-    (*(uint32_t *)(((char *)(((ethernet_hdr_t *)eth_hdr_ptr)->payload) + payload_size)))
-
 static inline uint32_t
-GET_802_1Q_VLAN_ID(vlan_8021q_hdr_t *vlan_8021q_hdr){
-
-    return (uint32_t)TCI_VID(vlan_8021q_hdr->tci);
+_get_eth_fcs(const unsigned char *payload, uint32_t payload_size)
+{
+    uint32_t fcs;
+    memcpy(&fcs, payload + payload_size, sizeof(fcs));
+    return fcs;
 }
 
-#define VLAN_ETH_FCS(vlan_eth_hdr_ptr, payload_size)  \
-    (*(uint32_t *)(((char *)(((vlan_ethernet_hdr_t *)vlan_eth_hdr_ptr)->payload) + payload_size)))
+static inline void
+_set_eth_fcs(unsigned char *payload, uint32_t payload_size, uint32_t new_fcs)
+{
+    memcpy(payload + payload_size, &new_fcs, sizeof(new_fcs));
+}
+
 
 /* Return 0 if not vlan tagged, else return pointer to 801.1q vlan hdr
  * present in ethernet hdr*/
@@ -111,21 +115,24 @@ GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr_t *ethernet_hdr){
        return ethernet_hdr->payload;
 }
 
-#define GET_COMMON_ETH_FCS(eth_hdr_ptr, payload_size)   \
-        (is_pkt_vlan_tagged(eth_hdr_ptr) ? VLAN_ETH_FCS(eth_hdr_ptr, payload_size) : \
-            ETH_FCS(eth_hdr_ptr, payload_size))
+static inline uint32_t
+GET_802_1Q_VLAN_ID(vlan_8021q_hdr_t *vlan_8021q_hdr){
+
+    return (uint32_t)TCI_VID(vlan_8021q_hdr->tci);
+}
+
+static inline uint32_t
+GET_COMMON_ETH_FCS(ethernet_hdr_t *eth_hdr_ptr, uint32_t payload_size)
+{
+    return _get_eth_fcs(GET_ETHERNET_HDR_PAYLOAD(eth_hdr_ptr), payload_size);
+}
 
 static inline void
 SET_COMMON_ETH_FCS(ethernet_hdr_t *ethernet_hdr, 
                    uint32_t payload_size,
-                   uint32_t new_fcs){
-
-    if(is_pkt_vlan_tagged(ethernet_hdr)){
-        VLAN_ETH_FCS(ethernet_hdr, payload_size) = new_fcs;
-    }
-    else{
-        ETH_FCS(ethernet_hdr, payload_size) = new_fcs;
-    }
+                   uint32_t new_fcs)
+{
+    _set_eth_fcs(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr), payload_size, new_fcs);
 }
 
 static inline void 

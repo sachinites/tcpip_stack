@@ -349,28 +349,30 @@ isis_update_interface_adjacency_from_hello(
         
         switch(tlv_type){
             case ISIS_TLV_HOSTNAME:
-                /* Bounds check to prevent buffer overflow */
-                if (tlv_len > 0 && tlv_len <= sizeof(adjacency->nbr_name)) {
-                    if (memcmp(adjacency->nbr_name, tlv_value, tlv_len)) {
+                if (tlv_len > 0) {
+                    size_t copy_len = tlv_len;
+                    if (copy_len >= NODE_NAME_SIZE)
+                        copy_len = NODE_NAME_SIZE - 1;
+                    if (memcmp(adjacency->nbr_name, tlv_value, copy_len) ||
+                        adjacency->nbr_name[copy_len] != '\0') {
                         regen_lsp = true;
-                        memcpy(adjacency->nbr_name, tlv_value, tlv_len);
-                        adjacency->nbr_name[tlv_len] = '\0'; /* Null-terminate */
+                        memcpy(adjacency->nbr_name, tlv_value, copy_len);
+                        adjacency->nbr_name[copy_len] = '\0';
                     }
                 }
             break;
             case ISIS_TLV_RTR_ID:
-                /* Verify we have enough data for uint32_t */
                 if (tlv_len >= sizeof(uint32_t)) {
-                    if (adjacency->nbr_rtr_id != htonl(*(uint32_t *)(tlv_value))) {
-                        adjacency->nbr_rtr_id = htonl(*(uint32_t *)(tlv_value));
+                    uint32_t nbr_rtr_id = htonl(tlv_read_u32(tlv_value));
+                    if (adjacency->nbr_rtr_id != nbr_rtr_id) {
+                        adjacency->nbr_rtr_id = nbr_rtr_id;
                         force_bring_down_adjacency = true;
                     }
                 }
             break;    
             case ISIS_TLV_IF_IP:
-                /* Verify we have enough data for uint32_t */
                 if (tlv_len >= sizeof(uint32_t)) {
-                    uint32_t nbr_ip = ntohl(*(uint32_t *)(tlv_value));
+                    uint32_t nbr_ip = ntohl(tlv_read_u32(tlv_value));
                     if (adjacency->nbr_intf_ip != nbr_ip) {
                         adjacency->nbr_intf_ip = nbr_ip;
                         force_bring_down_adjacency = true;
@@ -379,9 +381,8 @@ isis_update_interface_adjacency_from_hello(
             break;
             case ISIS_TLV_IF_INDEX:
                 {
-                    /* Verify we have enough data for uint32_t */
                     if (tlv_len >= sizeof(uint32_t)) {
-                        uint32_t remote_ifindex = htonl(*(uint32_t *)tlv_value);
+                        uint32_t remote_ifindex = htonl(tlv_read_u32(tlv_value));
                         if (adjacency->remote_if_index != remote_ifindex) {
                             adjacency->remote_if_index = remote_ifindex;
                             regen_lsp = true;
@@ -390,16 +391,15 @@ isis_update_interface_adjacency_from_hello(
                 }
             break;
             case ISIS_TLV_HOLD_TIME:
-                /* Verify we have enough data for uint32_t */
                 if (tlv_len >= sizeof(uint32_t)) {
-                    adjacency->hold_time = htonl(*((uint32_t *)tlv_value));
+                    adjacency->hold_time = htonl(tlv_read_u32(tlv_value));
                 }
             break;
             case ISIS_TLV_METRIC_VAL:
-                /* Verify we have enough data for uint32_t */
                 if (tlv_len >= sizeof(uint32_t)) {
-                    if (adjacency->cost != htonl(*((uint32_t *)tlv_value))) {
-                        adjacency->cost = htonl(*((uint32_t *)tlv_value));
+                    uint32_t cost = htonl(tlv_read_u32(tlv_value));
+                    if (adjacency->cost != cost) {
+                        adjacency->cost = cost;
                         regen_lsp= true;
                     }
                 }

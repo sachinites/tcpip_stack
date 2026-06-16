@@ -48,7 +48,7 @@ isis_process_hello_pkt(isis_node_info_t *node_info,
     uint32_t rcvd_if_ip;
     uint8_t intf_ip_len;
     pkt_size_t tlv_buff_size;
-    uint32_t *if_ip_addr_int;
+    byte *if_ip_tlv;
     isis_common_hdr_t  *cmn_hdr;
     byte *hello_tlv_buffer = NULL;
     isis_intf_info_t *intf_info = NULL;
@@ -108,14 +108,14 @@ isis_process_hello_pkt(isis_node_info_t *node_info,
     }
 
     /*Fetch the IF IP Address Value from TLV buffer*/
-    if_ip_addr_int = (uint32_t *)tlv_buffer_get_particular_tlv(
+    if_ip_tlv = tlv_buffer_get_particular_tlv(
                         hello_tlv_buffer,
                         tlv_buff_size,
                         ISIS_TLV_IF_IP,
                         &intf_ip_len);
 
     /*If no Intf IP, then it is a bad hello*/
-    if (!if_ip_addr_int) {
+    if (!if_ip_tlv) {
     
         tracer(ISIS_TR(node_info), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS,
             "Interface %s recvd Bad Hello Packet - No Intf IP address found\n", iif->if_name.c_str());  
@@ -126,7 +126,7 @@ isis_process_hello_pkt(isis_node_info_t *node_info,
      * The hello pkt_block is reused across hello intervals; writing back via
      * if_ip_addr_int would corrupt it so every alternate hello arrives with a
      * byte-reversed IP, causing permanent subnet-mismatch failures. */
-    rcvd_if_ip = ntohl(*if_ip_addr_int);
+    rcvd_if_ip = ntohl(tlv_read_u32(if_ip_tlv));
 
     if (!iif->IsSameSubnet(rcvd_if_ip)) {
 
@@ -549,21 +549,21 @@ isis_print_hello_pkt(byte *buff,
         switch(tlv_type){
             case ISIS_TLV_IF_INDEX:
                 rc += sprintf((char *)(buff + rc), "%d %d %u :: ",
-                    tlv_type, tlv_len, *(uint32_t *)(tlv_value));
+                    tlv_type, tlv_len, htonl(tlv_read_u32(tlv_value)));
             break;
             case ISIS_TLV_HOSTNAME:
                 rc += sprintf((char *)(buff + rc), "%d %d %s :: ", tlv_type, tlv_len, tlv_value);
                 break;
             case ISIS_TLV_RTR_ID:
             case ISIS_TLV_IF_IP:
-                tcp_ip_covert_ip_n_to_p(htonl(*(uint32_t *)tlv_value), ip_addr_str);
+                tcp_ip_covert_ip_n_to_p(htonl(tlv_read_u32(tlv_value)), ip_addr_str);
                 rc += sprintf((char *)(buff + rc), "%d %d %s :: ", tlv_type, tlv_len, ip_addr_str);
                 break;
             case ISIS_TLV_HOLD_TIME:
-                rc += sprintf((char *)(buff + rc), "%d %d %u :: ", tlv_type, tlv_len, *(uint32_t *)tlv_value);
+                rc += sprintf((char *)(buff + rc), "%d %d %u :: ", tlv_type, tlv_len, htonl(tlv_read_u32(tlv_value)));
                 break;
             case ISIS_TLV_METRIC_VAL:
-                rc += sprintf((char *)(buff + rc), "%d %d %u :: ", tlv_type, tlv_len, *(uint32_t *)tlv_value);
+                rc += sprintf((char *)(buff + rc), "%d %d %u :: ", tlv_type, tlv_len, htonl(tlv_read_u32(tlv_value)));
                 break;
             case ISIS_TLV_IF_MAC:
                 rc += sprintf((char *)(buff + rc), "%d %d %02x:%02x:%02x:%02x:%02x:%02x :: ",

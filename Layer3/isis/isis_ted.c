@@ -78,14 +78,20 @@ isis_ted_update_or_install_lsp (isis_node_info_t *node_info, ted_db_t *ted_db, i
                 switch (tlv_type2)
                 {
                 case ISIS_TLV_IF_INDEX:
-                    nbr_data->local_if_index = htonl(*(uint32_t *)tlv_value2);
-                    nbr_data->remote_if_index = htonl(*(uint32_t *)((uint32_t *)tlv_value2 + 1));
+                    if (tlv_len2 >= 2 * sizeof(uint32_t)) {
+                        nbr_data->local_if_index = htonl(tlv_read_u32(tlv_value2));
+                        nbr_data->remote_if_index = htonl(tlv_read_u32(tlv_value2 + sizeof(uint32_t)));
+                    }
                     break;
                 case ISIS_TLV_LOCAL_IP:
-                    nbr_data->local_ip = htonl(*(uint32_t *)tlv_value2);
+                    if (tlv_len2 >= sizeof(uint32_t)) {
+                        nbr_data->local_ip = htonl(tlv_read_u32(tlv_value2));
+                    }
                     break;
                 case ISIS_TLV_REMOTE_IP:
-                    nbr_data->remote_ip = htonl(*(uint32_t *)tlv_value2);
+                    if (tlv_len2 >= sizeof(uint32_t)) {
+                        nbr_data->remote_ip = htonl(tlv_read_u32(tlv_value2));
+                    }
                     break;
                 default:;
                 }
