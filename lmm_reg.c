@@ -49,9 +49,6 @@
 #include "libs/pkt-block/cp_pkt_block.h"
 #include "libs/gluethread/glthread.h"
 
-/* Notification files */
-#include "Layer3/rt_notif.h"
-
 /* LFA files */
 #include "Layer3/LFA/cp/lfa.h"
 #include "Layer3/LFA/cp/lfa_isis.h"
@@ -125,9 +122,6 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(glthread_t),
     MM_REG_STRUCT2(glthread_data_node_t),
 
-
-    /* RT Table Structures */
-    MM_REG_STRUCT2(rt_route_flash_request_t),
 
     /* Pkt block */
     MM_REG_STRUCT2(cp_pkt_block_t),

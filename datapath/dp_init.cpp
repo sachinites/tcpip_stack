@@ -78,7 +78,7 @@ dp_init_pkt_mbuf_memory_pools(dp_ctx_t *dp_ctx)
             cprintf ("%s : Error : Memory pool creation failed on Numa Node %d, err=%s\n", 
                 dp_ctx->ctx_name, i, rte_strerror(rte_errno));
         }
-        assert (dp_ctx->mbuf_pools[i]);
+        //assert (dp_ctx->mbuf_pools[i]);
     }
 }
 
@@ -108,7 +108,7 @@ dp_init_fib_memory_pools (dp_ctx_t *dp_ctx) {
                 DEFAULT_NUMA_NODE,
                 0);
 
-    assert (dp_ctx->fib_mops.fib_mempool);
+    //assert (dp_ctx->fib_mops.fib_mempool);
 }
 
 

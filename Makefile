@@ -50,7 +50,7 @@ export LIBS=            ${ISIS_LIB_PATH} \
 			-lm \
 			-lncurses \
 
-OBJS=             router_init.o   \
+OBJS=     router_init.o   \
 		  cli_interface.o \
 		  topologies.o	   \
 		  net.o			   \

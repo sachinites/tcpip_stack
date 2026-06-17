@@ -70,7 +70,6 @@
 #include "net.h"
 #include "Layer2/layer2.h"
 #include "Layer3/layer3.h"
-#include "Layer3/rt_notif.h"
 #include "Layer4/udp.h"
 #include "Layer5/layer5.h"
 #include "utils.h"
