@@ -35,6 +35,7 @@ typedef struct dp_vrf_ dp_vrf_t;
 struct ping_ctx_;
 struct rte_mempool;
 
+#include "../libs/libtimer/WheelTimer.h"
 #include "../libs/EventDispatcher/event_dispatcher.h"
 #include "../tcp_ip_trace.h"
 #include "../Layer3/netfilter.h"
@@ -117,6 +118,10 @@ typedef struct dp_ctx_ {
     /* Active ping session; set by ping_send4, 
     cleared when done, read by DP ICMP handler */
     struct ping_ctx_ *active_ping_ctx;
+
+    /* Single periodic GC scan timer (replaces per-entry ARP/MAC timers).
+     * Registered on dp_wt; fires every DP_TABLE_SCAN_INTERVAL_SECS. */
+    wheel_timer_elem_t *table_scan_timer;
 
 } dp_ctx_t;
 

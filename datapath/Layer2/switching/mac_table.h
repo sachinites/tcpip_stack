@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <time.h>
+#include "../../dp_const.h"
 #include "../../../libs/libtimer/WheelTimer.h"
 #include "../../../libs/common/cmn_struct.h"
 #include "../../../utils.h"
@@ -21,8 +22,6 @@
  *    reader that fetched the pointer just before deletion can finish safely.
  *  - All functions that mutate the table assert that they run on dp_ev_dis.
  */
-
-#define DP_TABLE_GC_DELAY_MS  200   /* deferred-free window for deleted entries */
 
 /* Forward declarations */
 typedef struct dp_intf_ dp_intf_t;
@@ -51,14 +50,13 @@ GLTHREAD_TO_STRUCT(mac_oif_glue_to_entry, mac_oif_entry_t, glue);
 
 typedef struct mac_table_entry_ {
     glthread_t oif_list;                /* list of mac_oif_entry_t */
-    wheel_timer_elem_t *exp_timer_wt_elem;
     mac_addr_t mac;
     uint16_t flags;
     uint16_t vlan_id;
     char padding[4];
     /* last_used: wall-clock seconds written by forwarding threads via
-     * mac_table_entry_touch().  Read by the expiry timer on dp_ev_dis.
-     * 0 = never forwarded through this entry since it was (re)inserted. */
+     * mac_table_entry_touch().  Read by the GC scan on dp_ev_dis.
+     * 0 = never forwarded through this entry since it was inserted. */
     time_t last_used;
 } mac_table_entry_t;
 
@@ -105,9 +103,9 @@ void mac_table_entry_delete(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
 void mac_table_entry_delete2(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                              uint16_t vlan_id, uint8_t *mac_addr);
 
-void mac_table_entry_cancel_expiry_timer(mac_table_entry_t *mac_table_entry);
-void mac_table_entry_init_timer(dp_ctx_t *dp_ctx,
-                                mac_table_entry_t *mac_table_entry);
+/* GC delete — called from the periodic table GC scan on dp_ev_dis. */
+void mac_table_gc_delete_entry(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
+                               mac_table_entry_t *entry);
 
 /* -------------------------------------------------------------------------
  * Show — safe to call from dp_ev_dis; uses rte_hash_iterate

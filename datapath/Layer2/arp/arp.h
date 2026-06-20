@@ -29,6 +29,7 @@
 #include "../../../libs/common/cmn_struct.h"
 #include "../../../libs/gluethread/glthread.h"
 #include "../../../tcpconst.h"
+#include "../../dp_const.h"
 
 typedef struct rte_mbuf pkt_mbuf_t;
 typedef struct arp_hdr_ arp_hdr_t;
@@ -39,8 +40,6 @@ typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
 struct rte_hash;   /* forward-declared; include <rte_hash.h> in .c files */
 
 #include <stdint.h>
-
-#define DP_TABLE_GC_DELAY_MS  2000   /* deferred-free window for deleted entries */
 
 /* -------------------------------------------------------------------------
  * Hash key: 8 bytes (ip_addr + padding for rte_hash alignment requirement).
@@ -83,13 +82,14 @@ GLTHREAD_TO_STRUCT(arp_pending_entry_glue_to_arp_pending_entry,
 /* -------------------------------------------------------------------------
  * ARP entry.
  * arp_pending_list : glthread list of pending arp_pending_entry_t.
- * arp_table        : back-reference so timer/GC callbacks can del the key.
- * last_used        : wall-clock seconds, written by forwarding threads,
- *                    read by the timer callback on dp_ev_dis.
+ * arp_table        : back-reference so GC callback can del the key.
+ * last_used        : wall-clock seconds, written by forwarding threads
+ *                    (relaxed atomic store), read by the GC scan on dp_ev_dis.
+ *                    0 = never forwarded since entry was (re)inserted.
  * ---------------------------------------------------------------------- */
 struct arp_entry_ {
+    
     glthread_t arp_pending_list;
-    wheel_timer_elem_t *exp_timer_wt_elem;
     mac_addr_t mac_addr;
     uint16_t proto;
     uint32_t ip_addr;      /* hash key */
@@ -171,14 +171,11 @@ bool arp_entry_add(dp_ctx_t *dp_ctx,
                    uint16_t proto);
 
 /* -------------------------------------------------------------------------
- * Timer helpers (called on dp_ev_dis)
+ * GC delete — called from the periodic table GC scan on dp_ev_dis.
+ * Removes the entry from the hash, drains pending packets, and schedules
+ * deferred memory free (DP_TABLE_GC_DELAY_MS grace period).
  * ---------------------------------------------------------------------- */
-wheel_timer_elem_t *arp_entry_create_expiration_timer(dp_ctx_t *dp_ctx,
-                                                       arp_entry_t *arp_entry,
-                                                       uint16_t exp_time);
-void arp_entry_delete_expiration_timer(arp_entry_t *arp_entry);
-void arp_entry_refresh_expiration_timer(arp_entry_t *arp_entry);
-uint16_t arp_entry_get_exp_time_left(arp_entry_t *arp_entry);
+void arp_entry_schedule_delete(dp_ctx_t *dp_ctx, arp_entry_t *arp_entry);
 
 /* -------------------------------------------------------------------------
  * Pending-entry management

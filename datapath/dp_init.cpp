@@ -22,6 +22,7 @@
 #include "../libs/Tracer/tracer.h"
 #include "Layer2/switching/mac_table.h"
 #include "dp_ctx.h"
+#include "dp_table_gc.h"
 #include "dp_const.h"
 #include "../libs/mtrie/atomic_mtrie.h"
 #include <rte_errno.h>
@@ -165,6 +166,9 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     dp_init_vrf_hashtable(&dp_ctx->dp_vrf_ht);
     dp_init_vlan_intf_hashtable(&dp_ctx->dp_vlan_intf_ht);
     dp_ctx->vlan_vni_ht.store(nullptr);
+
+    /* Start the single periodic GC scan timer (replaces per-entry timers). */
+    dp_table_gc_start(dp_ctx);
 
     /* Netfilter (L3) and L2 protocol registration */
     nf_init_netfilters(&dp_ctx->nf_hook_db);

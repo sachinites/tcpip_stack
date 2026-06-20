@@ -39,7 +39,8 @@
 #include "../../../CLIBuilder/libcli.h"
 #include "../../../cmdcodes.h"
 
-#define ARP_ENTRY_EXP_TIME  30      /* seconds */
+/* ARP_ENTRY_EXP_TIME removed: per-entry timers replaced by a single
+ * periodic GC scan (dp_table_gc).  See DP_TABLE_SCAN_INTERVAL_SECS. */
 #define ARP_HASH_ENTRIES    1024    /* max entries per VRF ARP table */
 
 /* -------------------------------------------------------------------------
@@ -334,20 +335,16 @@ arp_entry_gc_free_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
 }
 
 /*
- * Internal: remove an entry from the hash, cancel its expiry timer,
- * drain pending packets, and schedule deferred free.
- * Caller MUST be on dp_ev_dis.
+ * Remove an entry from the hash, drain pending packets, and schedule
+ * deferred free.  Called from the periodic GC scan on dp_ev_dis.
  */
-static void
+void
 arp_entry_schedule_delete(dp_ctx_t *dp_ctx, arp_entry_t *arp_entry)
 {
     ASSERT_ON_DP_EV_DIS(dp_ctx);
 
     arp_table_t *arp_table = arp_entry->arp_table;
     arp_hash_key_t key = { arp_entry->ip_addr, 0 };
-
-    /* Cancel expiry timer to prevent a later timer callback racing with GC. */
-    arp_entry_delete_expiration_timer(arp_entry);
 
     /* Remove from hash; readers may still hold the pointer until GC fires. */
     if (arp_table->hash)
@@ -378,13 +375,12 @@ clear_arp_table(dp_ctx_t *dp_ctx, arp_table_t *arp_table)
 
     if (!arp_table->hash) return;
 
-    /* Collect all entries, cancel timers, drain pending lists. */
+    /* Collect all entries, drain pending lists, schedule deferred free. */
     uint32_t next = 0;
     const void *key;
     void *data;
     while (rte_hash_iterate(arp_table->hash, &key, &data, &next) >= 0) {
         arp_entry_t *entry = (arp_entry_t *)data;
-        arp_entry_delete_expiration_timer(entry);
 
         glthread_t *curr;
         arp_pending_entry_t *pe;
@@ -492,11 +488,6 @@ arp_table_entry_add_nolock(dp_ctx_t *dp_ctx,
         arp_entry->last_used = 0;   /* 0 = never used by data path yet */
         init_glthread(&arp_entry->arp_pending_list);
         rte_hash_add_key_data(arp_table->hash, &key, arp_entry);
-        assert(arp_entry->exp_timer_wt_elem == NULL);
-        if (arp_entry->proto == ETH_TYPE_ARP)
-            arp_entry->exp_timer_wt_elem =
-                arp_entry_create_expiration_timer(dp_ctx, arp_entry,
-                                                  ARP_ENTRY_EXP_TIME);
         tracer(dp_ctx->dptr, DARP, "VRF:%s: ARP-entry %s added\n",
                vrf->vrf_name, ip_str);
         return true;
@@ -513,17 +504,11 @@ arp_table_entry_add_nolock(dp_ctx_t *dp_ctx,
     if (!arp_entry_sane(old) &&
         (old->proto == arp_entry->proto ||
          (old->proto == ETH_TYPE_ARP && arp_entry->proto != ETH_TYPE_ARP))) {
-        /* Replace pointer in hash atomically; GC old entry. */
+        /* Replace pointer in hash; GC old entry. */
         arp_entry->arp_table = arp_table;
+        arp_entry->last_used = 0;
         init_glthread(&arp_entry->arp_pending_list);
         rte_hash_add_key_data(arp_table->hash, &key, arp_entry);
-        assert(arp_entry->exp_timer_wt_elem == NULL);
-        if (arp_entry->proto == ETH_TYPE_ARP)
-            arp_entry->exp_timer_wt_elem =
-                arp_entry_create_expiration_timer(dp_ctx, arp_entry,
-                                                  ARP_ENTRY_EXP_TIME);
-        /* GC old (cancel its timer first). */
-        arp_entry_delete_expiration_timer(old);
         timer_register_app_event(DP_TIMER(dp_ctx), arp_entry_gc_free_cbk,
                                  (void *)old, sizeof(*old), DP_TABLE_GC_DELAY_MS, 0);
         tracer(dp_ctx->dptr, DARP, "VRF:%s: ARP-entry %s replaced\n",
@@ -531,14 +516,13 @@ arp_table_entry_add_nolock(dp_ctx_t *dp_ctx,
         return true;
     }
 
-    /* Case 3: both sane — merge new pending list into old, refresh timer. */
+    /* Case 3: both sane — merge new pending list into old. */
     if (arp_entry_sane(old) && arp_entry_sane(arp_entry)) {
         if (!IS_GLTHREAD_LIST_EMPTY(&arp_entry->arp_pending_list))
             glthread_add_next(&old->arp_pending_list,
                               arp_entry->arp_pending_list.right);
         if (arp_pending_list)
             *arp_pending_list = &old->arp_pending_list;
-        arp_entry_refresh_expiration_timer(old);
         return false;
     }
 
@@ -664,7 +648,6 @@ create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
         /* Sane entry exists — append pending packet. */
         add_arp_pending_entry(dp_ctx, entry,
                               pending_arp_processing_callback_function, mbuf);
-        arp_entry_refresh_expiration_timer(entry);
         pkt_mbuf_dereference(mbuf); /* release the extra ref taken by the caller */
         return;
     }
@@ -709,102 +692,8 @@ arp_entry_add(dp_ctx_t *dp_ctx,
     return true;
 }
 
-/* -------------------------------------------------------------------------
- * Timer management
- * ---------------------------------------------------------------------- */
-
-static void
-arp_entry_timer_delete_cbk(event_dispatcher_t *ev_dis,
-                            void *arg, uint32_t arg_size)
-{
-    if (!arg) return;
-    arp_entry_t *entry = (arp_entry_t *)arg;
-    dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
-    char ip_str[IPV4_ADDR_LEN_STR];
-    tcp_ip_covert_ip_n_to_p(entry->ip_addr, ip_str);
-
-    /* The timer element has fired; the slot is no longer valid. */
-    entry->exp_timer_wt_elem = NULL;
-
-    /* For resolved entries apply an active-traffic check: reschedule the
-     * timer only when the data path has forwarded at least one packet
-     * within the most recent timer period (ARP_ENTRY_EXP_TIME seconds).
-     *
-     *   last_used == 0          → never forwarded → always delete.
-     *   now - last_used < EXP   → traffic flowing → reschedule one more
-     *                             period; will expire if traffic stops.
-     *   now - last_used >= EXP  → idle for a full period → delete.
-     *
-     * The efficiency win: the data path only writes a timestamp
-     * (one aligned store, no timer wheel lock) instead of calling
-     * timer_reschedule() on every forwarded packet.  timer_reschedule()
-     * is called at most once every ARP_ENTRY_EXP_TIME seconds here. */
-    time_t lu = __atomic_load_n(&entry->last_used, __ATOMIC_RELAXED);
-    if (!arp_entry_sane(entry) &&
-        lu != 0 &&
-        (time(NULL) - lu) < ARP_ENTRY_EXP_TIME) {
-
-        tracer(dp_ctx->dptr, DARP | DTIMER,
-               "ARP-entry %s still active (idle %lds < %ds), rescheduling\n",
-               ip_str,
-               (long)(time(NULL) - lu),
-               ARP_ENTRY_EXP_TIME);
-
-        entry->exp_timer_wt_elem = arp_entry_create_expiration_timer(
-                                        dp_ctx, entry, ARP_ENTRY_EXP_TIME);
-        return;
-    }
-
-    tracer(dp_ctx->dptr, DARP | DTIMER, "ARP-entry %s expired\n", ip_str);
-    arp_entry_schedule_delete(dp_ctx, entry);
-}
-
-wheel_timer_elem_t *
-arp_entry_create_expiration_timer(dp_ctx_t *dp_ctx,
-                                   arp_entry_t *arp_entry,
-                                   uint16_t exp_time)
-{
-    assert(arp_entry->exp_timer_wt_elem == NULL);
-
-    arp_entry->exp_timer_wt_elem = timer_register_app_event(
-        DP_TIMER(dp_ctx),
-        arp_entry_timer_delete_cbk,
-        (void *)arp_entry,
-        sizeof(*arp_entry),
-        ARP_ENTRY_EXP_TIME * 1000,
-        0);
-
-    char ip_str[IPV4_ADDR_LEN_STR];
-    tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_str);
-    tracer(dp_ctx->dptr, DARP_DET | DTIMER,
-           "ARP-entry %s: expiry timer created\n", ip_str);
-
-    return arp_entry->exp_timer_wt_elem;
-}
-
-void
-arp_entry_delete_expiration_timer(arp_entry_t *arp_entry)
-{
-    if (!arp_entry->exp_timer_wt_elem) return;
-    timer_de_register_app_event(arp_entry->exp_timer_wt_elem);
-    arp_entry->exp_timer_wt_elem = NULL;
-}
-
-void
-arp_entry_refresh_expiration_timer(arp_entry_t *arp_entry)
-{
-    if (arp_entry->exp_timer_wt_elem)
-        timer_reschedule(arp_entry->exp_timer_wt_elem,
-                         ARP_ENTRY_EXP_TIME * 1000);
-}
-
-uint16_t
-arp_entry_get_exp_time_left(arp_entry_t *arp_entry)
-{
-    if (arp_entry->exp_timer_wt_elem)
-        return wt_get_remaining_time(arp_entry->exp_timer_wt_elem);
-    return 0;
-}
+/* Per-entry ARP timers removed.  Expiry is handled by the single periodic
+ * GC scan timer registered in dp_table_gc.c (DP_TABLE_SCAN_INTERVAL_SECS). */
 
 /* -------------------------------------------------------------------------
  * Show — iterate rte_hash (run on dp_ev_dis)
@@ -820,24 +709,30 @@ show_arp_table(arp_table_t *arp_table)
     int count = 0;
 
     printw("\n\r");
+    time_t now = time(NULL);
     while (rte_hash_iterate(arp_table->hash, &key, &data, &next) >= 0) {
         arp_entry_t *entry = (arp_entry_t *)data;
         count++;
         if (count == 1)
-            cprintf("\t|========IP==========|========MAC========|=====OIF======|===Resolved==|=Exp-Time(msec)==|===Proto==|\n");
+            cprintf("\t|========IP==========|========MAC========|=====OIF======|===Resolved==|=Idle-Time(sec)==|===Proto==|\n");
         else
             cprintf("\t|====================|===================|==============|=============|=================|==========|\n");
 
         char ip_str[IPV4_ADDR_LEN_STR];
         tcp_ip_covert_ip_n_to_p(entry->ip_addr, ip_str);
-        cprintf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-5d          |  %-6s  |\n",
+        time_t lu = __atomic_load_n(&entry->last_used, __ATOMIC_RELAXED);
+        long idle = (lu == 0) ? -1 : (long)(now - lu);
+        char idle_str[16];
+        if (idle < 0) snprintf(idle_str, sizeof(idle_str), "never");
+        else          snprintf(idle_str, sizeof(idle_str), "%ld", idle);
+        cprintf("\t| %-18s | %02x:%02x:%02x:%02x:%02x:%02x |  %-12s|   %-6s    |  %-15s|  %-6s  |\n",
                 ip_str,
                 entry->mac_addr.mac[0], entry->mac_addr.mac[1],
                 entry->mac_addr.mac[2], entry->mac_addr.mac[3],
                 entry->mac_addr.mac[4], entry->mac_addr.mac[5],
                 entry->oif ? entry->oif->if_name : "null",
                 arp_entry_sane(entry) ? "false" : "true",
-                arp_entry_get_exp_time_left(entry),
+                idle_str,
                 proto_id_str(entry->proto));
     }
 

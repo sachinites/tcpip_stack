@@ -23,6 +23,7 @@ OBJS=dp_init.o \
 	 dp_cli.o \
 	 dp_utils.o \
 	 dp_uapi.o \
+	 dp_table_gc.o \
 	 Interface/dp_intf_store.o \
 	 Interface/dp_intf_recv_xmit.o \
 	 Interface/dp_intf_log.o \

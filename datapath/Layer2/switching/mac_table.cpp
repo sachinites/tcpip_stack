@@ -113,7 +113,6 @@ destroy_mac_table(dp_ctx_t *dp_ctx, mac_table_t *mac_table)
     void *data;
     while (rte_hash_iterate(mac_table->hash, &key, &data, &next) >= 0) {
         mac_table_entry_t *entry = (mac_table_entry_t *)data;
-        mac_table_entry_cancel_expiry_timer(entry);
         mac_table_entry_clear_oifs(entry);
         XFREE(entry);
     }
@@ -137,88 +136,24 @@ mac_table_lookup(mac_table_t *mac_table, uint16_t vlan, uint8_t *mac)
 }
 
 /* -------------------------------------------------------------------------
- * Timer helpers (called on dp_ev_dis)
+ * Per-entry MAC timers removed.  Expiry is handled by the single periodic
+ * GC scan timer registered in dp_table_gc.c (DP_TABLE_SCAN_INTERVAL_SECS).
  * ---------------------------------------------------------------------- */
 
+/* Forward declaration — defined in the write-path section below. */
+static void mac_entry_remove(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
+                              mac_table_entry_t *entry, mac_table_key_t *key);
+
+/* GC delete — called from the periodic GC scan on dp_ev_dis.
+ * Removes the entry from the hash and schedules deferred memory free. */
 void
-mac_table_entry_cancel_expiry_timer(mac_table_entry_t *mac_table_entry)
+mac_table_gc_delete_entry(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
+                           mac_table_entry_t *entry)
 {
-    if (mac_table_entry->exp_timer_wt_elem) {
-        timer_de_register_app_event(mac_table_entry->exp_timer_wt_elem);
-        mac_table_entry->exp_timer_wt_elem = NULL;
-    }
-}
-
-static void
-mac_table_entry_timer_expiry_cbk(event_dispatcher_t *ev_dis,
-                                  void *arg, uint32_t arg_size)
-{
-    mac_table_entry_t *entry = (mac_table_entry_t *)arg;
-    dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
-
-    /* The timer element has fired; the slot is no longer valid. */
-    entry->exp_timer_wt_elem = NULL;
-
-    /* Active-traffic check: if the data path forwarded at least one frame
-     * through this entry within the last MAC_ENTRY_EXP_TIME seconds,
-     * keep it alive by rescheduling the check timer.
-     *
-     *   last_used == 0          → never forwarded → always delete.
-     *   now - last_used < EXP   → traffic flowing → reschedule.
-     *   now - last_used >= EXP  → idle for a full period → delete.
-     *
-     * Only a single 64-bit read of last_used is needed — no lock on x86-64.
-     */
-    time_t lu = __atomic_load_n(&entry->last_used, __ATOMIC_RELAXED);
-    if (lu != 0 &&
-        (time(NULL) - lu) < MAC_ENTRY_EXP_TIME) {
-
-        tracer(dp_ctx->dptr, DL2SW,
-               "MAC Entry [%d %02x:%02x:%02x:%02x:%02x:%02x] still active "
-               "(idle %lds < %ds), rescheduling\n",
-               entry->vlan_id,
-               entry->mac.mac[0], entry->mac.mac[1],
-               entry->mac.mac[2], entry->mac.mac[3],
-               entry->mac.mac[4], entry->mac.mac[5],
-               (long)(time(NULL) - lu),
-               MAC_ENTRY_EXP_TIME);
-
-        mac_table_entry_init_timer(dp_ctx, entry);
-        return;
-    }
-
-    tracer(dp_ctx->dptr, DL2SW,
-           "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Expired\n",
-           entry->vlan_id,
-           entry->mac.mac[0], entry->mac.mac[1],
-           entry->mac.mac[2], entry->mac.mac[3],
-           entry->mac.mac[4], entry->mac.mac[5]);
-
-    if (!dp_ctx->mac_table->hash) { mac_entry_gc_free_cbk(ev_dis, entry, 0); return; }
-
+    ASSERT_ON_DP_EV_DIS(dp_ctx);
     mac_table_key_t key = { .vlan_id = entry->vlan_id };
-    memcpy(key.mac, entry->mac.mac, 6);
-
-    if (rte_hash_del_key(dp_ctx->mac_table->hash, &key) >= 0) {
-        if (dp_ctx->mac_table->entry_count > 0)
-            dp_ctx->mac_table->entry_count--;
-        /* Readers that already hold this pointer get DP_TABLE_GC_DELAY_MS. */
-        mac_entry_schedule_gc(dp_ctx, entry);
-    }
-    /* else: already explicitly deleted; GC already scheduled by that path. */
-}
-
-void
-mac_table_entry_init_timer(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_table_entry)
-{
-    assert(!mac_table_entry->exp_timer_wt_elem);
-    mac_table_entry->exp_timer_wt_elem = timer_register_app_event(
-        DP_TIMER(dp_ctx),
-        mac_table_entry_timer_expiry_cbk,
-        (void *)mac_table_entry,
-        sizeof(mac_table_entry_t),
-        MAC_ENTRY_EXP_TIME * 1000,
-        0);
+    memcpy(key.mac, entry->mac.mac, sizeof(key.mac));
+    mac_entry_remove(dp_ctx, mac_table, entry, &key);
 }
 
 /* -------------------------------------------------------------------------
@@ -267,8 +202,7 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     init_glthread(&entry->oif_list);
     mac_table_entry_add_oif(entry, oif, remote_dst_ip);
 
-    if (!(flags & MAC_STATIC))
-        mac_table_entry_init_timer(dp_ctx, entry);
+    /* No per-entry timer; GC is handled by the global scan timer. */
 
     mac_table_key_t key = { .vlan_id = vlan_id };
     memcpy(key.mac, mac_addr, 6);
@@ -292,9 +226,6 @@ mac_entry_remove(dp_ctx_t *dp_ctx,
 {
     ASSERT_ON_DP_EV_DIS(dp_ctx);
     if (!mac_table->hash) return;
-
-    /* Cancel expiry timer so it does not race with our GC scheduling. */
-    mac_table_entry_cancel_expiry_timer(entry);
 
     if (rte_hash_del_key(mac_table->hash, key) >= 0) {
         if (mac_table->entry_count > 0)
@@ -357,13 +288,6 @@ mac_table_entry_delete2(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
  * Show — iterate rte_hash (safe on dp_ev_dis while writers are serialised)
  * ---------------------------------------------------------------------- */
 
-static uint32_t
-mac_table_entry_get_exp_time_left(mac_table_entry_t *entry)
-{
-    if (entry->exp_timer_wt_elem)
-        return wt_get_remaining_time(entry->exp_timer_wt_elem);
-    return 0;
-}
 
 static char *
 mac_table_entry_append_oifs(mac_table_entry_t *entry,
@@ -405,8 +329,9 @@ show_mac_table(mac_table_t *mac_table, uint16_t vlan_id)
     const void *key;
     void *data;
 
+    time_t now = time(NULL);
     printw("\n\r");
-    cprintf("VLAN   MAC Address         Type         Exp-Time(ms)\n");
+    cprintf("VLAN   MAC Address         Type         Idle-Time(sec)\n");
     cprintf("----  ------------        ------       --------------\n\n");
 
     while (rte_hash_iterate(mac_table->hash, &key, &data, &next) >= 0) {
@@ -415,23 +340,27 @@ show_mac_table(mac_table_t *mac_table, uint16_t vlan_id)
         if (vlan_id && vlan_id != entry->vlan_id) continue;
 
         count++;
+        time_t lu = __atomic_load_n(&entry->last_used, __ATOMIC_RELAXED);
+        char idle_str[16];
+        if (lu == 0) snprintf(idle_str, sizeof(idle_str), "never");
+        else         snprintf(idle_str, sizeof(idle_str), "%ld", (long)(now - lu));
 
         if (entry->vlan_id == DEFAULT_VLAN_ID) {
-            cprintf("%-6s %02x:%02x:%02x:%02x:%02x:%02x  %-13s %-6d\n",
+            cprintf("%-6s %02x:%02x:%02x:%02x:%02x:%02x  %-13s %-14s\n",
                     "--",
                     entry->mac.mac[0], entry->mac.mac[1],
                     entry->mac.mac[2], entry->mac.mac[3],
                     entry->mac.mac[4], entry->mac.mac[5],
                     mac_entry_flag(entry->flags),
-                    mac_table_entry_get_exp_time_left(entry));
+                    idle_str);
         } else {
-            cprintf("%-6d %02x:%02x:%02x:%02x:%02x:%02x  %-13s %-6d\n",
+            cprintf("%-6d %02x:%02x:%02x:%02x:%02x:%02x  %-13s %-14s\n",
                     entry->vlan_id,
                     entry->mac.mac[0], entry->mac.mac[1],
                     entry->mac.mac[2], entry->mac.mac[3],
                     entry->mac.mac[4], entry->mac.mac[5],
                     mac_entry_flag(entry->flags),
-                    mac_table_entry_get_exp_time_left(entry));
+                    idle_str);
         }
 
         mac_table_entry_append_oifs(entry, buffer, sizeof(buffer));
