@@ -98,7 +98,7 @@ void dp_delete_vrf(dp_ctx_t *dp_ctx, hashtable_t *ht, uint8_t vrf_id)
 }
 
 dp_vrf_t *
-dp_create_vrf (hashtable_t *ht, char *vrf_name, uint8_t vrf_id) {
+dp_create_vrf (hashtable_t *ht, const char *ctx_name, char *vrf_name, uint8_t vrf_id) {
     
     /* Allocate new VRF structure */
     dp_vrf_t *vrf ;
@@ -123,7 +123,7 @@ dp_create_vrf (hashtable_t *ht, char *vrf_name, uint8_t vrf_id) {
     vrf->fib_inet6 = fib_init(vrf, AF_IPV6, vrf_id);
     vrf->fib_mpls0 = fib_init(vrf, AF_LABEL, vrf_id);
 
-    init_arp_table (&vrf->arp_table);
+    init_arp_table (&vrf->arp_table, ctx_name, vrf->vrf_name);
     
     /* Insert into hashtable */
     dp_insert_vrf(ht, vrf);
@@ -134,18 +134,20 @@ dp_create_vrf (hashtable_t *ht, char *vrf_name, uint8_t vrf_id) {
 fib_t *
 dp_look_up_fib_by_name (dp_ctx_t *dp_ctx, char *vrf_name, char *fib_name) {
 
-    dp_vrf_t *vrf = NULL;
+    if (!dp_ctx->dp_vrf_ht || hashtable_count(dp_ctx->dp_vrf_ht) == 0)
+        return NULL;
 
     struct hashtable_itr *itr = hashtable_iterator(dp_ctx->dp_vrf_ht);
+    if (!itr) return NULL;
 
-    while (1)
-    {
-        vrf = (dp_vrf_t *)hashtable_iterator_value(itr);
-        if (strcmp(vrf_name, vrf->vrf_name) == 0)
+    dp_vrf_t *vrf = NULL;
+    do {
+        dp_vrf_t *v = (dp_vrf_t *)hashtable_iterator_value(itr);
+        if (v && strcmp(vrf_name, v->vrf_name) == 0) {
+            vrf = v;
             break;
-        if (!hashtable_iterator_advance(itr))
-            break;
-    }
+        }
+    } while (hashtable_iterator_advance(itr));
     free(itr);
 
     if (!vrf) return NULL;
@@ -160,21 +162,21 @@ dp_look_up_fib_by_name (dp_ctx_t *dp_ctx, char *vrf_name, char *fib_name) {
 arp_table_t *
 dp_vrf_get_arp_cache (dp_ctx_t *dp_ctx, char *vrf_name) {
 
-    dp_vrf_t *vrf = NULL;
+    if (!dp_ctx->dp_vrf_ht || hashtable_count(dp_ctx->dp_vrf_ht) == 0)
+        return NULL;
 
     struct hashtable_itr *itr = hashtable_iterator(dp_ctx->dp_vrf_ht);
+    if (!itr) return NULL;
 
-    while (1)
-    {
-        vrf = (dp_vrf_t *)hashtable_iterator_value(itr);
-        if (strcmp(vrf_name, vrf->vrf_name) == 0)
+    dp_vrf_t *found = NULL;
+    do {
+        dp_vrf_t *vrf = (dp_vrf_t *)hashtable_iterator_value(itr);
+        if (vrf && strcmp(vrf_name, vrf->vrf_name) == 0) {
+            found = vrf;
             break;
-        if (!hashtable_iterator_advance(itr))
-            break;
-    }
+        }
+    } while (hashtable_iterator_advance(itr));
+
     free(itr);
-
-    if (!vrf) return NULL;
-
-    return vrf->arp_table;
+    return found ? found->arp_table : NULL;
 }

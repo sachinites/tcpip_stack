@@ -59,7 +59,8 @@ dp_delete_vrf (dp_ctx_t *dp_ctx, hashtable_t *ht, uint8_t vrf_id) ;
 
 dp_vrf_t *
 dp_create_vrf (
-               hashtable_t *ht, 
+               hashtable_t *ht,
+               const char *ctx_name,
                char *vrf_name, uint8_t vrf_id) ;
 
 fib_t *

@@ -20,6 +20,7 @@ dp_component_type_str (DP_COMPONENT_TYPE_T t) {
         case INTF_TABLE:  return "INTF_TABLE";
         case VRF_TABLE:   return "VRF_TABLE";
         case DP_GENERICS: return "DP_GENERICS";
+        case ARP_TABLE:   return "ARP_TABLE";
         default:          return "UNKNOWN";
     }
 }

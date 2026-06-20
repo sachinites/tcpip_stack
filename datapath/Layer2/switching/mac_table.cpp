@@ -13,6 +13,7 @@
  */
 
 #include <memory.h>
+#include <time.h>
 #include <ncurses.h>
 #include <pthread.h>
 
@@ -69,12 +70,18 @@ mac_entry_schedule_gc(dp_ctx_t *dp_ctx, mac_table_entry_t *entry)
  * ---------------------------------------------------------------------- */
 
 void
-init_mac_table(mac_table_t **mac_table)
+init_mac_table(mac_table_t **mac_table, const char *ctx_name)
 {
     *mac_table = (mac_table_t *)XCALLOC2(0, 1, mac_table_t);
 
+    /* Each dp_ctx must have a unique hash name; DPDK uses a process-global
+     * name registry and rte_hash_create fails with EEXIST if two contexts
+     * share the same name. */
+    char hash_name[RTE_HASH_NAMESIZE];
+    snprintf(hash_name, sizeof(hash_name), "mac_%.27s", ctx_name);
+
     struct rte_hash_parameters params = {};
-    params.name       = "mac_table";
+    params.name       = hash_name;
     params.entries    = 8192;
     params.key_len    = sizeof(mac_table_key_t);
     params.hash_func  = rte_jhash;
@@ -149,6 +156,37 @@ mac_table_entry_timer_expiry_cbk(event_dispatcher_t *ev_dis,
     mac_table_entry_t *entry = (mac_table_entry_t *)arg;
     dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
 
+    /* The timer element has fired; the slot is no longer valid. */
+    entry->exp_timer_wt_elem = NULL;
+
+    /* Active-traffic check: if the data path forwarded at least one frame
+     * through this entry within the last MAC_ENTRY_EXP_TIME seconds,
+     * keep it alive by rescheduling the check timer.
+     *
+     *   last_used == 0          → never forwarded → always delete.
+     *   now - last_used < EXP   → traffic flowing → reschedule.
+     *   now - last_used >= EXP  → idle for a full period → delete.
+     *
+     * Only a single 64-bit read of last_used is needed — no lock on x86-64.
+     */
+    time_t lu = __atomic_load_n(&entry->last_used, __ATOMIC_RELAXED);
+    if (lu != 0 &&
+        (time(NULL) - lu) < MAC_ENTRY_EXP_TIME) {
+
+        tracer(dp_ctx->dptr, DL2SW,
+               "MAC Entry [%d %02x:%02x:%02x:%02x:%02x:%02x] still active "
+               "(idle %lds < %ds), rescheduling\n",
+               entry->vlan_id,
+               entry->mac.mac[0], entry->mac.mac[1],
+               entry->mac.mac[2], entry->mac.mac[3],
+               entry->mac.mac[4], entry->mac.mac[5],
+               (long)(time(NULL) - lu),
+               MAC_ENTRY_EXP_TIME);
+
+        mac_table_entry_init_timer(dp_ctx, entry);
+        return;
+    }
+
     tracer(dp_ctx->dptr, DL2SW,
            "MAC Table Entry : [%d %02x:%02x:%02x:%02x:%02x:%02x] Expired\n",
            entry->vlan_id,
@@ -156,7 +194,6 @@ mac_table_entry_timer_expiry_cbk(event_dispatcher_t *ev_dis,
            entry->mac.mac[2], entry->mac.mac[3],
            entry->mac.mac[4], entry->mac.mac[5]);
 
-    entry->exp_timer_wt_elem = NULL;
     if (!dp_ctx->mac_table->hash) { mac_entry_gc_free_cbk(ev_dis, entry, 0); return; }
 
     mac_table_key_t key = { .vlan_id = entry->vlan_id };
@@ -224,6 +261,7 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     /* New entry. */
     mac_table_entry_t *entry = (mac_table_entry_t *)XCALLOC2(0, 1, mac_table_entry_t);
     entry->vlan_id = vlan_id;
+    entry->last_used = 0;   /* 0 = not yet forwarded through */
     memcpy(entry->mac.mac, mac_addr, sizeof(mac_addr_t));
     entry->flags = flags;
     init_glthread(&entry->oif_list);

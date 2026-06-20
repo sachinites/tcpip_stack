@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ncurses.h>
@@ -294,13 +295,17 @@ is_dp_management_thread(dp_ctx_t *dp_ctx)
  * ---------------------------------------------------------------------- */
 
 void
-init_arp_table(arp_table_t **arp_table)
+init_arp_table(arp_table_t **arp_table, const char *ctx_name, const char *vrf_name)
 {
     *arp_table = (arp_table_t *)XCALLOC2(0, 1, arp_table_t);
 
-    static uint32_t arp_hash_instance = 0;
-    char hash_name[32];
-    snprintf(hash_name, sizeof(hash_name), "arp_table_%u", arp_hash_instance++);
+    /* Build a deterministic, process-unique name from ctx+vrf.
+     * RTE_HASH_NAMESIZE = 32; "arp_" = 4 chars, leaving 27 for names + '_'.
+     * If vrf_name is NULL/empty fall back to DEF_VRF_NAME ("0") so the hash
+     * name stays consistent with the lookup key used by dp_vrf_get_arp_cache. */
+    const char *vname = (vrf_name && vrf_name[0]) ? vrf_name : DEF_VRF_NAME;
+    char hash_name[RTE_HASH_NAMESIZE];
+    snprintf(hash_name, sizeof(hash_name), "arp_%.13s_%.13s", ctx_name, vname);
 
     struct rte_hash_parameters params = {};
     params.name       = hash_name;
@@ -484,6 +489,7 @@ arp_table_entry_add_nolock(dp_ctx_t *dp_ctx,
     /* Case 0: no existing entry → insert. */
     if (!old) {
         arp_entry->arp_table = arp_table;
+        arp_entry->last_used = 0;   /* 0 = never used by data path yet */
         init_glthread(&arp_entry->arp_pending_list);
         rte_hash_add_key_data(arp_table->hash, &key, arp_entry);
         assert(arp_entry->exp_timer_wt_elem == NULL);
@@ -542,12 +548,14 @@ arp_table_entry_add_nolock(dp_ctx_t *dp_ctx,
      * readers seeing stale is_sane=true will simply re-queue the packet. */
     if (arp_entry_sane(old) && !arp_entry_sane(arp_entry)) {
         memcpy(old->mac_addr.mac, arp_entry->mac_addr.mac, sizeof(mac_addr_t));
-        old->oif   = arp_entry->oif;
-        old->proto = arp_entry->proto;
-        old->is_sane = false;   /* mark resolved */
+        old->oif     = arp_entry->oif;
+        old->proto   = arp_entry->proto;
+        old->last_used = 0;            /* 0 = not yet forwarded by data path */
+        old->is_sane = false;          /* mark resolved — visible to readers */
         if (arp_pending_list)
             *arp_pending_list = &old->arp_pending_list;
-        arp_entry_refresh_expiration_timer(old);
+        /* No timer_reschedule here: the timer will check last_used when it
+         * fires and reschedule itself only if the data path has used the entry. */
         tracer(dp_ctx->dptr, DARP, "VRF:%s: ARP-entry %s resolved in-place\n",
                vrf->vrf_name, ip_str);
         return false;
@@ -714,8 +722,40 @@ arp_entry_timer_delete_cbk(event_dispatcher_t *ev_dis,
     dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
     char ip_str[IPV4_ADDR_LEN_STR];
     tcp_ip_covert_ip_n_to_p(entry->ip_addr, ip_str);
-    tracer(dp_ctx->dptr, DARP | DTIMER, "ARP-entry %s expired\n", ip_str);
+
+    /* The timer element has fired; the slot is no longer valid. */
     entry->exp_timer_wt_elem = NULL;
+
+    /* For resolved entries apply an active-traffic check: reschedule the
+     * timer only when the data path has forwarded at least one packet
+     * within the most recent timer period (ARP_ENTRY_EXP_TIME seconds).
+     *
+     *   last_used == 0          → never forwarded → always delete.
+     *   now - last_used < EXP   → traffic flowing → reschedule one more
+     *                             period; will expire if traffic stops.
+     *   now - last_used >= EXP  → idle for a full period → delete.
+     *
+     * The efficiency win: the data path only writes a timestamp
+     * (one aligned store, no timer wheel lock) instead of calling
+     * timer_reschedule() on every forwarded packet.  timer_reschedule()
+     * is called at most once every ARP_ENTRY_EXP_TIME seconds here. */
+    time_t lu = __atomic_load_n(&entry->last_used, __ATOMIC_RELAXED);
+    if (!arp_entry_sane(entry) &&
+        lu != 0 &&
+        (time(NULL) - lu) < ARP_ENTRY_EXP_TIME) {
+
+        tracer(dp_ctx->dptr, DARP | DTIMER,
+               "ARP-entry %s still active (idle %lds < %ds), rescheduling\n",
+               ip_str,
+               (long)(time(NULL) - lu),
+               ARP_ENTRY_EXP_TIME);
+
+        entry->exp_timer_wt_elem = arp_entry_create_expiration_timer(
+                                        dp_ctx, entry, ARP_ENTRY_EXP_TIME);
+        return;
+    }
+
+    tracer(dp_ctx->dptr, DARP | DTIMER, "ARP-entry %s expired\n", ip_str);
     arp_entry_schedule_delete(dp_ctx, entry);
 }
 

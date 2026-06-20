@@ -160,7 +160,7 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     tracer_enable_file_logging(dp_ctx->dptr, true);
 
     /* Initialize MAC table and hashtables */
-    init_mac_table(&(dp_ctx->mac_table));
+    init_mac_table(&(dp_ctx->mac_table), dp_ctx->ctx_name);
     memset(dp_ctx->intf_table, 0, sizeof(dp_ctx->intf_table));
     dp_init_vrf_hashtable(&dp_ctx->dp_vrf_ht);
     dp_init_vlan_intf_hashtable(&dp_ctx->dp_vlan_intf_ht);

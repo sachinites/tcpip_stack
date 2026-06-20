@@ -225,52 +225,23 @@ dp_post_arp_update_from_pkt_job(dp_ctx_t *dp_ctx,
 }
 
 /* -------------------------------------------------------------------------
- * CLI/management sync helpers — run on dp_ev_dis, block caller until done.
+ * CLI/management display helpers.
+ *
+ * Displaying is a read-only operation: rte_hash with RW_CONCURRENCY_LF
+ * allows lock-free concurrent readers, so these can be called directly from
+ * the CLI thread without routing through dp_ev_dis.
  * ---------------------------------------------------------------------- */
-
-typedef struct show_mac_job_data_ {
-    mac_table_t *mac_table;
-    uint16_t vlan_id;
-} show_mac_job_data_t;
-
-static void
-show_mac_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
-{
-    show_mac_job_data_t *d = (show_mac_job_data_t *)arg;
-    show_mac_table(d->mac_table, d->vlan_id);
-}
 
 void
 dp_show_mac_table_sync(dp_ctx_t *dp_ctx, uint16_t vlan_id)
 {
-    show_mac_job_data_t data = { dp_ctx->mac_table, vlan_id };
-    task_create_new_job_synchronous(EV_DP(dp_ctx),
-                                    (void *)&data,
-                                    show_mac_job_cbk,
-                                    TASK_ONE_SHOT,
-                                    TASK_PRIORITY_CP_TO_DP);
-}
-
-typedef struct show_arp_job_data_ {
-    arp_table_t *arp_table;
-} show_arp_job_data_t;
-
-static void
-show_arp_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
-{
-    show_arp_job_data_t *d = (show_arp_job_data_t *)arg;
-    show_arp_table(d->arp_table);
+    show_mac_table(dp_ctx->mac_table, vlan_id);
 }
 
 void
 dp_show_arp_table_sync(dp_ctx_t *dp_ctx, void *arp_table)
 {
-    show_arp_job_data_t data = { (arp_table_t *)arp_table };
-    task_create_new_job_synchronous(EV_DP(dp_ctx),
-                                    (void *)&data,
-                                    show_arp_job_cbk,
-                                    TASK_ONE_SHOT,
-                                    TASK_PRIORITY_CP_TO_DP);
+    show_arp_table((arp_table_t *)arp_table);
 }
 
 typedef struct arp_cli_resolve_job_data_ {
@@ -282,8 +253,10 @@ static void
 arp_cli_resolve_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
 {
     arp_cli_resolve_job_data_t *d = (arp_cli_resolve_job_data_t *)arg;
+    if (!d) return;
     dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
     send_arp_broadcast_request(dp_ctx, d->vrf, NULL, d->ip_addr);
+    free(d);
 }
 
 void
@@ -291,9 +264,13 @@ dp_arp_cli_resolve_sync(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, uint32_t ip_addr)
 {
     dp_vrf_t *target_vrf = vrf ? vrf : dp_ctx->default_vrf;
     if (!target_vrf) return;
-    arp_cli_resolve_job_data_t data = { target_vrf, ip_addr };
+    arp_cli_resolve_job_data_t *data =
+        (arp_cli_resolve_job_data_t *)calloc(1, sizeof(*data));
+    if (!data) return;
+    data->vrf      = target_vrf;
+    data->ip_addr  = ip_addr;
     task_create_new_job_synchronous(EV_DP(dp_ctx),
-                                    (void *)&data,
+                                    (void *)data,
                                     arp_cli_resolve_job_cbk,
                                     TASK_ONE_SHOT,
                                     TASK_PRIORITY_CP_TO_DP);

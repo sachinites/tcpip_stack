@@ -136,7 +136,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         dp_send_pkt_out(dp_ctx, oif, mbuf);
-		arp_entry_refresh_expiration_timer(arp_entry);
+        arp_entry_touch(arp_entry);  /* cheap timestamp store; timer checks this */
     }
 
 /* An API to be used by Layer 3 or higher to push the pkt

@@ -305,7 +305,7 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
         case DP_CREATE:
         {
             dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
-            dp_vrf_t *vrf = dp_create_vrf(dp_ctx->dp_vrf_ht, vrf_msg->vrf_name, vrf_msg->vrf_id);
+            dp_vrf_t *vrf = dp_create_vrf(dp_ctx->dp_vrf_ht, dp_ctx->ctx_name, vrf_msg->vrf_name, vrf_msg->vrf_id);
             if (vrf_msg->vrf_id == DEFAULT_VRF) dp_ctx->default_vrf = vrf;
             break;
         }
@@ -869,7 +869,12 @@ dp_arp_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
         }
 
         case ARP_MSG_UPDATE_FROM_PKT: {
-            if (!intf) break;
+            if (!intf) {
+                tracer(dp_ctx->dptr, DARP | DERR,
+                       "ARP_MSG_UPDATE_FROM_PKT: intf not found for port_id=%u — "
+                       "pending packets will NOT be forwarded\n", am->oif_ifindex);
+                break;
+            }
             /* Build a minimal arp_hdr_t from the message fields. */
             arp_hdr_t fake_hdr;
             memset(&fake_hdr, 0, sizeof(fake_hdr));

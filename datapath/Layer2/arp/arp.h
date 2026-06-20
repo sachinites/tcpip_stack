@@ -25,6 +25,7 @@
 #ifndef __ARP__HDR__
 #define __ARP__HDR__
 
+#include <time.h>
 #include "../../../libs/common/cmn_struct.h"
 #include "../../../libs/gluethread/glthread.h"
 #include "../../../tcpconst.h"
@@ -39,7 +40,7 @@ struct rte_hash;   /* forward-declared; include <rte_hash.h> in .c files */
 
 #include <stdint.h>
 
-#define DP_TABLE_GC_DELAY_MS  200   /* deferred-free window for deleted entries */
+#define DP_TABLE_GC_DELAY_MS  2000   /* deferred-free window for deleted entries */
 
 /* -------------------------------------------------------------------------
  * Hash key: 8 bytes (ip_addr + padding for rte_hash alignment requirement).
@@ -83,6 +84,8 @@ GLTHREAD_TO_STRUCT(arp_pending_entry_glue_to_arp_pending_entry,
  * ARP entry.
  * arp_pending_list : glthread list of pending arp_pending_entry_t.
  * arp_table        : back-reference so timer/GC callbacks can del the key.
+ * last_used        : wall-clock seconds, written by forwarding threads,
+ *                    read by the timer callback on dp_ev_dis.
  * ---------------------------------------------------------------------- */
 struct arp_entry_ {
     glthread_t arp_pending_list;
@@ -93,6 +96,7 @@ struct arp_entry_ {
     dp_intf_t *oif;
     bool is_sane;
     arp_table_t *arp_table; /* back-reference to owning table */
+    time_t last_used;       /* updated by data-path on every forwarded pkt */
 };
 
 #pragma pack(pop)
@@ -112,10 +116,18 @@ arp_entry_sane(arp_entry_t *arp_entry) {
     return arp_entry->is_sane;
 }
 
+/* Called by the forwarding data path on every packet that hits this entry.
+ * Uses a relaxed atomic store so the compiler cannot cache or reorder the
+ * write.  On x86-64 __ATOMIC_RELAXED compiles to a plain MOV — no fence. */
+static inline void
+arp_entry_touch(arp_entry_t *arp_entry) {
+    __atomic_store_n(&arp_entry->last_used, time(NULL), __ATOMIC_RELAXED);
+}
+
 /* -------------------------------------------------------------------------
  * Lifecycle
  * ---------------------------------------------------------------------- */
-void init_arp_table(arp_table_t **arp_table);
+void init_arp_table(arp_table_t **arp_table, const char *ctx_name, const char *vrf_name);
 void clear_arp_table(dp_ctx_t *dp_ctx, arp_table_t *arp_table);
 
 /* -------------------------------------------------------------------------

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <assert.h>
+#include <time.h>
 #include "../../../libs/libtimer/WheelTimer.h"
 #include "../../../libs/common/cmn_struct.h"
 #include "../../../utils.h"
@@ -12,7 +13,7 @@
  * MAC table design — rte_hash + single-writer dp_ev_dis model
  * ============================================================
  *  - mac_table_t wraps a DPDK rte_hash keyed by mac_table_key_t (8 bytes).
- *  - rte_hash is created with RTE_HASH_EXTRA_FLAGS_RW_CONCURRENCY so that
+ *  - rte_hash is created with RTE_HASH_EXTRA_FLAGS_RW_CONCURRENCY_LF so that
  *    DPDK packet-poll threads can call mac_table_lookup() lock-free while
  *    dp_ev_dis is the only writer (add / delete / timer expiry).
  *  - After deletion from the hash, entry memory is freed via a short GC
@@ -55,6 +56,10 @@ typedef struct mac_table_entry_ {
     uint16_t flags;
     uint16_t vlan_id;
     char padding[4];
+    /* last_used: wall-clock seconds written by forwarding threads via
+     * mac_table_entry_touch().  Read by the expiry timer on dp_ev_dis.
+     * 0 = never forwarded through this entry since it was (re)inserted. */
+    time_t last_used;
 } mac_table_entry_t;
 
 typedef struct mac_table_ {
@@ -67,7 +72,7 @@ typedef struct mac_table_ {
 /* -------------------------------------------------------------------------
  * Lifecycle
  * ---------------------------------------------------------------------- */
-void init_mac_table(mac_table_t **mac_table);
+void init_mac_table(mac_table_t **mac_table, const char *ctx_name);
 void destroy_mac_table(dp_ctx_t *dp_ctx, mac_table_t *mac_table);
 
 /* -------------------------------------------------------------------------
@@ -75,6 +80,15 @@ void destroy_mac_table(dp_ctx_t *dp_ctx, mac_table_t *mac_table);
  * ---------------------------------------------------------------------- */
 mac_table_entry_t *mac_table_lookup(mac_table_t *mac_table,
                                     uint16_t vlan, uint8_t *mac);
+
+/* Called by the forwarding data path on each frame forwarded through this
+ * entry.  Replaces the expensive per-frame cancel+reinit timer pair with a
+ * relaxed atomic store.  On x86-64 __ATOMIC_RELAXED compiles to a plain
+ * MOV — no fence, no lock. */
+static inline void
+mac_table_entry_touch(mac_table_entry_t *entry) {
+    __atomic_store_n(&entry->last_used, time(NULL), __ATOMIC_RELAXED);
+}
 
 /* -------------------------------------------------------------------------
  * Write path — must be called from dp_ev_dis thread ONLY
