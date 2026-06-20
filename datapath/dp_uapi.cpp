@@ -13,15 +13,21 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 #include "dp_ctx.h"
 #include "dp-program/dp-prog-struct.h"
+#include "dp-program/dp-prog-api.h"
 
 #include "../libs/pkt-block/pkt_mbuf.h"
+#include "../libs/EventDispatcher/event_dispatcher.h"
 
 #include "dp_uapi.h"
 #include "dp_ctx.h"
+#include "Vrfs/dp_vrf.h"
 #include "Interface/dp_intf_store.h"
 #include "Interface/dp_intf.h"
+#include "Layer2/switching/mac_table.h"
+#include "Layer2/arp/arp.h"
 
 #include <rte_lcore.h>
                   
@@ -135,4 +141,160 @@ dp_uapi_get_current_socket_mpool(dp_ctx_t *dp_ctx) {
         return dp_ctx->mbuf_pools[socket_id];
 
     return NULL;
+}
+
+/* -------------------------------------------------------------------------
+ * Async job posting helpers (safe from any thread / DPDK poll threads)
+ * ---------------------------------------------------------------------- */
+
+void
+dp_post_mac_learn_job(dp_ctx_t *dp_ctx,
+                      uint8_t *mac_addr,
+                      uint16_t vlan_id,
+                      uint32_t oif_ifindex,
+                      uint32_t src_ip)
+{
+    dp_msg_t *dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = MAC_TABLE;
+    dp_msg->opr_type       = DP_CREATE;
+    dp_msg->data_size      = sizeof(mac_update_msg_t);
+
+    mac_update_msg_t *m = (mac_update_msg_t *)dp_msg->data;
+    memcpy(m->mac_addr, mac_addr, 6);
+    m->vlan_id       = vlan_id;
+    m->ifindex       = oif_ifindex;
+    m->flags         = MAC_DYNAMIC;
+    m->remote_dst_ip = src_ip;
+
+    task_create_new_job(EV_DP(dp_ctx), (void *)dp_msg,
+                        cp2dp_task_handler,
+                        TASK_ONE_SHOT,
+                        TASK_PRIORITY_PKT_PROCESSING);
+}
+
+void
+dp_post_arp_resolve_job(dp_ctx_t *dp_ctx,
+                        dp_vrf_t *vrf,
+                        uint32_t oif_ifindex,
+                        uint32_t target_ip,
+                        struct rte_mbuf *mbuf)
+{
+    dp_msg_t *dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = ARP_TABLE;
+    dp_msg->opr_type       = DP_CREATE;
+    dp_msg->vrf_id         = vrf->vrf_id;
+    dp_msg->data_size      = sizeof(arp_update_msg_t);
+
+    arp_update_msg_t *a = (arp_update_msg_t *)dp_msg->data;
+    a->op          = ARP_MSG_RESOLVE;
+    a->vrf_id      = vrf->vrf_id;
+    a->ip_addr     = target_ip;
+    a->oif_ifindex = oif_ifindex;
+    a->mbuf_ptr    = (uintptr_t)mbuf;   /* caller already ref-incremented */
+
+    task_create_new_job(EV_DP(dp_ctx), (void *)dp_msg,
+                        cp2dp_task_handler,
+                        TASK_ONE_SHOT,
+                        TASK_PRIORITY_PKT_PROCESSING);
+}
+
+void
+dp_post_arp_update_from_pkt_job(dp_ctx_t *dp_ctx,
+                                dp_vrf_t *vrf,
+                                uint32_t iif_ifindex,
+                                uint32_t sender_ip,
+                                uint8_t *sender_mac)
+{
+    dp_msg_t *dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = ARP_TABLE;
+    dp_msg->opr_type       = DP_UPDATE;
+    dp_msg->vrf_id         = vrf->vrf_id;
+    dp_msg->data_size      = sizeof(arp_update_msg_t);
+
+    arp_update_msg_t *a = (arp_update_msg_t *)dp_msg->data;
+    a->op          = ARP_MSG_UPDATE_FROM_PKT;
+    a->vrf_id      = vrf->vrf_id;
+    a->ip_addr     = sender_ip;
+    a->oif_ifindex = iif_ifindex;
+    memcpy(a->src_mac, sender_mac, 6);
+
+    task_create_new_job(EV_DP(dp_ctx), (void *)dp_msg,
+                        cp2dp_task_handler,
+                        TASK_ONE_SHOT,
+                        TASK_PRIORITY_PKT_PROCESSING);
+}
+
+/* -------------------------------------------------------------------------
+ * CLI/management sync helpers — run on dp_ev_dis, block caller until done.
+ * ---------------------------------------------------------------------- */
+
+typedef struct show_mac_job_data_ {
+    mac_table_t *mac_table;
+    uint16_t vlan_id;
+} show_mac_job_data_t;
+
+static void
+show_mac_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
+{
+    show_mac_job_data_t *d = (show_mac_job_data_t *)arg;
+    show_mac_table(d->mac_table, d->vlan_id);
+}
+
+void
+dp_show_mac_table_sync(dp_ctx_t *dp_ctx, uint16_t vlan_id)
+{
+    show_mac_job_data_t data = { dp_ctx->mac_table, vlan_id };
+    task_create_new_job_synchronous(EV_DP(dp_ctx),
+                                    (void *)&data,
+                                    show_mac_job_cbk,
+                                    TASK_ONE_SHOT,
+                                    TASK_PRIORITY_CP_TO_DP);
+}
+
+typedef struct show_arp_job_data_ {
+    arp_table_t *arp_table;
+} show_arp_job_data_t;
+
+static void
+show_arp_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
+{
+    show_arp_job_data_t *d = (show_arp_job_data_t *)arg;
+    show_arp_table(d->arp_table);
+}
+
+void
+dp_show_arp_table_sync(dp_ctx_t *dp_ctx, void *arp_table)
+{
+    show_arp_job_data_t data = { (arp_table_t *)arp_table };
+    task_create_new_job_synchronous(EV_DP(dp_ctx),
+                                    (void *)&data,
+                                    show_arp_job_cbk,
+                                    TASK_ONE_SHOT,
+                                    TASK_PRIORITY_CP_TO_DP);
+}
+
+typedef struct arp_cli_resolve_job_data_ {
+    dp_vrf_t *vrf;
+    uint32_t ip_addr;
+} arp_cli_resolve_job_data_t;
+
+static void
+arp_cli_resolve_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
+{
+    arp_cli_resolve_job_data_t *d = (arp_cli_resolve_job_data_t *)arg;
+    dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
+    send_arp_broadcast_request(dp_ctx, d->vrf, NULL, d->ip_addr);
+}
+
+void
+dp_arp_cli_resolve_sync(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, uint32_t ip_addr)
+{
+    dp_vrf_t *target_vrf = vrf ? vrf : dp_ctx->default_vrf;
+    if (!target_vrf) return;
+    arp_cli_resolve_job_data_t data = { target_vrf, ip_addr };
+    task_create_new_job_synchronous(EV_DP(dp_ctx),
+                                    (void *)&data,
+                                    arp_cli_resolve_job_cbk,
+                                    TASK_ONE_SHOT,
+                                    TASK_PRIORITY_CP_TO_DP);
 }

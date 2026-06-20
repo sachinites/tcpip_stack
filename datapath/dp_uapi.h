@@ -17,6 +17,10 @@
 #ifndef __DP_UAPI__
 #define __DP_UAPI__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct rte_mbuf pkt_mbuf_t;
 typedef struct dp_intf_ dp_intf_t;
@@ -24,6 +28,16 @@ typedef struct dp_msg_ dp_msg_t;
 typedef struct dp_vrf_ dp_vrf_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
 struct rte_mempool;
+
+/*
+ * Assert that the calling thread is the dp_ev_dis management thread.
+ * Use this in all write-path functions that must be dp_ev_dis-only.
+ */
+#include <pthread.h>
+#include <assert.h>
+#define ASSERT_ON_DP_EV_DIS(dp_ctx) \
+    assert((dp_ctx)->dp_ev_dis.thread && \
+           pthread_equal(pthread_self(), *(dp_ctx)->dp_ev_dis.thread))
 
 #include "../libs/notifc/notif.h"
 
@@ -88,6 +102,61 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
                     dp_intf_t *interface,
                     struct rte_mbuf *mbuf);
 
+/* -------------------------------------------------------------------------
+ * Async job posting helpers — safe to call from any thread (DPDK workers).
+ * The actual table mutations run on dp_ev_dis.
+ * ---------------------------------------------------------------------- */
 
+/*
+ * Post a MAC learning job to dp_ev_dis.
+ * Caller must NOT hold the mbuf reference for this (MAC learning doesn't
+ * queue packets; it only installs the forwarding entry).
+ */
+void dp_post_mac_learn_job(dp_ctx_t *dp_ctx,
+                           uint8_t *mac_addr,
+                           uint16_t vlan_id,
+                           uint32_t oif_ifindex,
+                           uint32_t src_ip);
+
+/*
+ * Post an ARP resolution job to dp_ev_dis.
+ * mbuf MUST already be ref-incremented by the caller (pkt_mbuf_ref_inc).
+ * dp_ev_dis handler will create/update a sane entry + send ARP request.
+ */
+void dp_post_arp_resolve_job(dp_ctx_t *dp_ctx,
+                             dp_vrf_t *vrf,
+                             uint32_t oif_ifindex,
+                             uint32_t target_ip,
+                             struct rte_mbuf *mbuf);
+
+/*
+ * Post an ARP table update job (from received ARP reply/request) to dp_ev_dis.
+ * No mbuf needed — the ARP packet has already been parsed.
+ */
+void dp_post_arp_update_from_pkt_job(dp_ctx_t *dp_ctx,
+                                     dp_vrf_t *vrf,
+                                     uint32_t iif_ifindex,
+                                     uint32_t sender_ip,
+                                     uint8_t *sender_mac);
+
+/*
+ * CLI/management helpers — synchronous, block until dp_ev_dis executes them.
+ * Safe to call from any thread (CP, CLI, etc.).
+ */
+
+/* Show the MAC table on dp_ev_dis and return.  vlan_id=0 shows all VLANs. */
+void dp_show_mac_table_sync(dp_ctx_t *dp_ctx, uint16_t vlan_id);
+
+/* Show the ARP table for the given arp_table_t on dp_ev_dis and return. */
+void dp_show_arp_table_sync(dp_ctx_t *dp_ctx, void *arp_table);
+
+/* Send an ARP broadcast request for ip_addr (CLI-originated resolve).
+ * Runs on dp_ev_dis (sync).  vrf=NULL uses the default VRF. */
+void dp_arp_cli_resolve_sync(dp_ctx_t *dp_ctx, dp_vrf_t *vrf,
+                             uint32_t ip_addr);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __DP_UAPI__ */

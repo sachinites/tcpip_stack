@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <rte_hash.h>
 #include "../../libs/c-hashtable/hashtable.h"
 #include "../../libs/c-hashtable/hashtable_itr.h"
 #include "dp_vrf.h"
@@ -9,6 +10,7 @@
 #include "../../net.h"
 #include "../Layer2/arp/arp.h"
 #include "../dp_uapi.h"
+#include "../dp_ctx.h"
 
 /* Hash function for vrf_id (uint8_t) keys */
 static unsigned int 
@@ -64,13 +66,19 @@ static void
 dp_destroy_vrf_cbk (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 
     dp_vrf_t *vrf = (dp_vrf_t *)arg;
+    dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
+
     fib_destroy(vrf->fib_inet0);
     vrf->fib_inet0 = NULL;
 
     fib_destroy(vrf->fib_inet6);
     vrf->fib_inet6 = NULL;
 
-    clear_arp_table(vrf->arp_table);
+    clear_arp_table(dp_ctx, vrf->arp_table);
+    if (vrf->arp_table->hash) {
+        rte_hash_free(vrf->arp_table->hash);
+        vrf->arp_table->hash = NULL;
+    }
     XFREE(vrf->arp_table);
 
     free(vrf);

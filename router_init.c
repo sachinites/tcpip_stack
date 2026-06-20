@@ -119,7 +119,7 @@ extern void ipc_event_signal (event_dispatcher_t *, void *, uint32_t );
 extern void dp_ipc_event (event_dispatcher_t *, void *, uint32_t );
 extern void init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) ;
 void dp_init (node_t *node);
-extern void dp_uapi_ctx_init (dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
+extern "C" void dp_uapi_ctx_init (dp_ctx_t **dp_ctx, void *arg, char *ctx_name);
 
 
 static FILE *

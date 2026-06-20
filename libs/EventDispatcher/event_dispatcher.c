@@ -97,9 +97,13 @@ static void
 event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 
 	void *ptr = (void *) (ev_dis->app_data );
-	assert(IS_GLTHREAD_LIST_EMPTY(&task->glue));
 
 	EV_DIS_LOCK(ev_dis);
+
+	if (!IS_GLTHREAD_LIST_EMPTY(&task->glue)) {
+		EV_DIS_UNLOCK(ev_dis);
+		return;
+	}
 
 	glthread_add_last(&ev_dis->task_array_head[task->priority], &task->glue);
 		
@@ -224,8 +228,6 @@ event_dispatcher_thread(void *arg) {
 		printf("%p : Dispatcher Thread started\n", ptr);
 	}
 
-	initscr();
-
 	while (1) {
 
 		EV_DIS_LOCK(ev_dis);
@@ -281,7 +283,10 @@ event_dispatcher_thread(void *arg) {
 		}
 
 		eve_dis_process_task_post_call(ev_dis, task);
+
+		EV_DIS_LOCK(ev_dis);
 		ev_dis->current_task = NULL;
+		EV_DIS_UNLOCK(ev_dis);
 	} // outer while ends
 	return 0;
 }
@@ -376,37 +381,85 @@ task_create_new_job_synchronous(
 	return task;								
 }
 
+static void
+event_dispatcher_cancel_queued_task(event_dispatcher_t *ev_dis, task_t *task){
+
+	if (!IS_QUEUED_UP_IN_THREAD(&task->glue)) {
+		return;
+	}
+
+	remove_glthread(&task->glue);
+	ev_dis->pending_task_count--;
+
+	if (ev_dis->ev_dis_state == EV_DIS_IDLE &&
+		ev_dis->signal_sent == false) {
+
+		pthread_cond_signal(&ev_dis->ev_dis_cond_wait);
+		ev_dis->signal_sent = true;
+		ev_dis->signal_sent_cnt++;
+	}
+}
+
 void
 task_cancel_job(event_dispatcher_t *ev_dis, task_t *task){
 
+	bool free_task = true;
+
+	EV_DIS_LOCK(ev_dis);
+
 	/* Dont kill yourself while you are still executing
 	 * and you are one SHOT */
-	if(ev_dis->current_task == task &&
+	if (ev_dis->current_task == task &&
 		ev_dis->current_task->task_type == TASK_ONE_SHOT) {
 		assert(0);
 	}
-	
+
+	/* A running task is already dequeued; freeing it is unsafe. */
+	if (ev_dis->current_task == task) {
+		EV_DIS_UNLOCK(ev_dis);
+		return;
+	}
+
+	if (task->app_cond_var) {
+		pthread_cond_signal(task->app_cond_var);
+		free_task = false;
+	}
+
 	if (task->task_type == TASK_PKT_Q_JOB) {
 
 		pkt_q_t *pkt_q = (pkt_q_t *)(task->data);
 
-	 	pthread_mutex_lock(&pkt_q->q_mutex);
+		EV_DIS_UNLOCK(ev_dis);
+
+		pthread_mutex_lock(&pkt_q->q_mutex);
 		delete_glthread_list(&pkt_q->q_head);
-	 	pthread_mutex_unlock(&pkt_q->q_mutex);
-		
+		pkt_q->pkt_count = 0;
+		pthread_mutex_unlock(&pkt_q->q_mutex);
+
 		EV_DIS_LOCK(ev_dis);
 		remove_glthread(&pkt_q->glue);
-		remove_glthread(&task->glue);
-		free(task);
+		event_dispatcher_cancel_queued_task(ev_dis, task);
 		EV_DIS_UNLOCK(ev_dis);
+
+		if (free_task) {
+			free(task);
+		}
+		return;
 	}
-	else if (task->task_type == TASK_ONE_SHOT ||
-			  task->task_type == TASK_BG ) {
-		EV_DIS_LOCK(ev_dis);
-		remove_glthread(&task->glue);
+
+	if (task->task_type == TASK_ONE_SHOT ||
+		task->task_type == TASK_BG) {
+
+		event_dispatcher_cancel_queued_task(ev_dis, task);
 		EV_DIS_UNLOCK(ev_dis);
-		free(task);	
+
+		if (free_task) {
+			free(task);
+		}
+		return;
 	}
+
+	EV_DIS_UNLOCK(ev_dis);
 }
 
 typedef struct pkt_{
@@ -480,19 +533,11 @@ pkt_q_enqueue (event_dispatcher_t *ev_dis,
 	glthread_add_last(&pkt_q->q_head, &pkt->glue);
 	pkt_q->pkt_count++;
 
-	EV_DIS_LOCK(ev_dis);
+	pthread_mutex_unlock(&pkt_q->q_mutex);
 
-	if ( !IS_GLTHREAD_LIST_EMPTY(&pkt_q->task->glue)) {
-		EV_DIS_UNLOCK(ev_dis);
-		pthread_mutex_unlock(&pkt_q->q_mutex);
-		return true;
-	}
-
-	EV_DIS_UNLOCK(ev_dis);
-	if (debug) printf("%p : %s() calling event_dispatcher_schedule_task()\n", ptr, 
+	if (debug) printf("%p : %s() calling event_dispatcher_schedule_task()\n", ptr,
 			__FUNCTION__);
 	event_dispatcher_schedule_task(ev_dis, pkt_q->task);
-	pthread_mutex_unlock(&pkt_q->q_mutex);
 	return true;
 }
 

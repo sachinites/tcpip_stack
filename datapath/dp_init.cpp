@@ -25,6 +25,7 @@
 #include "dp_const.h"
 #include "../libs/mtrie/atomic_mtrie.h"
 #include <rte_errno.h>
+#include "dp_uapi.h"
 
 typedef struct hashtable hashtable_t;
 typedef struct nf_hook_db_ nf_hook_db_t;

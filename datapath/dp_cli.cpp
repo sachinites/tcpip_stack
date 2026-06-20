@@ -34,6 +34,7 @@
 #include "../libs/BitOp/bitmap.h"
 #include "../router_init.h"
 #include "dp_ctx.h"
+#include "dp_uapi.h"
 #include "../tcpconst.h"
 
 extern graph_t *topo;
@@ -435,7 +436,8 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
             return -1;
         }
 
-        show_arp_table(arp_table);
+        /* Route through dp_ev_dis for consistent view (no races with hash writers) */
+        dp_show_arp_table_sync(dp_ctx, (void *)arp_table);
         break;
     }
 

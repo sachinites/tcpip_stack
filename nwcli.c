@@ -347,9 +347,12 @@ clear_topology_handler(int cmdcode,
 
 extern void dump_node_interface_stats(node_t *node);
 
-typedef struct mac_table_ mac_table_t;
-extern void show_mac_table(mac_table_t *mac_table, vlan_id_t vlan_id);
 extern vlan_id_t vni_to_vlan_lookup(node_t *node, uint32_t vni_id);
+extern "C" {
+void dp_show_mac_table_sync(dp_ctx_t *dp_ctx, uint16_t vlan_id);
+void dp_arp_cli_resolve_sync(dp_ctx_t *dp_ctx, dp_vrf_t *vrf,
+                             uint32_t ip_addr);
+}
 
 static int
 show_mac_handler(int cmdcode, Stack_t *tlv_stack,
@@ -380,20 +383,16 @@ show_mac_handler(int cmdcode, Stack_t *tlv_stack,
     node = node_get_node_by_name(topo, node_name);
     vlan_id = vni_to_vlan_lookup(node, vni_id);
 
-    if (vni_id && vlan_id ==0) {
+    if (vni_id && vlan_id == 0) {
         cprintf ("Error : No VLAN associated with VNI %d\n", vni_id);
         return -1;
     }
 
-    show_mac_table(node->dp_ctx->mac_table, vlan_id);
+    /* Route through dp_ev_dis for consistent view (no races with hash writers) */
+    dp_show_mac_table_sync(node->dp_ctx, vlan_id);
     return 0;
 }
 
-extern void
-send_arp_broadcast_request(dp_ctx_t *dp_ctx,
-                           dp_vrf_t *vrf,
-                           dp_intf_t *oif,
-                           uint32_t ip_addr);
 static int
 arp_handler(int cmdcode, Stack_t *tlv_stack,
                 op_mode enable_or_disable){
@@ -414,10 +413,9 @@ arp_handler(int cmdcode, Stack_t *tlv_stack,
     node = node_get_node_by_name(topo, node_name);
 
     uint32_t ip_addr = tcp_ip_convert_ip_p_to_n(ip_addr_str);
-    
-    send_arp_broadcast_request(node->dp_ctx, 
-        node->dp_ctx->default_vrf, 
-        NULL, ip_addr);
+
+    /* Route ARP resolve through dp_ev_dis (single-writer thread) */
+    dp_arp_cli_resolve_sync(node->dp_ctx, node->dp_ctx->default_vrf, ip_addr);
 
     return 0;
 }

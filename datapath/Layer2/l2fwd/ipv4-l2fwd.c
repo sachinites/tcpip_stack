@@ -57,26 +57,25 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
 
     if(oif) {
 
-        /* It means, L3 has resolved the nexthop, So its time to L2 forward the pkt out of this 
-        interface*/
+        /* L3 has resolved the nexthop; L2-forward out of oif. */
 
         arp_entry = arp_table_lookup(vrf->arp_table, next_hop_ip);
 
-        if (!arp_entry) {
-
-            /*Time for ARP resolution*/
-            create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table,  next_hop_ip,  mbuf);
-            send_arp_broadcast_request(dp_ctx, vrf, oif, next_hop_ip);
+        if (!arp_entry || arp_entry_sane(arp_entry)) {
+            /*
+             * ARP not yet resolved (or pending).  Ref the mbuf and post an
+             * ARP_RESOLVE job to dp_ev_dis.  dp_ev_dis will:
+             *  1. Create/update the sane entry and queue the mbuf.
+             *  2. Send an ARP broadcast request.
+             * The packet will be forwarded when the ARP reply arrives.
+             */
+            pkt_mbuf_ref_inc(mbuf);
+            dp_post_arp_resolve_job(dp_ctx, vrf, oif->port_id,
+                                    next_hop_ip, mbuf);
             return;
         }
 
-        else if (arp_entry_sane(arp_entry)) {
-
-            create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table,  next_hop_ip, mbuf);
-             return;
-        }
-
-        goto l2_frame_prepare ;
+        goto l2_frame_prepare;
     }
    
     /* if outgoing_intf is NULL, then two cases possible : 
@@ -123,13 +122,12 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
 
     arp_entry = arp_table_lookup(vrf->arp_table, next_hop_ip);
 
-    if (!arp_entry || (arp_entry && arp_entry_sane(arp_entry))){
-        
-        /*Time for ARP resolution*/
-        create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table, 
-                next_hop_ip, 
-                mbuf);
-        send_arp_broadcast_request(dp_ctx, vrf, oif, next_hop_ip);
+    if (!arp_entry || arp_entry_sane(arp_entry)) {
+        /* ARP not yet resolved — post resolve job to dp_ev_dis. */
+        pkt_mbuf_ref_inc(mbuf);
+        dp_post_arp_resolve_job(dp_ctx, vrf,
+                                oif ? oif->port_id : 0,
+                                next_hop_ip, mbuf);
         return;
     }
 

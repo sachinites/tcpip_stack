@@ -1132,10 +1132,12 @@ extern void DPDK_LoadInterfaces(node_t *node);
 
 typedef struct dp_ctx_ dp_ctx_t;
 
+extern "C" {
 extern void Linux_listen_interfaces (dp_ctx_t *dp_ctx);
 extern void DPDK_PollInterfaces (dp_ctx_t *dp_ctx);
 extern void DPDK_PollInterfaces_load_balancing (dp_ctx_t *dp_ctx);
 extern void DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx);
+}
 extern bool LinuxRtr;
 
 

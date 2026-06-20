@@ -17,6 +17,8 @@
 #include "../Layer3/ping.h"
 
 #include "../Layer2/switching/mac_table.h"
+#include "../Layer2/arp/arp.h"
+#include "../../libs/common/l2_hdrs.h"
 #include "../Layer2/vxlan/vlan_vni_ht.h"
 
 
@@ -828,6 +830,67 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
     cp2dp_msg_free(dp_msg);
 }
 
+/*
+ * dp_arp_table_process_msg — ARP table handler running on dp_ev_dis.
+ *
+ * ARP_MSG_RESOLVE:   create/update a sane entry for the target IP, append
+ *                    the pending mbuf, then send an ARP broadcast request.
+ * ARP_MSG_UPDATE_FROM_PKT: install/update a full ARP entry from a received
+ *                    ARP packet (reply or overheard request).
+ * ARP_MSG_DELETE:    remove a specific ARP entry.
+ */
+void
+dp_arp_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
+{
+    assert(dp_msg->component_type == ARP_TABLE);
+
+    arp_update_msg_t *am = (arp_update_msg_t *)dp_msg->data;
+    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, (int16_t)am->vrf_id);
+    if (!vrf) {
+        cp2dp_msg_free(dp_msg);
+        return;
+    }
+
+    dp_intf_t *intf = (am->oif_ifindex < DP_MAX_INTF)
+                      ? dp_ctx->intf_table[am->oif_ifindex]
+                      : NULL;
+
+    switch (am->op) {
+
+        case ARP_MSG_RESOLVE: {
+            struct rte_mbuf *mbuf = (struct rte_mbuf *)am->mbuf_ptr;
+            /* create_update_arp_sane_entry expects a ref-counted mbuf;
+             * the ref was taken by dp_post_arp_resolve_job and will be
+             * released inside create_update_arp_sane_entry. */
+            create_update_arp_sane_entry(dp_ctx, vrf, vrf->arp_table,
+                                         am->ip_addr, mbuf);
+            send_arp_broadcast_request(dp_ctx, vrf, intf, am->ip_addr);
+            break;
+        }
+
+        case ARP_MSG_UPDATE_FROM_PKT: {
+            if (!intf) break;
+            /* Build a minimal arp_hdr_t from the message fields. */
+            arp_hdr_t fake_hdr;
+            memset(&fake_hdr, 0, sizeof(fake_hdr));
+            fake_hdr.src_ip = htonl(am->ip_addr);
+            memcpy(fake_hdr.src_mac.mac, am->src_mac, 6);
+            arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table,
+                                            &fake_hdr, intf);
+            break;
+        }
+
+        case ARP_MSG_DELETE:
+            arp_entry_delete(dp_ctx, vrf, am->ip_addr, am->proto);
+            break;
+
+        default:
+            break;
+    }
+
+    cp2dp_msg_free(dp_msg);
+}
+
 void 
 cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) {
 
@@ -857,6 +920,9 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
             break;
         case DP_GENERICS:
             dp_generic_process_msg(dp_ctx, dp_msg);
+            break;
+        case ARP_TABLE:
+            dp_arp_table_process_msg(dp_ctx, dp_msg);
             break;
         default:
             break;

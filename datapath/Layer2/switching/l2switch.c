@@ -54,52 +54,27 @@ dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       struct rte_mbuf *mbuf);
 
 void
-l2_switch_perform_mac_learning (dp_ctx_t *dp_ctx,
-                                vlan_id_t vlan_id, 
-                                c_string src_mac, 
-                                dp_intf_t *oif, uint32_t src_ip) {
-
-    int i;
-    uint16_t flags;
-    mac_table_entry_t *mac_table_entry;
-
-    if (memcmp (src_mac, "\x00\x00\x00\x00\x00\x00", sizeof(mac_addr_t)) == 0){
+l2_switch_perform_mac_learning(dp_ctx_t *dp_ctx,
+                               vlan_id_t vlan_id,
+                               c_string src_mac,
+                               dp_intf_t *oif, uint32_t src_ip)
+{
+    if (memcmp(src_mac, "\x00\x00\x00\x00\x00\x00", sizeof(mac_addr_t)) == 0)
         return;
-    }
 
-    /* If existing mac table entry */
-    mac_table_entry = mac_table_lookup(dp_ctx->mac_table, vlan_id, src_mac);
-
-    if (mac_table_entry) {
-
-        /* If existing entry is dynamic and OIF is same, then refresh the timer */
-        mac_oif_entry_t *existing = mac_table_entry_find_oif(
-                                    mac_table_entry, oif->port_id, src_ip);
-        if (existing) {
-            return;  /* Interface already exists, nothing to do */
-        }
-
-        /* Add new OIF to the existing entry */
-        mac_table_entry_add_oif(mac_table_entry, oif, src_ip);
+    /*
+     * Fast-path pre-check (lock-free rte_hash lookup, safe from any thread):
+     * if an entry already exists for this MAC+VLAN, skip posting a job.
+     * New OIF additions for the same MAC are handled via the CP path or will
+     * be re-triggered on the next packet for an unknown OIF.
+     * The dp_ev_dis handler deduplicates concurrent learn posts.
+     */
+    if (mac_table_lookup(dp_ctx->mac_table, vlan_id, (uint8_t *)src_mac))
         return;
-    }
 
-    /* Determine MAC entry flags */
-    if (oif == dp_ctx->dp_rmac_intf ||
-        oif == dp_ctx->dp_vlan_flood_intf) {
-
-        flags = MAC_STATIC;
-        
-    } else {
-        
-        flags = MAC_DYNAMIC;
-    }
-    
-    /* Use sync API to add MAC entry since called is in DP itself */
-    mac_table_entry_add (dp_ctx, 
-        dp_ctx->mac_table,
-        (uint8_t*)src_mac, vlan_id, 
-        oif->port_id, flags, src_ip);
+    /* Post MAC learn job to dp_ev_dis (single-writer thread). */
+    dp_post_mac_learn_job(dp_ctx, (uint8_t *)src_mac, vlan_id,
+                          oif->port_id, src_ip);
 }
 
 static void 

@@ -13,8 +13,10 @@
 
 typedef struct arp_table_ arp_table_t;
 
-extern void 
-arp_entry_delete_by_interface  (arp_table_t *arp_table, dp_intf_t *intf);
+extern void
+arp_entry_delete_by_interface(dp_ctx_t *dp_ctx,
+                               arp_table_t *arp_table,
+                               dp_intf_t *intf);
 
 /* Hash function for uint32_t keys (used by VLAN interface hashtable) */
 static inline uint32_t hash32(void *_x) {
@@ -86,7 +88,8 @@ dp_delete_interface (dp_ctx_t *dp_ctx, uint32_t port_id) {
     assert(intf);
     dp_ctx->intf_table[port_id] = NULL;
     dp_intf_de_init_logging (intf);
-    arp_entry_delete_by_interface(intf->vrf->arp_table, intf);
+    if (intf->vrf)
+        arp_entry_delete_by_interface(dp_ctx, intf->vrf->arp_table, intf);
     dp_check_and_free_interface (intf);
 }
 

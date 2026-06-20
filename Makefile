@@ -33,6 +33,7 @@ LFA_LIB_PATH=-LLayer3/LFA -llfa
 DPDK=-I$HOME/OpenSrc-Codes/dpdk/build/include \
 	 -L$HOME/OpenSrc-Codes/dpdk/build/lib \
 	 -lrte_eal -lrte_mbuf -lrte_ring -lrte_mempool -lrte_ethdev \
+	 -lrte_hash \
 	 -lpthread -ldl -lnuma -lm
 
 export LIBS=            ${ISIS_LIB_PATH} \

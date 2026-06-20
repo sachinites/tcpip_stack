@@ -29,4 +29,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg);
 void
 dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg);
 
+void
+dp_arp_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg);
+
 #endif 

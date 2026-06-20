@@ -24,6 +24,37 @@ typedef struct mac_update_msg_ {
 
 } mac_update_msg_t;
 
+/*
+ * ARP table update message (component_type = ARP_TABLE).
+ *
+ * op = ARP_MSG_RESOLVE:
+ *   dp_ev_dis creates a sane ARP entry for ip_addr, appends mbuf_ptr
+ *   (already ref-counted by caller) to the pending list, then sends
+ *   an ARP broadcast request out of the interface at oif_ifindex.
+ *
+ * op = ARP_MSG_UPDATE_FROM_PKT:
+ *   dp_ev_dis updates/installs a full ARP entry built from a received
+ *   ARP packet (reply or overheard request): key = ip_addr, value =
+ *   {src_mac, oif_ifindex, proto}.  Pending packets are flushed.
+ *
+ * op = ARP_MSG_DELETE:
+ *   dp_ev_dis removes the entry matching ip_addr + proto.
+ */
+#define ARP_MSG_RESOLVE         1
+#define ARP_MSG_UPDATE_FROM_PKT 2
+#define ARP_MSG_DELETE          3
+
+typedef struct arp_update_msg_ {
+    uint8_t  vrf_id;
+    uint8_t  op;             /* ARP_MSG_* */
+    uint16_t proto;          /* ETH_TYPE_ARP or overriding protocol */
+    uint32_t ip_addr;        /* target IP (RESOLVE) or sender IP (UPDATE) */
+    uint32_t oif_ifindex;    /* OIF port_id (RESOLVE) or IIF port_id (UPDATE) */
+    uint8_t  src_mac[6];     /* sender MAC — populated for UPDATE_FROM_PKT */
+    uint16_t _pad;
+    uintptr_t mbuf_ptr;      /* ref-counted mbuf for RESOLVE (0 for others) */
+} arp_update_msg_t;
+
 typedef struct dp_vrf_create_msg_ {
 
     uint8_t vrf_id;
@@ -133,7 +164,8 @@ typedef enum DP_COMPONENT_TYPE_ {
     FIB_TABLE,
     INTF_TABLE,
     VRF_TABLE,
-    DP_GENERICS
+    DP_GENERICS,
+    ARP_TABLE,       /* ARP table updates, posted by DP packet threads to dp_ev_dis */
 
 } DP_COMPONENT_TYPE_T;
 
