@@ -127,9 +127,13 @@ dp_mac_table_gc_scan(dp_ctx_t *dp_ctx, time_t now)
 static void
 dp_table_gc_scan_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
 {
-    if (!arg) return;
-    
+    (void)arg;
+    (void)arg_size;
+
+    if (!ev_dis) return;
+
     dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
+    if (!dp_ctx) return;
     time_t now = time(NULL);
 
     tracer(dp_ctx->dptr, DARP | DL2SW | DTIMER,

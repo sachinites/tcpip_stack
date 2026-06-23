@@ -10,6 +10,7 @@
 #include "../../../libs/Tracer/tracer.h"
 #include "../../dp_utils.h"
 #include "../../dp_uapi.h"
+#include "../../classifier/pkt_classifier.h"
 
 extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
@@ -291,12 +292,14 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
 
     is_vlan_tagged = is_pkt_vlan_tagged(ethernet_hdr );
 
-    /* Unconditionally distribute pkt-copy to interested applications */
-    cp_punt_pkt_from_layer2_to_layer5(
-                    dp_ctx->ctx_pvt_data, 
-                    iif->port_id, 
-                    mbuf,
-                    ETHERNET_HEADER);
+    dp_pkt_trap_l3(dp_ctx, &iif->trap_rule_table, mbuf);
+    
+     /* Unconditionally distribute pkt-copy to interested applications */
+     cp_punt_pkt_from_layer2_to_layer5(
+                     dp_ctx->ctx_pvt_data, 
+                     iif->port_id, 
+                     mbuf,
+                     ETHERNET_HEADER);
 
     eth_type = ntohs(ethernet_hdr->type);
 

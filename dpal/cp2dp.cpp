@@ -844,6 +844,80 @@ cp2dp_convert_pkt_block (dp_ctx_t *dp_ctx, cp_pkt_block_t *cp_pkt_block) {
     return mbuf;
 }
 
+void
+cp2dp_install_pkt_trap_rule (node_t *node,
+                              uint32_t ifindex,
+                              uint16_t id,
+                              uint16_t l2_proto,
+                              uint8_t ip_proto,
+                              bool (*trap_fn)(struct rte_mbuf *),
+                              void (*trap_app_cbk)(void *cp_ctx, struct rte_mbuf *),
+                              event_dispatcher_t *ev_dis,
+                              pkt_q_t *pkt_q,
+                              bool consume) {
+
+    dp_msg_t *dp_msg;
+    dp_generic_msg_t *gen_msg;
+    dp_pkt_trap_rule_t *trap_rule;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = DP_GENERICS;
+    dp_msg->opr_type = DP_CREATE;
+    dp_msg->flags = consume ? 1 : 0;
+    dp_msg->data_size = sizeof(dp_generic_msg_t);
+
+    gen_msg = (dp_generic_msg_t *)dp_msg->data;
+    gen_msg->opcode = DP_TRAP_RULE;
+
+    trap_rule = &gen_msg->u.trap_rule;
+    trap_rule->ifindex = ifindex;
+    trap_rule->id = id;
+    trap_rule->proto = l2_proto ? l2_proto : (uint16_t)ip_proto;
+    trap_rule->trap_examine_fn = (uintptr_t)trap_fn;
+    trap_rule->trap_app_cbk = (uintptr_t)trap_app_cbk;
+    trap_rule->ev_dis = (uintptr_t)ev_dis;
+    trap_rule->pkt_q = (uintptr_t)pkt_q;
+
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void
+cp2dp_uninstall_pkt_trap_rule (node_t *node,
+                                uint32_t ifindex,
+                                uint16_t id,
+                                uint16_t l2_proto,
+                                uint8_t ip_proto,
+                                bool (*trap_fn)(struct rte_mbuf *),
+                                void (*trap_app_cbk)(void *cp_ctx, struct rte_mbuf *),
+                                event_dispatcher_t *ev_dis,
+                                pkt_q_t *pkt_q,
+                                bool consume) {
+
+    dp_msg_t *dp_msg;
+    dp_generic_msg_t *gen_msg;
+    dp_pkt_trap_rule_t *trap_rule;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = DP_GENERICS;
+    dp_msg->opr_type = DP_DEL;
+    dp_msg->flags = consume ? 1 : 0;
+    dp_msg->data_size = sizeof(dp_generic_msg_t);
+
+    gen_msg = (dp_generic_msg_t *)dp_msg->data;
+    gen_msg->opcode = DP_TRAP_RULE;
+
+    trap_rule = &gen_msg->u.trap_rule;
+    trap_rule->ifindex = ifindex;
+    trap_rule->id = id;
+    trap_rule->proto = l2_proto ? l2_proto : (uint16_t)ip_proto;
+    trap_rule->trap_examine_fn = (uintptr_t)trap_fn;
+    trap_rule->trap_app_cbk = (uintptr_t)trap_app_cbk;
+    trap_rule->ev_dis = (uintptr_t)ev_dis;
+    trap_rule->pkt_q = (uintptr_t)pkt_q;
+
+    cp2dp_submit(node, dp_msg, true);
+}
+
 cp_pkt_block_t *
 dp2cp_convert_pkt_block (struct rte_mbuf *mbuf) {
 

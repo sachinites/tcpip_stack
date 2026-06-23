@@ -20,14 +20,19 @@
 
 #include "../libs/pkt-block/pkt_mbuf.h"
 #include "../libs/EventDispatcher/event_dispatcher.h"
+#include "../libs/pkt-block/cp_pkt_block.h"
 
 #include "dp_uapi.h"
 #include "dp_ctx.h"
 #include "Vrfs/dp_vrf.h"
 #include "Interface/dp_intf_store.h"
 #include "Interface/dp_intf.h"
+
+/* Control plane files, to be removed */
 #include "Layer2/switching/mac_table.h"
 #include "Layer2/arp/arp.h"
+
+#include "../dpcp_cmn.h"
 
 #include <rte_lcore.h>
                   
@@ -275,3 +280,16 @@ dp_arp_cli_resolve_sync(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, uint32_t ip_addr)
                                     TASK_ONE_SHOT,
                                     TASK_PRIORITY_CP_TO_DP);
 }
+
+#if 0
+static cp_pkt_block_t *
+dp2cp_convert_pkt_block (struct rte_mbuf *mbuf) {
+
+    pkt_size_t pkt_size = pkt_mbuf_get_data_size(mbuf);
+    cp_pkt_block_t *cp_pkt_block = cp_pkt_block_get_new_pkt_buffer(pkt_size);
+    uint8_t *pkt = pkt_mbuf_get_pkt(mbuf, NULL);
+    memcpy(cp_pkt_block->pkt_start, pkt, pkt_size);
+    cp_pkt_block->hdr_type = pkt_mbuf_get_starting_hdr(mbuf);
+    return cp_pkt_block;
+}
+#endif

@@ -126,13 +126,6 @@ pkt_mbuf_ref_inc(struct rte_mbuf *mbuf)
     rte_mbuf_refcnt_update(mbuf, 1);
 }
 
-void
-pkt_mbuf_ref_dec(struct rte_mbuf *mbuf)
-{
-    if (mbuf == NULL) return;
-    rte_pktmbuf_free(mbuf);
-}
-
 uint8_t
 pkt_mbuf_dereference(struct rte_mbuf *mbuf)
 {
@@ -150,11 +143,11 @@ pkt_mbuf_dereference(struct rte_mbuf *mbuf)
             }
             priv->ingress_intf = 0;
         }
-        pkt_mbuf_ref_dec(mbuf);
+        rte_pktmbuf_free(mbuf);
         return 0;
     }
 
-    pkt_mbuf_ref_dec(mbuf);
+    rte_pktmbuf_free(mbuf);
     return (uint8_t)(old - 1);
 }
 

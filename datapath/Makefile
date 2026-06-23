@@ -24,6 +24,7 @@ OBJS=dp_init.o \
 	 dp_utils.o \
 	 dp_uapi.o \
 	 dp_table_gc.o \
+	 dpcp_cmn_fake.o \
 	 Interface/dp_intf_store.o \
 	 Interface/dp_intf_recv_xmit.o \
 	 Interface/dp_intf_log.o \
@@ -49,6 +50,7 @@ OBJS=dp_init.o \
 	 Layer3/L3vpn/vpnv4.o \
 	 dp-program/dp-prog-api.o \
 	 dp-program/dp_msg_tr.o \
+	 classifier/pkt_classifier.o \
 
 all: $(TARGET)
 
@@ -106,6 +108,9 @@ Layer3/ipv6/%.o: Layer3/ipv6/%.cpp
 Layer3/L3vpn/%.o: Layer3/L3vpn/%.cpp 
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+classifier/%.o: classifier/%.cpp
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 clean:
 	rm -f $(OBJS) $(TARGET)
 	rm -f *.o
@@ -123,5 +128,6 @@ clean:
 	rm -f Layer3/ipv6/*.o
 	rm -f Layer3/vpnv4/*.o
 	rm -f dp-program/*.o
-
+	rm -f classifier/*.o
+	
 .PHONY: all clean

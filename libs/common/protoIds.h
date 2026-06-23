@@ -74,6 +74,120 @@ typedef uint8_t  ip_proto_id_t;
 #define ARP_BROAD_REQ 0x1
 #define ARP_REPLY     0x2
 
+/* =========================================================================
+ * Unified protocol index enum — sequential values usable as array indices.
+ * Values are NOT wire-format protocol codes.
+ *
+ * EtherType block:   ETH_TYPE_IDX_*   (EtherType values ≥ 0x0600)
+ * IP proto block:    IP_PROTO_IDX_*   (IANA numbers 0–255)
+ *   IP_PROTO_SRH == IP_PROTO_IPv6_ROUTE (both 43); one index covers both.
+ * ========================================================================= */
+
+typedef enum {
+    /* --- EtherType indices ------------------------------------------------ */
+    ETH_TYPE_IDX_IPv4        = 0,
+    ETH_TYPE_IDX_ARP,
+    ETH_TYPE_IDX_RARP,
+    ETH_TYPE_IDX_IPv6,
+    ETH_TYPE_IDX_MPLS_UC,
+    ETH_TYPE_IDX_MPLS_MC,
+    ETH_TYPE_IDX_VLAN_8021Q,
+    ETH_TYPE_IDX_VLAN_8021AD,
+    ETH_TYPE_IDX_LLDP,
+    ETH_TYPE_IDX_EAP_8021X,
+    ETH_TYPE_IDX_PAUSE,
+    ETH_TYPE_IDX_PPPoE_DISC,
+    ETH_TYPE_IDX_PPPoE_SES,
+    ETH_TYPE_IDX_FCOE,
+    ETH_TYPE_IDX_GRE,
+    ETH_TYPE_IDX_ISIS,
+
+    /* --- IP protocol indices ---------------------------------------------- */
+    IP_PROTO_IDX_ICMP,
+    IP_PROTO_IDX_IGMP,
+    IP_PROTO_IDX_IP_IN_IP,
+    IP_PROTO_IDX_TCP,
+    IP_PROTO_IDX_UDP,
+    IP_PROTO_IDX_IPv6,
+    IP_PROTO_IDX_SRH,           /* also covers IP_PROTO_IPv6_ROUTE (val 43) */
+    IP_PROTO_IDX_RSVP,
+    IP_PROTO_IDX_GRE,
+    IP_PROTO_IDX_ESP,
+    IP_PROTO_IDX_AH,
+    IP_PROTO_IDX_ICMPv6,
+    IP_PROTO_IDX_IPv6_NONXT,
+    IP_PROTO_IDX_IPv6_OPTS,
+    IP_PROTO_IDX_EIGRP,
+    IP_PROTO_IDX_OSPF,
+    IP_PROTO_IDX_IPIP,
+    IP_PROTO_IDX_PIM,
+    IP_PROTO_IDX_MPLS_IN_IP,
+    IP_PROTO_IDX_LDP,
+    IP_PROTO_IDX_ISIS,
+    IP_PROTO_IDX_ISIS_SRv6,
+    IP_PROTO_IDX_SRv6,
+
+    PROTO_IDX_MAX               /* array size sentinel */
+} proto_idx_t;
+
+/* =========================================================================
+ * proto_idx() — map a wire-format protocol value to its proto_idx_t index.
+ *
+ * EtherType values (≥ 0x0600) and IP protocol numbers (0–255) do not
+ * overlap in practice, so a single switch covers both namespaces.
+ * Returns PROTO_IDX_MAX for any unrecognised value.
+ * ========================================================================= */
+
+static inline proto_idx_t
+proto_idx(gen_proto_id_t proto)
+{
+    switch (proto) {
+    /* EtherTypes */
+    case ETH_TYPE_IPv4:         return ETH_TYPE_IDX_IPv4;
+    case ETH_TYPE_ARP:          return ETH_TYPE_IDX_ARP;
+    case ETH_TYPE_RARP:         return ETH_TYPE_IDX_RARP;
+    case ETH_TYPE_IPv6:         return ETH_TYPE_IDX_IPv6;
+    case ETH_TYPE_MPLS_UC:      return ETH_TYPE_IDX_MPLS_UC;
+    case ETH_TYPE_MPLS_MC:      return ETH_TYPE_IDX_MPLS_MC;
+    case ETH_TYPE_VLAN_8021Q:   return ETH_TYPE_IDX_VLAN_8021Q;
+    case ETH_TYPE_VLAN_8021AD:  return ETH_TYPE_IDX_VLAN_8021AD;
+    case ETH_TYPE_LLDP:         return ETH_TYPE_IDX_LLDP;
+    case ETH_TYPE_EAP_8021X:    return ETH_TYPE_IDX_EAP_8021X;
+    case ETH_TYPE_PAUSE:        return ETH_TYPE_IDX_PAUSE;
+    case ETH_TYPE_PPPoE_DISC:   return ETH_TYPE_IDX_PPPoE_DISC;
+    case ETH_TYPE_PPPoE_SES:    return ETH_TYPE_IDX_PPPoE_SES;
+    case ETH_TYPE_FCOE:         return ETH_TYPE_IDX_FCOE;
+    case ETH_TYPE_GRE:          return ETH_TYPE_IDX_GRE;
+    case ETH_TYPE_ISIS:         return ETH_TYPE_IDX_ISIS;
+
+    /* IP protocol numbers */
+    case IP_PROTO_ICMP:         return IP_PROTO_IDX_ICMP;
+    case IP_PROTO_IGMP:         return IP_PROTO_IDX_IGMP;
+    case IP_PROTO_IP_IN_IP:     return IP_PROTO_IDX_IP_IN_IP;
+    case IP_PROTO_TCP:          return IP_PROTO_IDX_TCP;
+    case IP_PROTO_UDP:          return IP_PROTO_IDX_UDP;
+    case IP_PROTO_IPv6:         return IP_PROTO_IDX_IPv6;
+    case IP_PROTO_SRH:          return IP_PROTO_IDX_SRH; /* == IPv6_ROUTE */
+    case IP_PROTO_RSVP:         return IP_PROTO_IDX_RSVP;
+    case IP_PROTO_GRE:          return IP_PROTO_IDX_GRE;
+    case IP_PROTO_ESP:          return IP_PROTO_IDX_ESP;
+    case IP_PROTO_AH:           return IP_PROTO_IDX_AH;
+    case IP_PROTO_ICMPv6:       return IP_PROTO_IDX_ICMPv6;
+    case IP_PROTO_IPv6_NONXT:   return IP_PROTO_IDX_IPv6_NONXT;
+    case IP_PROTO_IPv6_OPTS:    return IP_PROTO_IDX_IPv6_OPTS;
+    case IP_PROTO_EIGRP:        return IP_PROTO_IDX_EIGRP;
+    case IP_PROTO_OSPF:         return IP_PROTO_IDX_OSPF;
+    case IP_PROTO_IPIP:         return IP_PROTO_IDX_IPIP;
+    case IP_PROTO_PIM:          return IP_PROTO_IDX_PIM;
+    case IP_PROTO_MPLS_IN_IP:   return IP_PROTO_IDX_MPLS_IN_IP;
+    case IP_PROTO_LDP:          return IP_PROTO_IDX_LDP;
+    case IP_PROTO_ISIS:         return IP_PROTO_IDX_ISIS;
+    case IP_PROTO_ISIS_SRv6:    return IP_PROTO_IDX_ISIS_SRv6;
+    case IP_PROTO_SRv6:         return IP_PROTO_IDX_SRv6;
+
+    default:                    return PROTO_IDX_MAX;
+    }
+}
 
 /* =========================================================================
  * Well-known TCP / UDP port numbers
@@ -145,6 +259,7 @@ proto_id_str(uint16_t proto)
     case ETH_TYPE_PPPoE_SES:        return "PPPoE-Session";
     case ETH_TYPE_FCOE:             return "FCoE";
     case ETH_TYPE_GRE:              return "GRE-Ethernet";
+    case ETH_TYPE_ISIS:             return "IS-IS";
 
     /* IP protocol numbers (some overlap with EtherType — handled above) */
     case IP_PROTO_ICMP:             return "ICMP";

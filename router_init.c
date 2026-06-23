@@ -54,6 +54,8 @@ extern void cp_init_ipc_pub_sub(node_t *node);
 extern void rtm_dist_mgr_init (node_t *node);
 extern void acl_builder_init (node_t *, acl_builder_t **acl_builder);
 extern void ifm_init(node_t *node);
+extern int
+cp_punted_pkt_recv_job_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size) ;
 
 void
 insert_link_between_two_nodes(node_t *node1,
@@ -230,6 +232,8 @@ Router_Create(graph_t *graph, const c_string node_name){
 
     /* Start IPC Message Queue of Control Plane*/
     init_pkt_q (&node->ev_dis, &node->cp_ipc_q, ipc_event_signal);
+    /* Initialize the Control plane Pkt Q punted from DP*/
+    init_pkt_q (&node->ev_dis, &node->dp2cp_pkt_punt_q, cp_punted_pkt_recv_job_cbk);
 
     /* Turn on Default Logging */
     #if 1

@@ -124,4 +124,7 @@ isis_interface_set_metric (Interface *intf, uint32_t metric, bool enable);
 void
 isis_interface_reset_stats (Interface *intf) ;
 
+void isis_install_classifier (Interface *intf);
+void isis_uninstall_classifier (Interface *intf);
+
 #endif // ! __ISIS_INTF__

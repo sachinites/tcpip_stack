@@ -13,6 +13,8 @@
 #include "isis_ted.h"
 #include "isis_tlv_struct.h"
 #include "isis_utils.h"
+#include "../../dpal/cp2dp.h"
+#include "../../libs/common/protoIds.h"
 
 bool
 isis_hello_pkt_trap_rule(char *pkt, size_t pkt_size) {
@@ -36,6 +38,51 @@ isis_lsp_pkt_trap_rule(char *pkt, size_t pkt_size) {
 	}
 
 	return false;
+}
+
+static bool 
+isis_hello_pkt_trap_examine_fn(struct rte_mbuf *mbuf) {
+
+    cprintf ("%s called ...\n", __FUNCTION__);
+    return true;
+}
+
+static bool 
+isis_lsp_pkt_trap_examine_fn(struct rte_mbuf *mbuf) {
+
+    cprintf ("%s called ...\n", __FUNCTION__);
+    return true;
+}
+
+static void 
+isis_trap_app_cbk(void *cp_ctx, struct rte_mbuf *mbuf) {
+
+    cprintf ("%s called ...\n", __FUNCTION__);
+}
+
+void 
+isis_install_classifier (Interface *intf) {
+
+    cp2dp_install_pkt_trap_rule (intf->att_node, 
+            intf->ifindex,  
+            ETH_TYPE_ISIS,
+            ETH_TYPE_ISIS, 0,
+            isis_hello_pkt_trap_examine_fn,
+            isis_trap_app_cbk, 
+            0, 0, true);
+
+}
+
+void 
+isis_uninstall_classifier (Interface *intf) {
+
+    cp2dp_uninstall_pkt_trap_rule (intf->att_node, 
+            intf->ifindex,  
+            ETH_TYPE_ISIS,
+            ETH_TYPE_ISIS, 0,
+            isis_hello_pkt_trap_examine_fn,
+            isis_trap_app_cbk, 
+            0, 0, true);
 }
 
 static void

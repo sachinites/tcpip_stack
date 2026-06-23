@@ -90,6 +90,7 @@ OBJS=     router_init.o   \
 		  vrf/vrf.cpp \
 		  Layer3/SegmentRouting/SR-MPLS/srgb.o \
 		  ips_pub_sub_init.o \
+		  dpcp_cmn.o \
 		  
 lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
@@ -106,6 +107,9 @@ ted/ted.o:ted/ted.c
 cp_ipc.o:cp_ipc.cpp
 	${CC} ${CFLAGS} -c -I . cp_ipc.cpp -o cp_ipc.o
 
+dpcp_cmn.o:dpcp_cmn.cpp
+	${CC} ${CFLAGS} -c -I . dpcp_cmn.cpp -o dpcp_cmn.o
+	
 ips_pub_sub_init.o:ips_pub_sub_init.c
 	${CC} ${CFLAGS} -c -I . ips_pub_sub_init.c -o ips_pub_sub_init.o
 

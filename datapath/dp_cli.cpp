@@ -36,6 +36,8 @@
 #include "dp_ctx.h"
 #include "dp_uapi.h"
 #include "../tcpconst.h"
+#include "../libs/common/protoIds.h"
+#include "classifier/pkt_classifier.h"
 
 extern graph_t *topo;
 
@@ -46,6 +48,7 @@ extern graph_t *topo;
 #define CMDCODE_SHOW_DP_FIB              4
 #define CMDCODE_SHOW_DP_ARP              5
 #define CMDCODE_DEBUG_DP_MEMPOOL         6
+#define CMDCODE_DEBUG_DP_CLASSIFIERS     7
 
 /* -----  Interface display helpers  ----- */
 
@@ -291,6 +294,38 @@ dp_print_interface(dp_intf_t *intf)
     cprintf("--------------------------------------------------------------------------------\n");
 }
 
+/* -----  Classifier display helper  ----- */
+
+static void
+dp_show_intf_classifiers(dp_intf_t *intf)
+{
+    cprintf("\nInterface: %s\n", intf->if_name[0] ? intf->if_name : "<unnamed>");
+    cprintf("  %-6s  %-20s  %-10s  %-14s  %-10s  %s\n",
+            "ID", "Protocol", "trap_fn", "trap_app_cbk", "ev_dis/pkt_q", "count");
+    cprintf("  %-6s  %-20s  %-10s  %-14s  %-10s  %s\n",
+            "------", "--------------------", "----------",
+            "--------------", "----------", "-------");
+
+    int total = 0;
+    for (int i = 0; i < (int)PROTO_IDX_MAX; i++) {
+        trap_rule_t *rule = intf->trap_rule_table[i];
+        while (rule) {
+            cprintf("  %-6u  %-20s  %-10s  %-14s  %-10s  %u\n",
+                    rule->id,
+                    proto_id_str(rule->proto),
+                    rule->trap_fn       ? "set"     : "not-set",
+                    rule->trap_app_cbk  ? "set"     : "not-set",
+                    (rule->ev_dis && rule->pkt_q) ? "set" : "not-set",
+                    rule->trap_count);
+            total++;
+            rule = rule->next;
+        }
+    }
+
+    if (total == 0)
+        cprintf("  (no trap rules installed)\n");
+}
+
 /* -----  Show command handler  ----- */
 
 static int
@@ -459,6 +494,42 @@ dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
     }
     break;
 
+    case CMDCODE_DEBUG_DP_CLASSIFIERS:
+    {
+        if (intf_name_filter) {
+            /* Show classifiers for a single named interface */
+            bool found = false;
+            for (int _i = 0; _i < DP_MAX_INTF; _i++) {
+                dp_intf_t *intf = dp_ctx->intf_table[_i];
+                if (!intf) continue;
+                if (strcmp(intf->if_name, (const char *)intf_name_filter) != 0) continue;
+                dp_show_intf_classifiers(intf);
+                found = true;
+                break;
+            }
+            if (!found) {
+                cprintf("Error: Interface '%s' not found\n", intf_name_filter);
+                return -1;
+            }
+        } else {
+            /* Show classifiers for all interfaces */
+            cprintf("Node: %s - Interface Classifier (Trap Rules)\n", node_name);
+            cprintf("================================================================================\n");
+            int count = 0;
+            for (int _i = 0; _i < DP_MAX_INTF; _i++) {
+                dp_intf_t *intf = dp_ctx->intf_table[_i];
+                if (!intf) continue;
+                dp_show_intf_classifiers(intf);
+                count++;
+            }
+            if (count == 0)
+                cprintf("No interfaces configured\n");
+            cprintf("================================================================================\n");
+        }
+    }
+    break;
+
+
     default:
         break;
     }
@@ -558,6 +629,23 @@ dp_build_dp_debug_cli_tree(param_t *show)
                 libcli_register_param(&mpool, &mpool_name);
                 libcli_set_param_cmd_code(&mpool_name, CMDCODE_DEBUG_DP_MEMPOOL);
                 libcli_set_user_flag(&mpool_name, CLI_F_DATA_PLANE);
+            }
+        }
+
+        {
+            /* classifiers */
+            static param_t classifiers;
+            init_param(&classifiers, CMD, "classifiers", dp_show_handler, NULL, INVALID, NULL, "Interface Classifiers");
+            libcli_register_param(show, &classifiers);
+            libcli_set_param_cmd_code(&classifiers, CMDCODE_DEBUG_DP_CLASSIFIERS);
+            libcli_set_user_flag(&classifiers, CLI_F_DATA_PLANE);
+            {
+                /* classifiers <intf-name>*/
+                static param_t intf_name;
+                init_param(&intf_name, LEAF, NULL, dp_show_handler, NULL, STRING, "intf-name", "Interface name");
+                libcli_register_param(&classifiers, &intf_name);
+                libcli_set_param_cmd_code(&intf_name, CMDCODE_DEBUG_DP_CLASSIFIERS);
+                libcli_set_user_flag(&intf_name, CLI_F_DATA_PLANE);
             }
         }
     }

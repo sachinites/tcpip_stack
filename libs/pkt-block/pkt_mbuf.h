@@ -84,9 +84,6 @@ pkt_mbuf_shrink_left(struct rte_mbuf *mbuf, uint32_t n);
 void
 pkt_mbuf_ref_inc(struct rte_mbuf *mbuf);
 
-void
-pkt_mbuf_ref_dec(struct rte_mbuf *mbuf);
-
 /* Returns remaining refcount after dropping one reference (0 if freed). */
 uint8_t
 pkt_mbuf_dereference(struct rte_mbuf *mbuf);

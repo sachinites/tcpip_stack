@@ -72,10 +72,22 @@ typedef struct dp_vrf_intf_update_msg_ {
     
 } dp_vrf_intf_update_msg_t;
 
+typedef struct dp_pkt_trap_rule_ {
+
+    uint16_t  id;
+    uint16_t proto;
+    uintptr_t trap_examine_fn;
+    uintptr_t trap_app_cbk;
+    uintptr_t ev_dis;
+    uintptr_t pkt_q;
+    uint32_t ifindex;
+
+} dp_pkt_trap_rule_t;
 
 #define DP_GENERIC_RMAC 1
 #define DP_GENERIC_RTR_ID 2
 #define DP_PING_REQ 3
+#define DP_TRAP_RULE 4
 
 typedef struct dp_generic_msg_ {
 
@@ -91,6 +103,8 @@ typedef struct dp_generic_msg_ {
             uintptr_t pctx;
             
         } ping;
+
+        dp_pkt_trap_rule_t trap_rule;
 
     } u;
 

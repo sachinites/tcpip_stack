@@ -51,6 +51,8 @@
 #include "FireWall/acl/acldb.h"
 #include "libs/prefix-list/prefixlst.h"
 #include "libs/Tracer/tracer.h"
+#include "libs/pkt-block/pkt_mbuf.h"
+#include "libs/pkt-block/cp_pkt_block.h"
 
 /* stdandard pkt headers hdr files*/
 #include "libs/common/cmn_struct.h"
@@ -79,7 +81,6 @@
 #include "tcpip_notif.h"
 #include "Layer3/netfilter.h"
 #include "ted/ted.h"
-#include "libs/pkt-block/cp_pkt_block.h"
 #include "cp_ipc.h"
 #include "cp_ipc_struct.h"
 

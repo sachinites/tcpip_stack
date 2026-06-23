@@ -46,6 +46,7 @@
 #include "../../dp_ctx.h"
 #include "../../Interface/dp_intf.h"
 #include "../../dp_uapi.h"
+#include "../../classifier/pkt_classifier.h"
 
 extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
@@ -271,6 +272,8 @@ void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
     if (pkt_mbuf_get_starting_hdr (mbuf) != ETHERNET_HEADER){
         return;
     }
+
+    dp_pkt_trap_l2(dp_ctx, &interface->trap_rule_table, mbuf);
 
     vlan_ethernet_hdr_t *vlan_ethernet_hdr = 
         (vlan_ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);

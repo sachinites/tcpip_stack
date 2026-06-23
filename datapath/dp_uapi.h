@@ -27,6 +27,7 @@ typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_msg_ dp_msg_t;
 typedef struct dp_vrf_ dp_vrf_t;
 typedef struct event_dispatcher_ event_dispatcher_t;
+typedef struct pkt_q_ pkt_q_t;
 struct rte_mempool;
 
 /*
@@ -154,6 +155,8 @@ void dp_show_arp_table_sync(dp_ctx_t *dp_ctx, void *arp_table);
  * Runs on dp_ev_dis (sync).  vrf=NULL uses the default VRF. */
 void dp_arp_cli_resolve_sync(dp_ctx_t *dp_ctx, dp_vrf_t *vrf,
                              uint32_t ip_addr);
+
+
 
 #ifdef __cplusplus
 }

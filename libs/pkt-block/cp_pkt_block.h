@@ -8,6 +8,15 @@
 #define CP_MAX_PACKET_BUFFER_SIZE   2048
 #define CP_PKT_BUFFER_RIGHT_ROOM    128   
 
+typedef struct auxillary_pkt_info_ {
+
+    uint32_t ifindex;
+    uint16_t vlan_id;
+    uint16_t sub_proto;
+    uint8_t ip_proto;
+    
+} auxillary_pkt_info_t;
+
 typedef struct cp_pkt_block_ {
 
     uintptr_t alloc_ptr;

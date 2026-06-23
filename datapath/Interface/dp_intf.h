@@ -29,6 +29,7 @@ typedef struct node_ node_t;
 typedef struct bitmap_ bitmap_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct mtrie_ mtrie_t;
+typedef struct trap_rule_ trap_rule_t;
 
 #pragma pack(push, 8)
 
@@ -107,6 +108,8 @@ typedef struct dp_intf_ {
     uint16_t dpdk_max_rx_queues;
     uint16_t dpdk_max_tx_queues;
     uint32_t dpdk_tx_queue_lb;
+    
+    trap_rule_t* trap_rule_table[PROTO_IDX_MAX];
 
     /* Wire connection Simulation */
     dp_ctx_t *dp_ctx;

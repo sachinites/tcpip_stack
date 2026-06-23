@@ -6,6 +6,8 @@
 #include "CLIBuilder/cmdtlv.h"
 #include "CLIBuilder/libcli.h"
 
+#include "libs/pkt-block/cp_pkt_block.h"
+
 extern graph_t *topo;
 extern int cprintf (const char * format, ...);
 
@@ -159,4 +161,21 @@ show_scheduler(int cmdcode,
     show_event_dispatcher(&node->ev_dis);
 
    return 0;
+}
+
+int
+cp_punted_pkt_recv_job_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size) {
+
+    node_t *node = (node_t *)ev_dis->app_data;
+
+    cp_pkt_block_t *cp_pkt_block = (cp_pkt_block_t *)arg;
+
+    /* Now distribute the packet to the appropriate handler based on info 
+        stored in auxullary data*/
+
+
+
+    /* Free the pkt after use */
+    cp_pkt_block_dereference(cp_pkt_block);
+    return 0;
 }

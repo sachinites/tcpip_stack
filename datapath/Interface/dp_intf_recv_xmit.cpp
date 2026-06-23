@@ -679,6 +679,8 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
     if (!interface->is_up){
         return;
     }
+
+    pkt_mbuf_set_ingress_intf(mbuf, interface);
     
     if (interface->l3_acl_ingress.load(std::memory_order_acquire)) {
 
@@ -715,8 +717,6 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
 
     if ((interface->switchport &&
             interface->l2_mode != DP_LAN_MODE_NONE)) {
-
-        pkt_mbuf_set_ingress_intf(mbuf, interface);
 
         if (vlan_id_to_tag) {
            

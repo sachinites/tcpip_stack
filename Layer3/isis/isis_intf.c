@@ -225,6 +225,8 @@ isis_enable_protocol_on_interface(Interface *intf) {
 
     intf_info->tlv_130_data = 
         isis_advertise_intf_v4addr_tlv130(intf_info);
+
+    isis_install_classifier(intf);
 }
 
 static void
@@ -281,7 +283,9 @@ isis_disable_protocol_on_interface(Interface *intf) {
     /* Must be last call in this fn, as prev call could
         result in LSP pkts queuing again*/
      isis_intf_purge_lsp_xmit_queue(intf);
+     isis_uninstall_classifier(intf);
      isis_check_and_delete_intf_info(intf);
+     
 }
 
 void

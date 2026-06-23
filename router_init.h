@@ -93,6 +93,9 @@ struct node_ {
     /* IPC in a control plane */
     pkt_q_t cp_ipc_q;
 
+    /* Control plane Pkt Q punted from DP */
+    pkt_q_t dp2cp_pkt_punt_q;
+
     /* IPC Database*/
     glthread_t cp_ipc_data_base [IPC_MSG_TYPE_MAX];
      /*CP Timer*/

@@ -11,6 +11,8 @@
 #include "../../libs/c-hashtable/hashtable.h"
 #include "../../libs/c-hashtable/hashtable_itr.h"
 
+#include "../classifier/pkt_classifier.h"
+
 typedef struct arp_table_ arp_table_t;
 
 extern void
@@ -63,6 +65,11 @@ dp_check_and_free_interface (dp_intf_t *intf) {
     assert(!intf->olay_tunnel_intf);
     assert(!intf->log_info.acc_lst_filter);
     assert (intf->if_type != DP_INTF_TYPE_PHY);
+
+    for (i = 0; i < PROTO_IDX_MAX; i++) {
+        assert (!intf->trap_rule_table[i]);
+    }
+    
     free(intf);
 }
 
@@ -88,8 +95,25 @@ dp_delete_interface (dp_ctx_t *dp_ctx, uint32_t port_id) {
     assert(intf);
     dp_ctx->intf_table[port_id] = NULL;
     dp_intf_de_init_logging (intf);
+
     if (intf->vrf)
         arp_entry_delete_by_interface(dp_ctx, intf->vrf->arp_table, intf);
+
+    for (int i = 0; i < PROTO_IDX_MAX; i++) {
+
+        trap_rule_t *trap_rule = intf->trap_rule_table[i];
+
+        trap_rule_t *next_trap_rule;
+
+        while (trap_rule) {
+
+            next_trap_rule = trap_rule->next;
+            free (trap_rule);
+            trap_rule = next_trap_rule;
+        }
+        intf->trap_rule_table[i] = NULL;
+    }
+
     dp_check_and_free_interface (intf);
 }
 
@@ -126,6 +150,7 @@ dp_create_interface (uint32_t port_id, uint32_t iftype,
     intf->log_info.acc_lst_filter = NULL;
     intf->dpdk_max_rx_queues = 0;
     intf->dpdk_max_tx_queues = 0;
+    //intf->trap_rule_table[] = {0};
     intf->dp_ctx = NULL;
     intf->nbr_intf = NULL;
     return intf;

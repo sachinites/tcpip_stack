@@ -149,7 +149,29 @@ cp2dp_ping_request(node_t *node, ping_ctx_t *pctx);
 struct rte_mbuf *
 cp2dp_convert_pkt_block (dp_ctx_t *dp_ctx, cp_pkt_block_t *cp_pkt_block);
 
-cp_pkt_block_t *
-dp2cp_convert_pkt_block (struct rte_mbuf *mbuf);
+/* Pkt Trap APIs to be used by Control plane */
+void
+cp2dp_install_pkt_trap_rule  (node_t *node,
+                              uint32_t ifindex,
+                              uint16_t id,       /* Unique ID for this rule */
+                              uint16_t l2_proto, /* L2 proto Or IP proto, atleast 1 is mandatory */
+                              uint8_t ip_proto, 
+                              bool (*trap_fn)(struct rte_mbuf *),  /* optional, to further examine the pkt*/
+                              void (*trap_app_cbk)(void *cp_ctx,struct rte_mbuf *), /* CP can provide its fn, but should return asap*/
+                              event_dispatcher_t *ev_dis, /* CP can provide its Scheduler & pkt Q compbo */
+                              pkt_q_t *pkt_q, 
+                              bool consume); /* Should DP must end its journey after handover to CP ?*/
+
+void
+cp2dp_uninstall_pkt_trap_rule (node_t *node,
+                              uint32_t ifindex,
+                              uint16_t id,       /* Unique ID for this rule */
+                              uint16_t l2_proto, /* L2 proto Or IP proto, atleast 1 is mandatory */
+                              uint8_t ip_proto, 
+                              bool (*trap_fn)(struct rte_mbuf *),  /* optional, to further examine the pkt*/
+                              void (*trap_app_cbk)(void *cp_ctx, struct rte_mbuf *), /* CP can provide its fn, but should return asap*/
+                              event_dispatcher_t *ev_dis, /* CP can provide its Scheduler & pkt Q compbo */
+                              pkt_q_t *pkt_q, 
+                              bool consume); /* Should DP must end its journey after handover to CP ?*/
 
 #endif 

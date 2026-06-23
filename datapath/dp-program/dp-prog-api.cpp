@@ -15,6 +15,7 @@
 #include "../dp_utils.h"
 #include "../Layer3/layer3.h"
 #include "../Layer3/ping.h"
+#include "../classifier/pkt_classifier.h"
 
 #include "../Layer2/switching/mac_table.h"
 #include "../Layer2/arp/arp.h"
@@ -778,18 +779,35 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             switch (gen_msg->opcode)
             {
                 case DP_GENERIC_RMAC:
-                memcpy(dp_ctx->rmac.mac, gen_msg->u.mac_addr, 6);
-                mac_table_entry_add(dp_ctx, 
-                        dp_ctx->mac_table, 
-                        dp_ctx->rmac.mac, 
-                        0, 
-                        dp_ctx->dp_rmac_intf->port_id, MAC_STATIC, 0);
+                    memcpy(dp_ctx->rmac.mac, gen_msg->u.mac_addr, 6);
+                    mac_table_entry_add(dp_ctx, 
+                            dp_ctx->mac_table, 
+                            dp_ctx->rmac.mac, 
+                            0, 
+                            dp_ctx->dp_rmac_intf->port_id, MAC_STATIC, 0);
                 break;
 
 
                 case DP_PING_REQ:
                 {
                     dp_handle_ping_request (dp_ctx, (ping_ctx_t *)gen_msg->u.ping.pctx);
+                }
+                break;
+
+                case DP_TRAP_RULE:
+                {
+                    dp_intf_t *intf = dp_ctx->intf_table[gen_msg->u.trap_rule.ifindex];
+                    if (!intf) break;
+                    trap_rule_t *trap_rule = (trap_rule_t *)calloc (1, sizeof (trap_rule_t));
+                    trap_rule->id = gen_msg->u.trap_rule.id;
+                    trap_rule->proto = gen_msg->u.trap_rule.proto;
+                    trap_rule->trap_fn = (bool (*)(struct rte_mbuf *))gen_msg->u.trap_rule.trap_examine_fn;
+                    trap_rule->trap_app_cbk = (void (*)(void *, struct rte_mbuf *))gen_msg->u.trap_rule.trap_app_cbk;
+                    trap_rule->ev_dis = (event_dispatcher_t *)gen_msg->u.trap_rule.ev_dis;
+                    trap_rule->pkt_q = (pkt_q_t *)gen_msg->u.trap_rule.pkt_q;
+                    trap_rule->consume = false;
+                    trap_rule->next = NULL;
+                    dp_trap_rule_install(&intf->trap_rule_table, trap_rule);
                 }
                 break;
 
@@ -820,9 +838,27 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             switch (gen_msg->opcode)
             {
                 case DP_GENERIC_RMAC:
-                mac_table_entry_delete2 (dp_ctx, dp_ctx->mac_table, 0, dp_ctx->rmac.mac);
-                memset(dp_ctx->rmac.mac, 0, 6);
+                    mac_table_entry_delete2 (dp_ctx, dp_ctx->mac_table, 0, dp_ctx->rmac.mac);
+                    memset(dp_ctx->rmac.mac, 0, 6);
                 break;
+
+                case DP_TRAP_RULE:
+                {
+                    trap_rule_t trap_rule;
+                    dp_intf_t *intf = dp_ctx->intf_table[gen_msg->u.trap_rule.ifindex];
+                    if (!intf) break;
+                    trap_rule.id = gen_msg->u.trap_rule.id;
+                    trap_rule.proto = gen_msg->u.trap_rule.proto;
+                    trap_rule.trap_fn = (bool (*)(struct rte_mbuf *))gen_msg->u.trap_rule.trap_examine_fn;
+                    trap_rule.trap_app_cbk = (void (*)(void *, struct rte_mbuf *))gen_msg->u.trap_rule.trap_app_cbk;
+                    trap_rule.ev_dis = (event_dispatcher_t *)gen_msg->u.trap_rule.ev_dis;
+                    trap_rule.pkt_q = (pkt_q_t *)gen_msg->u.trap_rule.pkt_q;
+                    trap_rule.consume = false;
+                    trap_rule.next = NULL;
+                    dp_trap_rule_uninstall(&intf->trap_rule_table, &trap_rule);
+                }
+                break;
+
             }
             break;
     }

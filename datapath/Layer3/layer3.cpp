@@ -8,8 +8,10 @@
 #include "../../libs/Tracer/tracer.h"
 
 #include "../dp_ctx.h"
+#include "../Interface/dp_intf.h"
 #include "ipv4/ipv4-fwd.h"
 #include "../Vrfs/dp_vrf.h"
+#include "../classifier/pkt_classifier.h"
 
 extern void
 layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
@@ -27,6 +29,8 @@ _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
     pkt_size_t pkt_size;
     char ip_addr_str[IPV4_ADDR_LEN_STR];
     gen_proto_id_t hdr_type = pkt_mbuf_get_starting_hdr (mbuf);
+
+    //dp_pkt_trap_l3(dp_ctx, &interface->trap_rule_table, mbuf);
 
     switch(hdr_type){
         
