@@ -1458,7 +1458,7 @@ rtm_show_dist_mgr_target_route(dist_mgr_t *dist_mgr, const char *prefix_str)
 } /* extern "C" */
 
 int 
-rtm_show_dist_mgr_database_handler (int cmdcode,
+rtm_show_dist_mgr_database_handler (int64_t cmdcode,
     Stack_t *tlv_stack,
     op_mode enable_or_disable)
 {
@@ -1478,7 +1478,7 @@ rtm_show_dist_mgr_database_handler (int cmdcode,
 }
 
 int
-rtm_show_dist_mgr_policies_handler(int cmdcode,
+rtm_show_dist_mgr_policies_handler(int64_t cmdcode,
                                    Stack_t *tlv_stack,
                                    op_mode enable_or_disable)
 {
@@ -1502,7 +1502,7 @@ rtm_show_dist_mgr_policies_handler(int cmdcode,
 }
 
 int
-rtm_show_dist_mgr_targets_handler(int cmdcode,
+rtm_show_dist_mgr_targets_handler(int64_t cmdcode,
                                   Stack_t *tlv_stack,
                                   op_mode enable_or_disable)
 {
@@ -1539,7 +1539,7 @@ rtm_show_dist_mgr_targets_handler(int cmdcode,
 }
 
 int
-rtm_show_dist_mgr_target_route_handler(int cmdcode,
+rtm_show_dist_mgr_target_route_handler(int64_t cmdcode,
                                        Stack_t *tlv_stack,
                                        op_mode enable_or_disable)
 {

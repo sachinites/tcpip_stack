@@ -1,7 +1,7 @@
 CC     = g++
 CFLAGS = -g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes \
          -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 \
-         -Wignored-qualifiers 
+         -Wignored-qualifiers $(SANITIZER_FLAGS) -MMD -MP
 		 
 STATIC_LIBNAME=libisis.a
 TARGET:${STATIC_LIBNAME}
@@ -91,5 +91,7 @@ ${STATIC_LIBNAME}:${ISIS_OBJS}
 	@echo ISIS Library ${STATIC_LIBNAME} compiled successfully
 
 clean:
-	rm -f *.o 
+	rm -f *.o *.d
 	rm -f *.a
+
+-include $(ISIS_OBJS:.o=.d)

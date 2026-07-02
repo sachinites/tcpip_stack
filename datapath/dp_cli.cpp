@@ -329,7 +329,7 @@ dp_show_intf_classifiers(dp_intf_t *intf)
 /* -----  Show command handler  ----- */
 
 static int
-dp_show_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
+dp_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
 {
     node_t *node = NULL;
     dp_ctx_t *dp_ctx;

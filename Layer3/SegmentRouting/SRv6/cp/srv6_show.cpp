@@ -12,7 +12,7 @@ extern graph_t *topo;
 
 int
 srv6_show_handler
-                    (int cmdcode,
+                    (int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 

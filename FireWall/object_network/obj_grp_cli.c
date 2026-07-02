@@ -33,7 +33,7 @@ extern void
 object_group_display_name_cli_callback (param_t *param, Stack_t *tlv_stack);
 
 static int
-object_group_config_handler (int cmdcode,
+object_group_config_handler (int64_t cmdcode,
                                                   Stack_t *tlv_stack,
                                                   op_mode enable_or_disable) {
 
@@ -464,7 +464,7 @@ void object_group_build_config_cli (param_t *root)
 }
 
 static int
-object_group_show_handler (int cmdcode, 
+object_group_show_handler (int64_t cmdcode, 
                                                      Stack_t *tlv_stack,
                                                      op_mode enable_or_disable) {
 

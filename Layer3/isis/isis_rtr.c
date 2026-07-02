@@ -548,7 +548,7 @@ isis_stop_overload_timer(isis_node_info_t *node_info) {
 }
 
 int
-isis_set_overload (isis_node_info_t *node_info, uint32_t timeout_val, int cmdcode) {
+isis_set_overload (isis_node_info_t *node_info, uint32_t timeout_val, int64_t cmdcode) {
 
     int rc = 0;
     bool regen_lsp = false;
@@ -642,7 +642,7 @@ isis_set_overload (isis_node_info_t *node_info, uint32_t timeout_val, int cmdcod
 }
 
 int
-isis_unset_overload(isis_node_info_t *node_info, uint32_t timeout_val, int cmdcode) {
+isis_unset_overload(isis_node_info_t *node_info, uint32_t timeout_val, int64_t cmdcode) {
     
     bool regen_lsp = false;
     isis_overload_data_t *ovl_data;

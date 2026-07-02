@@ -29,7 +29,7 @@ extern int cprintf(const char *format, ...);
 
 static int
 rtm_protocol_rt_distribution_policy_config_cli_handler(
-    int cmdcode,
+    int64_t cmdcode,
     Stack_t *tlv_stack,
     op_mode enable_or_disable);
 
@@ -70,7 +70,7 @@ dist_mgr_target_delink (dist_mgr_t *dist_mgr, redist_target_t *target) {
 static void 
 rtm_distribution_policy_common_subtree_cli(
             param_t *mount_point, 
-            int cmdcode, 
+            int64_t cmdcode, 
             int (*cbk)(int, Stack_t*, op_mode) ) {
 
  {
@@ -211,7 +211,7 @@ rtm_build_distribution_policy_cli_tree(
 }
 
 static RTM_PROTO_T
-rtm_redist_cmdcode_to_src_proto(int cmdcode)
+rtm_redist_cmdcode_to_src_proto(int64_t cmdcode)
 {
     switch (cmdcode) {
     case CMDCODE_RTM_REDIST_CONNECTED:
@@ -344,7 +344,7 @@ dist_rule_find(redist_target_t *target, const dist_rule_t *key)
 /* Generic Route policy function handler for all protocols */
 int
 rtm_protocol_rt_distribution_policy_config_cli_handler(       
-                    int cmdcode,
+                    int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 

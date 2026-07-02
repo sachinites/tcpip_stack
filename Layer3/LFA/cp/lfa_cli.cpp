@@ -17,7 +17,7 @@ config node <node-name> protocol frr */
 extern graph_t *topo;
 
 static int 
-lfa_config_handler(int cmdcode,
+lfa_config_handler(int64_t cmdcode,
                      Stack_t *tlv_stack,
                      op_mode enable_or_disable) {
 
@@ -71,7 +71,7 @@ lfa_config_cli_tree(param_t *param) {
 }
 
 static int 
-lfa_show_handler(int cmdcode,
+lfa_show_handler(int64_t cmdcode,
                         Stack_t *tlv_stack,
                         op_mode enable_or_disable) {
 

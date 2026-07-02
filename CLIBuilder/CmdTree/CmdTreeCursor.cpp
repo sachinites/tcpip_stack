@@ -1543,7 +1543,7 @@ cmdtc_set_filter_context (cmd_tree_cursor_t *cmdtc) {
 
 #ifdef SCHED_SUBMISSION
 extern void
-task_invoke_appln_cbk_handler(int cmdcode,
+task_invoke_appln_cbk_handler(int64_t cmdcode,
                               cmd_callback cbk,
                               Stack_t *tlv_stack,
                               op_mode enable_or_disable,

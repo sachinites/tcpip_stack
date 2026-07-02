@@ -129,7 +129,7 @@ node_lookup_interface(node_t *node, c_string intf_name, vlan_id_t vlan_id){
 
 
 static int
-intf_config_handler(int cmdcode, Stack_t *tlv_stack,
+intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
    node_t *node;
@@ -863,7 +863,7 @@ intf_config_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 static int
-intf_config_virtual_port_create_handler(int cmdcode,
+intf_config_virtual_port_create_handler(int64_t cmdcode,
                                         Stack_t *tlv_stack,
                                         op_mode enable_or_disable)
 {

@@ -415,7 +415,7 @@ char *rtm_format_nexthop(cmn_prefix_t *prefix, char *buffer, size_t buflen) {
  * @return 0 on success, -1 on error
  */
 int
-config_rtm_route_cli_handler(int cmdcode,
+config_rtm_route_cli_handler(int64_t cmdcode,
                               Stack_t *tlv_stack,
                               op_mode enable_or_disable) {
 

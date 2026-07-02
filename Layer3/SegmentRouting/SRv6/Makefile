@@ -1,5 +1,8 @@
 CC=g++
 
+# Inherit CFLAGS/SANITIZER_FLAGS from top-level make when invoked via $(MAKE) -C.
+CFLAGS ?= -g -Wall -Wextra -fpermissive $(SANITIZER_FLAGS) -MMD -MP
+
 TARGET_LIB=libsrv6.a
 
 TARGET:${TARGET_LIB}
@@ -36,8 +39,9 @@ ${TARGET_LIB}:${OBJS}
 	@echo SRv6 Library ${TARGET_LIB} compiled successfully
 
 clean:
-	rm -rf *.o 
+	rm -rf *.o *.d
 	rm -rf *.a
-	rm -rf cp/*.o 
-	rm -rf common/*.o
-	
+	rm -rf cp/*.o cp/*.d
+	rm -rf common/*.o common/*.d
+
+-include $(OBJS:.o=.d)

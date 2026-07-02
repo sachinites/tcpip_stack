@@ -1,13 +1,11 @@
 CC     = g++
-#SANITIZER_FLAGS = -fsanitize=address,undefined
-SANITIZER_FLAGS =
 
 #https://stackoverflow.com/questions/69212557/dpdk-compilation-error-while-freeing-mbuf
 
 export DPDK_CFLAGS := $(shell pkg-config --cflags libdpdk)
 CFLAGS = -g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes \
          -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 \
-         -Wignored-qualifiers $(SANITIZER_FLAGS) ${DPDK_CFLAGS}
+         -Wignored-qualifiers $(SANITIZER_FLAGS) ${DPDK_CFLAGS} -MMD -MP
 
 TARGET = libstd.a
 
@@ -116,22 +114,24 @@ common/cmn_prefix.o:common/cmn_prefix.cpp
 
 clean:
 	rm -f $(TARGET)
-	rm -f BitOp/*.o
-	rm -f c-hashtable/*.o
-	rm -f EventDispatcher/*.o
-	rm -f gluethread/*.o
-	rm -f libtimer/*.o
-	rm -f LinuxMemoryManager/*.o
-	rm -f mtrie/*.o
-	rm -f notifc/*.o
-	rm -f packet-tracer/*.o
-	rm -f pkt-block/*.o
-	rm -f prefix-list/*.o
-	rm -f stack/*.o
-	rm -f Tracer/*.o
-	rm -f Tree/*.o
-	rm -f common/*.o
-	rm -f *.o
+	rm -f BitOp/*.o BitOp/*.d
+	rm -f c-hashtable/*.o c-hashtable/*.d
+	rm -f EventDispatcher/*.o EventDispatcher/*.d
+	rm -f gluethread/*.o gluethread/*.d
+	rm -f libtimer/*.o libtimer/*.d
+	rm -f LinuxMemoryManager/*.o LinuxMemoryManager/*.d
+	rm -f mtrie/*.o mtrie/*.d
+	rm -f notifc/*.o notifc/*.d
+	rm -f packet-tracer/*.o packet-tracer/*.d
+	rm -f pkt-block/*.o pkt-block/*.d
+	rm -f prefix-list/*.o prefix-list/*.d
+	rm -f stack/*.o stack/*.d
+	rm -f Tracer/*.o Tracer/*.d
+	rm -f Tree/*.o Tree/*.d
+	rm -f common/*.o common/*.d
+	rm -f *.o *.d
+
+-include $(OBJS:.o=.d)
 
 all:
 	make

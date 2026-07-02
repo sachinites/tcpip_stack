@@ -1,6 +1,7 @@
 export CC=g++
-#SANITIZER_FLAGS=-fsanitize=address,undefined
-
+# Whole-program ASAN (all static libs must use the same flags). Disable with: make SANITIZER_FLAGS=
+SANITIZER_FLAGS ?= -fsanitize=address,undefined
+export SANITIZER_FLAGS
 
 export DPDK_CFLAGS := $(shell pkg-config --cflags libdpdk)
 export DPDK_LIBS   := $(shell pkg-config --libs libdpdk)
@@ -14,8 +15,7 @@ ifeq ($(ARCH),aarch64)
     DPDK_CFLAGS += -march=armv8-a+simd
 endif
 
-SANITIZER_FLAGS=
-export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_CFLAGS} -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
+export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_CFLAGS} -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS} -MMD -MP
 TARGET:tcpstack.exe pkt_gen.exe
 
 # Install external dependent libs :   sudo apt-get install libpq-dev
@@ -86,8 +86,8 @@ OBJS=     router_init.o   \
 		  lmm_reg.o \
 		  Linux/LinuxInterface.o \
 		  RTM/rtm_nb_integ.o \
-		  vrf/vrf_cli.cpp \
-		  vrf/vrf.cpp \
+		  vrf/vrf_cli.o \
+		  vrf/vrf.o \
 		  Layer3/SegmentRouting/SR-MPLS/srgb.o \
 		  ips_pub_sub_init.o \
 		  dpcp_cmn.o \
@@ -247,7 +247,7 @@ datapath/libdp.a:
 libs/libstd.a:
 	(cd libs; make)
 clean:
-	rm -f *.o
+	rm -f *.o *.d
 	rm -f *exe
 	rm -f ted/*.o
 	rm -f Layer2/*.o
@@ -281,3 +281,7 @@ cleanall:
 	(cd RTM; make clean)
 	(cd datapath; make clean)
 	(cd libs; make clean)
+
+# Auto-generated header dependencies (-MMD -MP); only .o members of OBJS
+-include $(filter %.o,$(OBJS:.o=.d))
+-include main.d pkt_gen.d

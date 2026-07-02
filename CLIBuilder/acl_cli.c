@@ -34,7 +34,7 @@ acl_port_no_LEAF_VALIDATION (Stack_t *stack, unsigned char *value) {
 }
 
 static int
-acl_config_handler(int cmdcode,
+acl_config_handler(int64_t cmdcode,
                    Stack_t *tlv_stack,
                    op_mode enable_or_disable)
 {
@@ -444,7 +444,7 @@ acl_build_config_cli(param_t *root) {
 
 
 static int
-acl_show_handler(int cmdcode,
+acl_show_handler(int64_t cmdcode,
                  Stack_t *tlv_stack,
                  op_mode enable_or_disable) {
 

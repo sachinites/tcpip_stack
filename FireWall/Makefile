@@ -1,7 +1,6 @@
 CC=g++
 TARGET:libasa.a
 
-
 export DPDK_CFLAGS := $(shell pkg-config --cflags libdpdk)
 
 ARCH := $(shell uname -m)
@@ -13,7 +12,7 @@ ifeq ($(ARCH),aarch64)
     DPDK_CFLAGS += -march=armv8-a+simd
 endif
 
-export CFLAGS=-g -Wall -Wextra -fpermissive -I.. ${DPDK_CFLAGS}
+export CFLAGS=-g -Wall -Wextra -fpermissive -I.. ${DPDK_CFLAGS} ${SANITIZER_FLAGS} -MMD -MP
 
 
 LIB=libasa.a
@@ -57,7 +56,10 @@ Connection/conn.o:Connection/conn.c
 	${CC} ${CFLAGS} -c -I . -I ../../ Connection/conn.c -o Connection/conn.o
 
 clean:
-	rm -f acl/*.o
-	rm -f object_network/*.o
-	rm -f Connection/*.o
+	rm -f acl/*.o acl/*.d
+	rm -f object_network/*.o object_network/*.d
+	rm -f Connection/*.o Connection/*.d
+	rm -f ../Interface/InterfaceCli.o ../Interface/InterfaceCli.d
 	rm -f ${LIB}
+
+-include $(OBJS:.o=.d)

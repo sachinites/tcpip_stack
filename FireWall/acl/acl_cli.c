@@ -290,7 +290,7 @@ access_list_unconfig(node_t *node,
 }
 
 static int
-acl_config_handler (int cmdcode, 
+acl_config_handler (int64_t cmdcode, 
                                  Stack_t *tlv_stack,
                                  op_mode enable_or_disable) {
 
@@ -577,7 +577,7 @@ acl_config_handler (int cmdcode,
 }
 
 static int
-access_group_config_handler(int cmdcode, 
+access_group_config_handler(int64_t cmdcode, 
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable) {
     
@@ -1489,7 +1489,7 @@ access_list_show_all(node_t *node) {
 
 
 static int
-acl_show_handler(int cmdcode,
+acl_show_handler(int64_t cmdcode,
                  Stack_t *tlv_stack,
                  op_mode enable_or_disable) {
 

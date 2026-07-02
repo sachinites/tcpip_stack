@@ -344,8 +344,8 @@ cp_rtm_install_local_or_connected_v4_routes (
     rtm_nh_template_free_internals (&nh_template);
 
     tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route %s/%d  Gw:null installation Result Code: %s\n",  
-        rtm->name, addr_str, mask, rtm_error_to_string (rc));
+        "RTM[%s] : Route %s  Gw:null installation Result Code: %s\n",  
+        rtm->name, addr_str, rtm_error_to_string (rc));
 
     return nh_template.idx;
 }

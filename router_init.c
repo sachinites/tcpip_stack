@@ -57,6 +57,8 @@ extern void ifm_init(node_t *node);
 extern int
 cp_punted_pkt_recv_job_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size) ;
 
+extern tracer_t *sched_tracer;
+
 void
 insert_link_between_two_nodes(node_t *node1,
         node_t *node2,
@@ -183,6 +185,10 @@ Router_Create(graph_t *graph, const c_string node_name){
         STDOUT_FILENO, debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->cptr, true);
 
+    /* For debugging, temporarily set the scheduler tracer to 
+    the control plane tracer */
+    //sched_tracer = node->cptr;
+
     bitmap_init(&node->if_index_bm, MAX_INTF_IFINDEX + 1);
     bitmap_set_bit_at(&node->if_index_bm, 0);
 
@@ -211,19 +217,21 @@ Router_Create(graph_t *graph, const c_string node_name){
     node->acl_cptr = tracer_init (node_name, file_name, 
             node->node_name, STDOUT_FILENO,  debug_infra_tracer_bits_to_str );
     tracer_enable_file_logging (node->acl_cptr, true);
-    acl_builder_init(node, &node->acl_builder);
-    
-    /* Start Control plane Thread/Scheduler */
+
+    /* Start Control plane Thread/Scheduler before ACL builder, which may
+     * post jobs back to the CP event dispatcher. */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "CP-%s", node_name);
     event_dispatcher_init(&node->ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&node->ev_dis, true, 0);
     node->ev_dis.app_data = (void *)node;
+    //event_dispatcher_run(&node->ev_dis, true, 0);
 
+    acl_builder_init(node, &node->acl_builder);
+    
     /* Start Object purger Thread/Scheduler */
     snprintf (ev_dis_name, EV_DIS_NAME_LEN, "Purger-%s", node_name);
     event_dispatcher_init(&node->purger_ev_dis, (const char *)ev_dis_name);
-    event_dispatcher_run(&node->purger_ev_dis, true, 0);
     node->purger_ev_dis.app_data = (void *)node;
+    //event_dispatcher_run(&node->purger_ev_dis, true, 0);
 
     /* Start Control Plane Timer */
     node->cp_wt = init_wheel_timer(60, 1, TIMER_SECONDS);
@@ -238,6 +246,7 @@ Router_Create(graph_t *graph, const c_string node_name){
     /* Turn on Default Logging */
     #if 1
     tracer_log_bit_set(node->cptr,  DRTM | DRTM_DET);
+    tracer_log_bit_set(node->cptr,  DSCHED | DSCHED_DET);
     tracer_log_bit_set(node->dp_ctx->dptr,  DFIB | DFIB_DET);
     tracer_log_bit_set(node->cptr,  DERR);
     tracer_log_bit_set(node->dp_ctx->dptr,  DERR);  

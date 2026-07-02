@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <semaphore.h>
+#include <stdio.h>
 
 /* Libs */
 #include "../../libs/pkt-block/pkt_mbuf.h"
@@ -193,7 +194,10 @@ dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                 cp2dp_msg_free(dp_msg);
                 return;
             }
-            
+
+            tracer (dp_ctx->dptr, DFIB_DET, "FIB[%s] : route=%s nh_idx=%u\n",
+                    fib->name, route_str, fib_update_msg->nhidx);
+
             /* Create nexthop from forwarding info */
             fib_nh_t nh_template;
             memset (&nh_template, 0, sizeof(fib_nh_t));
@@ -249,6 +253,9 @@ dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                        fib->name, route_str, fib_error_str(rc));
                 free( nh->fwd_info);
                 XFREE(nh);
+            } else {
+                tracer (dp_ctx->dptr, DFIB_DET, "FIB[%s] : fib_add_route OK route=%s\n",
+                        fib->name, route_str);
             }
             break;
         }

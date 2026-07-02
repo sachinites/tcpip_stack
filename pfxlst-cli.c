@@ -7,7 +7,7 @@
 extern graph_t *topo;
 
 static int
-prefix_lst_config_handler (int cmdcode,
+prefix_lst_config_handler (int64_t cmdcode,
                                            Stack_t *tlv_stack,
                                            op_mode enable_or_disable){
 
@@ -228,7 +228,7 @@ void prefix_list_cli_config_tree(param_t *param)
 
 
 static int
-prefix_lst_show_handler (int cmdcode,
+prefix_lst_show_handler (int64_t cmdcode,
                                           Stack_t *tlv_stack,
                                            op_mode enable_or_disable){
 

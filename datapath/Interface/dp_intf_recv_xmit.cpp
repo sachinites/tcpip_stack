@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <assert.h>
+#include <poll.h>
 
 #include "../../libs/pkt-block/pkt_mbuf.h"
 #include "../../libs/c-hashtable/hashtable.h"
@@ -904,12 +905,13 @@ static void*
 linux_listener_thread(void* arg) {
 
     int sock_fd;
-    int max_fd = 0;
-    fd_set read_fds;
+    int nfds;
+    int poll_idx;
     dp_intf_t *dp_intf;
-    struct hashtable_itr *itr;
     struct rte_mbuf *mbuf;
     ev_dis_pkt_data_t *ev_dis_pkt_data;
+    struct pollfd pollfds[DP_MAX_INTF];
+    dp_intf_t *poll_intfs[DP_MAX_INTF];
 
     dp_ctx_t *dp_ctx = (dp_ctx_t *)arg;
 
@@ -922,26 +924,38 @@ linux_listener_thread(void* arg) {
 
     while (listener_running) {
 
-        FD_ZERO(&read_fds);
-        max_fd = 0;
+        nfds = 0;
 
         for (int _i = 0; _i < DP_MAX_INTF; _i++) {
             dp_intf = dp_ctx->intf_table[_i];
             if (!dp_intf) continue;
             sock_fd = dp_intf->LinuxRtr_sockfd;
-            if (sock_fd > 0) {
-                FD_SET(sock_fd, &read_fds);
-                if (sock_fd > max_fd) max_fd = sock_fd;
-            }
+            if (sock_fd <= 0) continue;
+
+            pollfds[nfds].fd = sock_fd;
+            pollfds[nfds].events = POLLIN;
+            pollfds[nfds].revents = 0;
+            poll_intfs[nfds] = dp_intf;
+            nfds++;
         }
 
-        select(max_fd + 1, &read_fds, NULL, NULL, NULL);
+        if (!nfds) {
+            usleep(100000);
+            continue;
+        }
 
-        for (int _i = 0; _i < DP_MAX_INTF; _i++) {
-            dp_intf = dp_ctx->intf_table[_i];
-            if (!dp_intf) continue;
-            sock_fd = dp_intf->LinuxRtr_sockfd;
-            if (sock_fd > 0 && FD_ISSET(sock_fd, &read_fds)) {
+        if (poll(pollfds, nfds, -1) < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
+
+        for (poll_idx = 0; poll_idx < nfds; poll_idx++) {
+
+            if (!(pollfds[poll_idx].revents & POLLIN))
+                continue;
+
+            dp_intf = poll_intfs[poll_idx];
+            sock_fd = pollfds[poll_idx].fd;
 
                 struct sockaddr_ll from_addr;
                 socklen_t from_len = sizeof(from_addr);
@@ -963,7 +977,6 @@ linux_listener_thread(void* arg) {
                               DP_PKT_Q(dp_ctx),
                               (char *)ev_dis_pkt_data,
                               sizeof(ev_dis_pkt_data_t));
-            }
         }
     }
 

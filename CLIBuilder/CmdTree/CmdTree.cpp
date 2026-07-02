@@ -12,7 +12,7 @@
 #include "../cmdtlv.h"
 
 extern int
-ut_test_handler (int cmdcode,
+ut_test_handler (int64_t cmdcode,
                             Stack_t *tlv_stack,
                             op_mode enable_or_disable) ;
 
@@ -58,7 +58,7 @@ void
 libcli_register_param(param_t *parent, param_t *child);
 
 void 
-libcli_set_param_cmd_code(param_t *param, int cmd_code) ;
+libcli_set_param_cmd_code(param_t *param, int64_t cmd_code) ;
 
 void 
 libcli_register_cmd_handler(param_t *param,  cmd_callback callback) ;
@@ -150,7 +150,7 @@ libcli_register_param(param_t *parent, param_t *child) {
 }
 
 void 
-libcli_set_param_cmd_code(param_t *param, int cmd_code) {
+libcli_set_param_cmd_code(param_t *param, int64_t cmd_code) {
 
     if (param->callback == NULL) assert(0);
     param->CMDCODE = cmd_code;

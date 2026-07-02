@@ -25,9 +25,11 @@
 #include <sched.h>
 #include <time.h>
 #include "event_dispatcher.h"
+#include "../../tcp_ip_trace.h"
+#include "../Tracer/tracer.h"
 #include "../LinuxMemoryManager/uapi_mm.h"
 
-static bool debug = false;
+tracer_t *sched_tracer = NULL; 
 
 /*
  * Get the highest numbered CPU core (typically high-performance cores)
@@ -67,7 +69,7 @@ event_dispatcher_pin_thread_to_core(pthread_t thread, int core_id) {
 		return -1;
 	}
 	
-	if (debug) fprintf(stdout, "Event Dispatcher: Thread pinned to CPU core %d\n", core_id);
+	tracer (sched_tracer, DSCHED, "Event Dispatcher: Thread pinned to CPU core %d\n", core_id);
 	return 0;
 } 
 
@@ -77,7 +79,7 @@ void
 event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
 
 	strncpy((char *)ev_dis->name, name, sizeof(ev_dis->name) - 1);
-	ev_dis->name[sizeof(ev_dis->name) - 1] = '0';
+	ev_dis->name[sizeof(ev_dis->name) - 1] = '\0';
 	pthread_mutex_init(&ev_dis->ev_dis_mutex, NULL);
 	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_CRITICAL]);
 	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_HIGH]);
@@ -93,50 +95,70 @@ event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
 	ev_dis->current_task = NULL;
 }
 
-static void
+static bool
 event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 
 	void *ptr = (void *) (ev_dis->app_data );
 
 	EV_DIS_LOCK(ev_dis);
 
-	if (!IS_GLTHREAD_LIST_EMPTY(&task->glue)) {
+	if (task->priority < TASK_PRIORITY_FIRST ||
+		task->priority >= TASK_PRIORITY_MAX) {
+			tracer (sched_tracer, DERR,
+			"event_dispatcher: invalid task priority %u (max %u), task=%p\n",
+			(unsigned)task->priority,
+			(unsigned)TASK_PRIORITY_MAX, (void *)task);
 		EV_DIS_UNLOCK(ev_dis);
-		return;
+		assert(0);
+	}
+
+	if (!IS_GLTHREAD_LIST_EMPTY(&task->glue)) {
+		/* Normal dedup: pkt_q tasks and BG tasks may already be queued.
+		 * For a freshly created one-shot task this should never happen;
+		 * catch that case with an assert so we can identify the caller. */
+		if (task->task_type == TASK_ONE_SHOT) {
+			tracer (sched_tracer, DERR,
+				"event_dispatcher: BUG - ONE_SHOT task %p (cbk=%p) already "
+				"linked (left=%p right=%p) -- task not enqueued\n",
+				(void *)task, (void *)task->ev_cbk,
+				(void *)task->glue.left, (void *)task->glue.right);
+		}
+		EV_DIS_UNLOCK(ev_dis);
+		return false;
 	}
 
 	glthread_add_last(&ev_dis->task_array_head[task->priority], &task->glue);
-		
-	if(debug) printf("%p : Task Added to Dispatcher's Queue of priority %u\n", ptr, task->priority);
+	assert (!IS_GLTHREAD_LIST_EMPTY (&task->glue));
+
+	tracer (sched_tracer, DSCHED, 
+		"%p : Task Added to Dispatcher's Queue of priority %u\n", ptr, task->priority);
 	
 	ev_dis->pending_task_count++;
 
-	if (ev_dis->ev_dis_state == EV_DIS_IDLE &&
-		ev_dis->signal_sent == false) {
-
-		pthread_cond_signal(&ev_dis->ev_dis_cond_wait);
-		ev_dis->signal_sent = true;
-		if(debug) printf("%p : signal sent to dispatcher\n", ptr);
-		ev_dis->signal_sent_cnt++;
-	}
+	pthread_cond_signal(&ev_dis->ev_dis_cond_wait);
+	ev_dis->signal_sent = true;
+	ev_dis->signal_sent_cnt++;
+	tracer (sched_tracer, DSCHED_DET, "%p : signal sent to dispatcher\n", ptr);
 
 	if (task->app_cond_var) {
 
-		if(debug) printf("%p : Syn Task Waiting to return\n", ptr);
+		tracer (sched_tracer, DSCHED_DET, "%p : Syn Task Waiting to return\n", ptr);
 		struct timespec ts;
 		clock_gettime(CLOCK_REALTIME, &ts);
 		ts.tv_sec += 10;
 		pthread_cond_timedwait(task->app_cond_var,
 						  &ev_dis->ev_dis_mutex, &ts);
 		EV_DIS_UNLOCK(ev_dis);
-		if(debug) printf("%p : Syn Task Returned\n", ptr);
+		tracer (sched_tracer, DSCHED_DET, "%p : Syn Task Returned\n", ptr);
 		/* Task finished, free now */
 		free(task->app_cond_var);
 		free(task);
+		return true;
 	}
-	else {
-		EV_DIS_UNLOCK(ev_dis);
-	}
+
+	assert (!IS_GLTHREAD_LIST_EMPTY (&task->glue));
+	EV_DIS_UNLOCK(ev_dis);
+	return true;
 }
 
 static void
@@ -153,7 +175,8 @@ eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 				if(task->app_cond_var) {
 					/* We will free the task when it will be
  					 * unlocked, dont free here */
-					if(debug) printf("%p : Dispatcher sent Signal Syn Task\n", ptr);
+					tracer (sched_tracer, DSCHED_DET, 
+						"%p : Dispatcher sent Signal Syn Task\n", ptr);
 					pthread_cond_signal(task->app_cond_var);
 				}
 				else {
@@ -176,12 +199,14 @@ eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 			pthread_mutex_lock(&pkt_q->q_mutex);
 			
 			if (IS_GLTHREAD_LIST_EMPTY(&pkt_q->q_head)) {
-				if(debug) printf("%p : Queue Exhausted, will stop until pkt enqueue..\n", ptr);
+				tracer (sched_tracer, DSCHED_DET, 
+					"%p : Queue Exhausted, will stop until pkt enqueue..\n", ptr);
 				pthread_mutex_unlock(&pkt_q->q_mutex);
 				return;
 			}
 
-			if(debug) printf("%p : more pkts in Queue, will continue..\n", ptr);
+			tracer (sched_tracer, DSCHED_DET, 
+				"%p : more pkts in Queue, will continue..\n", ptr);
 
 			EV_DIS_LOCK(ev_dis);
 
@@ -224,10 +249,6 @@ event_dispatcher_thread(void *arg) {
 	event_dispatcher_t *ev_dis = (event_dispatcher_t *)arg;
 	void *ptr = (void *)(ev_dis->app_data);
 
-	if (debug) {
-		printf("%p : Dispatcher Thread started\n", ptr);
-	}
-
 	while (1) {
 
 		EV_DIS_LOCK(ev_dis);
@@ -236,9 +257,8 @@ event_dispatcher_thread(void *arg) {
 			
 			ev_dis->ev_dis_state = EV_DIS_IDLE;
 			
-			if (debug) {
-				printf("%p : No Task to run, EVE DIS %p moved to IDLE STATE\n", ptr, ev_dis);
-			}
+			tracer (sched_tracer, DSCHED_DET, 
+					"%p : No Task to run, EVE DIS %p moved to IDLE STATE\n", ptr, ev_dis);
 			
 			ev_dis->signal_sent = false;
 			
@@ -247,10 +267,10 @@ event_dispatcher_thread(void *arg) {
 
 			ev_dis->signal_recv_cnt++;
 
-			if (debug) {
-				printf("%p : Eve Dis recvd Signal # %u, woken up\n",
-					   ptr, ev_dis->signal_recv_cnt);
-			}
+			tracer (sched_tracer, DSCHED_DET, 
+				"%p : Eve Dis recvd Signal # %u, woken up\n",
+				ptr, ev_dis->signal_recv_cnt);
+			
 
 		} // inner while loop
 
@@ -261,27 +281,22 @@ event_dispatcher_thread(void *arg) {
 
 			ev_dis->ev_dis_state = EV_DIS_TASK_FIN_WAIT;
 
-			if (debug)
-				printf("%p : EVE DIS moved to EV_DIS_TASK_FIN_WAIT, "
+			tracer (sched_tracer, DSCHED_DET, "%p : EVE DIS moved to EV_DIS_TASK_FIN_WAIT, "
 					   "dispatching the task\n", ptr);
 		}
 
 		EV_DIS_UNLOCK(ev_dis);
 
-		if (debug) {
-
-			printf("%p : invoking the task\n", ptr);
-		}
+		tracer (sched_tracer, DSCHED_DET, "%p : invoking the task\n", ptr);
+		
 
 		gettimeofday(&ev_dis->current_task_start_time, NULL);
 		task->ev_cbk(ev_dis, task->data, task->data_size);
 		task->no_of_invocations++;
 		ev_dis->n_task_exec++;
 
-		if (debug) {
-			printf("%p : Job execution finished\n", ptr);
-		}
-
+		tracer (sched_tracer, DSCHED_DET, "%p : Job execution finished\n", ptr);
+	
 		eve_dis_process_task_post_call(ev_dis, task);
 
 		EV_DIS_LOCK(ev_dis);
@@ -360,8 +375,19 @@ task_create_new_job(
 	task_t *task = create_new_task(data, 0, cbk);
 	task->task_type = task_type;
 	task->priority = priority;
-	event_dispatcher_schedule_task(ev_dis, task);
-	return task;								
+	/* A freshly calloc'd task always has glue == {NULL,NULL}, so
+	 * event_dispatcher_schedule_task must succeed.  If it doesn't,
+	 * something has corrupted the task's memory; free and signal the bug. */
+	if (!event_dispatcher_schedule_task(ev_dis, task)) {
+		tracer (sched_tracer, DERR, 
+			"event_dispatcher: task_create_new_job failed to schedule "
+			"fresh task %p (cbk=%p) -- memory corruption?\n",
+			(void *)task, (void *)cbk);
+		free(task);
+		return NULL;
+	}
+
+	return task;
 }
 
 task_t *
@@ -377,7 +403,11 @@ task_create_new_job_synchronous(
 	task->priority = priority;
 	task->app_cond_var = (pthread_cond_t *)calloc(1, sizeof(pthread_cond_t));
 	pthread_cond_init(task->app_cond_var, 0);
-	event_dispatcher_schedule_task(ev_dis, task);
+	if (!event_dispatcher_schedule_task(ev_dis, task)) {
+		free(task->app_cond_var);
+		free(task);
+		return NULL;
+	}
 	return task;								
 }
 
@@ -528,15 +558,14 @@ pkt_q_enqueue (event_dispatcher_t *ev_dis,
 
 	pkt_t *pkt = task_get_new_pkt(_pkt, pkt_size);
 	
-	if (debug) printf("%s() ... \n", __FUNCTION__);
-	
 	glthread_add_last(&pkt_q->q_head, &pkt->glue);
 	pkt_q->pkt_count++;
 
 	pthread_mutex_unlock(&pkt_q->q_mutex);
 
-	if (debug) printf("%p : %s() calling event_dispatcher_schedule_task()\n", ptr,
-			__FUNCTION__);
+	tracer (sched_tracer, DSCHED_DET, 
+		"%p : %s() calling event_dispatcher_schedule_task()\n", ptr, __FUNCTION__);
+		
 	event_dispatcher_schedule_task(ev_dis, pkt_q->task);
 	return true;
 }
@@ -567,8 +596,42 @@ event_dispatcher_should_suspend (event_dispatcher_t *ev_dis) {
 	long long millisec_diff2 = (((long long)current_time.tv_sec)*1000) + (current_time.tv_usec/1000);
 	long long diff =  millisec_diff2 -  millisec_diff1;
 	if (diff  >= EVENT_DIS_PREEMPT_INTERVAL_IN_MSEC) {
-		if (debug) printf ("ED should suspend, diff = %llu\n", diff);
+		tracer (sched_tracer, DSCHED_DET, "ED should suspend, diff = %llu\n", diff);
 		return true;
 	}
 	return false;
+}
+
+
+int scheduler_task_queue(event_dispatcher_t *ev_dis) {
+
+    tracer(sched_tracer, DSCHED_DET, "\n  Pending Task Queues:\n");
+    glthread_t *curr;
+    task_t *task;
+    int count = 0;
+
+    for (int pri = TASK_PRIORITY_FIRST; pri < TASK_PRIORITY_MAX; pri++) {
+
+        if (IS_GLTHREAD_LIST_EMPTY(&ev_dis->task_array_head[pri])) continue;
+
+        tracer(sched_tracer, DSCHED_DET, "    Priority (%d):\n", pri);
+
+        int task_idx = 0;
+
+        ITERATE_GLTHREAD_BEGIN(&ev_dis->task_array_head[pri], curr) {
+
+            task = glue_to_task(curr);
+            tracer(sched_tracer, DSCHED_DET, 
+					"      [%d] task=%p cbk=%p data=%p data_size=%u type=%d "
+                    "re_schedule=%s invocations=%u\n",
+                    task_idx++, task, (void *)task->ev_cbk, task->data,
+                    task->data_size, task->task_type,
+                    task->re_schedule ? "true" : "false",
+                    task->no_of_invocations);
+            count++;
+
+        } ITERATE_GLTHREAD_END(&ev_dis->task_array_head[pri], curr);
+    }
+
+    return count;
 }

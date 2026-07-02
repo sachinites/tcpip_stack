@@ -719,7 +719,7 @@ void tcp_ip_show_log_status(node_t *node){
         cprintf ("\t  DALL     :     OFF\n" );
 }
 
-int traceoptions_handler(int cmdcode, 
+int traceoptions_handler(int64_t cmdcode, 
         Stack_t *tlv_stack, 
         op_mode enable_or_disable){
 
@@ -1068,7 +1068,7 @@ variadic_sprintf (node_t *node, Interface *intf, const char *format, ...)
 }
 
 static int
-tcp_ip_debug_handler(int cmdcode,
+tcp_ip_debug_handler(int64_t cmdcode,
                      Stack_t *tlv_stack,
                      op_mode enable_or_disable)
 {
@@ -1196,7 +1196,7 @@ tcp_ip_debug_handler(int cmdcode,
 
 /* Building debug cli tree */
 static void 
-libcli_register_param_detail (param_t *root, cmd_callback callback, int cmdcode) {
+libcli_register_param_detail (param_t *root, cmd_callback callback, int64_t cmdcode) {
 
     param_t *detail = (param_t *)calloc (1, sizeof (param_t));
     init_param(detail, CMD, "detail", callback, 0, INVALID, 0, "detail");

@@ -14,7 +14,7 @@ extern int
 validate_mask_value(Stack_t *tlv_stack, c_string mask_str);
 
 static int
-gre_tunnel_config_handler (int cmdcode,
+gre_tunnel_config_handler (int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 

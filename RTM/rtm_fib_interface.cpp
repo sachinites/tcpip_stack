@@ -1,4 +1,5 @@
 
+#include <stdio.h>
 #include "../libs/Tracer/tracer.h"
 #include "../router_init.h"
 #include "rtm.h"
@@ -250,7 +251,15 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
     AFI_T target_fib_afi;
     uint8_t target_fib_vrf_out;
 
-    if (!rtm_download_route_to_fib(rtm)) return;
+    if (!rtm_download_route_to_fib(rtm)) {
+        tracer (rtm->node->cptr, DRTM_DET, 
+            "RTM[%s] : Route %s, NH %s(%u) not allowed to downloaded to FIB\n",
+            rtm->name, 
+            rtm_format_prefix(&presentation_data->route, rt_str, sizeof(rt_str)),
+            presentation_data->nh ? rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "",
+            presentation_data->nh_idx);
+        return;
+    }
 
     tracer (rtm->node->cptr, DRTM,
         "RTM[%s] : Updating FIB : Route %s, NH %s(%u), Operation %s\n",
@@ -311,7 +320,6 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
                 &fwd_info);
 
         if (rc != RTM_SUCCESS) {
-
             tracer (rtm->node->cptr, DERR,
                 "RTM[%s] : FIB Update Failed : Could not create FWD info for Route %s, NH %s(%u), Operation %s\n",
                 rtm->name,
@@ -324,6 +332,12 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
             return;
         }
     }
+
+    tracer (rtm->node->cptr, DRTM, "RTM[%s] : route=%s op=%s nh_idx=%u vrf=%u afi=%u -> cp2dp_fib_update\n",
+            rtm->name, rt_str,
+            presentation_data->operation == RTM_PPT_OP_ADD ? "ADD" :
+            presentation_data->operation == RTM_PPT_OP_UPDATE ? "UPD" : "DEL",
+            presentation_data->nh_idx, (unsigned)target_fib_vrf_out, (unsigned)target_fib_afi);
 
     /* Update FIB based on operation */
     cp2dp_fib_update (

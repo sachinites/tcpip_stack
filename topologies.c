@@ -40,6 +40,7 @@
 #include "router_init.h"
 #include "Interface/InterfaceUApi.h"
 #include "Layer2/layer2.h"
+#include "libs/EventDispatcher/event_dispatcher.h"
 
 extern graph_t *build_first_topo(void);
 extern graph_t *build_simple_l2_switch_topo(void);
@@ -705,6 +706,31 @@ config node CE2 rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.2 inte
     node_set_intf_ip_address(CE2, "eth1","172.168.1.1", 24);
     node_set_intf_ip_address(H2, "eth1","172.168.1.2", 24);
 
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&R0->ev_dis, true, 0);
+    event_dispatcher_run(&R1->ev_dis, true, 0);
+    event_dispatcher_run(&R2->ev_dis, true, 0);
+    event_dispatcher_run(&R3->ev_dis, true, 0);
+    event_dispatcher_run(&R4->ev_dis, true, 0);
+    event_dispatcher_run(&R5->ev_dis, true, 0);
+    event_dispatcher_run(&CE1->ev_dis, true, 0);
+    event_dispatcher_run(&CE2->ev_dis, true, 0);
+    event_dispatcher_run(&H1->ev_dis, true, 0);
+    event_dispatcher_run(&H2->ev_dis, true, 0);
+
+    event_dispatcher_run(&R0->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R3->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R4->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R5->purger_ev_dis, true, 0);
+    event_dispatcher_run(&CE1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&CE2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H2->purger_ev_dis, true, 0);
+
     return topo;
 }
 
@@ -1190,6 +1216,9 @@ Linux_Router_topology(void) {
     #endif /* USE_DPDK_LOAD_BALANCE */
 
     #endif /* USE_DPDK */
+
+    event_dispatcher_run(&linux_rtr->ev_dis, true, 0);
+    event_dispatcher_run(&linux_rtr->purger_ev_dis, true, 0);    
 
     refresh();
     return topo;

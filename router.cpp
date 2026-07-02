@@ -142,7 +142,7 @@ rtr_eligible_to_remove_rtr_id(node_t *node) {
 }
 
 int
-show_scheduler(int cmdcode, 
+show_scheduler(int64_t cmdcode, 
                Stack_t *tlv_stack,
                op_mode enable_or_disable)
 {

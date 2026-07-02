@@ -48,6 +48,6 @@ init_tcp_ip_stack(){
     //init_spf_algo();
 	isis_one_time_registration();
 	gre_one_time_registration();
-	network_start_pkt_receiver_thread();
+	//network_start_pkt_receiver_thread();
 	ut_parser_init();
 }

@@ -14,7 +14,7 @@ typedef struct stack Stack_t;
 
 typedef int (*user_validation_callback)(Stack_t *, unsigned char *leaf_value);
 typedef void (*display_possible_values_callback)(param_t *, Stack_t *);
-typedef int (*cmd_callback)(int cmdcode, 
+typedef int (*cmd_callback)(int64_t cmdcode, 
                                               Stack_t *tlv_stack,
                                               op_mode enable_or_diable);
 
@@ -46,7 +46,7 @@ struct _param_t_{
     display_possible_values_callback disp_callback;
     glthread_t glue;
     param_type_t param_type;
-    int CMDCODE;
+    int64_t CMDCODE;
     uint32_t flags;
     char padding[4];
 

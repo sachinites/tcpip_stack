@@ -581,7 +581,7 @@ set_ut_debug_flag(char * ut_enable_flag) {
 
 /* This API is not used */
 int
-ut_test_handler (int cmdcode,
+ut_test_handler (int64_t cmdcode,
                             Stack_t *tlv_stack,
                             op_mode enable_or_disable) {
 

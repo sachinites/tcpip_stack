@@ -1,5 +1,4 @@
 CC=g++
-#SANITIZER_FLAGS=-fsanitize=address,undefined
 
 export DPDK_CFLAGS := $(shell pkg-config --cflags libdpdk)
 
@@ -12,8 +11,7 @@ ifeq ($(ARCH),aarch64)
     DPDK_CFLAGS += -march=armv8-a+simd
 endif
 
-SANITIZER_FLAGS=
-export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_CFLAGS} -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS}
+export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_CFLAGS} -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS} -MMD -MP
 AR=ar
 
 TARGET=libdp.a
@@ -112,8 +110,8 @@ classifier/%.o: classifier/%.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(OBJS) $(TARGET)
-	rm -f *.o
+	rm -f $(OBJS) $(OBJS:.o=.d) $(TARGET)
+	rm -f *.o *.d
 	rm -f Interface/*.o
 	rm -f Vrfs/*.o
 	rm -f Layer2/arp/*.o
@@ -130,4 +128,6 @@ clean:
 	rm -f dp-program/*.o
 	rm -f classifier/*.o
 	
+-include $(OBJS:.o=.d)
+
 .PHONY: all clean

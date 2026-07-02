@@ -161,6 +161,7 @@ event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name);
 void
 event_dispatcher_run(event_dispatcher_t *ev_dis, bool pin_to_core, int core_id);
 
+int scheduler_task_queue(event_dispatcher_t *ev_dis);
 
 task_t *
 task_create_new_job(

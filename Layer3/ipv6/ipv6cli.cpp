@@ -34,7 +34,7 @@ srv6_route_flag (node_t *node, uint8_t (*prefix)[16]) ;
  */
 static int
 ipv6_config_handler 
-                    (int cmdcode,
+                    (int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 
@@ -153,7 +153,7 @@ ipv6_config_handler
 }
 
 static int
-ping6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
+ping6_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
 
     node_t *node;
     c_string node_name;
@@ -182,7 +182,7 @@ ping6_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
 }
 
 static int
-ipv6_binding_sid_config_handler (int cmdcode, 
+ipv6_binding_sid_config_handler (int64_t cmdcode, 
                                                         Stack_t *tlv_stack, 
                                                         op_mode enable_or_disable) {
 

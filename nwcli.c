@@ -56,7 +56,7 @@
 extern graph_t *topo;
 class Interface;
 
-extern int traceoptions_handler(int cmdcode,
+extern int traceoptions_handler(int64_t cmdcode,
                                 Stack_t *tlv_stack,
                                 op_mode enable_or_disable);
 extern void tcp_ip_traceoptions_cli(param_t *node_name_param, 
@@ -76,30 +76,30 @@ extern void config_node_build_transport_svc_cli_tree (param_t *param) ;
 extern void show_node_transport_svc_cli_tree (param_t *param) ;
 extern void tcp_ip_build_debug_cli_tree (param_t *root);
 extern void ipv6_build_cli_tree (param_t *root);
-extern int isis_show_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
-extern int show_vrf_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int isis_show_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int show_vrf_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern void dp_build_dp_show_cli_tree (param_t *node_name);
 extern void dp_build_dp_debug_cli_tree(param_t *node_name) ;
-extern int show_scheduler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
-extern int config_rtm_route_cli_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) ;
+extern int show_scheduler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int config_rtm_route_cli_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) ;
 extern void ipv6_build_cli_run_tree (param_t *root) ;
 
-extern int ip_traffic_generate_handler(int cmdcode,
+extern int ip_traffic_generate_handler(int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable);
 extern int mac_table_config_handler(
-    int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+    int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 
 
 extern int validate_vrf_existence(Stack_t *tlv_stack, unsigned char *leaf_value);
 extern void display_cbk_all_vrfs(param_t *param, Stack_t *tlv_stack) ;
-extern int rtm_show_dist_mgr_database_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
-extern int rtm_show_dist_mgr_policies_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
-extern int rtm_show_dist_mgr_targets_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
-extern int rtm_show_dist_mgr_target_route_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int rtm_show_dist_mgr_database_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int rtm_show_dist_mgr_policies_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int rtm_show_dist_mgr_targets_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int rtm_show_dist_mgr_target_route_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 
 static int
-display_mem_usage(int cmdcode, Stack_t *tlv_stack,
+display_mem_usage(int64_t cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
     tlv_struct_t *tlv = NULL;
@@ -283,7 +283,7 @@ validate_mask_value(Stack_t *tlv_stack, c_string mask_str){
 
 /*Generic Topology Commands*/
 static int
-show_nw_topology_handler(int cmdcode,
+show_nw_topology_handler(int64_t cmdcode,
                          Stack_t *tlv_stack,
                          op_mode enable_or_disable){
 
@@ -317,7 +317,7 @@ extern void
 tcp_ip_refresh_tcp_log_file(node_t *);
 
 static int
-clear_topology_handler(int cmdcode,
+clear_topology_handler(int64_t cmdcode,
                        Stack_t *tlv_stack,
                        op_mode enable_or_disable){
 
@@ -355,7 +355,7 @@ void dp_arp_cli_resolve_sync(dp_ctx_t *dp_ctx, dp_vrf_t *vrf,
 }
 
 static int
-show_mac_handler(int cmdcode, Stack_t *tlv_stack,
+show_mac_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
     node_t *node;
@@ -394,7 +394,7 @@ show_mac_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 static int
-arp_handler(int cmdcode, Stack_t *tlv_stack,
+arp_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 op_mode enable_or_disable){
 
     node_t *node;
@@ -421,7 +421,7 @@ arp_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 static int
-show_rtm_route_cli_handler(int cmdcode,
+show_rtm_route_cli_handler(int64_t cmdcode,
                            Stack_t *tlv_stack,
                            op_mode enable_or_disable){
 
@@ -474,7 +474,7 @@ show_rtm_route_cli_handler(int cmdcode,
 }
 
 static int
-show_rtm_protocol_subscriptions_handler(int cmdcode, Stack_t *tlv_stack,
+show_rtm_protocol_subscriptions_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
     node_t *node;
@@ -511,7 +511,7 @@ show_rtm_protocol_subscriptions_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 static int
-show_rtm_presentation_db_handler(int cmdcode, Stack_t *tlv_stack,
+show_rtm_presentation_db_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
     node_t *node;
@@ -564,7 +564,7 @@ show_rtm_presentation_db_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 static int
-clear_rt_handler(int cmdcode, Stack_t *tlv_stack,
+clear_rt_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
     node_t *node;
@@ -592,7 +592,7 @@ clear_rt_handler(int cmdcode, Stack_t *tlv_stack,
 }
 
 static int
-l3_config_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
+l3_config_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
     node_t *node = NULL;
     c_string node_name = NULL;
@@ -827,7 +827,7 @@ stop_interface_hellos(Interface *interface);
 
 
 static int
-debug_show_node_handler(int cmdcode, Stack_t *tlv_stack,
+debug_show_node_handler(int64_t cmdcode, Stack_t *tlv_stack,
                          op_mode enable_or_disable){
 
    node_t *node;

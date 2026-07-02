@@ -71,7 +71,7 @@ layer3_ero_ping_fn(node_t *node,
 
 
 extern int 
-ip_traffic_generate_handler(int cmdcode,
+ip_traffic_generate_handler(int64_t cmdcode,
     Stack_t *tlv_stack,
     op_mode enable_or_disable) {
 
@@ -112,7 +112,7 @@ ip_traffic_generate_handler(int cmdcode,
 }
 
 int
-ping_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
+ping_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
     node_t *node;
     uint32_t count = 1;

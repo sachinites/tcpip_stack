@@ -18,7 +18,7 @@ extern graph_t *topo;
 /* show node <node-name> network-object <nw-obj-name>*/
 
 static int
-network_object_config_handler (int cmdcode,
+network_object_config_handler (int64_t cmdcode,
                                                      Stack_t *tlv_stack,
                                                      op_mode enable_or_disable) {
 
@@ -283,7 +283,7 @@ network_object_build_config_cli (param_t *root) {
 }
 
 static int
-network_object_show_handler (int cmdcode,
+network_object_show_handler (int64_t cmdcode,
                                                      Stack_t *tlv_stack,
                                                      op_mode enable_or_disable) {
 

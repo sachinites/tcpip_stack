@@ -11,7 +11,7 @@
 extern graph_t *topo;
 
 int
-mac_table_config_handler (int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
+mac_table_config_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
 
     node_t *node;
     c_string if_name = NULL;

@@ -1,5 +1,8 @@
 CC=g++
 
+# Inherit CFLAGS/SANITIZER_FLAGS from top-level make when invoked via $(MAKE) -C.
+CFLAGS ?= -g -Wall -Wextra -fpermissive $(SANITIZER_FLAGS) -MMD -MP
+
 INCLUDES=-I .
 CLILIB=libclibuilder.a
 TARGET:${CLILIB}
@@ -69,9 +72,11 @@ acl_cli.o:acl_cli.c
 
 clean:
 	rm -f *.exe
-	rm -f *.o
-	rm -f CmdTree/*.o 
-	rm -f KeyProcessor/*.o
-	rm -f Filters/*.o
-	rm -f utinfra/*.o
+	rm -f *.o *.d
+	rm -f CmdTree/*.o CmdTree/*.d
+	rm -f KeyProcessor/*.o KeyProcessor/*.d
+	rm -f Filters/*.o Filters/*.d
+	rm -f utinfra/*.o utinfra/*.d
 	rm -f ${CLILIB}
+
+-include $(OBJ:.o=.d)

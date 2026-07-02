@@ -182,10 +182,10 @@ isis_check_and_shutdown_protocol_now(
         isis_node_info_t *node_info, uint16_t work_completed_flag);
 
 int
-isis_set_overload(isis_node_info_t *node_info, uint32_t timeout_val, int cmdcode) ;
+isis_set_overload(isis_node_info_t *node_info, uint32_t timeout_val, int64_t cmdcode) ;
 
 int
-isis_unset_overload(isis_node_info_t *node_info, uint32_t timeout_val, int cmdcode) ;
+isis_unset_overload(isis_node_info_t *node_info, uint32_t timeout_val, int64_t cmdcode) ;
 
 bool
 isis_is_overloaded(isis_node_info_t *node_info, bool *ovl_timer_running);

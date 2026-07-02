@@ -58,6 +58,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <assert.h>
+#include <stdio.h>
 #include "../router_init.h"
 #include "rtm.h"
 #include "rtm_route.h"
@@ -1012,7 +1013,13 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
 
     tracer (rtm->node->cptr, DRTM, 
          "RTM[%s] : Computing Diff for Route %s\n", rtm->name, prefix_str);
+
     rtm_ppt_route_diff(route, cached_route, &out_add, &out_del);
+
+    tracer (rtm->node->cptr, DRTM, "RTM[%s] : route=%s diff: add_nh=%u del_nh=%u resolved=%d nh_count=%u\n",
+            rtm->name, prefix_str,
+            out_add.nhidx_list_count, out_del.nhidx_list_count,
+            (int)rtm_route_is_resolved(route), route->nh_count);
 
     /* Step 4a: Advertise deletions first */
     rtm_ppt_route_t *del_alloc = get_allocated_route(&out_del);
@@ -1283,6 +1290,13 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
     rtm_t *rtm = (rtm_t *)arg;
     rtm->advt_job = NULL;
 
+    /* Count total items queued across all protocols */
+    uint32_t total_queued = 0;
+    for (uint8_t p = RTM_PROTO_STATIC; p < RTM_PROTO_MAX; p++)
+        total_queued += get_glthread_list_count(&rtm->advt_nhs[p].head);
+    tracer (rtm->node->cptr, DRTM, "RTM[%s] : total_queued=%u\n",
+            rtm->name, total_queued);
+
     rtm_presentation_data_t *presentation_data = NULL;
     
     for (proto = RTM_PROTO_STATIC; proto < RTM_PROTO_MAX; proto++)
@@ -1321,6 +1335,7 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
             }
         }ITERATE_GLTHREAD_END(&rtm->advt_nhs[proto].head, curr);
     }
+    tracer (rtm->node->cptr, DRTM, "RTM[%s] : dispatched=%u\n", rtm->name, count);
 }
 
 void 
@@ -1344,17 +1359,28 @@ rtm_advt_route_advt_prep_job_cbk(
     glthread_t *curr;
     rtm_t *rtm = (rtm_t *)arg;
 
+    /* The task object backing this job is owned by the event dispatcher and is
+       freed the moment this callback returns, so we must never dereference
+       rtm->route_advt_prep_job here. Clear the handle up-front: this both avoids
+       reading a stale/concurrently-mutated pointer and re-arms
+       rtm_schedule_route_advertisement() to queue a fresh job for any route
+       enqueued while we drain the queue below. */
     rtm->route_advt_prep_job = NULL;
+
+    unsigned int q_depth = get_glthread_list_count(&rtm->route_advt_queue.head);
 
     /* Log the stats */
     rtm_log_stats(rtm);
     rtm_clear_stats(rtm);
+
+    unsigned int processed = 0;
 
     while ((curr = dequeue_glthread_first(&rtm->route_advt_queue.head))) {
 
         route = advt_glue_to_route(curr);
         rtm_ppt_route_advertise (rtm , route);        
         rtm_route_dereference(rtm, route);
+        processed++;
     }
 
     rtm_schedule_presentation_job (rtm);
@@ -1383,7 +1409,10 @@ rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route) {
             rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)));
 
     if (rtm->route_advt_prep_job) {
-        tracer (rtm->node->cptr, DRTM, "RTM[%s] : Advt job is already scheduled\n", rtm->name);  
+        tracer (rtm->node->cptr, DRTM_DET, "RTM[%s] : job already set (%p)"
+                " q_depth=%u\n",
+                rtm->name, (void *)rtm->route_advt_prep_job,
+                get_glthread_list_count(&rtm->route_advt_queue.head));
         return;
     }
 
@@ -1393,7 +1422,15 @@ rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route) {
             rtm_advt_route_advt_prep_job_cbk,
             TASK_ONE_SHOT, TASK_PRIORITY_COMPUTE_LOW );
 
-    tracer (rtm->node->cptr, DRTM, "RTM[%s] : Advt job scheduled\n", rtm->name);  
+    if (!rtm->route_advt_prep_job) {
+        tracer (rtm->node->cptr, DRTM | DERR, 
+               "RTM[%s] : ERROR: Failed to schedule route advt prep job\n",
+               rtm->name);
+        return;
+    }
+
+    tracer (rtm->node->cptr, DRTM, "RTM[%s] : Advt job scheduled (task=%p)\n", 
+        rtm->name, (void *)rtm->route_advt_prep_job);
 }
 
 /* Should be called by RTM core when route is malloc'd for the

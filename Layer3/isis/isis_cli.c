@@ -27,7 +27,7 @@ rtm_build_distribution_policy_cli_tree(
             RTM_PROTO_T exempt_proto) ;
             
 static int
-isis_config_traceoption_handler (int cmdcode,
+isis_config_traceoption_handler (int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 
@@ -231,7 +231,7 @@ isis_config_traceoption_handler (int cmdcode,
 }
 
 static int
-isis_config_handler(int cmdcode,
+isis_config_handler(int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
@@ -350,7 +350,7 @@ isis_config_handler(int cmdcode,
 }
 
 static int
-isis_intf_config_handler(int cmdcode, 
+isis_intf_config_handler(int64_t cmdcode, 
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
@@ -531,7 +531,7 @@ isis_srv6_flavor_validation (Stack_t *tlv_stack, unsigned char *leaf_value) {
 }
 
 static void 
-isis_srv6_flavor_cli_subtree_hookup (param_t *root, int cmdcode, cmd_callback cbk) {
+isis_srv6_flavor_cli_subtree_hookup (param_t *root, int64_t cmdcode, cmd_callback cbk) {
 
     param_t *flavor = (param_t *)calloc(1, sizeof(param_t));
     init_param(flavor, CMD, "flavor", NULL, NULL, INVALID, NULL, "Configure SRv6 EndPoint Flavor");
@@ -548,7 +548,7 @@ isis_srv6_flavor_cli_subtree_hookup (param_t *root, int cmdcode, cmd_callback cb
 }
 
 static int
-isis_srv6_config_handler (int cmdcode, 
+isis_srv6_config_handler (int64_t cmdcode, 
                              Stack_t *tlv_stack,
                              op_mode enable_or_disable) {
 
@@ -778,7 +778,7 @@ isis_srv6_config_handler (int cmdcode,
 }
 
 int
-isis_frr_config_handler  (int cmdcode, 
+isis_frr_config_handler  (int64_t cmdcode, 
                                         Stack_t *tlv_stack,
                                         op_mode enable_or_disable) {
 
@@ -786,12 +786,12 @@ isis_frr_config_handler  (int cmdcode,
 }
 
 int
-isis_run_handler (int cmdcode, 
+isis_run_handler (int64_t cmdcode, 
                              Stack_t *tlv_stack,
                              op_mode enable_or_disable) ;
 
 int
-isis_run_handler (int cmdcode, 
+isis_run_handler (int64_t cmdcode, 
                              Stack_t *tlv_stack,
                              op_mode enable_or_disable) {
 
@@ -912,7 +912,7 @@ isis_run_cli_tree (param_t *param) {
 }
 
 int
-isis_show_handler (int cmdcode,
+isis_show_handler (int64_t cmdcode,
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable);
 
@@ -920,7 +920,7 @@ extern void
 isis_compute_spf (isis_node_info_t *node_info );
 
 int
-isis_show_handler (int cmdcode,
+isis_show_handler (int64_t cmdcode,
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable) {
 
@@ -1547,7 +1547,7 @@ isis_show_cli_tree(param_t *param) {
 }
 
 int
-isis_clear_handler(int cmdcode,
+isis_clear_handler(int64_t cmdcode,
                    Stack_t *tlv_stack,
                    op_mode enable_or_disable) {
 
@@ -1637,7 +1637,7 @@ isis_clear_cli_tree(param_t *param) {
 
 
 int
-isis_debug_handler(int cmdcode,
+isis_debug_handler(int64_t cmdcode,
                    Stack_t *tlv_stack,
                    op_mode enable_or_disable) {
 

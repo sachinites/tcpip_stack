@@ -20,7 +20,7 @@ extern int
 validate_vrf_existence(Stack_t *tlv_stack, unsigned char *leaf_value);
 
 static int
-srv6_config_enable(int cmdcode,
+srv6_config_enable(int64_t cmdcode,
                    Stack_t *tlv_stack,
                    op_mode enable_or_disable)
 {
@@ -64,7 +64,7 @@ srv6_config_enable(int cmdcode,
 
 static int
 srv6_locator_handler
-                    (int cmdcode,
+                    (int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 
@@ -215,7 +215,7 @@ srv6_locator_handler
 
 static int
 srv6_prefix_sid_config_handler 
-                    (int cmdcode,
+                    (int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 
@@ -451,7 +451,7 @@ srv6_prefix_sid_config_handler
 
 static int
 srv6_adjacency_sid_config_handler 
-                    (int cmdcode,
+                    (int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 
@@ -689,7 +689,7 @@ srv6_adjacency_sid_config_handler
 
 static int
 srv6_static_route_config_handler
-                        (int cmdcode,
+                        (int64_t cmdcode,
                         Stack_t *tlv_stack,
                         op_mode enable_or_disable) {
 
@@ -709,7 +709,7 @@ srv6_flavor_validation (Stack_t *tlv_stack, unsigned char *leaf_value) {
 }
 
 static void 
-srv6_flavor_cli_subtree_hookup (param_t *root, int cmdcode, cmd_callback cbk) {
+srv6_flavor_cli_subtree_hookup (param_t *root, int64_t cmdcode, cmd_callback cbk) {
 
     param_t *flavor = (param_t *)calloc(1, sizeof(param_t));
     init_param(flavor, CMD, "flavor", NULL, NULL, INVALID, NULL, "Configure SRv6 EndPoint Flavor");
@@ -727,7 +727,7 @@ srv6_flavor_cli_subtree_hookup (param_t *root, int cmdcode, cmd_callback cbk) {
 
 static int
 srv6_end_b6_encaps_config_handler
-                    (int cmdcode,
+                    (int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 
@@ -790,7 +790,7 @@ srv6_end_b6_encaps_config_handler
 
 static int
 srv6_end_b6_x_encaps_config_handler
-                    (int cmdcode,
+                    (int64_t cmdcode,
                     Stack_t *tlv_stack,
                     op_mode enable_or_disable) {
 
@@ -801,7 +801,7 @@ srv6_end_b6_x_encaps_config_handler
    install SRv6 SID locally with End behavior as END.DT4 in vrf-name2
 */
 static int
-srv6_end_dt4_sid_config_handler(int cmdcode,
+srv6_end_dt4_sid_config_handler(int64_t cmdcode,
                                 Stack_t *tlv_stack,
                                 op_mode enable_or_disable)
 {
@@ -1236,7 +1236,7 @@ srv6_build_global_config_cli_tree (param_t *root) {
 }
 
 static int
-srv6_ping6_handler(int cmdcode,
+srv6_ping6_handler(int64_t cmdcode,
                    Stack_t *tlv_stack,
                    op_mode enable_or_disable)
 {
@@ -1311,7 +1311,7 @@ srv6_build_cli_run_tree (param_t *root)
 }
 
 extern int
-srv6_show_handler(int cmdcode,
+srv6_show_handler(int64_t cmdcode,
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable);
 

@@ -82,7 +82,7 @@ validate_vrf_existence(Stack_t *tlv_stack, unsigned char *leaf_value) {
 }
 
 int
-show_vrf_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
+show_vrf_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
 
     node_t *node = NULL;
     tlv_struct_t *tlv = NULL;
@@ -149,7 +149,7 @@ rt_target_validator_cbk(Stack_t *tlv_stack, unsigned char *value) {
 }
 
 static int 
-vrf_config_handler (int cmdcode,
+vrf_config_handler (int64_t cmdcode,
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable) {
 

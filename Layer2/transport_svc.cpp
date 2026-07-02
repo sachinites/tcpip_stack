@@ -236,7 +236,7 @@ std::string& svc_name) {
 }
 
 static int
-transport_svc_config_handler(int cmdcode,
+transport_svc_config_handler(int64_t cmdcode,
                              Stack_t *tlv_stack,
                              op_mode enable_or_disable)
 {
@@ -383,7 +383,7 @@ config node <node-name> interface ethernet <if-name>  transport-service-profile 
 #endif
 
 static int
-transport_svc_intf_config_handler(int cmdcode,
+transport_svc_intf_config_handler(int64_t cmdcode,
                                   Stack_t *tlv_stack,
                                   op_mode enable_or_disable)
 {
@@ -471,7 +471,7 @@ config_interface_build_transport_svc_cli_tree (param_t *node_name_param, param_t
 }
 
 static int
-transport_svc_show_handler(int cmdcode,
+transport_svc_show_handler(int64_t cmdcode,
                            Stack_t *tlv_stack,
                            op_mode enable_or_disable)
 {
@@ -518,7 +518,7 @@ transport_svc_show_handler(int cmdcode,
 }
 
 static int
-show_vlan_members (int cmdcode, 
+show_vlan_members (int64_t cmdcode, 
                                     Stack_t *tlv_stack,
                                     op_mode enable_or_disable) {
 
@@ -580,7 +580,7 @@ show_vlan_members (int cmdcode,
 }
 
 static int
-show_vlan_db_handler(int cmdcode, 
+show_vlan_db_handler(int64_t cmdcode, 
                      Stack_t *tlv_stack,
                      op_mode enable_or_disable) {
 

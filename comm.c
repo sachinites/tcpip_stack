@@ -39,6 +39,7 @@
 #include <unistd.h> // for close
 #include <netdb.h>  /*for struct hostent*/
 #include <sys/socket.h>
+#include <poll.h>
 #include <errno.h>
 #include <rte_ethdev.h>
 #include "router_init.h"
@@ -127,58 +128,78 @@ _network_start_pkt_receiver_thread(void *arg){
 
     node_t *node;
     glthread_t *curr;
-    
-    fd_set active_sock_fd_set,
-           backup_sock_fd_set;
-    
-    int sock_max_fd = 0;
     int bytes_recvd = 0;
-    
+    int nfds = 0;
+    int poll_idx = 0;
     graph_t *topo = (graph_t *)arg;
-
-    uint32_t addr_len = sizeof(struct sockaddr);
-
-    FD_ZERO(&active_sock_fd_set);
-    FD_ZERO(&backup_sock_fd_set);
-    
+    struct pollfd *pollfds = NULL;
+    node_t **poll_nodes = NULL;
+    socklen_t addr_len = sizeof(struct sockaddr);
     struct sockaddr_in sender_addr;
 
     ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
 
         node = graph_glue_to_node(curr);
-        
-        if(!node->udp_sock_fd) 
-            continue;
+        if (node->udp_sock_fd)
+            nfds++;
 
-        if(node->udp_sock_fd > sock_max_fd)
-            sock_max_fd = node->udp_sock_fd;
-
-        FD_SET(node->udp_sock_fd, &backup_sock_fd_set);
-            
     } ITERATE_GLTHREAD_END(&topo->node_list, curr);
 
-    while(1){
+    if (!nfds)
+        return NULL;
 
-        memcpy(&active_sock_fd_set, &backup_sock_fd_set, sizeof(fd_set));
+    pollfds = (struct pollfd *)calloc(nfds, sizeof(struct pollfd));
+    poll_nodes = (node_t **)calloc(nfds, sizeof(node_t *));
 
-        select(sock_max_fd + 1, &active_sock_fd_set, NULL, NULL, NULL);
-
-        ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
-
-            node = graph_glue_to_node(curr);
-
-            if(FD_ISSET(node->udp_sock_fd, &active_sock_fd_set)){
-    
-                bytes_recvd = recvfrom(node->udp_sock_fd, (char *)recv_buffer, 
-                            MAX_PACKET_BUFFER_SIZE, 0,
-                            (struct sockaddr *)&sender_addr,
-                            &addr_len);
-                
-                _pkt_receive(node->dp_ctx, recv_buffer, bytes_recvd);
-            }
-            
-        } ITERATE_GLTHREAD_END(&topo->node_list, curr);
+    if (!pollfds || !poll_nodes) {
+        free(pollfds);
+        free(poll_nodes);
+        return NULL;
     }
+
+    ITERATE_GLTHREAD_BEGIN(&topo->node_list, curr){
+
+        node = graph_glue_to_node(curr);
+
+        if (!node->udp_sock_fd)
+            continue;
+
+        pollfds[poll_idx].fd = node->udp_sock_fd;
+        pollfds[poll_idx].events = POLLIN;
+        poll_nodes[poll_idx] = node;
+        poll_idx++;
+
+    } ITERATE_GLTHREAD_END(&topo->node_list, curr);
+
+    while (1) {
+
+        int rc = poll(pollfds, nfds, -1);
+
+        if (rc < 0) {
+            if (errno == EINTR)
+                continue;
+            break;
+        }
+
+        for (poll_idx = 0; poll_idx < nfds; poll_idx++) {
+
+            if (!(pollfds[poll_idx].revents & POLLIN))
+                continue;
+
+            node = poll_nodes[poll_idx];
+
+            bytes_recvd = recvfrom(node->udp_sock_fd, (char *)recv_buffer,
+                        MAX_PACKET_BUFFER_SIZE, 0,
+                        (struct sockaddr *)&sender_addr,
+                        &addr_len);
+
+            if (bytes_recvd > 0)
+                _pkt_receive(node->dp_ctx, recv_buffer, bytes_recvd);
+        }
+    }
+
+    free(pollfds);
+    free(poll_nodes);
     return NULL;
 }
 

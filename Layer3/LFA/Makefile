@@ -1,5 +1,8 @@
 TARGET_LIB=liblfa.a
 
+# Inherit CFLAGS/SANITIZER_FLAGS from top-level make when invoked via $(MAKE) -C.
+CFLAGS ?= -g -Wall -Wextra -fpermissive $(SANITIZER_FLAGS) -MMD -MP
+
 TARGET:${TARGET_LIB}
 
 OBJS=cp/lfa.o \
@@ -21,6 +24,7 @@ ${TARGET_LIB}:${OBJS}
 	@echo LFA Library ${TARGET_LIB} compiled successfully
 
 clean:
-	rm -rf cp/*.o 
+	rm -rf cp/*.o cp/*.d
 	rm -rf *.a
-	
+
+-include $(OBJS:.o=.d)

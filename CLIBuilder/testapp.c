@@ -43,14 +43,14 @@ list_vlans(param_t *param, ser_buff_t *tlv_buf){
 }
 
 int
-show_ip_igmp_groups_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
+show_ip_igmp_groups_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
     cprintf ("\nenable or disable = %d", enable_or_disable);
     tracer (tr, IGMP_LOG, "igmp logs %s\n", "printed");
 }
 
 int
-mtrace_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
+mtrace_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
     cprintf ("\nenable or disable = %d", enable_or_disable);
     
@@ -68,7 +68,7 @@ mtrace_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
 
 int
-config_router_name_handler(int cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
+config_router_name_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
     return 0;
 }

@@ -16,9 +16,6 @@ typedef struct mtrie_ mtrie_t;
 typedef void (*acl_builder_notification_cbk)
     (node_t *, vrf_t *, access_list_t *, void *, mtrie_t *mtrie_out);
 
-#pragma pack(push, 8)
-
-
 typedef struct client_data_ {
  
     vrf_t *client_vrf;
@@ -51,8 +48,6 @@ typedef struct acl_builder_ {
     sem_t wait_for_abort;
 
 }acl_builder_t;
-
-#pragma pack(pop)
 
 void 
 acl_builder_init (node_t *node, acl_builder_t **acl_builder);

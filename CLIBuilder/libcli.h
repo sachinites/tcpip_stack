@@ -27,7 +27,7 @@ void
 libcli_register_param (param_t *parent, param_t *child);
 
 void 
-libcli_set_param_cmd_code (param_t *param, int cmd_code) ;
+libcli_set_param_cmd_code (param_t *param, int64_t cmd_code) ;
 
 void
 libcli_support_cmd_negation (param_t *param);

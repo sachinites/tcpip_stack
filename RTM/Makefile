@@ -12,7 +12,7 @@ ifeq ($(ARCH),aarch64)
     DPDK_CFLAGS += -march=armv8-a+simd
 endif
 
-export CFLAGS=-g -Wall -Wextra -fpermissive -I.. ${DPDK_CFLAGS}
+export CFLAGS=-g -Wall -Wextra -fpermissive -I.. ${DPDK_CFLAGS} ${SANITIZER_FLAGS} -MMD -MP
 
 OBJS=rtm.o \
      rtm_route.o \
@@ -38,6 +38,8 @@ $(TARGET): $(OBJS)
 	$(GCC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(OBJS:.o=.d) $(TARGET)
+
+-include $(OBJS:.o=.d)
 
 .PHONY: all clean

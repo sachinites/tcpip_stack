@@ -192,6 +192,7 @@ bool
 tracer_is_active (tracer_t *tracer, uint64_t log_bit) {
 
     bool rc = false;
+    if (!tracer) return false;
     pthread_spin_lock (&tracer->spin_lock);
     rc = tracer->op_flags & ENABLE_CONSOLE_LOG ? true : false;
     rc |= tracer->op_flags & ENABLE_FILE_LOG ? true : false;

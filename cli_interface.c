@@ -13,7 +13,7 @@ extern event_dispatcher_t gev_dis;
 #define ASYNC_MODE_DISABLED
 
 void 
-task_invoke_appln_cbk_handler(int cmdcode,
+task_invoke_appln_cbk_handler(int64_t cmdcode,
                                    cmd_callback cbk,
                                    Stack_t *tlv_stack,
                                    op_mode enable_or_disable,
@@ -23,7 +23,7 @@ typedef struct unified_cli_data_
 {
     param_t *param;
     cmd_callback cbk;
-    int cmdcode;
+    int64_t cmdcode;
     int rc;
     Stack_t *tlv_stack;
     op_mode enable_or_disable;
@@ -86,7 +86,7 @@ node_get_ev_dispatcher (Stack_t *tlv_stack, uint8_t user_flag) {
 
 
 /* Public API to be called by CLIBuilder*/
-void task_invoke_appln_cbk_handler(int cmdcode,
+void task_invoke_appln_cbk_handler(int64_t cmdcode,
                                    cmd_callback cbk,
                                    Stack_t *tlv_stack,
                                    op_mode enable_or_disable,

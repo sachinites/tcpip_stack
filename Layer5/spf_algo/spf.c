@@ -631,7 +631,7 @@ init_spf_algo(){
 }
 
 int
-spf_algo_handler(int cmdcode, Stack_t *tlv_stack, 
+spf_algo_handler(int64_t cmdcode, Stack_t *tlv_stack, 
                          op_mode enable_or_disable){
 
     node_t *node;
