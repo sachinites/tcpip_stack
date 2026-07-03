@@ -70,8 +70,16 @@ l2_switch_perform_mac_learning(dp_ctx_t *dp_ctx,
      * be re-triggered on the next packet for an unknown OIF.
      * The dp_ev_dis handler deduplicates concurrent learn posts.
      */
-    if (mac_table_lookup(dp_ctx->mac_table, vlan_id, (uint8_t *)src_mac))
+    mac_table_entry_t *existing =
+        mac_table_lookup(dp_ctx->mac_table, vlan_id, (uint8_t *)src_mac);
+    if (existing) {
+        /* Refresh aging on source-MAC activity (standard switch behavior):
+         * seeing a frame *from* this MAC keeps its entry alive, independent
+         * of whether it is ever a forwarding destination. */
+        if (!(existing->flags & MAC_STATIC))
+            mac_table_entry_touch(existing);
         return;
+    }
 
     /* Post MAC learn job to dp_ev_dis (single-writer thread). */
     dp_post_mac_learn_job(dp_ctx, (uint8_t *)src_mac, vlan_id,

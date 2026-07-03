@@ -60,13 +60,24 @@ graph_t *standalone_node_topology(void) {
 
     graph_t *topo = create_new_graph("Stand-Alone Topo");
     node_t *R0 = Router_Create(topo, (const c_string)"R0");
-    return topo;
+
     node_set_rtr_id(R0, "122.1.1.1");
     node_t *R1 = Router_Create(topo, (const c_string)"R1");
     node_set_rtr_id(R1, "122.1.1.2");
     insert_link_between_two_nodes(R0, R1, "eth0", "eth0", 10);
     node_set_intf_ip_address(R0, "eth0", "10.1.1.1", 24);
     node_set_intf_ip_address(R1, "eth0", "10.1.1.2", 24);
+
+
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&R0->ev_dis, true, 0);
+    event_dispatcher_run(&R1->ev_dis, true, 0);
+
+    event_dispatcher_run(&R0->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R1->purger_ev_dis, true, 0);
+    
     return topo;
 }
 
@@ -117,6 +128,17 @@ build_first_topo(void){
 
     node_set_intf_ip_address(R2_re, "eth3", "30.1.1.2", 24);
     node_set_intf_ip_address(R2_re, "eth5", "40.1.1.2", 24);
+
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&R0_re->ev_dis, true, 0);
+    event_dispatcher_run(&R1_re->ev_dis, true, 0);
+    event_dispatcher_run(&R2_re->ev_dis, true, 0);
+
+    event_dispatcher_run(&R0_re->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R1_re->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R2_re->purger_ev_dis, true, 0);
 
     return topo;
 }
@@ -226,6 +248,22 @@ run node H1 ping 13.1.1.2
     node_set_intf_vlan_membership(L3SW, "eth2", 12, false);
     node_set_intf_vlan_membership(L3SW, "eth3", 11, false);
     node_set_intf_vlan_membership(L3SW, "eth4", 10, false);
+
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&H1->ev_dis, true, 0);
+    event_dispatcher_run(&H2->ev_dis, true, 0);
+    event_dispatcher_run(&H3->ev_dis, true, 0);
+    event_dispatcher_run(&H4->ev_dis, true, 0);
+    event_dispatcher_run(&L3SW->ev_dis, true, 0);
+
+    event_dispatcher_run(&H1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H3->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H4->purger_ev_dis, true, 0);
+    event_dispatcher_run(&L3SW->purger_ev_dis, true, 0);
+
     return topo;
 }
 
@@ -297,6 +335,22 @@ build_simple_l2_switch_topo(void){
     node_set_intf_vlan_membership(L2SW, "eth2", 10, false);
     node_set_intf_vlan_membership(L2SW, "eth3", 10, false);
     node_set_intf_vlan_membership(L2SW, "eth4", 10, false);
+
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&H1->ev_dis, true, 0);
+    event_dispatcher_run(&H2->ev_dis, true, 0);
+    event_dispatcher_run(&H3->ev_dis, true, 0);
+    event_dispatcher_run(&H4->ev_dis, true, 0);
+    event_dispatcher_run(&L2SW->ev_dis, true, 0);
+
+    event_dispatcher_run(&H1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H3->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H4->purger_ev_dis, true, 0);
+    event_dispatcher_run(&L2SW->purger_ev_dis, true, 0);
+
     return topo;
 }
 
@@ -366,7 +420,20 @@ run node R1 ping 122.1.1.3
     node_set_rtr_id(R4, "122.1.1.4");
     node_set_intf_ip_address(R4, "eth5", "30.1.1.2", 24);
     node_set_intf_ip_address(R4, "eth6", "40.1.1.1", 24);
-    
+
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&R1->ev_dis, true, 0);
+    event_dispatcher_run(&R2->ev_dis, true, 0);
+    event_dispatcher_run(&R3->ev_dis, true, 0);
+    event_dispatcher_run(&R4->ev_dis, true, 0);
+
+    event_dispatcher_run(&R1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R3->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R4->purger_ev_dis, true, 0);
+
     return topo;
 }
 
@@ -404,6 +471,19 @@ build_linear_topo(void){
     node_set_intf_ip_address(H3, "eth1", "20.1.1.1", 24);
     node_set_intf_ip_address(H3, "eth2", "30.1.1.2", 24);
     node_set_intf_ip_address(H4, "eth1", "30.1.1.1", 24);
+
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&H1->ev_dis, true, 0);
+    event_dispatcher_run(&H2->ev_dis, true, 0);
+    event_dispatcher_run(&H3->ev_dis, true, 0);
+    event_dispatcher_run(&H4->ev_dis, true, 0);
+
+    event_dispatcher_run(&H1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H3->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H4->purger_ev_dis, true, 0);
 
     return topo;
 }
@@ -493,6 +573,27 @@ build_dualswitch_topo(void){
     node_set_intf_switchport(L2SW2, "eth12");
     node_set_intf_vlan_membership(L2SW2, "eth12", 10, false);
 
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&H1->ev_dis, true, 0);
+    event_dispatcher_run(&H2->ev_dis, true, 0);
+    event_dispatcher_run(&H3->ev_dis, true, 0);
+    event_dispatcher_run(&H4->ev_dis, true, 0);
+    event_dispatcher_run(&H5->ev_dis, true, 0);
+    event_dispatcher_run(&H6->ev_dis, true, 0);
+    event_dispatcher_run(&L2SW1->ev_dis, true, 0);
+    event_dispatcher_run(&L2SW2->ev_dis, true, 0);
+
+    event_dispatcher_run(&H1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H3->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H4->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H5->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H6->purger_ev_dis, true, 0);
+    event_dispatcher_run(&L2SW1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&L2SW2->purger_ev_dis, true, 0);
+
     return topo;
 }
 
@@ -544,6 +645,15 @@ parallel_links_topology(void){
     node_set_intf_ip_address(R1, "eth7", "30.1.1.2", 24);
     node_set_intf_ip_address(R1, "eth8", "40.1.1.2", 24);
     node_set_intf_ip_address(R1, "eth9", "50.1.1.2", 24);
+
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&R0->ev_dis, true, 0);
+    event_dispatcher_run(&R1->ev_dis, true, 0);
+
+    event_dispatcher_run(&R0->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R1->purger_ev_dis, true, 0);
 
     return topo;
 }
@@ -821,6 +931,19 @@ vlan_extension_topo(void) {
     node_set_intf_switchport(R2, "eth0");
     node_set_intf_vlan_membership(R2, "eth0", 10, false);
 
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&R1->ev_dis, true, 0);
+    event_dispatcher_run(&R2->ev_dis, true, 0);
+    event_dispatcher_run(&H1->ev_dis, true, 0);
+    event_dispatcher_run(&H2->ev_dis, true, 0);
+
+    event_dispatcher_run(&R1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H2->purger_ev_dis, true, 0);
+
     return topo;
 }
 
@@ -944,6 +1067,23 @@ config node H3 rtm-route prefix 0.0.0.0/0 0 0 0 2 1 gateway 192.168.0.1 interfac
     node_set_intf_vlan_membership(R2_re, "eth3", 20, false);
     node_set_intf_switchport(R0_re, "eth1");
     node_set_intf_vlan_membership(R0_re, "eth1", 20, false);
+
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&R0_re->ev_dis, true, 0);
+    event_dispatcher_run(&R1_re->ev_dis, true, 0);
+    event_dispatcher_run(&R2_re->ev_dis, true, 0);
+    event_dispatcher_run(&H1->ev_dis, true, 0);
+    event_dispatcher_run(&H2->ev_dis, true, 0);
+    event_dispatcher_run(&H3->ev_dis, true, 0);
+
+    event_dispatcher_run(&R0_re->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R1_re->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R2_re->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H3->purger_ev_dis, true, 0);
 
     return topo;
 }
@@ -1149,7 +1289,32 @@ evpn_spine_leaf(void) {
 
     /* These will be the gateway IPs for the workload nodes */
     /* Note: In production EVPN, these would have anycast IPs, but keeping unique for now */
-    
+
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&Spine1->ev_dis, true, 0);
+    event_dispatcher_run(&Spine2->ev_dis, true, 0);
+    event_dispatcher_run(&Leaf1->ev_dis, true, 0);
+    event_dispatcher_run(&Leaf2->ev_dis, true, 0);
+    event_dispatcher_run(&Leaf3->ev_dis, true, 0);
+    event_dispatcher_run(&Leaf4->ev_dis, true, 0);
+    event_dispatcher_run(&Host1->ev_dis, true, 0);
+    event_dispatcher_run(&Host2->ev_dis, true, 0);
+    event_dispatcher_run(&Host3->ev_dis, true, 0);
+    event_dispatcher_run(&Host4->ev_dis, true, 0);
+
+    event_dispatcher_run(&Spine1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&Spine2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&Leaf1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&Leaf2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&Leaf3->purger_ev_dis, true, 0);
+    event_dispatcher_run(&Leaf4->purger_ev_dis, true, 0);
+    event_dispatcher_run(&Host1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&Host2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&Host3->purger_ev_dis, true, 0);
+    event_dispatcher_run(&Host4->purger_ev_dis, true, 0);
+
     return topo;
 }
 
@@ -1217,8 +1382,11 @@ Linux_Router_topology(void) {
 
     #endif /* USE_DPDK */
 
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
     event_dispatcher_run(&linux_rtr->ev_dis, true, 0);
-    event_dispatcher_run(&linux_rtr->purger_ev_dis, true, 0);    
+    event_dispatcher_run(&linux_rtr->purger_ev_dis, true, 0);
 
     refresh();
     return topo;

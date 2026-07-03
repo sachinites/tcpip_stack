@@ -32,7 +32,6 @@ isis_timer_expire_delete_adjacency_cb(
 
     if (!arg) return;
     isis_adjacency_t *adjacency = (isis_adjacency_t *)arg;
-    timer_de_register_app_event(adjacency->delete_timer);
     adjacency->delete_timer = NULL;
     isis_delete_adjacency(adjacency);
 }
@@ -45,7 +44,6 @@ isis_timer_expire_down_adjacency_cb(event_dispatcher_t *ev_dis,
 
     char adj_name[128];
     isis_adjacency_t *adjacency = (isis_adjacency_t *)arg;
-    timer_de_register_app_event(adjacency->expiry_timer);
     adjacency->expiry_timer = NULL;
 
    tracer (ISIS_TR(ISIS_CTX_ADJ(adjacency)), TR_ISIS_ADJ,
@@ -102,6 +100,11 @@ isis_adjacency_stop_expiry_timer(
 
     char adj_name[128];
 
+    /* Cancel the armed wheel-timer element before dropping the handle.
+     * Merely NULLing the pointer leaves the element scheduled; it would
+     * later fire isis_timer_expire_down_adjacency_cb() on an adjacency that
+     * may already have been freed (heap-use-after-free), and also leaks the
+     * wt_elem. */
     timer_de_register_app_event(adjacency->expiry_timer);
     adjacency->expiry_timer = NULL;
     tracer (ISIS_TR(ISIS_CTX_ADJ(adjacency)), TR_ISIS_ADJ,
@@ -157,6 +160,8 @@ isis_adjacency_stop_delete_timer(
     char adj_name[128];
     isis_node_info_t *node_info = ISIS_CTX_ADJ(adjacency);
 
+    /* Cancel the armed wheel-timer element before dropping the handle
+     * (see isis_adjacency_stop_expiry_timer for the rationale). */
     timer_de_register_app_event(adjacency->delete_timer);
     adjacency->delete_timer = NULL;
 

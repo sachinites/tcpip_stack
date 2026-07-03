@@ -85,7 +85,9 @@ GLTHREAD_TO_STRUCT(arp_pending_entry_glue_to_arp_pending_entry,
  * arp_table        : back-reference so GC callback can del the key.
  * last_used        : wall-clock seconds, written by forwarding threads
  *                    (relaxed atomic store), read by the GC scan on dp_ev_dis.
- *                    0 = never forwarded since entry was (re)inserted.
+ *                    Resolved entries are stamped when learned/resolved so
+ *                    aging starts then; sane (pending) entries keep 0 so an
+ *                    unresolved entry is reclaimed promptly by the GC.
  * ---------------------------------------------------------------------- */
 struct arp_entry_ {
     

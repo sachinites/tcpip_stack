@@ -134,6 +134,17 @@ wheel_fn(Timer_t *timer, void *arg){
 
 		wt_elem = glthread_to_wt_elem(curr);
 
+		/* If another thread has queued this element for deletion/reschedule
+		 * (via timer_de_register_app_event/timer_reschedule), do not fire,
+		 * reschedule or free it here. Leave it for
+		 * process_wt_reschedule_slotlist() which owns that transition under
+		 * the reschedule-list lock. Freeing it here would leave its
+		 * reschedule_glue dangling in the reschedule list -> use-after-free. */
+		if(wt_elem->opcode == WTELEM_DELETE ||
+		   wt_elem->opcode == WTELEM_RESCHED){
+			continue;
+		}
+
 		/*Check if R == r*/
 		if(wt->current_cycle_no == wt_elem->execute_cycle_no){
 			/*Invoke the application event through fn pointer as below*/
@@ -173,6 +184,15 @@ wheel_fn(Timer_t *timer, void *arg){
 				if(wt->debug){ printf("wt_elem %p is rescheduled in [%u, %u]\n", wt_elem,  wt_elem->execute_cycle_no, next_slot_no); }
 			}
 			else {
+				/* This element may also have been queued onto the
+				 * reschedule list by another thread. Unlink its
+				 * reschedule_glue under the reschedule-list lock before
+				 * freeing, otherwise process_wt_reschedule_slotlist() would
+				 * later walk a freed node (heap-use-after-free on
+				 * reschedule_glue). */
+				WT_LOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
+				remove_glthread(&wt_elem->reschedule_glue);
+				WT_UNLOCK_SLOT_LIST(WT_GET_RESCHD_SLOTLIST(wt));
 				free_wheel_timer_element(wt_elem);
 			}
 		}
@@ -322,6 +342,7 @@ void
 free_wheel_timer_element(wheel_timer_elem_t *wt_elem){
     
     wt_elem->slotlist_head = NULL;
+	pthread_mutex_destroy(&wt_elem->mutex);
 	free(wt_elem);
 }
 

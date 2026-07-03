@@ -196,7 +196,11 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     /* New entry. */
     mac_table_entry_t *entry = (mac_table_entry_t *)XCALLOC2(0, 1, mac_table_entry_t);
     entry->vlan_id = vlan_id;
-    entry->last_used = 0;   /* 0 = not yet forwarded through */
+    /* Dynamic entries are stamped at creation so the GC ages them from the
+     * moment they were learned (source-MAC activity refreshes this too, see
+     * l2_switch_perform_mac_learning).  Static entries keep last_used = 0:
+     * they are exempt from GC and displayed as "never". */
+    entry->last_used = (flags & MAC_STATIC) ? 0 : time(NULL);
     memcpy(entry->mac.mac, mac_addr, sizeof(mac_addr_t));
     entry->flags = flags;
     init_glthread(&entry->oif_list);

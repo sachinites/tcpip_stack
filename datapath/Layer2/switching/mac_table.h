@@ -56,7 +56,10 @@ typedef struct mac_table_entry_ {
     char padding[4];
     /* last_used: wall-clock seconds written by forwarding threads via
      * mac_table_entry_touch().  Read by the GC scan on dp_ev_dis.
-     * 0 = never forwarded through this entry since it was inserted. */
+     * Dynamic entries are stamped at creation and refreshed on both source
+     * (learning) and destination (forwarding) activity, so aging starts from
+     * the moment the MAC was learned.  Static entries keep 0 (GC-exempt,
+     * displayed as "never"). */
     time_t last_used;
 } mac_table_entry_t;
 

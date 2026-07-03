@@ -1474,6 +1474,14 @@ debug_infra_tracer_bits_to_str (char *buffer, uint64_t bits) {
         strcat (buffer, "DTIMER_DET ");
         rc += 11;
     }
+    if (bits & DSCHED) {
+        strcat (buffer, "DSCHED ");
+        rc += 7;
+    }
+    if (bits & DSCHED_DET) {
+        strcat (buffer, "DSCHED_DET ");
+        rc += 11;
+    }
     if (bits & DERR) {
         strcat (buffer, "DERR ");
         rc += 5;

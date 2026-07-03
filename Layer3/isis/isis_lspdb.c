@@ -520,7 +520,6 @@ isis_lsp_pkt_delete_from_lspdb_timer_cb(event_dispatcher_t *ev_dis,
     timer_data->data = NULL;
     XFREE(timer_data);
 
-    timer_de_register_app_event(lsp_pkt->expiry_timer);
     lsp_pkt->expiry_timer = NULL;
 
     avltree_remove(&lsp_pkt->avl_node_glue, isis_get_lspdb_root(node_info));
@@ -556,8 +555,8 @@ isis_stop_lsp_pkt_installation_timer(isis_lsp_pkt_t *lsp_pkt) {
 
     isis_timer_data_t *timer_data = wt_elem_get_and_set_app_data(
                                         lsp_pkt->expiry_timer, 0);
-    XFREE(timer_data);                                 
-    timer_de_register_app_event(lsp_pkt->expiry_timer);
+    XFREE(timer_data);   
+    timer_de_register_app_event(lsp_pkt->expiry_timer);                              
     lsp_pkt->expiry_timer = NULL;
 }
 

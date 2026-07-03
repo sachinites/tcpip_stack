@@ -270,28 +270,6 @@ process_arp_broadcast_request(dp_ctx_t *dp_ctx,
 }
 
 /* -------------------------------------------------------------------------
- * Thread identity helpers
- * ---------------------------------------------------------------------- */
-
-/* Returns true if caller is the dp_ev_dis management thread. */
-static inline bool
-is_dp_ev_dis_thread(dp_ctx_t *dp_ctx)
-{
-    return dp_ctx->dp_ev_dis.thread &&
-           pthread_equal(pthread_self(), *dp_ctx->dp_ev_dis.thread);
-}
-
-/* Returns true if caller is either dp_ev_dis or dp_purger_ev_dis.
- * Used for teardown paths that run on the purger thread. */
-static inline bool
-is_dp_management_thread(dp_ctx_t *dp_ctx)
-{
-    return is_dp_ev_dis_thread(dp_ctx) ||
-           (dp_ctx->dp_purger_ev_dis.thread &&
-            pthread_equal(pthread_self(), *dp_ctx->dp_purger_ev_dis.thread));
-}
-
-/* -------------------------------------------------------------------------
  * ARP table — lifecycle
  * ---------------------------------------------------------------------- */
 
@@ -370,9 +348,6 @@ arp_entry_schedule_delete(dp_ctx_t *dp_ctx, arp_entry_t *arp_entry)
 void
 clear_arp_table(dp_ctx_t *dp_ctx, arp_table_t *arp_table)
 {
-    /* clear_arp_table may run on dp_purger_ev_dis (VRF teardown). */
-    assert(is_dp_management_thread(dp_ctx));
-
     if (!arp_table->hash) return;
 
     /* Collect all entries, drain pending lists, schedule deferred free. */
@@ -485,7 +460,10 @@ arp_table_entry_add_nolock(dp_ctx_t *dp_ctx,
     /* Case 0: no existing entry → insert. */
     if (!old) {
         arp_entry->arp_table = arp_table;
-        arp_entry->last_used = 0;   /* 0 = never used by data path yet */
+        /* Resolved entries are stamped at insertion so the GC ages them from
+         * the moment they were learned; sane (pending) entries keep 0 so an
+         * unresolved entry that never completes is reclaimed promptly. */
+        arp_entry->last_used = arp_entry->is_sane ? 0 : time(NULL);
         init_glthread(&arp_entry->arp_pending_list);
         rte_hash_add_key_data(arp_table->hash, &key, arp_entry);
         tracer(dp_ctx->dptr, DARP, "VRF:%s: ARP-entry %s added\n",
@@ -506,7 +484,7 @@ arp_table_entry_add_nolock(dp_ctx_t *dp_ctx,
          (old->proto == ETH_TYPE_ARP && arp_entry->proto != ETH_TYPE_ARP))) {
         /* Replace pointer in hash; GC old entry. */
         arp_entry->arp_table = arp_table;
-        arp_entry->last_used = 0;
+        arp_entry->last_used = arp_entry->is_sane ? 0 : time(NULL);
         init_glthread(&arp_entry->arp_pending_list);
         rte_hash_add_key_data(arp_table->hash, &key, arp_entry);
         timer_register_app_event(DP_TIMER(dp_ctx), arp_entry_gc_free_cbk,
@@ -534,7 +512,7 @@ arp_table_entry_add_nolock(dp_ctx_t *dp_ctx,
         memcpy(old->mac_addr.mac, arp_entry->mac_addr.mac, sizeof(mac_addr_t));
         old->oif     = arp_entry->oif;
         old->proto   = arp_entry->proto;
-        old->last_used = 0;            /* 0 = not yet forwarded by data path */
+        old->last_used = time(NULL);   /* just resolved → start aging now */
         old->is_sane = false;          /* mark resolved — visible to readers */
         if (arp_pending_list)
             *arp_pending_list = &old->arp_pending_list;

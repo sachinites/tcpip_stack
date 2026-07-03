@@ -507,7 +507,6 @@ isis_overload_timer_expire(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_s
     isis_node_info_t *node_info = (isis_node_info_t *)arg;
     isis_overload_data_t *ovl_data = &node_info->ovl_data;
 
-    timer_de_register_app_event(ovl_data->ovl_timer);
     ovl_data->ovl_timer = NULL;
     ovl_data->timeout_val = 0;
 
@@ -540,9 +539,7 @@ void
 isis_stop_overload_timer(isis_node_info_t *node_info) {
 
     isis_overload_data_t *ovl_data = &node_info->ovl_data;
-
     if (!ovl_data->ovl_timer) return;
-
     timer_de_register_app_event(ovl_data->ovl_timer);
     ovl_data->ovl_timer = NULL;
 }
