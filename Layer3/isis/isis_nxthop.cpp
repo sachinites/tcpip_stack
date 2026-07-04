@@ -92,7 +92,8 @@ nh_is_nexthop_exist_in_nh_array(
 }
 
 /*Copy all nexthops of src to dst, do not copy which are already
- * present*/
+ * present.  Always pack dst contiguously so downstream consumers
+ * that stop at the first NULL slot do not miss valid ECMP paths. */
  int
 nh_union_nexthops_arrays(nexthop_t **src, nexthop_t **dst){
 
@@ -100,19 +101,17 @@ nh_union_nexthops_arrays(nexthop_t **src, nexthop_t **dst){
     int j = 0;
     int copied_count = 0;
 
-    while(j < MAX_NXT_HOPS && dst[j]){
-        j++;
-    }
+    for (; i < MAX_NXT_HOPS; i++) {
 
-    if(j == MAX_NXT_HOPS) return 0;
+        if (!src[i]) continue;
+        if (nh_is_nexthop_exist_in_nh_array(dst, src[i])) continue;
 
-    for(; i < MAX_NXT_HOPS && j < MAX_NXT_HOPS; i++, j++){
+        while (j < MAX_NXT_HOPS && dst[j]) j++;
+        if (j == MAX_NXT_HOPS) break;
 
-        if(src[i] && nh_is_nexthop_exist_in_nh_array(dst, src[i]) == false){
-            dst[j] = src[i];
-            dst[j]->ref_count++;
-            copied_count++;
-        }
+        dst[j] = src[i];
+        dst[j]->ref_count++;
+        copied_count++;
     }
     return copied_count;
 }

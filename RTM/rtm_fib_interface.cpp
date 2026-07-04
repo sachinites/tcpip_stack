@@ -111,6 +111,11 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
         }
     }
 
+    if (inh->fwd_flags & FIB_NH_FWD_F_TUNNEL) {
+        fwd_info_out->u.gre_fwd.gre_tunnel_src = inh->gre_tunnel_src;
+        fwd_info_out->u.gre_fwd.gre_tunnel_dst = inh->gre_tunnel_dst;
+    }
+
     return RTM_SUCCESS;
 }
 

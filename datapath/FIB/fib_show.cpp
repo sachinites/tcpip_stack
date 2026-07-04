@@ -173,8 +173,9 @@ fib_format_seg_list_str(uint8_t seg_list[][16], uint8_t count,
     return off;
 }
 
-/* Display MPLS label stack and/or SRv6 segment list for a nexthop in brief
- * format.  indent is the left-padding string printed before each line. */
+/* Display MPLS label stack, SRv6 segment list, and/or GRE tunnel encap for a
+ * nexthop in brief format.  indent is the left-padding string printed before
+ * each line. */
 static void
 fib_show_nh_encap_brief(fib_nh_fwd_info_t *fi, const char *indent) {
 
@@ -203,6 +204,14 @@ fib_show_nh_encap_brief(fib_nh_fwd_info_t *fi, const char *indent) {
         }
         cprintf("\n");
     }
+
+    if (fi->fwd_flags & FIB_NH_FWD_F_TUNNEL) {
+        char src_str[48];
+        char dst_str[48];
+        cprintf("%s  Gre-Encap: S:%s D:%s\n", indent,
+                cmn_prefix_to_string(&fi->u.gre_fwd.gre_tunnel_src, &src_str),
+                cmn_prefix_to_string(&fi->u.gre_fwd.gre_tunnel_dst, &dst_str));
+    }
 }
 
 /* Display FIB contents with all routes and nexthops */
@@ -210,7 +219,9 @@ void
 fib_show_routes(fib_t *fib) {
         
     uint32_t route_count = 0;
-    
+    char ip_addr_str1[48];
+    char ip_addr_str2[48];
+
     /* Iterate based on AFI type */
     if (fib->afi == AF_IPV4 || fib->afi == AF_IPV6) {
         
@@ -296,6 +307,12 @@ fib_show_routes(fib_t *fib) {
                                             nh->fwd_info->u.v6_fwd.n_segment_list);
                 }
                 
+                if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_TUNNEL) {
+                    cprintf("      GRE Tunnel Encap: S:%s D:%s\n", 
+                        cmn_prefix_to_string(&nh->fwd_info->u.gre_fwd.gre_tunnel_src, &ip_addr_str1),
+                        cmn_prefix_to_string(&nh->fwd_info->u.gre_fwd.gre_tunnel_dst, &ip_addr_str2));
+                }
+
                 printw("\n");
             }
             

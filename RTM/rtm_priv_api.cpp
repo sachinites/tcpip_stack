@@ -1183,8 +1183,13 @@ rtm_validate_cp_nexthop_template(cp_nexthop_template_t *nh_template) {
     if (nh_template->action >= RTM_NH_ACTION_MAX) {
         return RTM_ERROR_NEXTHOP_INVALID_ACTION;
     }
-    if (nh_template->is_indirect && nh_template->oif) {
-        return RTM_ERROR_INVALID_OIF_INDEX;
+
+    if (nh_template->is_indirect) {
+
+       if (!nh_template->oif || nh_template->action == RTM_NH_ACTION_TUNNEL) {
+
+       }
+       else return RTM_ERROR_INVALID_OIF_INDEX;
     }
 
     if (nh_template->action == RTM_NH_ACTION_LOCAL){
@@ -1264,6 +1269,11 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
         }
     }
 
+    if (IS_BIT_SET (nh_template->fwd_flags, FIB_NH_FWD_F_TUNNEL)) {
+        nh->gre_tunnel_src = nh_template->u.gre_tunnel.gre_tunnel_src;
+        nh->gre_tunnel_dst = nh_template->u.gre_tunnel.gre_tunnel_dst;
+    }
+
     /* NH created successfully - note: cannot trace here as we don't have RTM context */
     return nh;
 }
@@ -1333,6 +1343,8 @@ rtm_install_route (
         return rc;
     }
 
+    rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str));
+
     /* look up the route*/
     rtm_route *route = rtm_route_lookup(rtm, prefix);
 
@@ -1340,8 +1352,7 @@ rtm_install_route (
         
         tracer(rtm->node->cptr, DRTM_DET,
             "RTM[%s] : Creating New Route %s\n",
-            rtm->name,
-            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+            rtm->name, prefix_str);
 
         route = (rtm_route *)XCALLOC2(0, 1, rtm_route);
         rtm_route_initialize(route, node_get_sequence_no(rtm->node));
@@ -1353,16 +1364,14 @@ rtm_install_route (
 
             tracer(rtm->node->cptr, DRTM | DERR,
                 "RTM[%s] : ERROR(%s): Route %s addition failed\n", 
-                rtm->name, rtm_error_to_string(rc),
-                rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));
+                rtm->name, rtm_error_to_string(rc), prefix_str);
             XFREE(route);
             return rc;
         }
 
         tracer(rtm->node->cptr, DRTM_DET,
             "RTM[%s] : Success : New Route %s Added to RTM DB\n",
-            rtm->name,
-            rtm_format_prefix(prefix, prefix_str, sizeof(prefix_str)));        
+            rtm->name, prefix_str);
     }
 
     rtm_nh *nh = rtm_nh_create_from_nh_template(cp_nh_template);

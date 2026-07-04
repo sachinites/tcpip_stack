@@ -8,8 +8,10 @@ typedef struct rte_mbuf pkt_mbuf_t;
 typedef struct dp_vrf_ dp_vrf_t;
 typedef struct dp_intf_ dp_intf_t;
 
-void 
-gre_encasulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf);
+uint16_t
+gre_encasulate (struct rte_mbuf *mbuf, 
+                cmn_prefix_t *src_ip, 
+                cmn_prefix_t *dst_ip);
 
 void 
 gre_decapsulate (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *mbuf, dp_intf_t *gre_interface) ;

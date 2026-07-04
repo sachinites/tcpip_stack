@@ -238,6 +238,12 @@ cp2dp_fib_update (
                        sizeof(dst->u.v6_fwd.v6segment_lst[i]));
             }
          }
+
+         if (src->fwd_flags & FIB_NH_FWD_F_TUNNEL)
+         {
+             dst->u.gre_fwd.gre_tunnel_src = src->u.gre_fwd.gre_tunnel_src;
+             dst->u.gre_fwd.gre_tunnel_dst = src->u.gre_fwd.gre_tunnel_dst;
+         }
     }
 
     /* Submit to data plane */

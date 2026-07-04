@@ -10,7 +10,7 @@
 #include <assert.h>
 #include "tracer.h"
 
-#define LOG_BUFFER_SIZE 256
+#define LOG_BUFFER_SIZE 1024
 
 #define CLI_INTG
 
@@ -81,7 +81,7 @@ tracer_deinit (tracer_t *tracer) {
 }
 
 static int
-time_get_current (char *buffer) {
+time_get_current (char *buffer, size_t bufsize) {
 
     struct timeval current_time;
     struct tm *local_time;
@@ -93,7 +93,7 @@ time_get_current (char *buffer) {
     local_time = localtime(&current_time.tv_sec);
 
     // Print the current time with microseconds precision
-    return snprintf(buffer, 32, "%02d-%02d-%04d %02d:%02d:%02d.%06ld",
+    return snprintf(buffer, bufsize, "%02d-%02d-%04d %02d:%02d:%02d.%06ld",
            local_time->tm_mday,
            local_time->tm_mon + 1,  // tm_mon is months since January (0-11)
            local_time->tm_year + 1900,  // tm_year is years since 1900
@@ -101,6 +101,36 @@ time_get_current (char *buffer) {
            local_time->tm_min,
            local_time->tm_sec,
            current_time.tv_usec);
+}
+
+/* Append formatted text to tracer->Logbuffer, capping log_msg_len to the
+ * buffer size.  Returns the number of bytes actually written. */
+static int
+trace_append (tracer_t *tracer, const char *format, ...) {
+
+    size_t room;
+
+    if (!tracer || !format) return 0;
+
+    room = LOG_BUFFER_SIZE - tracer->log_msg_len;
+    if (room <= 1) return 0;
+
+    va_list args;
+    va_start(args, format);
+    int n = vsnprintf((char *)tracer->Logbuffer + tracer->log_msg_len,
+                      room, format, args);
+    va_end(args);
+
+    if (n < 0) return 0;
+
+    if ((size_t)n >= room) {
+        tracer->log_msg_len = LOG_BUFFER_SIZE - 1;
+        tracer->Logbuffer[LOG_BUFFER_SIZE - 1] = '\0';
+        return (int)(room - 1);
+    }
+
+    tracer->log_msg_len += n;
+    return n;
 }
 
 void 
@@ -124,22 +154,69 @@ trace_internal (tracer_t *tracer,
         return;
     }
 
-    va_start(args, format);
-    memset (tracer->Logbuffer + tracer->hdr_size, 0, tracer->log_msg_len - tracer->hdr_size);
     tracer->log_msg_len = tracer->hdr_size;
-    tracer->log_msg_len += time_get_current ((char *)tracer->Logbuffer + tracer->log_msg_len);
-    tracer->log_msg_len += sprintf ((char *)tracer->Logbuffer + tracer->log_msg_len , " %s(%d): ", FN, lineno);
-    if (tracer->bit_to_str) {
-        tracer->log_msg_len += tracer->bit_to_str((char *)tracer->Logbuffer + tracer->log_msg_len, bit);
+
+    {
+        size_t room = LOG_BUFFER_SIZE - tracer->log_msg_len;
+        int n = 0;
+
+        if (room > 1) {
+            n = time_get_current((char *)tracer->Logbuffer + tracer->log_msg_len, room);
+            if (n > 0) {
+                if ((size_t)n >= room) {
+                    tracer->log_msg_len = LOG_BUFFER_SIZE - 1;
+                } else {
+                    tracer->log_msg_len += n;
+                }
+            }
+        }
     }
-    tracer->log_msg_len += vsnprintf((char *)tracer->Logbuffer + tracer->log_msg_len, LOG_BUFFER_SIZE - tracer->log_msg_len, format, args);
-    // Don't include the null terminator in the log output
+
+    trace_append(tracer, " %s(%d): ", FN, lineno);
+
+    if (tracer->bit_to_str) {
+        size_t room = LOG_BUFFER_SIZE - tracer->log_msg_len;
+        if (room > 1) {
+            int n = tracer->bit_to_str((char *)tracer->Logbuffer + tracer->log_msg_len, bit);
+            if (n > 0) {
+                if ((size_t)n >= room) {
+                    tracer->log_msg_len = LOG_BUFFER_SIZE - 1;
+                } else {
+                    tracer->log_msg_len += n;
+                }
+            }
+        }
+    }
+
+    va_start(args, format);
+    {
+        size_t room = LOG_BUFFER_SIZE - tracer->log_msg_len;
+        if (room > 1) {
+            int n = vsnprintf((char *)tracer->Logbuffer + tracer->log_msg_len,
+                              room, format, args);
+            if (n > 0) {
+                if ((size_t)n >= room) {
+                    tracer->log_msg_len = LOG_BUFFER_SIZE - 1;
+                    tracer->Logbuffer[LOG_BUFFER_SIZE - 1] = '\0';
+                } else {
+                    tracer->log_msg_len += n;
+                }
+            }
+        }
+    }
     va_end(args);
+
+    if (tracer->log_msg_len > LOG_BUFFER_SIZE) {
+        tracer->log_msg_len = LOG_BUFFER_SIZE;
+    }
 
     if (tracer->log_file && (tracer->op_flags & ENABLE_FILE_LOG)) {
         
         if (tracer->op_flags & DISABLE_HDR_PRINTING) {
-            fwrite (tracer->Logbuffer + HDR_SIZE, 1 , tracer->log_msg_len - HDR_SIZE, tracer->log_file);
+            size_t off = (tracer->hdr_size < HDR_SIZE) ? tracer->hdr_size : HDR_SIZE;
+            size_t len = (tracer->log_msg_len > off) ? (tracer->log_msg_len - off) : 0;
+            if (len > LOG_BUFFER_SIZE - off) len = LOG_BUFFER_SIZE - off;
+            fwrite (tracer->Logbuffer + off, 1 , len, tracer->log_file);
         }
         else {
              fwrite (tracer->Logbuffer, 1 , tracer->log_msg_len, tracer->log_file);

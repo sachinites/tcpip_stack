@@ -77,6 +77,8 @@ tcp_dump_l3_fwding_logger(
     if(!dp_ctx->log.l3_fwd)
         return;
 
+    return; // disable
+
     int sock_fd = dp_ctx->log.is_stdout ? STDOUT_FILENO : -1 ;
 
     FILE *log_file1 = (dp_ctx->log.all || dp_ctx->log.l3_fwd) ?

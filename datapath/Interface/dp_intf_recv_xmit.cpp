@@ -369,6 +369,7 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_m
     pkt_size_t pkt_size;
     bool no_modify = false;
     struct rte_mbuf *mbuf_copy;
+    cmn_prefix_t src_ip, dst_ip;
 
     if (!intf->is_up) { return 0; }
     
@@ -380,19 +381,12 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_m
         mbuf = mbuf_copy;
     }
 
-    gre_encasulate (dp_ctx, mbuf);
-    pkt_mbuf_get_pkt (mbuf, &pkt_size);
-
-    /* Now attach outer IP Hdr and send the pkt*/
-    assert (pkt_mbuf_expand_buffer_left (mbuf, sizeof (ip_hdr_t)));
-    pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_IP_IN_IP);
-    ip_hdr_t *ip_hdr = pkt_mbuf_get_ip_hdr (mbuf);
-    initialize_ip_hdr (ip_hdr);
-    ip_hdr->src_ip = htonl(dp_ctx->rtr_id);
-    ip_hdr->dst_ip = htonl(intf->gre_tunnel_dst_ip);
-    ip_hdr->protocol = IP_PROTO_GRE;
-    ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
+    cmn_prefix_initialize_v4(&src_ip, intf->gre_tunnel_src_ip, 32);
+    cmn_prefix_initialize_v4(&dst_ip, intf->gre_tunnel_dst_ip, 32);
+    gre_encasulate (mbuf, &src_ip, &dst_ip);
+    
     dp_send_ip_data (dp_ctx, intf->vrf, mbuf);
+
     intf->pkt_sent++;
     pkt_mbuf_get_pkt (mbuf, &pkt_size);
 

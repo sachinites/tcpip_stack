@@ -86,6 +86,11 @@ typedef struct cp_nexthop_template_ {
 
         } srv6_stack;
 
+        struct {
+            cmn_prefix_t gre_tunnel_src;
+            cmn_prefix_t gre_tunnel_dst;
+        } gre_tunnel;
+
     }u;
 
 } cp_nexthop_template_t;

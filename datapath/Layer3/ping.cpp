@@ -94,11 +94,32 @@ ping_send4 (void *_pctx)
             else if (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_CONNECTED)) {
 
                 ip_hdr->src_ip = htonl (nh->fwd_info->oif->ip_addr);
-            }
-            else if (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_FORWARD)) {
+            }           
+            else if (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_TUNNEL)) {
 
+                ip_hdr->src_ip = htonl (nh->fwd_info->u.gre_fwd.gre_tunnel_src.u.v4_addr);
+            }
+            else {
+                // default
                 ip_hdr->src_ip = htonl (dp_ctx->rtr_id);
-            }            
+            }
+
+            tcp_ip_covert_ip_n_to_p (ntohl (ip_hdr->src_ip), (c_string)src_addr_str);
+
+            tracer (dp_ctx->dptr, DL3FWD_DET,
+                "VRF:%s Src Address Determined is %s\n", vrf->vrf_name, src_addr_str);
+        }
+
+        if (ip_hdr->src_ip == 0) {
+            
+            tracer (dp_ctx->dptr, DL3FWD_DET | DERR, 
+                "VRF:%s Pkt:%s  Pkt Dropped : Src Addr cannot be determined\n", 
+                vrf->vrf_name, 
+                cmn_prefix_to_string (&pctx->dst, &dst_addr_str));
+
+            cprintf ("Error : %s : Src address could not be determined, cannot send the pkt\n", 
+                dp_ctx->ctx_name);
+            return;
         }
 
         ip_hdr->checksum = ip_checksum (ip_hdr);
@@ -132,7 +153,7 @@ ping_send4 (void *_pctx)
 
         cprintf ("\nPING %s --> %s\n", src_addr_str, dst_addr_str);
         refresh();
-        
+
         dp_send_ip_data(pctx->dp_ctx, vrf, mbuf );
 
         pkt_mbuf_dereference (mbuf);

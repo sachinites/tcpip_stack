@@ -158,6 +158,10 @@ typedef struct rtm_nh_ {
         uint8_t n_segment_list;
         cmn_prefix_t *v6segment_lst;
 
+        /* GRE Tunnel End-Point */
+        cmn_prefix_t gre_tunnel_src;
+        cmn_prefix_t gre_tunnel_dst;
+
         time_t install_time;
         uint32_t ref_count;
 } rtm_nh; 
@@ -182,6 +186,12 @@ typedef struct rtm_nh_fwd_info_ {
             uint8_t n_segment_list;
             uint8_t v6segment_lst[MAX_LBL_DEPTH][16];
         } v6_fwd;
+
+        /* GRE Tunnel Encap */
+        struct {
+            cmn_prefix_t gre_tunnel_src;
+            cmn_prefix_t gre_tunnel_dst;
+        } gre_fwd;
 
     }u;
 

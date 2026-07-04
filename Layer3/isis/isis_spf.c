@@ -265,7 +265,7 @@ isis_spf_install_v6routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root)
                 for (i = 0; i < MAX_NXT_HOPS; i++){
                     
                     nexthop = spf_result->nexthops[i];
-                    if (!nexthop) break;
+                    if (!nexthop) continue;
 
                     tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
                             ISIS_ROUTE,
@@ -306,7 +306,7 @@ isis_spf_install_v6routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root)
                 for (i = 0; i < MAX_NXT_HOPS; i++){
 
                     nexthop = spf_result->nexthops[i];
-                    if (!nexthop) break;
+                    if (!nexthop) continue;
 
                     tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Replaced %s/%d\n", 
                             ISIS_ROUTE, spf_result->node->node_name,
@@ -328,7 +328,7 @@ isis_spf_install_v6routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root)
             for (i = 0; i < MAX_NXT_HOPS; i++) {
 
                 nexthop = spf_result->nexthops[i];
-                if (!nexthop) break;
+                if (!nexthop) continue;
 
                 tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : ECMP Route Add %s/%d\n", 
                             ISIS_ROUTE, spf_result->node->node_name,
@@ -360,7 +360,7 @@ isis_spf_install_v6routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root)
             for (i = 0; i < MAX_NXT_HOPS; i++){
 
                 nexthop = spf_result->nexthops[i];
-                if (!nexthop) break;
+                if (!nexthop) continue;
 
                 srv6_rtm_route_install (vrf,
                                         &v6_prefix, 
@@ -393,7 +393,8 @@ isis_rt_ipv4_route_add(
     uint32_t metric)
 {
 
-    node_t *node = node_info->vrf->node;
+    char prefix_str[48];
+    char gateway_str[48];
     rtm_t *rtm = cp_rtm_get_route_target_rtm(
                     node_info->vrf,
                     AF_IPV4,
@@ -404,6 +405,19 @@ isis_rt_ipv4_route_add(
 
     cmn_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
     cmn_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
+
+    tracer (ISIS_TR(node_info), TR_ISIS_ROUTE,
+        "%s : RTM Install  vrf=%s route=%s nexthop=%s oif=%s metric=%u "
+        "action=%s proto=%s/%s\n",
+        ISIS_ROUTE,
+        node_info->vrf->vrf_name,
+        cmn_prefix_to_string(&rtm_prefix, &prefix_str),
+        cmn_prefix_to_string(&rtm_gateway, &gateway_str),
+        oif ? oif->if_name.c_str() : "-",
+        metric,
+        rtm_nh_action_to_string(RTM_NH_ACTION_FORWARD),
+        rtm_proto_to_string(RTM_PROTO_ISIS),
+        rtm_sub_proto_to_string(RTM_PROTO_L1_ISIS_INT));
 
     cp_rtm_install_route_advanced (
         rtm,
@@ -428,14 +442,29 @@ isis_rt_ipv4_route_del(
     uint32_t metric)
 {
 
-    node_t *node = node_info->vrf->node;
+    char prefix_str[48];
+    char gateway_str[48];
     rtm_t *rtm = node_info->vrf->inet0;
     cmn_prefix_t rtm_prefix, rtm_gateway;
 
     cmn_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
-    cmn_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
 
     if (gw_ip || oif) {
+
+        cmn_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
+
+        tracer (ISIS_TR(node_info), TR_ISIS_ROUTE,
+            "%s : RTM Uninstall  vrf=%s route=%s nexthop=%s oif=%s metric=%u "
+            "action=%s proto=%s/%s\n",
+            ISIS_ROUTE,
+            node_info->vrf->vrf_name,
+            cmn_prefix_to_string(&rtm_prefix, &prefix_str),
+            gw_ip ? cmn_prefix_to_string(&rtm_gateway, &gateway_str) : "-",
+            oif ? oif->if_name.c_str() : "-",
+            metric,
+            rtm_nh_action_to_string(RTM_NH_ACTION_FORWARD),
+            rtm_proto_to_string(RTM_PROTO_ISIS),
+            rtm_sub_proto_to_string(RTM_PROTO_L1_ISIS_INT));
 
         cp_rtm_uninstall_route_advanced (
             rtm,
@@ -450,6 +479,14 @@ isis_rt_ipv4_route_del(
             NULL, 0, 0);
         return;
     }
+
+    tracer (ISIS_TR(node_info), TR_ISIS_ROUTE,
+        "%s : RTM Uninstall All NHs  vrf=%s route=%s proto=%s/%s\n",
+        ISIS_ROUTE,
+        node_info->vrf->vrf_name,
+        cmn_prefix_to_string(&rtm_prefix, &prefix_str),
+        rtm_proto_to_string(RTM_PROTO_ISIS),
+        rtm_sub_proto_to_string(RTM_PROTO_L1_ISIS_INT));
 
     cp_rtm_uninstall_route_by_proto(rtm, 
             &rtm_prefix, 
@@ -508,7 +545,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
 
             nexthop = spf_result->nexthops[i];
 
-            if (!nexthop) break;
+            if (!nexthop) continue;
 
             tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
                         ISIS_ROUTE,
@@ -570,7 +607,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
                         for (i = 0; i < MAX_NXT_HOPS; i++){
                             
                             nexthop = spf_result->nexthops[i];
-                            if (!nexthop) break;
+                            if (!nexthop) continue;
 
                             tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
@@ -610,7 +647,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
                         for (i = 0; i < MAX_NXT_HOPS; i++){
 
                             nexthop = spf_result->nexthops[i];
-                            if (!nexthop) break;
+                            if (!nexthop) continue;
 
                             tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Replaced %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
@@ -632,7 +669,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
                     for (i = 0; i < MAX_NXT_HOPS; i++) {
 
                         nexthop = spf_result->nexthops[i];
-                        if (!nexthop) break;
+                        if (!nexthop) continue;
 
                         tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : ECMP Route Add %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,

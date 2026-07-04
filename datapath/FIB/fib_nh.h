@@ -48,6 +48,12 @@ typedef struct fib_nh_fwd_info_ {
             uint8_t v6segment_lst[MAX_LBL_DEPTH][16];
         } v6_fwd;
 
+        /* GRE Tunnel Encap */
+        struct {
+            cmn_prefix_t gre_tunnel_src;
+            cmn_prefix_t gre_tunnel_dst;
+        } gre_fwd;
+
     }u;                             /* offset 48, now 8-byte aligned */
 
 }  fib_nh_fwd_info_t;

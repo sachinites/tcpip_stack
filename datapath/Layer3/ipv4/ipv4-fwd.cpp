@@ -10,6 +10,7 @@
 #include "../../dp_ctx.h"
 #include "../../dp_utils.h"
 #include "../../Vrfs/dp_vrf.h"
+#include "../../dp_uapi.h"
 #include "../../Interface/dp_intf.h"
 #include "../../../libs/pkt-block/pkt_mbuf.h"
 
@@ -285,9 +286,32 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                            "VRF %s: Pkt : %s : Pkt is being subjected to GRE Decapsulation, Tunnel key : [%s, %s]\n", 
                            vrf->vrf_name, dest_ip_addr, gre_t_src_addr, gre_t_dst_addr);
 
-                    // FIX ME
-                    gre_decapsulate (dp_ctx, vrf, mbuf, NULL
-                            /*gre_lookup_tunnel_intf (node, htonl(ip_hdr->dst_ip), htonl(ip_hdr->src_ip))*/);
+                    gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt_mbuf_get_pkt(mbuf, NULL);
+                    pkt_mbuf_slide(mbuf, -1, 1,
+                                    (uint16_t)sizeof (gre_hdr_t));
+                    
+
+                    switch (ntohs(gre_hdr->protocol_type)) {
+
+                        case ETH_TYPE_IPv4:
+                        {
+                            pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_IP_IN_IP);
+                            tracer(dp_ctx->dptr, DTUNNEL | DFLOW,
+                                   "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_mbuf_str(mbuf));
+                            layer3_ip_route_pkt(dp_ctx, vrf, interface, mbuf);
+                        }
+                        break;
+
+                        case ETH_TYPE_GRE:
+                        {
+                            pkt_mbuf_update_new_hdr_type (mbuf, ETHERNET_HEADER);
+                            tracer(dp_ctx->dptr, DTUNNEL | DFLOW,
+                                   "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_mbuf_str(mbuf));
+                            dp_pkt_entry_point(dp_ctx, vrf, interface, mbuf);
+                        }
+                        break;
+                    }
+
                     return;
                 }
                 default: ;
@@ -419,6 +443,20 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     tracer (dp_ctx->dptr, DL3FWD, 
         "VRF %s: Dest : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", vrf->vrf_name, dest_ip_addr);
 
+    /* Check if GRE encapsulation is required */
+    if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_TUNNEL) {
+
+        uint16_t encap_proto = gre_encasulate(mbuf, 
+                      &nh->fwd_info->u.gre_fwd.gre_tunnel_src, 
+                      &nh->fwd_info->u.gre_fwd.gre_tunnel_dst);
+
+        tracer (dp_ctx->dptr, DL3FWD, 
+            "VRF %s: Pkt is GRE encapsulated to Tunnel end point %s\n",
+            vrf->vrf_name,
+            tcp_ip_covert_ip_n_to_p(nh->fwd_info->u.gre_fwd.gre_tunnel_dst.u.v4_addr, (c_string)dest_ip_addr),
+            proto_id_str(encap_proto));
+    }
+    
     dp_demote_pkt_to_layer2(dp_ctx, 
             vrf, 
             next_hop_ip,
@@ -602,10 +640,15 @@ dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *mbuf) {
 
     // Src IP may or may not be set already. If not set, we will determine it
     //assert (ip_hdr->src_ip);
+
     if (!ip_hdr->dst_ip) {
+
         tracer (dp_ctx->dptr, DL3FWD | DERR, 
             "Error : Dst IP address could not be determined, cannot send the pkt\n");
-        cprintf ("Error : Dst IP address could not be determined, cannot send the pkt\n");
+
+        cprintf ("Error : %s : Dst IP address could not be determined, cannot send the pkt\n", 
+            dp_ctx->ctx_name);
+
         return;
     }
 
