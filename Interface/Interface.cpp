@@ -946,7 +946,8 @@ bool GRETunnelInterface::IsGRETunnelActive()
                 this->config_flags & GRE_TUNNEL_SRC_INTF_SET) &&
         (this->config_flags & GRE_TUNNEL_DST_ADDR_SET) &&
             (this->config_flags & GRE_TUNNEL_OVLAY_IP_SET) &&
-            this->is_up)
+            this->is_up &&
+            this->vrf)
     {
         rc = true;
     }
@@ -965,11 +966,11 @@ bool GRETunnelInterface::IsGRETunnelActive()
 static void
 gre_tunnel_update_local_v4_routes(GRETunnelInterface *gre_intf) {
 
-    if (gre_intf->is_up && gre_intf->IsIpConfigured()) {
+    if (gre_intf->IsGRETunnelActive() && gre_intf->IsIpConfigured()) {
         if (!gre_intf->rtm_local_rt_idx || !gre_intf->rtm_connected_rt_idx) {
             interface_install_local_v4_routes(gre_intf->att_node, gre_intf);
         }
-    } else if (!gre_intf->is_up) {
+    } else if (gre_intf->rtm_local_rt_idx || gre_intf->rtm_connected_rt_idx) {
         interface_uninstall_local_v4_routes(gre_intf->att_node, gre_intf);
     }
 }
@@ -995,14 +996,16 @@ gre_tunnel_effective_src_ip(GRETunnelInterface *gre_intf) {
 static void
 gre_tunnel_cp2dp_sync_attrs(GRETunnelInterface *gre_intf) {
 
+    bool tunnel_up = gre_intf->IsGRETunnelActive();
+
     cp2dp_send_intf_gre_tunnel_update(
         gre_intf->att_node,
         gre_intf->ifindex,
-        gre_intf->lcl_ip,
-        gre_intf->mask,
+        tunnel_up ? gre_intf->lcl_ip : 0,
+        tunnel_up ? gre_intf->mask : 0,
         gre_tunnel_effective_src_ip(gre_intf),
         gre_intf->tunnel_dst_ip,
-        gre_intf->IsGRETunnelActive());
+        tunnel_up);
 }
 
 bool GRETunnelInterface::SetTunnelSource(PhysicalInterface *interface)
@@ -1039,7 +1042,6 @@ bool GRETunnelInterface::SetTunnelSource(PhysicalInterface *interface)
         this->config_flags &= ~GRE_TUNNEL_SRC_INTF_SET;
         gre_deactivate_tunnel();
     }
-    gre_tunnel_cp2dp_sync_attrs(this);
     return true;
 }
 
@@ -1056,7 +1058,6 @@ GRETunnelInterface::SetTunnelDestination(uint32_t ip_addr)
         this->config_flags &= ~GRE_TUNNEL_DST_ADDR_SET;
         gre_deactivate_tunnel ();
     }
-    gre_tunnel_cp2dp_sync_attrs(this);
 }
 
 void 
@@ -1085,7 +1086,6 @@ GRETunnelInterface::SetTunnelSrcIp(uint32_t src_addr)
     this->tunnel_src_ip = src_addr;
     this->config_flags |= GRE_TUNNEL_SRC_ADDR_SET;
     gre_tunnel_check_and_activate_tunnel ();
-    gre_tunnel_cp2dp_sync_attrs(this);
 }
 
 void
@@ -1097,7 +1097,6 @@ GRETunnelInterface::UnSetTunnelSrcIp()
         this->config_flags &= ~GRE_TUNNEL_SRC_ADDR_SET;
         gre_deactivate_tunnel ();
     }
-    gre_tunnel_cp2dp_sync_attrs(this);
 }
 
 void 
@@ -1108,12 +1107,10 @@ GRETunnelInterface::InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) {
         if (ip_addr == 0 ) {
             this->config_flags &= ~GRE_TUNNEL_OVLAY_IP_SET;
             gre_deactivate_tunnel ();
-            gre_tunnel_cp2dp_sync_attrs(this);
             return;
         }
         this->config_flags |= GRE_TUNNEL_OVLAY_IP_SET;
         gre_tunnel_check_and_activate_tunnel ();
-        gre_tunnel_cp2dp_sync_attrs(this);
     }
     
 void 
@@ -1202,34 +1199,20 @@ GRETunnelInterface::IsCrossReferenced()
 void 
 GRETunnelInterface::gre_tunnel_check_and_activate_tunnel () {
 
-    gre_tunnel_update_local_v4_routes(this);
-
-    /* Already activated — refresh datapath attrs (e.g. admin up retry). */
-    if (this->is_active) {
-        gre_tunnel_cp2dp_sync_attrs(this);
-        return;
+    if (this->is_active && !this->IsGRETunnelActive()) {
+        this->is_active = false;
+    } else if (!this->is_active && this->IsGRETunnelActive()) {
+        this->is_active = true;
     }
 
-    /* Not in a state to be activated, return*/
-    if (!this->IsGRETunnelActive()) return;
-
-    /* Now Activate */
-    this->is_active = true;
-
-    cp2dp_send_intf_admin_status_update (this->att_node, this->ifindex, false);
-    cp2dp_send_intf_ipv4_addr_update(this->att_node, this->ifindex, this->lcl_ip, this->mask);
+    gre_tunnel_update_local_v4_routes(this);
     gre_tunnel_cp2dp_sync_attrs(this);
 }
 
 void 
 GRETunnelInterface::gre_deactivate_tunnel () {
 
-    if (this->is_active) {
-        this->is_active = false;
-        cp2dp_send_intf_admin_status_update (this->att_node, this->ifindex, true);
-        cp2dp_send_intf_ipv4_addr_update(this->att_node, this->ifindex, 0, 0);
-    }
-
+    this->is_active = false;
     gre_tunnel_update_local_v4_routes(this);
     gre_tunnel_cp2dp_sync_attrs(this);
 }

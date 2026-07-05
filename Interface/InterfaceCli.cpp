@@ -343,14 +343,17 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
 
             interface->InterfaceGetIpAddressMask(&intf_ip_addr, &mask);
 
-            /* Install local routes in RIB if interface goes up */
-            if (interface->is_up && interface->IsIpConfigured()) {
-                interface_install_local_v4_routes  (node, interface);
-                interface_install_local_v6_routes  (node, interface);
-            }
-            else if (!interface->is_up && interface->IsIpConfigured()) {
-                interface_uninstall_local_v4_routes  (node, interface);
-                interface_uninstall_local_v6_routes  (node, interface);
+            /* Install local routes in RIB if interface goes up.
+             * GRE tunnels install routes only when fully activated. */
+            if (interface->iftype != INTF_TYPE_GRE_TUNNEL) {
+                if (interface->is_up && interface->IsIpConfigured()) {
+                    interface_install_local_v4_routes  (node, interface);
+                    interface_install_local_v6_routes  (node, interface);
+                }
+                else if (!interface->is_up && interface->IsIpConfigured()) {
+                    interface_uninstall_local_v4_routes  (node, interface);
+                    interface_uninstall_local_v6_routes  (node, interface);
+                }
             }
 
             if (minor_code) {
@@ -366,7 +369,6 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 } else {
                     gre_intf->gre_deactivate_tunnel();
                 }
-                gre_intf->gre_tunnel_sync_dp_attrs();
             }
         }
         break;

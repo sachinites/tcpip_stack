@@ -64,6 +64,8 @@ class TransportService;
 /*
   node->intf_by_name
   node->intf_by_ifindex  
+  //default_vrf->intf_by_name
+  //default_vrf->intf_by_ifindex  
 */
 #define GRE_IF_REFCOUNT 2
 

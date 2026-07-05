@@ -327,7 +327,7 @@ interface_uninstall_local_v4_routes (node_t *node, Interface  *intf) {
     uint32_t ip_addr;
     rtm_t *rtm;
     
-    if (!intf) return;
+    if (!intf || !intf->vrf) return;
     
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
     rtm = rtm_get (node, intf->vrf->vrf_id, AF_IPV4, 0);

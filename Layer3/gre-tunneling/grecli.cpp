@@ -30,7 +30,9 @@ gre_tunnel_config_handler (int64_t cmdcode,
     c_string intf_ip_addr = NULL;
     uint8_t mask = 0;
     c_string if_name = NULL;
+    c_string vrf_name = NULL;
     Interface *tunnel;
+    vrf_t *vrf;
     char intf_name[IF_NAME_SIZE];
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
@@ -51,6 +53,8 @@ gre_tunnel_config_handler (int64_t cmdcode,
             if_name = tlv->value;
         else if  (parser_match_leaf_id (tlv->leaf_id, "if-up-down"))
             if_up_down = tlv->value; 
+        else if  (parser_match_leaf_id (tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value; 
 
     } TLV_LOOP_END;
 
@@ -133,7 +137,39 @@ gre_tunnel_config_handler (int64_t cmdcode,
                 default:
                     ;
             }
-        break;             
+        break;          
+
+        case CMDCODE_CONF_INTF_VRF:
+
+            switch (enable_or_disable) {
+
+                case CONFIG_ENABLE:
+                    vrf = vrf_get_by_name (node, (char *)vrf_name);
+                    if (!vrf) {
+                        cprintf ("Error : %s : Non-existing VRF specified\n", node->node_name);
+                        return -1;
+                    }
+                    /* Add to VRF and global maps */
+                    if (!vrf_add_interface(vrf, tunnel)) {
+                        cprintf("Error : %s: Failed to add GRE tunnel to VRF\n", node->node_name);
+                        return -1;
+                    }
+                    break;
+                case CONFIG_DISABLE:
+                    vrf = vrf_get_by_name (node, (char *)vrf_name);
+                    if (!vrf) {
+                        cprintf ("Error : %s : Non-existing VRF specified\n", node->node_name);
+                        return -1;
+                    }
+                    /* Add to VRF and global maps */
+                    if (!vrf_del_interface(vrf, tunnel)) {
+                        cprintf("Error : %s: Failed to del GRE tunnel from VRF\n", node->node_name);
+                        return -1;
+                    }
+                    break;
+                default: ;
+            }
+        break;
 
         case CMDCODE_CONF_INTF_UP_DOWN:
         {
@@ -147,7 +183,6 @@ gre_tunnel_config_handler (int64_t cmdcode,
                 if (tunnel->is_up == true) {
                     cp2dp_send_intf_admin_status_update(node, tunnel->ifindex, false);
                     tunnel_intf->gre_tunnel_check_and_activate_tunnel();
-                    tunnel_intf->gre_tunnel_sync_dp_attrs();
                     return 0;
                 }
 
@@ -158,7 +193,6 @@ gre_tunnel_config_handler (int64_t cmdcode,
                 tunnel->is_up = true;
                 cp2dp_send_intf_admin_status_update(node, tunnel->ifindex, false);
                 tunnel_intf->gre_tunnel_check_and_activate_tunnel();
-                tunnel_intf->gre_tunnel_sync_dp_attrs();
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
                     update_data, sizeof (*update_data), true,  ips_free_ipc_interface_cbk);
             }

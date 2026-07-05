@@ -40,6 +40,8 @@ typedef enum ips_msg_code_ {
     #define IPC_INTERFACE_L2MODE_UPDATE   (1 << 17)
     #define IPC_INTERFACE_ACCESS_VLAN_UPDATE    (1 << 18)
     #define IPC_INTERFACE_TSP_UPDATE (1 << 19)
+    #define IPC_INTERFACE_VRF_ADD (1 << 20)
+    #define IPC_INTERFACE_VRF_DEL (1 << 21)
 
     IPC_GRE_TUNNEL,
     #define IPC_GRE_TUNNEL_ADD 1

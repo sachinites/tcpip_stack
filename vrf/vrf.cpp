@@ -8,6 +8,8 @@
 #include "../RTM/rtm.h"
 #include "../datapath/FIB/fib.h"
 #include "../Interface/InterfaceUApi.h"
+#include "../Interface/Interface.h"
+#include "../Interface/InterfacEnums.h"
 #include "../net.h"
 #include "../dpal/cp2dp.h"
 
@@ -127,6 +129,11 @@ bool vrf_add_interface(vrf_t *vrf, Interface* intf) {
     if (vrf_interface_insert(vrf, intf)) {
         intf->vrf = vrf;
         cp2dp_vrf_add_interface(vrf->node, vrf->vrf_id, intf->ifindex);
+        if (intf->iftype == INTF_TYPE_GRE_TUNNEL) {
+            GRETunnelInterface *gre_intf =
+                dynamic_cast<GRETunnelInterface *>(intf);
+            gre_intf->gre_tunnel_check_and_activate_tunnel();
+        }
         return true;
     }
 
@@ -146,6 +153,12 @@ bool vrf_del_interface(vrf_t *vrf, Interface *intf) {
 
     const char *ifname = intf->if_name.c_str();
     uint32_t ifindex = intf->ifindex;
+
+    if (intf->iftype == INTF_TYPE_GRE_TUNNEL) {
+        GRETunnelInterface *gre_intf =
+            dynamic_cast<GRETunnelInterface *>(intf);
+        gre_intf->gre_deactivate_tunnel();
+    }
 
     if (vrf_interface_delete_by_name(vrf, ifname)) {
         intf->vrf = NULL;
