@@ -295,7 +295,7 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
     dp_pkt_trap_l3(dp_ctx, &iif->trap_rule_table, mbuf);
     
      /* Unconditionally distribute pkt-copy to interested applications */
-     cp_punt_pkt_from_layer2_to_layer5(
+    cp_punt_pkt_from_layer2_to_layer5(
                      dp_ctx->ctx_pvt_data, 
                      iif->port_id, 
                      mbuf,

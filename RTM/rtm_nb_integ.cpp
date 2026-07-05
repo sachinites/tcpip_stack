@@ -1156,11 +1156,40 @@ cp_rtm_uninstall_route_advanced (
     }
 
     /* Set outgoing interface if provided */
-    if (oif) {
+    /* Set outgoing interface if provided */
+    if (oif != nullptr) {
+
         nh_template.oif = oif->ifindex;
+        GRETunnelInterface *gre_tunnel = NULL;
+
+        switch (oif->iftype) {
+
+            case INTF_TYPE_GRE_TUNNEL:
+                assert (nh_template.action == RTM_NH_ACTION_TUNNEL);
+                nh_template.is_indirect = true;
+                nh_template.is_resolved = false;
+                gre_tunnel = dynamic_cast<GRETunnelInterface *>(oif.get());
+                cmn_prefix_initialize_v4(&nh_template.u.gre_tunnel.gre_tunnel_src, gre_tunnel->tunnel_src_ip, 32);
+                cmn_prefix_initialize_v4(&nh_template.u.gre_tunnel.gre_tunnel_dst, gre_tunnel->tunnel_dst_ip, 32);
+                break;
+
+            default:
+                nh_template.is_indirect = false;
+                nh_template.is_resolved = true;
+                break;
+        }
+    }
+    
+    else if (nh_template.action == RTM_NH_ACTION_REJECT || 
+             nh_template.action == RTM_NH_ACTION_DISCARD) {
         nh_template.is_indirect = false;
-    } else {
+        nh_template.is_resolved = true;
+    }
+
+    else {
+        /* No interface means indirect route (requires resolution) */
         nh_template.is_indirect = true;
+        nh_template.is_resolved = false;
     }
 
     /* Create protocol info */

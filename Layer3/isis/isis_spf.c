@@ -9,6 +9,7 @@
 #include "../../RTM/rtm_enums.h"
 #include "../../RTM/rtm_nb_integ.h"
 #include "../../RTM/rtm_route.h"
+#include "../../RTM/rtm_enums.h"
 #include "../../Layer3/SegmentRouting/SRv6/cp/srv6_rtm.h"
 
 void
@@ -123,13 +124,24 @@ isis_rt_ipv6_route_add(
         cmn_prefix_initialize_v6 (&rtm_gateway, &gw_ip->addr, 128);
     }
 
+    RTM_NH_ACTION_TYPE_T action = RTM_NH_ACTION_FORWARD;
+
+    switch (oif->iftype) {
+
+        case INTF_TYPE_GRE_TUNNEL:
+            action = RTM_NH_ACTION_TUNNEL;
+            break;
+        default: 
+            break;
+    }
+
     cp_rtm_install_route_advanced (
         rtm,
         &rtm_prefix,
         RTM_PROTO_ISIS,
         RTM_PROTO_L1_ISIS_INT,
         0,
-        RTM_NH_ACTION_FORWARD,
+        action,
         metric,
         &rtm_gateway,
         oif->GetSharedPtr(), 
@@ -161,6 +173,20 @@ isis_rt_ipv6_route_del(
         cmn_prefix_initialize_v6(&rtm_gateway, &gw_ip->addr, 128);
     }
 
+    RTM_NH_ACTION_TYPE_T action = RTM_NH_ACTION_FORWARD;
+
+    if (oif) {
+
+        switch (oif->iftype) {
+
+            case INTF_TYPE_GRE_TUNNEL:
+                action = RTM_NH_ACTION_TUNNEL;
+                break;
+            default: 
+                break;
+        }
+    }
+
     if (gw_ip || oif) {
 
         cp_rtm_uninstall_route_advanced (
@@ -169,10 +195,10 @@ isis_rt_ipv6_route_del(
             RTM_PROTO_ISIS,
             RTM_PROTO_L1_ISIS_INT,
             0,
-            RTM_NH_ACTION_FORWARD,
+            action,
             metric,
             &rtm_gateway,
-            oif->GetSharedPtr(), 
+            oif ? oif->GetSharedPtr() : 0, 
             NULL, 0, 0);
         
             return;
@@ -405,6 +431,21 @@ isis_rt_ipv4_route_add(
 
     cmn_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
     cmn_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
+    RTM_NH_ACTION_TYPE_T action = RTM_NH_ACTION_FORWARD;
+
+    switch (oif->iftype) {
+
+        case INTF_TYPE_GRE_TUNNEL:
+        {
+            action = RTM_NH_ACTION_TUNNEL;
+            /* Overwrite gateway to tunnel Destination Address */
+            GRETunnelInterface *gre_intf = dynamic_cast<GRETunnelInterface *>(oif);
+            cmn_prefix_initialize_v4 (&rtm_gateway, gre_intf->tunnel_dst_ip, 32);
+        }
+        break;
+        default:
+            break;
+    }
 
     tracer (ISIS_TR(node_info), TR_ISIS_ROUTE,
         "%s : RTM Install  vrf=%s route=%s nexthop=%s oif=%s metric=%u "
@@ -415,7 +456,7 @@ isis_rt_ipv4_route_add(
         cmn_prefix_to_string(&rtm_gateway, &gateway_str),
         oif ? oif->if_name.c_str() : "-",
         metric,
-        rtm_nh_action_to_string(RTM_NH_ACTION_FORWARD),
+        rtm_nh_action_to_string(action),
         rtm_proto_to_string(RTM_PROTO_ISIS),
         rtm_sub_proto_to_string(RTM_PROTO_L1_ISIS_INT));
 
@@ -425,7 +466,7 @@ isis_rt_ipv4_route_add(
         RTM_PROTO_ISIS,
         RTM_PROTO_L1_ISIS_INT,
         0,
-        RTM_NH_ACTION_FORWARD,
+        action,
         metric,
         &rtm_gateway,
         oif->GetSharedPtr(), 
@@ -449,6 +490,20 @@ isis_rt_ipv4_route_del(
 
     cmn_prefix_initialize_v4 (&rtm_prefix, prefix, mask);
 
+    RTM_NH_ACTION_TYPE_T action = RTM_NH_ACTION_FORWARD;
+
+    if (oif) {
+
+        switch (oif->iftype) {
+
+            case INTF_TYPE_GRE_TUNNEL:
+                action = RTM_NH_ACTION_TUNNEL;
+                break;
+            default: 
+                break;
+        }
+    }
+
     if (gw_ip || oif) {
 
         cmn_prefix_initialize_v4 (&rtm_gateway, gw_ip, 32);
@@ -462,7 +517,7 @@ isis_rt_ipv4_route_del(
             gw_ip ? cmn_prefix_to_string(&rtm_gateway, &gateway_str) : "-",
             oif ? oif->if_name.c_str() : "-",
             metric,
-            rtm_nh_action_to_string(RTM_NH_ACTION_FORWARD),
+            rtm_nh_action_to_string(action),
             rtm_proto_to_string(RTM_PROTO_ISIS),
             rtm_sub_proto_to_string(RTM_PROTO_L1_ISIS_INT));
 
@@ -472,10 +527,10 @@ isis_rt_ipv4_route_del(
             RTM_PROTO_ISIS,
             RTM_PROTO_L1_ISIS_INT,
             0,
-            RTM_NH_ACTION_FORWARD,
+            action,
             metric,
             &rtm_gateway,
-            oif->GetSharedPtr(), 
+            oif ? oif->GetSharedPtr():0,
             NULL, 0, 0);
         return;
     }

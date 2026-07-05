@@ -139,18 +139,26 @@ gre_tunnel_config_handler (int64_t cmdcode,
         {
             ipc_interface_t *update_data;
             uint32_t minor_code = 0;
+            GRETunnelInterface *tunnel_intf =
+                dynamic_cast<GRETunnelInterface *>(tunnel);
 
             if (string_compare(if_up_down, "up", strlen("up")) == 0){
 
-                if (tunnel->is_up == true) return 0;
+                if (tunnel->is_up == true) {
+                    cp2dp_send_intf_admin_status_update(node, tunnel->ifindex, false);
+                    tunnel_intf->gre_tunnel_check_and_activate_tunnel();
+                    tunnel_intf->gre_tunnel_sync_dp_attrs();
+                    return 0;
+                }
 
                 update_data = new ipc_interface_t;
                 update_data->intf = tunnel->GetSharedPtr();
                 SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_UP);
                 update_data->up_status = false;
                 tunnel->is_up = true;
-                GRETunnelInterface *tunnel_intf = dynamic_cast<GRETunnelInterface *>(tunnel);
+                cp2dp_send_intf_admin_status_update(node, tunnel->ifindex, false);
                 tunnel_intf->gre_tunnel_check_and_activate_tunnel();
+                tunnel_intf->gre_tunnel_sync_dp_attrs();
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
                     update_data, sizeof (*update_data), true,  ips_free_ipc_interface_cbk);
             }
@@ -162,9 +170,8 @@ gre_tunnel_config_handler (int64_t cmdcode,
                 SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_DOWN);
                 update_data->up_status = true;
                 update_data->intf = tunnel->GetSharedPtr();
+                tunnel->is_up = false;
                 cp2dp_send_intf_admin_status_update(node, tunnel->ifindex, true);
-                tunnel->is_up = true;
-                GRETunnelInterface *tunnel_intf = dynamic_cast<GRETunnelInterface *>(tunnel);
                 tunnel_intf->gre_deactivate_tunnel();
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
                     update_data, sizeof (*update_data), true,  ips_free_ipc_interface_cbk);

@@ -325,13 +325,22 @@ interface_uninstall_local_v4_routes (node_t *node, Interface  *intf) {
 
     uint8_t mask;
     uint32_t ip_addr;
+    rtm_t *rtm;
     
     if (!intf) return;
     
     intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
-    rtm_t *rtm = rtm_get (node, intf->vrf->vrf_id, AF_IPV4, 0);
-    cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_local_rt_idx);
-    cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_connected_rt_idx);
+    rtm = rtm_get (node, intf->vrf->vrf_id, AF_IPV4, 0);
+
+    if (intf->rtm_local_rt_idx) {
+        cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_local_rt_idx);
+        intf->rtm_local_rt_idx = 0;
+    }
+
+    if (intf->rtm_connected_rt_idx) {
+        cp_rtm_uninstall_route_by_idx(rtm, intf->rtm_connected_rt_idx);
+        intf->rtm_connected_rt_idx = 0;
+    }
 }
 
 /* Install ipv6 address with actual mask as Connected Route

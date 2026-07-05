@@ -743,6 +743,32 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                 }
                 break;
 
+                case CP2DP_CODE_INTF_GRE_TUNNEL:
+                {
+                    dp_intf_gre_tunnel_update_t *gre_upd =
+                        (dp_intf_gre_tunnel_update_t *)(msg + 1);
+                    char lcl_str[32];
+                    char src_str[32];
+                    char dst_str[32];
+
+                    tcp_ip_covert_ip_n_to_p(gre_upd->lcl_ip, (c_string)lcl_str);
+                    tcp_ip_covert_ip_n_to_p(gre_upd->tunnel_src_ip, (c_string)src_str);
+                    tcp_ip_covert_ip_n_to_p(gre_upd->tunnel_dst_ip, (c_string)dst_str);
+
+                    tracer(dp_ctx->dptr, DCONF,
+                        "Updating GRE tunnel on if_name=%s "
+                        "lcl=%s/%u src=%s dst=%s up=%u\n",
+                        intf->if_name, lcl_str, gre_upd->mask,
+                        src_str, dst_str, gre_upd->tunnel_up);
+
+                    intf->ip_addr = gre_upd->lcl_ip;
+                    intf->mask = gre_upd->mask;
+                    intf->gre_tunnel_src_ip = gre_upd->tunnel_src_ip;
+                    intf->gre_tunnel_dst_ip = gre_upd->tunnel_dst_ip;
+                    intf->is_tunnel_up = gre_upd->tunnel_up ? true : false;
+                }
+                break;
+
 
                 default:
                     tracer(dp_ctx->dptr, DCONF, 

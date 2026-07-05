@@ -357,6 +357,17 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
                     update_data, sizeof (*update_data), true, ips_free_ipc_interface_cbk);
             }
+
+            if (interface->iftype == INTF_TYPE_GRE_TUNNEL) {
+                GRETunnelInterface *gre_intf =
+                    dynamic_cast<GRETunnelInterface *>(interface);
+                if (interface->is_up) {
+                    gre_intf->gre_tunnel_check_and_activate_tunnel();
+                } else {
+                    gre_intf->gre_deactivate_tunnel();
+                }
+                gre_intf->gre_tunnel_sync_dp_attrs();
+            }
         }
         break;
 

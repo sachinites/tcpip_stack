@@ -5,6 +5,7 @@
 #include "../dp_ctx.h"
 #include "../../libs/Tracer/tracer.h"
 #include "../../tcp_ip_trace.h"
+#include "../../utils.h"
 #include "../../libs/common/cmn_prefix.h"
 #include "../../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 #include "../Interface/intf_cons.h"
@@ -54,6 +55,7 @@ dp_intf_update_code_str (uint16_t code) {
         case CP2DP_CODE_INTF_HOST_PATH:  return "HOST_PATH";
         case CP2DP_CODE_INTF_NVE:        return "NVE";
         case CP2DP_CODE_INTF_LOG_UPDATE: return "LOG_UPDATE";
+        case CP2DP_CODE_INTF_GRE_TUNNEL: return "GRE_TUNNEL";
         default:                          return "?";
     }
 }
@@ -217,6 +219,24 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                     case CP2DP_CODE_INTF_LOG_UPDATE:
                         if (dp_msg->data_size >= hdr_sz + sizeof(dp_intf_log_update_t)) {
                             tracer(dp_ctx->dptr, DCONF, "    intf_update: log_update\n");
+                        }
+                        break;
+                    case CP2DP_CODE_INTF_GRE_TUNNEL:
+                        if (dp_msg->data_size >= hdr_sz + sizeof(dp_intf_gre_tunnel_update_t)) {
+                            const dp_intf_gre_tunnel_update_t *u =
+                                (const dp_intf_gre_tunnel_update_t *)payload;
+                            char lcl_str[INET_ADDRSTRLEN];
+                            char src_str[INET_ADDRSTRLEN];
+                            char dst_str[INET_ADDRSTRLEN];
+
+                            tcp_ip_covert_ip_n_to_p(u->lcl_ip, (c_string)lcl_str);
+                            tcp_ip_covert_ip_n_to_p(u->tunnel_src_ip, (c_string)src_str);
+                            tcp_ip_covert_ip_n_to_p(u->tunnel_dst_ip, (c_string)dst_str);
+
+                            tracer(dp_ctx->dptr, DCONF,
+                                "    intf_update: gre_tunnel lcl=%s/%u src=%s dst=%s up=%u\n",
+                                lcl_str, (unsigned)u->mask, src_str, dst_str,
+                                (unsigned)u->tunnel_up);
                         }
                         break;
                     default:

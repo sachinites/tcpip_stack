@@ -756,7 +756,6 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
             "Pkt : %s : Recvd on L3 Interface %s, being protmoted to L3Fwding\n", 
             pkt_mbuf_str(mbuf), interface->if_name);
             
-        pkt_mbuf_set_ingress_intf(mbuf, interface);
         promote_pkt_to_layer2(dp_ctx, interface->vrf, interface, mbuf);
     }
 

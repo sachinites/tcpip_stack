@@ -17,6 +17,7 @@
 #include "../../FIB/fib_nh.h"
 #include "../Gre/gre-fwd.h"
 #include "../../Interface/dp_intf_log.h"
+#include "../../Interface/dp_intf_store.h"
 #include "../ping.h"
 
 extern int cprintf (const char* format, ...) ;
@@ -279,8 +280,8 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                                     (uint16_t)IP_HDR_LEN_IN_BYTES(ip_hdr));
 
                     pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_GRE);
-                    tcp_ip_covert_ip_n_to_p ( htonl (ip_hdr->dst_ip), (c_string)gre_t_src_addr);
-                    tcp_ip_covert_ip_n_to_p ( htonl (ip_hdr->src_ip), (c_string)gre_t_dst_addr);
+                    tcp_ip_covert_ip_n_to_p ( ntohl (ip_hdr->dst_ip), (c_string)gre_t_src_addr);
+                    tcp_ip_covert_ip_n_to_p ( ntohl (ip_hdr->src_ip), (c_string)gre_t_dst_addr);
 
                     tracer (dp_ctx->dptr, DL3FWD, 
                            "VRF %s: Pkt : %s : Pkt is being subjected to GRE Decapsulation, Tunnel key : [%s, %s]\n", 
@@ -290,24 +291,47 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     pkt_mbuf_slide(mbuf, -1, 1,
                                     (uint16_t)sizeof (gre_hdr_t));
                     
+                    dp_intf_t *gre_intf = dp_lookup_gre_tunnel_intf 
+                            (dp_ctx, 
+                            ntohl (ip_hdr->dst_ip), 
+                            ntohl (ip_hdr->src_ip));
+
+                    if (!gre_intf) {
+
+                        tracer (dp_ctx->dptr, DL3FWD | DTUNNEL | DERR, 
+                            "Error : VRF %s: Pkt : %s : GRE tunnel do not exist for Tunnel key : [%s, %s], Pkt Dropped\n",
+                            vrf->vrf_name, dest_ip_addr, gre_t_src_addr, gre_t_dst_addr );
+                            dp_ctx->pkt_dropped++;
+                        return;
+                    }
+
+                    if (!gre_intf->is_tunnel_up) {
+
+                        tracer (dp_ctx->dptr, DL3FWD | DTUNNEL | DERR, 
+                            "Error : VRF %s: Pkt : %s : GRE tunnel for Tunnel key : [%s, %s] is not Active, Pkt Dropped\n",
+                            vrf->vrf_name, dest_ip_addr, gre_t_src_addr, gre_t_dst_addr);
+                            gre_intf->recvd_pkt_dropped++;
+                        return;
+                    }
 
                     switch (ntohs(gre_hdr->protocol_type)) {
 
                         case ETH_TYPE_IPv4:
                         {
                             pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_IP_IN_IP);
-                            tracer(dp_ctx->dptr, DTUNNEL | DFLOW,
+                            tracer(dp_ctx->dptr, DTUNNEL_DET | DFLOW,
                                    "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_mbuf_str(mbuf));
-                            layer3_ip_route_pkt(dp_ctx, vrf, interface, mbuf);
+                            gre_intf->pkt_recv++;
+                            layer3_ip_route_pkt(dp_ctx, vrf, gre_intf, mbuf); // Pass an overlay tunnel interface here 
                         }
                         break;
 
                         case ETH_TYPE_GRE:
                         {
                             pkt_mbuf_update_new_hdr_type (mbuf, ETHERNET_HEADER);
-                            tracer(dp_ctx->dptr, DTUNNEL | DFLOW,
+                            tracer(dp_ctx->dptr, DTUNNEL_DET | DFLOW,
                                    "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_mbuf_str(mbuf));
-                            dp_pkt_entry_point(dp_ctx, vrf, interface, mbuf);
+                            dp_pkt_entry_point(dp_ctx, vrf, gre_intf,  mbuf);
                         }
                         break;
                     }

@@ -387,6 +387,7 @@ public:
     virtual bool IsCrossReferenced() final;
     void gre_tunnel_check_and_activate_tunnel ();
     void gre_deactivate_tunnel ();
+    void gre_tunnel_sync_dp_attrs ();
 } __attribute__((aligned(8)));
 
 

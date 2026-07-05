@@ -5,6 +5,7 @@
 #include "../../libs/BitOp/bitmap.h"
 
 #include "dp_intf.h"
+#include "dp_intf_store.h"
 #include "../Vrfs/dp_vrf.h"
 #include "../dp_ctx.h"
 
@@ -303,4 +304,24 @@ dp_remove_vlan_interface (hashtable_t *ht, uint16_t vlan_id) {
     uint32_t vlan_id_key = (uint32_t )vlan_id;
     dp_intf_t *intf = (dp_intf_t *)hashtable_remove(ht, (void *)&vlan_id_key);
     return intf;
+}
+
+/* Caution : Use of this API should be Avoidded in DP as it is O(n) loop*/
+dp_intf_t *
+dp_lookup_gre_tunnel_intf (dp_ctx_t *dp_ctx, 
+                           uint32_t tunnel_src, 
+                           uint32_t tunnel_dst) {
+
+    dp_intf_t * intf;
+
+    DP_FOR_ALL_INTF(dp_ctx, intf) {
+
+        if (intf->if_type != DP_INTF_TYPE_GRE_TUNNEL) continue;
+        if (intf->gre_tunnel_src_ip != tunnel_src) continue;
+        if (intf->gre_tunnel_dst_ip != tunnel_dst) continue;
+        return intf;
+
+    }DP_FOR_ALL_INTF_END;
+
+    return NULL;
 }

@@ -90,6 +90,15 @@ cp2dp_vrf_add_interface (node_t *node, uint8_t vrf_id, uint32_t ifindex);
 void 
 cp2dp_send_intf_ipv4_addr_update(node_t *node, uint32_t port_id, uint32_t ipv4_addr, uint8_t mask);
 
+void
+cp2dp_send_intf_gre_tunnel_update(node_t *node,
+                                  uint32_t port_id,
+                                  uint32_t lcl_ip,
+                                  uint8_t mask,
+                                  uint32_t tunnel_src_ip,
+                                  uint32_t tunnel_dst_ip,
+                                  bool tunnel_up);
+
 void 
 cp2dp_send_intf_ipv6_addr_update(node_t *node, uint32_t port_id, uint8_t ipv6_addr[16], uint8_t prefix_len);
 

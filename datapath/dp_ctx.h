@@ -95,6 +95,10 @@ typedef struct dp_ctx_ {
     mac_addr_t rmac;
     uint32_t rtr_id;
 
+    /* Pkt dropped because recipient interface do not exist,
+        ex : overlay tunnel do not exist */
+    uint32_t pkt_dropped;
+
     dp_vrf_t *default_vrf;
 
     /* Special interfaces (RMAC, VLAN flood, host path, SRv6 end, NVE) */

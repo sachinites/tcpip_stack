@@ -360,6 +360,40 @@ cp2dp_send_intf_ipv4_addr_update(node_t *node,
     cp2dp_submit(node, dp_msg, true);
 }
 
+void
+cp2dp_send_intf_gre_tunnel_update(node_t *node,
+                                  uint32_t port_id,
+                                  uint32_t lcl_ip,
+                                  uint8_t mask,
+                                  uint32_t tunnel_src_ip,
+                                  uint32_t tunnel_dst_ip,
+                                  bool tunnel_up) {
+
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_hdr_t *intf_msg;
+    dp_intf_gre_tunnel_update_t *gre_update;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) +
+                        sizeof(dp_intf_gre_tunnel_update_t);
+
+    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
+    intf_msg->port_id = port_id;
+    intf_msg->update_code = CP2DP_CODE_INTF_GRE_TUNNEL;
+
+    gre_update = (dp_intf_gre_tunnel_update_t *)(intf_msg + 1);
+    gre_update->lcl_ip = lcl_ip;
+    gre_update->mask = mask;
+    gre_update->tunnel_src_ip = tunnel_src_ip;
+    gre_update->tunnel_dst_ip = tunnel_dst_ip;
+    gre_update->tunnel_up = tunnel_up ? 1 : 0;
+
+    cp2dp_submit(node, dp_msg, true);
+}
+
 void 
 cp2dp_send_intf_ipv6_addr_update(node_t *node, uint32_t port_id, uint8_t ipv6_addr[16], uint8_t prefix_len) {
     

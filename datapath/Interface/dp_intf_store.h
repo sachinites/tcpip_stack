@@ -65,7 +65,7 @@ dp_look_up_interface_by_vlan_id (hashtable_t *ht, uint16_t vlan_id);
 void
 dp_insert_vlan_interface (hashtable_t *ht, dp_intf_t *intf);
 
-void
+dp_intf_t *
 dp_remove_vlan_interface (hashtable_t *ht, uint16_t vlan_id) ;
 
 #define DP_FOR_ALL_INTF(dp_ctx_ptr, intf_ptr) { \
@@ -73,5 +73,10 @@ dp_remove_vlan_interface (hashtable_t *ht, uint16_t vlan_id) ;
         if ((intf_ptr = dp_ctx_ptr->intf_table[i]) == NULL) continue;
 
 #define DP_FOR_ALL_INTF_END } }
+
+dp_intf_t *
+dp_lookup_gre_tunnel_intf (dp_ctx_t *dp_ctx, 
+                           uint32_t tunnel_src, 
+                           uint32_t tunnel_dst);
 
 #endif /* __DP_INTF_STORE__ */

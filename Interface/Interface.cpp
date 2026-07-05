@@ -962,8 +962,50 @@ bool GRETunnelInterface::IsGRETunnelActive()
     return rc;
 }
 
-bool 
-GRETunnelInterface::SetTunnelSource(PhysicalInterface *interface)
+static void
+gre_tunnel_update_local_v4_routes(GRETunnelInterface *gre_intf) {
+
+    if (gre_intf->is_up && gre_intf->IsIpConfigured()) {
+        if (!gre_intf->rtm_local_rt_idx || !gre_intf->rtm_connected_rt_idx) {
+            interface_install_local_v4_routes(gre_intf->att_node, gre_intf);
+        }
+    } else if (!gre_intf->is_up) {
+        interface_uninstall_local_v4_routes(gre_intf->att_node, gre_intf);
+    }
+}
+
+static uint32_t
+gre_tunnel_effective_src_ip(GRETunnelInterface *gre_intf) {
+
+    if (gre_intf->config_flags & GRE_TUNNEL_SRC_ADDR_SET) {
+        return gre_intf->tunnel_src_ip;
+    }
+
+    if ((gre_intf->config_flags & GRE_TUNNEL_SRC_INTF_SET) &&
+            gre_intf->tunnel_src_intf) {
+        uint32_t ip = 0;
+        uint8_t mask = 0;
+        gre_intf->tunnel_src_intf->InterfaceGetIpAddressMask(&ip, &mask);
+        return ip;
+    }
+
+    return 0;
+}
+
+static void
+gre_tunnel_cp2dp_sync_attrs(GRETunnelInterface *gre_intf) {
+
+    cp2dp_send_intf_gre_tunnel_update(
+        gre_intf->att_node,
+        gre_intf->ifindex,
+        gre_intf->lcl_ip,
+        gre_intf->mask,
+        gre_tunnel_effective_src_ip(gre_intf),
+        gre_intf->tunnel_dst_ip,
+        gre_intf->IsGRETunnelActive());
+}
+
+bool GRETunnelInterface::SetTunnelSource(PhysicalInterface *interface)
 {
 
     uint32_t ip_addr;
@@ -975,27 +1017,29 @@ GRETunnelInterface::SetTunnelSource(PhysicalInterface *interface)
         {
             return true;
         }
-	if (this->tunnel_src_intf &&
-		this->tunnel_src_intf != interface->GetSharedPtr()) {
-		    cprintf ("Error : Tunnel Src Interface %s already set\n",
-            this->tunnel_src_intf->if_name.c_str());
-		return false;
-	}
-        this->tunnel_src_intf = std::dynamic_pointer_cast
-            <PhysicalInterface>( interface->GetSharedPtr());
+        if (this->tunnel_src_intf &&
+            this->tunnel_src_intf != interface->GetSharedPtr())
+        {
+            cprintf("Error : Tunnel Src Interface %s already set\n",
+                    this->tunnel_src_intf->if_name.c_str());
+            return false;
+        }
+        this->tunnel_src_intf = std::dynamic_pointer_cast<PhysicalInterface>(interface->GetSharedPtr());
         interface->used_as_underlying_tunnel_intf++;
         this->config_flags |= GRE_TUNNEL_SRC_INTF_SET;
-        gre_tunnel_check_and_activate_tunnel ();
+        gre_tunnel_check_and_activate_tunnel();
     }
-    else {
-
-	if (this->tunnel_src_intf == NULL) return true;
-        PhysicalInterface *tunnel_src_intf = std::dynamic_pointer_cast<PhysicalInterface>(this->tunnel_src_intf ).get();
+    else
+    {
+        if (this->tunnel_src_intf == NULL)
+            return true;
+        PhysicalInterface *tunnel_src_intf = std::dynamic_pointer_cast<PhysicalInterface>(this->tunnel_src_intf).get();
         tunnel_src_intf->used_as_underlying_tunnel_intf--;
         this->tunnel_src_intf = nullptr;
         this->config_flags &= ~GRE_TUNNEL_SRC_INTF_SET;
-        gre_deactivate_tunnel ();
+        gre_deactivate_tunnel();
     }
+    gre_tunnel_cp2dp_sync_attrs(this);
     return true;
 }
 
@@ -1012,7 +1056,7 @@ GRETunnelInterface::SetTunnelDestination(uint32_t ip_addr)
         this->config_flags &= ~GRE_TUNNEL_DST_ADDR_SET;
         gre_deactivate_tunnel ();
     }
-
+    gre_tunnel_cp2dp_sync_attrs(this);
 }
 
 void 
@@ -1041,6 +1085,7 @@ GRETunnelInterface::SetTunnelSrcIp(uint32_t src_addr)
     this->tunnel_src_ip = src_addr;
     this->config_flags |= GRE_TUNNEL_SRC_ADDR_SET;
     gre_tunnel_check_and_activate_tunnel ();
+    gre_tunnel_cp2dp_sync_attrs(this);
 }
 
 void
@@ -1052,6 +1097,7 @@ GRETunnelInterface::UnSetTunnelSrcIp()
         this->config_flags &= ~GRE_TUNNEL_SRC_ADDR_SET;
         gre_deactivate_tunnel ();
     }
+    gre_tunnel_cp2dp_sync_attrs(this);
 }
 
 void 
@@ -1062,10 +1108,12 @@ GRETunnelInterface::InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) {
         if (ip_addr == 0 ) {
             this->config_flags &= ~GRE_TUNNEL_OVLAY_IP_SET;
             gre_deactivate_tunnel ();
+            gre_tunnel_cp2dp_sync_attrs(this);
             return;
         }
         this->config_flags |= GRE_TUNNEL_OVLAY_IP_SET;
         gre_tunnel_check_and_activate_tunnel ();
+        gre_tunnel_cp2dp_sync_attrs(this);
     }
     
 void 
@@ -1154,8 +1202,13 @@ GRETunnelInterface::IsCrossReferenced()
 void 
 GRETunnelInterface::gre_tunnel_check_and_activate_tunnel () {
 
-    /* Check if already activated */
-    if (this->is_active) return;
+    gre_tunnel_update_local_v4_routes(this);
+
+    /* Already activated — refresh datapath attrs (e.g. admin up retry). */
+    if (this->is_active) {
+        gre_tunnel_cp2dp_sync_attrs(this);
+        return;
+    }
 
     /* Not in a state to be activated, return*/
     if (!this->IsGRETunnelActive()) return;
@@ -1165,17 +1218,26 @@ GRETunnelInterface::gre_tunnel_check_and_activate_tunnel () {
 
     cp2dp_send_intf_admin_status_update (this->att_node, this->ifindex, false);
     cp2dp_send_intf_ipv4_addr_update(this->att_node, this->ifindex, this->lcl_ip, this->mask);
-    interface_install_local_v4_routes(this->att_node, this);
+    gre_tunnel_cp2dp_sync_attrs(this);
 }
 
 void 
 GRETunnelInterface::gre_deactivate_tunnel () {
 
-    if (!this->is_active) return;
-    this->is_active = false;
-    cp2dp_send_intf_admin_status_update (this->att_node, this->ifindex, true);
-    cp2dp_send_intf_ipv4_addr_update(this->att_node, this->ifindex, 0, 0);
-    interface_uninstall_local_v4_routes (this->att_node, this);
+    if (this->is_active) {
+        this->is_active = false;
+        cp2dp_send_intf_admin_status_update (this->att_node, this->ifindex, true);
+        cp2dp_send_intf_ipv4_addr_update(this->att_node, this->ifindex, 0, 0);
+    }
+
+    gre_tunnel_update_local_v4_routes(this);
+    gre_tunnel_cp2dp_sync_attrs(this);
+}
+
+void
+GRETunnelInterface::gre_tunnel_sync_dp_attrs() {
+
+    gre_tunnel_cp2dp_sync_attrs(this);
 }
 
 

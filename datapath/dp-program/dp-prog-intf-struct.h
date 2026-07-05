@@ -126,6 +126,19 @@ typedef struct dp_intf_acl_update_ {
 
 } dp_intf_acl_update_t;
 
+/* GRE tunnel overlay / encapsulation attributes */
+#define CP2DP_CODE_INTF_GRE_TUNNEL 21
+typedef struct dp_intf_gre_tunnel_update_ {
+
+    uint32_t lcl_ip;
+    uint32_t tunnel_src_ip;
+    uint32_t tunnel_dst_ip;
+    uint8_t  mask;
+    uint8_t  tunnel_up;
+    uint8_t  _pad[2];
+
+} dp_intf_gre_tunnel_update_t;
+
 typedef struct dp_intf_cp2dp_msg_ {
 
     uint32_t port_id;  // key

@@ -267,14 +267,17 @@ dp_print_interface(dp_intf_t *intf)
     } 
 
     /* Tunnel / overlay */
-    if (intf->gre_tunnel_dst_ip) {
-        struct in_addr tunnel_addr;
-        tunnel_addr.s_addr = intf->gre_tunnel_dst_ip;
-        char tunnel_str[32];
-        inet_ntop(AF_INET, &tunnel_addr, tunnel_str, sizeof(tunnel_str));
+    if (intf->if_type == DP_INTF_TYPE_GRE_TUNNEL) {
+
+        char tunnel_src_str[32];
+        char tunnel_dst_str[32];
+        tcp_ip_covert_ip_n_to_p(intf->gre_tunnel_src_ip, (c_string)tunnel_src_str);
+        tcp_ip_covert_ip_n_to_p(intf->gre_tunnel_dst_ip, (c_string)tunnel_dst_str);
         cprintf("\n  Tunnel Configuration:\n");
-        cprintf("    GRE Tunnel Dest  : %s\n", tunnel_str);
+        cprintf("    GRE Tunnel End Point  : [%s %s]\n", tunnel_src_str, tunnel_dst_str);
+        cprintf("    Is Active ? %s", intf->is_tunnel_up ? "Y" : "N");
     }
+
     if (intf->olay_tunnel_intf) {
         if (!intf->gre_tunnel_dst_ip) {
             cprintf("\n  Tunnel Configuration:\n");
