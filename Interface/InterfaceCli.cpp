@@ -26,7 +26,7 @@ extern int validate_mask_value(Stack_t *tlv_stack, c_string mask_str);
 
 void
 Interface_config_cli_common_subtree (param_t *if_name, 
-    int (*cbk) (int , Stack_t *, op_mode ), 
+    int (*cbk) (int64_t , Stack_t *, op_mode ), 
     uint64_t unsupported_configs);
 
 static int
@@ -958,7 +958,7 @@ intf_config_virtual_port_create_handler(int64_t cmdcode,
 
 void
 Interface_config_cli_common_subtree (param_t *if_name,  
-                    int (*cbk) (int , Stack_t *, op_mode ), 
+                    int (*cbk) (int64_t , Stack_t *, op_mode ), 
                     uint64_t unsupported_configs)
 {
     /* Each interface type (ethernet, GRE, vlan, loopback, ...) needs its own
@@ -1174,6 +1174,7 @@ Interface_config_cli_tree (param_t *root) {
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_VLAN;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL;
                     Interface_config_cli_common_subtree (&loname, intf_config_handler, unsupported_configs);
+                    libcli_param_list(&loname);
                 }
             }
 
@@ -1192,6 +1193,7 @@ Interface_config_cli_tree (param_t *root) {
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_METRIC;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_IP_ADDRESS;
                     Interface_config_cli_common_subtree (&vp_name, intf_config_handler, unsupported_configs);
+                    libcli_param_list(&vp_name);
                 }
             }
 
@@ -1206,6 +1208,7 @@ Interface_config_cli_tree (param_t *root) {
                     init_param(&nve_name, LEAF, 0, intf_config_handler, 0, STRING, "if-name", "NVE Interface Name");
                     libcli_register_param(&nve, &nve_name);
                     libcli_set_param_cmd_code(&nve_name, CMDCODE_INTF_CONFIG_NVE_CREATE);
+                    libcli_param_list(&nve_name);
                     
                     {
                         /*config node <node-name> interface nve <nve-name> member*/
@@ -1223,6 +1226,7 @@ Interface_config_cli_tree (param_t *root) {
                                 init_param(&vni_id, LEAF, 0, intf_config_handler, 0, INT, "vni-id", "VNI ID");
                                 libcli_register_param(&l2vni, &vni_id);
                                 libcli_set_param_cmd_code(&vni_id, CMDCODE_INTF_CONFIG_NVE_MEMBER_VNI);
+                                libcli_param_list(&vni_id);
                             }
                         }
                     }
@@ -1244,7 +1248,8 @@ Interface_config_cli_tree (param_t *root) {
                     uint64_t unsupported_configs = 0;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL;
                     Interface_config_cli_common_subtree (&if_name, intf_config_handler, unsupported_configs);
-		            libcli_support_cmd_negation(&if_name);                               
+		            libcli_support_cmd_negation(&if_name);             
+                    libcli_param_list(&if_name);                  
                 }
             }
             libcli_support_cmd_negation(&interface); 

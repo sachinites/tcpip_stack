@@ -1174,7 +1174,6 @@ nw_init_cli(){
                         static param_t vni;
                         init_param(&vni, CMD, "vni", 0, 0, INVALID, 0, "Show Mac Table for VNI");
                         libcli_register_param(&mac, &vni);
-                        libcli_param_list(&vni);
                         {
                             /* Value of vni */
                             static param_t vni_id;
@@ -1474,6 +1473,7 @@ nw_init_cli(){
         static param_t node_name;
         init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
         libcli_register_param(&node, &node_name);
+        libcli_param_list(&node_name);
         libcli_register_display_callback(&node_name, display_graph_nodes);
         {
             /* ACL CLIs are loaded */

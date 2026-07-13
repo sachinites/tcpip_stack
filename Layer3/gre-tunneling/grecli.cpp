@@ -219,7 +219,7 @@ gre_tunnel_config_handler (int64_t cmdcode,
 
 extern  void
 Interface_config_cli_common_subtree (param_t *if_name, 
-                int (*cbk) (int , Stack_t *, op_mode ), 
+                int (*cbk) (int64_t , Stack_t *, op_mode ), 
                 uint64_t unsupported_configs);
 
 /* conf node <node-name> interface ...*/
