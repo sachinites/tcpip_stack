@@ -48,7 +48,7 @@
 #include "RTM/rtm_nb_integ.h"
 #include "libs/common/cmn_prefix.h"
 #include "datapath/dp_uapi.h"
-
+#include "../RDBMSImplementation/uapi/sql_api.h"
 
 extern void cp_init_ipc_pub_sub(node_t *node);
 extern void rtm_dist_mgr_init (node_t *node);
@@ -255,6 +255,9 @@ Router_Create(graph_t *graph, const c_string node_name){
     tracer_enable_always_flush(node->dp_ctx->dptr, true);
     tracer_log_bit_set(node->dp_ctx->dptr, DCONF);
     
+    /* Initialize SQL Data base for Control plane Tables */
+    node->cp_rdbms = rdbms_create ();
+
     node->sequence_gen = 1;
     glthread_add_next(&graph->node_list, &node->graph_glue);
 

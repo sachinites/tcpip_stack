@@ -34,7 +34,7 @@ LFA_LIB_PATH=-LLayer3/LFA -llfa
 MEXPR_LIB=../MathExpressionParser/libMexpr.a
 MEXPR_LIB_PATH=-L../MathExpressionParser -lMexpr
 
-#DBMS Lib ( Make sure it is set to git branch 'reentrant' )
+#DBMS Lib ( Make sure it is set to git branch 'Generics' )
 DBMS_LIB=../RDBMSImplementation/SqlParser/libdbms.a
 DBMS_LIB_PATH=-L../RDBMSImplementation/SqlParser -ldbms
 
@@ -53,10 +53,11 @@ export LIBS=${ISIS_LIB_PATH} \
 			-Ldatapath -ldp \
 			-Llibs -lstd \
 			-LRTM -lrtm \
+			${DBMS_LIB_PATH} \
 			${MEXPR_LIB_PATH} \
 			${DBMS_LIB_PATH} \
 			-lpthread \
-       		 -lrt \
+       		-lrt \
  			-lfl \
 			-lm \
 			-lncurses \
@@ -101,6 +102,7 @@ OBJS=     router_init.o   \
 		  Layer3/SegmentRouting/SR-MPLS/srgb.o \
 		  ips_pub_sub_init.o \
 		  dpcp_cmn.o \
+		  sql_exec.o \
 		  
 lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
@@ -136,8 +138,8 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${MEXPR_LIB} ${DBMS_LIB} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a
-	${CC} ${CFLAGS} main.o ${OBJS}  ${LIBS} ${DPDK} -o tcpstack.exe
+tcpstack.exe:main.o ${OBJS} ${DBMS_LIB} ${MEXPR_LIB} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a
+	${CC} ${CFLAGS} main.o ${OBJS} ${LIBS} ${DPDK} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
 tcpip_notif.o:tcpip_notif.c
@@ -223,6 +225,9 @@ vrf/vrf_cli.o:vrf/vrf_cli.cpp
 	${CC} ${CFLAGS} -c vrf/vrf_cli.cpp -o vrf/vrf_cli.o 
 vrf/vrf.o:vrf/vrf.cpp
 	${CC} ${CFLAGS} -c vrf/vrf.cpp -o vrf/vrf.o 
+
+sql_exec.o:sql_exec.cpp
+	${CC} ${CFLAGS} -c sql_exec.cpp -o sql_exec.o
 
 #ipv6 files 
 Layer3/ipv6/ipv6cli.o:Layer3/ipv6/ipv6cli.cpp

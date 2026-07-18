@@ -198,6 +198,8 @@
 /* debug node <node-name> show cp-scheduler */
 #define CMDCODE_DEBUG_SHOW_CPS 82
 
+#define SQL_QUERY_CMD_CODE 83
+
 /* Flag to distinguish if the CLI typed should go to
   control plane scheduler or data plane scheduler*/
 #define CLI_F_CONTROL_PLANE 1

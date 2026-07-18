@@ -1361,6 +1361,22 @@ nw_init_cli(){
 						cli_register_cb_arr_run_node_node_name_protocol_level);
 			}
 
+            /* sql */
+            {
+                static param_t sql;
+                init_param(&sql, CMD, "sql", 0, 0, INVALID, 0, "SQL Commands");
+                libcli_register_param(&node_name, &sql);
+
+                {
+                    static param_t sql_q;
+                    init_param(&sql_q, LEAF, 0, sql_query_processing_cli_hander, NULL, STRING, "sql-token", "SQL Query");
+                    libcli_register_param(&sql, &sql_q);
+                    libcli_param_recursive (&sql_q);
+                    libcli_set_param_cmd_code(&sql_q, SQL_QUERY_CMD_CODE);
+                }		
+
+            }
+
             /* Mount ping6 CLI here*/
             ipv6_build_cli_run_tree (&node_name);
 

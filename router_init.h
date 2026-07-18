@@ -70,6 +70,7 @@ typedef struct prefix_lst_client_ prefix_lst_client_t;
 typedef struct acl_client_ acl_client_t;
 typedef struct acl_builder_ acl_builder_t;
 typedef struct ifm_ ifm_t;
+typedef struct rdbms_instance_ rdbms_t;
 
 struct node_ {
 
@@ -143,6 +144,8 @@ struct node_ {
     std::vector<prefix_lst_client_t *> prefix_lst_clients;
     /* Access-list change notification clients */
     std::vector<acl_client_t *> acl_clients;
+    /* CP SQL Database*/
+    rdbms_t *cp_rdbms;
 
     glthread_t graph_glue;
     /* Random Number Generator*/
