@@ -1,0 +1,61 @@
+Here we highlight the steps to make use of parser library in your project.
+
+When I say parser library , it means two files : Parser.l ( lex file ) and ParserExport.h . You can find both these files at top level Dir a.k.a ParserLib/ 
+
+We create a new Dir called ExampleUsage and copy paste both files Parser.l and ParserExport.h file in this dir again because we have to modify them slightly, so making copies again. 
+
+ExpressionParser.c/MexprEnums.h are files which represents and application which make use of Parser library files to write its parsing logic. As the name suggest, ExpressionParser.c file implements the parsic logic for Mathematical Expressions (fn E), Inequalities ( fn Q) and logical Expressions ( fn S). All applications must also provide header file which contains IDs for tokens. In this case, that file is MexprEnums.h 
+
+ParserLib :  Parser.l , ParserExport.h
+Application Files : ExpressionParser.c/MexprEnums.h 
+
+Steps to Integrate ParserLib in Application (ExpressionParser.c) :
+
+1. #include the application Enums hdr file (MexprEnums.h ) in Parser.l file.
+2. Write Regular expressions returning application token codes in Parser.l file 
+3. #include ParserExport.h file in application file which implements Parsing logic (ExpressionParser.c)
+
+Thats it. Integration is completed. 
+
+
+Thread Safety / Instance Model :
+
+The parser is fully instance based and thread-safe. All state that used to be
+global now lives inside a per-instance context object of type 'mexpr_parser_t'.
+The flex scanner is generated with '%option reentrant', so even the scanner's
+internal state is per-instance (reached through the opaque 'scanner' handle).
+
+Lifecycle of one parser instance :
+
+    mexpr_parser_t *p = mexpr_parser_create ();     // one per thread / per parse
+
+    strncpy ((char *)p->lex_buffer, input, sizeof (p->lex_buffer) - 1);
+    lex_set_scan_buffer (p, (const char *)p->lex_buffer);
+
+    parse_rc_t rc = S (p);        // or Q(p) / E(p)
+    // ... inspect p->undo_stack via ITERATE_LEX_STACK_BEGIN(p, ...) ...
+
+    Parser_stack_reset (p);       // reuse the same instance for the next parse
+    mexpr_parser_destroy (p);     // when done
+
+Every parser entry point (E, Q, S, ...) and helper (cyylex, yyrewind,
+RESTORE_CHKP, Parser_stack_reset, lex_set_scan_buffer, ...) now takes the
+'mexpr_parser_t *' as its first argument, and the macros (parse_init,
+CHECKPOINT, ITERATE_LEX_STACK_BEGIN, ...) expect a context named 'p' to be in
+scope. Because no state is shared between instances, multiple threads may parse
+concurrently as long as each thread uses its own instance.
+
+Note :
+If application is made up of multiple src files - src1.c, src2.c and all src
+files can #include ParserExport.h to write parsing logic. Each of these can
+operate on the same mexpr_parser_t instance (within one thread) or on distinct
+instances (across threads).
+
+Compilation :
+flex Parser.l
+g++ -g -c lex.yy.c -o lex.yy.o
+g++ -g -c ExpressionParser.c -o ExpressionParser.o
+g++ -g ExpressionParser.o lex.yy.o -o exe
+
+(The reentrant scanner uses %option noyywrap, so linking -lfl is no longer
+required.)

@@ -30,13 +30,9 @@ SRV6_LIB_PATH=-LLayer3/SegmentRouting/SRv6 -lsrv6
 LFA_LIB=Layer3/LFA/liblfa.a
 LFA_LIB_PATH=-LLayer3/LFA -llfa
 
-#MATH Expr Lib ( Make sure it is set to git branch 'reentrant' )
-MEXPR_LIB=../MathExpressionParser/libMexpr.a
-MEXPR_LIB_PATH=-L../MathExpressionParser -lMexpr
-
-#DBMS Lib ( Make sure it is set to git branch 'Generics' )
-DBMS_LIB=../RDBMSImplementation/SqlParser/libdbms.a
-DBMS_LIB_PATH=-L../RDBMSImplementation/SqlParser -ldbms
+#MATH Expr Lib / DBMS Lib (built via libs/Makefile)
+MEXPR_LIB_PATH=-Llibs/MathExpressionParser -lMexpr
+DBMS_LIB_PATH=-Llibs/RDBMSImplementation/SqlParser -ldbms
 
 DPDK=-I$HOME/OpenSrc-Codes/dpdk/build/include \
 	 -L$HOME/OpenSrc-Codes/dpdk/build/lib \
@@ -138,7 +134,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${DBMS_LIB} ${MEXPR_LIB} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a
 	${CC} ${CFLAGS} main.o ${OBJS} ${LIBS} ${DPDK} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -255,10 +251,6 @@ ${SRV6_LIB}:
 	(cd Layer3/SegmentRouting/SRv6; make)
 ${LFA_LIB}:
 	(cd Layer3/LFA; make)
-${MEXPR_LIB}:
-	(cd ../MathExpressionParser; make all)
-${DBMS_LIB}:
-	(cd ../RDBMSImplementation; make all)
 RTM/librtm.a:
 	(cd RTM; make)
 datapath/libdp.a:
@@ -300,8 +292,6 @@ cleanall:
 	(cd RTM; make clean)
 	(cd datapath; make clean)
 	(cd libs; make clean)
-	(cd ../RDBMSImplementation; make clean)
-	(cd ../MathExpressionParser; make clean)
 
 # Auto-generated header dependencies (-MMD -MP); only .o members of OBJS
 -include $(filter %.o,$(OBJS:.o=.d))

@@ -1,0 +1,16 @@
+A major number of public APis to the SQLite library are implemented in the main.c, legacy.c,
+and vdbeapi.c source files.
+
+List of public functions exposed by SQLite lib:
+https://www.sqlite.org/c3ref/funclist.html
+
+Tokenizer : 
+The tokenizer code is defined in the tokenize.c source file. Tokenizer submit the tokens generated to parser for further analysis.
+
+Parser :
+the parse.c implements the SQLite parser
+lemon.c --> Parser which generate SQLite parser code based on SQLite Grammar specified in parse.y
+
+parse.y--------------> lemon.c -------------------> parse.c
+(SQLite Rules/         Parser Gen                   SQLite parser
+Grammar)

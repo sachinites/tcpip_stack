@@ -7,9 +7,9 @@ CFLAGS = -g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes \
          -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 \
          -Wignored-qualifiers $(SANITIZER_FLAGS) ${DPDK_CFLAGS} -MMD -MP
 
-TARGET = libstd.a
-
-# Install external dependent libs:  sudo apt-get install libpq-dev
+TARGET_LIB = libstd.a 
+TARGET_MEXPR_LIB = MathExpressionParser/libMexpr.a 
+TARGET_DBMS_LIB = RDBMSImplementation/SqlParser/libdbms.a
 
 OBJS = std_lib_init.o 					  \
        BitOp/bitmap.o                     \
@@ -32,10 +32,18 @@ OBJS = std_lib_init.o 					  \
 	   common/cmn_prefix.o				 \
 	   pkt-block/pkt_mbuf.o
 
+.PHONY: all $(TARGET_MEXPR_LIB) $(TARGET_DBMS_LIB)
+all: $(TARGET_LIB) $(TARGET_MEXPR_LIB) $(TARGET_DBMS_LIB)
 
-$(TARGET): $(OBJS)
-	ar rcs $(TARGET) $(OBJS)
-	@echo "$(TARGET) Build Finished"
+$(TARGET_LIB): $(OBJS)
+	ar rcs $(TARGET_LIB) $(OBJS)
+	@echo "$(TARGET_LIB) Build Finished"
+
+$(TARGET_MEXPR_LIB):
+	cd MathExpressionParser && make
+
+$(TARGET_DBMS_LIB):
+	cd RDBMSImplementation/SqlParser && make
 
 std_lib_init.o:  std_lib_init.c 
 	$(CC) $(CFLAGS) -c std_lib_init.c -o std_lib_init.o
@@ -113,7 +121,7 @@ common/cmn_prefix.o:common/cmn_prefix.cpp
 	$(CC) $(CFLAGS) -c -I common common/cmn_prefix.cpp -o common/cmn_prefix.o
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET_LIB)
 	rm -f BitOp/*.o BitOp/*.d
 	rm -f c-hashtable/*.o c-hashtable/*.d
 	rm -f EventDispatcher/*.o EventDispatcher/*.d
@@ -130,8 +138,7 @@ clean:
 	rm -f Tree/*.o Tree/*.d
 	rm -f common/*.o common/*.d
 	rm -f *.o *.d
+	cd MathExpressionParser && make clean
+	cd RDBMSImplementation/SqlParser && make clean
 
 -include $(OBJS:.o=.d)
-
-all:
-	make

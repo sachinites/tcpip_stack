@@ -1,0 +1,25 @@
+Thanks to Glenn Lawyer for pointing out a Makefile fix for the tester example 
+code.
+
+Thanks to Holger Schemel for reminding me to actually free the hashtable in the 
+destroy function...
+Also for the hashtable_change function, now found in the hashtable utility 
+source.
+
+Thanks to John Muehlhausen for the iterator bug report - fixed 2003-03-19.
+
+Thanks to Leonid Nilva for feedback.
+
+Thanks to Mark Seneski for thoroughly reviewing my code, catching some of my 
+slips from best practice, and prompting me to finally get around to sizing the 
+table using prime numbers.
+Thanks due to Aaron Krowne for his table of prime numbers used to do this.
+http://planetmath.org/encyclopedia/GoodHashTablePrimes.html
+
+Thanks to A. B. M. Omar Faruk for spotting the bug in the sample code on the 
+web page, where the same key struct was used for insertion into the hashtable, 
+and then also for retrieval. Ownership of the key is claimed when it is 
+inserted.
+
+Christopher Clark <http://www.cl.cam.ac.uk/~cwc22/>
+Updated 29th April, 2007.

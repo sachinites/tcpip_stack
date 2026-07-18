@@ -1,0 +1,59 @@
+bitmap{
+    "git.ignoreMissingGitWarning": true,
+    "remote.SSH.remotePlatform": {
+        "192.168.226.136": "linux"
+    },
+    "terminal.integrated.fontFamily": "courier new",
+    "terminal.integrated.drawBoldTextInBrightColors": false,
+    "terminal.integrated.minimumContrastRatio": 4.5,
+    "workbench.colorTheme": "Default High Contrast",
+    "terminal.integrated.rightClickBehavior": "paste",
+    "terminal.integrated.copyOnSelection": true,
+    "git.ignoreLegacyWarning": true,
+    "editor.renderControlCharacters": true,
+    "editor.rulers": [
+        120
+    ],
+    "editor.fontFamily": "comicsans, serif, 'Courier New', Consolas, monospace",
+    "workbench.editor.untitled.hint": "hidden",
+    "editor.fontSize": 18,
+    "editor.wordWrap": "on",
+    "json.schemas": [
+    
+    ],
+    "files.exclude": {
+        "**/.o": true
+    },
+    "editor.mouseWheelZoom": true,
+    "editor.columnSelection": false,
+    "editor.lineNumbers": "on",
+    "editor.find.autoFindInSelection": "always",
+    "editor.autoClosingBrackets": "always",
+    "editor.fontLigatures": false,
+    "cSpell.userWords": [
+        "abhishek",
+        "begin",
+        "FEISTEL",
+        "get",
+        "glthread",
+        "head",
+        "iterate",
+        "LSPDB",
+        "reschd",
+        "sagar",
+        "slotlist",
+        "unconfig",
+        "wt",
+        "XCALLOC"
+    ],
+    "terminal.integrated.scrollback": 10000,
+    "files.autoSave": "afterDelay",
+    "terminal.integrated.tabs.location": "left",
+    "terminal.integrated.fontSize": 20,
+    "window.zoomLevel": 1,
+    "terminal.integrated.allowChords": false,
+    "terminal.integrated.environmentChangesRelaunch": false,
+    "terminal.integrated.enableMultiLinePasteWarning": false,
+    "editor.guides.indentation": false,
+    "editor.tabSize": 4,
+}
