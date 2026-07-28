@@ -80,12 +80,15 @@
 #include "rtm_resolution.h"
 #include "rtm_fib_interface.h"
 #include "rtm_priv_api.h"
+#include "rtm_nb_integ.h"
 #include "../router_init.h"
 #include "../tcp_ip_trace.h"
 #include "../libs/Tracer/tracer.h"
 #include "rtm_presentation.h"
 #include "rtm_gc.h"
 #include "../libs/common/mpls_lstack.h"
+#include "../libs/BitOp/bitsop.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
 
 /* ========================================================================
  * Nexthop ID Generation
@@ -145,6 +148,8 @@ rtm_nh_check_and_delete (rtm_t *rtm, rtm_nh *nh) {
     assert(!IS_QUEUED_UP_IN_THREAD(&nh->src_glue));
     assert(!avltree_node_is_inuse(&rtm->nhs_by_idx, &nh->idx_glue));
     assert(!IS_QUEUED_UP_IN_THREAD(&nh->advt_glue));
+    assert(!IS_QUEUED_UP_IN_THREAD(&nh->tnh_member_glue));
+    assert (nh->tnh == NULL);
     assert (nh->rtm_nh_proto == NULL);
     assert (nh->oif == 0);
     assert (nh->label_stack == NULL);
@@ -372,6 +377,7 @@ rtm_nh_initialize(rtm_nh* nh, uint32_t idx) {
     init_glthread(&nh->src_glue);
     init_glthread(&nh->route_resolved_list_glue);
     init_glthread(&nh->unresolvable_list_glue);
+    init_glthread(&nh->tnh_member_glue);
     avltree_node_init(&nh->idx_glue);
     init_glthread(&nh->advt_glue);
     
@@ -385,6 +391,7 @@ rtm_nh_initialize(rtm_nh* nh, uint32_t idx) {
     
     nh->is_indirect = false;
     nh->is_active = false;
+    nh->tnh = NULL;
     
     nh->label_stack = NULL;
     nh->install_time = time(NULL);
@@ -781,4 +788,285 @@ rtm_nh_duplicate (rtm_nh *nh) {
     init_Fglthread(&nh_dup->direct_nh_list);
     nh_dup->ref_count = 0;
     return nh_dup;
+}
+
+
+/* rtm_tnh methods */
+
+static int
+rtm_tnh_v6segment_lst_compare (
+        uint8_t n_seg1, cmn_prefix_t *seg_lst1,
+        uint8_t n_seg2, cmn_prefix_t *seg_lst2) {
+
+    uint8_t i;
+    int rc;
+
+    if (n_seg1 < n_seg2) return -1;
+    if (n_seg1 > n_seg2) return 1;
+    if (n_seg1 == 0) return 0;
+    if (!seg_lst1 && !seg_lst2) return 0;
+    if (!seg_lst1) return -1;
+    if (!seg_lst2) return 1;
+
+    for (i = 0; i < n_seg1; i++) {
+        rc = cmn_prefix_compare (&seg_lst1[i], &seg_lst2[i]);
+        if (rc != 0) return rc;
+    }
+    return 0;
+}
+
+void
+rtm_tnh_initialize(rtm_tnh_t *tnh) {
+
+    memset (tnh, 0, sizeof (*tnh));
+
+    init_glthread (&tnh->src_glue);
+    init_glthread (&tnh->route_resolved_list_glue);
+    init_glthread (&tnh->unresolvable_list_glue);
+    init_Fglthread (&tnh->direct_nh_list);
+    init_Fglthread (&tnh->route_nh_list);
+    avltree_node_init (&tnh->rtm_tnh_glue);
+
+    tnh->ad = RTM_ADMIN_DIST_UNKNOWN;
+    tnh->action = RTM_NH_ACTION_FORWARD;
+    tnh->install_time = time (NULL);
+}
+
+void
+rtm_tnh_free (rtm_tnh_t *tnh) {
+
+    if (!tnh) return;
+
+    if (tnh->label_stack) {
+        XFREE (tnh->label_stack);
+        tnh->label_stack = NULL;
+    }
+
+    if (tnh->v6segment_lst) {
+        XFREE (tnh->v6segment_lst);
+        tnh->v6segment_lst = NULL;
+    }
+
+    /* Proto on a free'd TNH is a private copy, not in nh_proto_info_tree */
+    if (tnh->rtm_nh_proto) {
+        rtm_nh_proto_dereference(tnh->rtm, tnh->rtm_nh_proto);
+        tnh->rtm_nh_proto = NULL;
+    }
+
+    XFREE (tnh);
+}
+
+int
+rtm_tnh_compare(rtm_tnh_t *tnh1, rtm_tnh_t *tnh2) {
+
+    int rc;
+
+    if (!tnh1 && !tnh2) return 0;
+    if (!tnh1) return -1;
+    if (!tnh2) return 1;
+
+    if (tnh1->fwd_flags < tnh2->fwd_flags) return -1;
+    if (tnh1->fwd_flags > tnh2->fwd_flags) return 1;
+
+    if (tnh1->proto < tnh2->proto) return -1;
+    if (tnh1->proto > tnh2->proto) return 1;
+
+    if (tnh1->sub_proto < tnh2->sub_proto) return -1;
+    if (tnh1->sub_proto > tnh2->sub_proto) return 1;
+
+    if (tnh1->ad < tnh2->ad) return -1;
+    if (tnh1->ad > tnh2->ad) return 1;
+
+    if (tnh1->metric < tnh2->metric) return -1;
+    if (tnh1->metric > tnh2->metric) return 1;
+
+    if (tnh1->action < tnh2->action) return -1;
+    if (tnh1->action > tnh2->action) return 1;
+
+    if (tnh1->oif < tnh2->oif) return -1;
+    if (tnh1->oif > tnh2->oif) return 1;
+
+    if (tnh1->is_indirect != tnh2->is_indirect) {
+        return tnh1->is_indirect ? 1 : -1;
+    }
+
+    rc = cmn_prefix_compare (&tnh1->prefix, &tnh2->prefix);
+    if (rc != 0) return rc;
+
+    if (tnh1->l3_vpn_label < tnh2->l3_vpn_label) return -1;
+    if (tnh1->l3_vpn_label > tnh2->l3_vpn_label) return 1;
+
+    if (tnh1->import_rt.asn < tnh2->import_rt.asn) return -1;
+    if (tnh1->import_rt.asn > tnh2->import_rt.asn) return 1;
+    if (tnh1->import_rt.number < tnh2->import_rt.number) return -1;
+    if (tnh1->import_rt.number > tnh2->import_rt.number) return 1;
+
+    if (!tnh1->rtm_nh_proto && tnh2->rtm_nh_proto) return -1;
+    if (tnh1->rtm_nh_proto && !tnh2->rtm_nh_proto) return 1;
+    if (tnh1->rtm_nh_proto && tnh2->rtm_nh_proto) {
+        rc = rtm_nh_proto_is_equal (tnh1->rtm_nh_proto, tnh2->rtm_nh_proto);
+        if (rc != 0) return rc;
+    }
+
+    if (!tnh1->label_stack && tnh2->label_stack) return -1;
+    if (tnh1->label_stack && !tnh2->label_stack) return 1;
+    if (tnh1->label_stack && tnh2->label_stack) {
+        rc = memcmp (tnh1->label_stack, tnh2->label_stack, sizeof (*tnh1->label_stack));
+        if (rc != 0) return (rc < 0) ? -1 : 1;
+    }
+
+    if (tnh1->endfn < tnh2->endfn) return -1;
+    if (tnh1->endfn > tnh2->endfn) return 1;
+
+    rc = rtm_tnh_v6segment_lst_compare (
+            tnh1->n_segment_list, tnh1->v6segment_lst,
+            tnh2->n_segment_list, tnh2->v6segment_lst);
+    if (rc != 0) return rc;
+
+    rc = cmn_prefix_compare (&tnh1->gre_tunnel_src, &tnh2->gre_tunnel_src);
+    if (rc != 0) return rc;
+
+    rc = cmn_prefix_compare (&tnh1->gre_tunnel_dst, &tnh2->gre_tunnel_dst);
+    if (rc != 0) return rc;
+
+    return 0;
+}
+
+int
+rtm_tnh_avl_tree_comp_fn (const avltree_node_t *node1, const avltree_node_t *node2) {
+
+    rtm_tnh_t *tnh1 = avltree_container_of (node1, rtm_tnh_t, rtm_tnh_glue);
+    rtm_tnh_t *tnh2 = avltree_container_of (node2, rtm_tnh_t, rtm_tnh_glue);
+
+    return rtm_tnh_compare (tnh1, tnh2);
+}
+
+rtm_tnh_t *
+rtm_tnh_get_or_insert (rtm_t *rtm, rtm_tnh_t *candidate) {
+
+    avltree_node_t *node;
+
+    assert (rtm && candidate);
+
+    node = avltree_lookup (&candidate->rtm_tnh_glue, &rtm->tnh_tree);
+    if (node) {
+        rtm_tnh_free (candidate);
+        return avltree_container_of (node, rtm_tnh_t, rtm_tnh_glue);
+    }
+
+    assert (!avltree_insert (&candidate->rtm_tnh_glue, &rtm->tnh_tree));
+    candidate->rtm = rtm;
+    return candidate;
+}
+
+rtm_tnh_t *
+rtm_tnh_lookup (rtm_t *rtm, rtm_tnh_t *candidate_template) {
+
+    avltree_node_t *node;
+    assert (rtm && candidate_template);
+    node = avltree_lookup (&candidate_template->rtm_tnh_glue, &rtm->tnh_tree);
+    if (!node) return NULL;
+    return avltree_container_of (node, rtm_tnh_t, rtm_tnh_glue);
+}
+
+void
+rtm_tnh_link_nh (rtm_t *rtm, rtm_tnh_t *tnh, rtm_nh *nh) {
+
+    assert (rtm && tnh && nh);
+    assert (nh->tnh == NULL);
+    assert (!IS_QUEUED_UP_IN_THREAD (&nh->tnh_member_glue));
+
+    nh->tnh = tnh;
+    rtm_nh_Fglthread_add_last (nh, &tnh->route_nh_list, &nh->tnh_member_glue);
+}
+
+void
+rtm_tnh_unlink_nh (rtm_t *rtm, rtm_nh *nh) {
+
+    rtm_tnh_t *tnh;
+
+    assert (rtm && nh);
+
+    tnh = nh->tnh;
+    if (!tnh) {
+        assert (!IS_QUEUED_UP_IN_THREAD (&nh->tnh_member_glue));
+        return;
+    }
+
+    assert (IS_QUEUED_UP_IN_THREAD (&nh->tnh_member_glue));
+    /* Clear backpointer before remove_Fglthread — that may drop the last
+     * NH ref and free nh via GC. */
+    nh->tnh = NULL;
+    rtm_nh_remove_Fglthread (rtm, nh, &tnh->route_nh_list, &nh->tnh_member_glue);
+
+    if (Fglthread_list_is_empty (&tnh->route_nh_list)) {
+        assert (avltree_node_is_inuse (&rtm->tnh_tree, &tnh->rtm_tnh_glue));
+        avltree_strict_remove (&tnh->rtm_tnh_glue, &rtm->tnh_tree);
+        rtm_tnh_free (tnh);
+    }
+}
+
+rtm_tnh_t *
+rtm_tnh_create_from_nh_template(cp_nexthop_template_t *cp_nh_template) {
+
+    if (!cp_nh_template) return NULL;
+
+    rtm_tnh_t *tnh = (rtm_tnh_t *)XCALLOC2 (0, 1, rtm_tnh_t);
+    rtm_tnh_initialize (tnh);
+
+    tnh->fwd_flags = cp_nh_template->fwd_flags;
+    tnh->proto = cp_nh_template->proto;
+    tnh->sub_proto = cp_nh_template->sub_proto;
+    tnh->ad = rtm_get_admin_distance (tnh->proto, tnh->sub_proto);
+    tnh->metric = cp_nh_template->metric;
+    tnh->action = cp_nh_template->action;
+    tnh->prefix = cp_nh_template->gateway;
+    tnh->oif = cp_nh_template->oif;
+    tnh->is_indirect = cp_nh_template->is_indirect;
+    tnh->l3_vpn_label = cp_nh_template->l3_vpn_label;
+    tnh->import_rt = cp_nh_template->import_rt;
+
+    /* is set in caller
+    tnh->rtm_nh_proto 
+    */ 
+
+    if (IS_BIT_SET (cp_nh_template->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK) &&
+        cp_nh_template->u.l_stack.label_stack) {
+
+        tnh->label_stack = (mpls_lstack_t *)XCALLOC2 (0, 1, mpls_lstack_t);
+        tnh->label_stack->curr_index =
+            cp_nh_template->u.l_stack.label_stack->curr_index;
+
+        for (int i = 0; i <= tnh->label_stack->curr_index; i++) {
+            tnh->label_stack->labels[i].label_val =
+                cp_nh_template->u.l_stack.label_stack->labels[i].label_val;
+            tnh->label_stack->labels[i].op =
+                cp_nh_template->u.l_stack.label_stack->labels[i].op;
+        }
+    }
+
+    if (IS_BIT_SET (cp_nh_template->fwd_flags, FIB_NH_FWD_F_IPV6_STCK)) {
+
+        tnh->endfn = cp_nh_template->u.srv6_stack.endfn;
+
+        if (cp_nh_template->u.srv6_stack.n_segment_list) {
+
+            tnh->n_segment_list = cp_nh_template->u.srv6_stack.n_segment_list;
+            tnh->v6segment_lst = (cmn_prefix_t *)XCALLOC2 (
+                0, cp_nh_template->u.srv6_stack.n_segment_list, cmn_prefix_t);
+
+            for (int i = 0; i < tnh->n_segment_list; i++) {
+                memcpy (&tnh->v6segment_lst[i],
+                        &cp_nh_template->u.srv6_stack.v6segment_lst[i],
+                        sizeof (tnh->v6segment_lst[i]));
+            }
+        }
+    }
+
+    if (IS_BIT_SET (cp_nh_template->fwd_flags, FIB_NH_FWD_F_TUNNEL)) {
+        tnh->gre_tunnel_src = cp_nh_template->u.gre_tunnel.gre_tunnel_src;
+        tnh->gre_tunnel_dst = cp_nh_template->u.gre_tunnel.gre_tunnel_dst;
+    }
+
+    return tnh;
 }

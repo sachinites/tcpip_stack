@@ -99,6 +99,9 @@ typedef struct rtm_ {
     /* Route tree keyed by prefix in this RTM */
     avltree_t route_tree;
 
+    /* Tree of templated nexthops in this RTM */
+    avltree_t tnh_tree;
+
     /* Protocol information which came attached with nexthop 
         in the RTM, all fields are keys */
     avltree_t nh_proto_info_tree;
@@ -122,9 +125,6 @@ typedef struct rtm_ {
         
     /* List of Orphan Indirect NHs which have no route to resolve over */
     Fglthread_t unresolvable_paths;
-    
-    /* List of routes whose resolved INHs are to be propogated upstream in Resolution Graph*/
-    Fglthread_t resolved_unpropogated_routes;
     
     /* Job to resolve INHs */
     task_t *nh_resolution_job;

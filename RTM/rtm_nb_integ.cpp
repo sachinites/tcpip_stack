@@ -730,6 +730,9 @@ cp_rtm_uninstall_route_by_idx (
     /* Note: rtm_nh_remove_glthread already calls rtm_nh_dereference */
     rtm_nh_remove_glthread(rtm, nh, &nh->src_glue);
 
+    /* Unlink from templated nexthop (free TNH if last member) */
+    rtm_tnh_unlink_nh (rtm, nh);
+
     /* If route has no more nexthops, delete the route as well */
     if (route->nh_count == 0) {
         /* Schedule route deletion advertisement */

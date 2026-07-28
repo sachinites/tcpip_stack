@@ -45,7 +45,6 @@
 
 #ifndef __RTM_NH__
 #define __RTM_NH__
-#pragma pack(push, 8)
 
 #include <stdint.h>
 #include <time.h>
@@ -68,6 +67,7 @@ typedef struct rtm_route_ rtm_route;
 typedef struct rtm_nh_proto_ rtm_nh_proto_t;
 typedef struct rtm_proto_info_ rtm_proto_info_t;
 typedef struct mpls_lstack_ mpls_lstack_t;
+typedef struct cp_nexthop_template_ cp_nexthop_template_t;
 
 /* ========================================================================
  * Nexthop Flags
@@ -75,6 +75,85 @@ typedef struct mpls_lstack_ mpls_lstack_t;
 
 #define RTM_DNH_RTM_F_NO_PROPOGATE_UPSTREAM 1  /* Don't propagate DNH upstream */
 #define RTM_INH_F_RESOLVED_IN_FOREIGN_RTM 2    /* INH resolved in different RTM */
+
+#pragma pack(push, 8)
+
+typedef struct rtm_tnh_ {
+
+        uint32_t rtm_flags;
+        uint32_t fwd_flags;
+
+        /* Owning protocol*/
+        RTM_PROTO_T proto;
+        /* Owning Sub-protocol */
+        RTM_SUB_PROTO_T sub_proto;
+        
+        glthread_t src_glue;
+
+        /* Shared pointer to the protocol info */
+        rtm_nh_proto_t *rtm_nh_proto;
+
+        /* Admin distance */
+        RTM_AD_T ad;
+
+        /* Metric */
+        uint32_t metric;
+
+        /* Action */
+        RTM_NH_ACTION_TYPE_T action;
+
+        /* Nexthop prefix */
+        cmn_prefix_t prefix;
+
+        /* ifindex if OIF, dont use InterfaceP to make
+        it stay a pure C structure */
+        uint32_t oif;
+        
+        /* Backpointer to the owning RTM, used in cross RTM route resolution*/
+        rtm_t *rtm;
+        
+        bool is_indirect;
+        /* Data node List of direct nexthops which resolves this INH*/
+        Fglthread_t direct_nh_list;
+        /* This INH is resolved by this route*/
+        rtm_route *resolved_via_route; 
+        /* Glue to rtm_route->resolved_lnhs */
+        glthread_t route_resolved_list_glue;
+        /* Glue to rtm->unresolvable_paths*/
+        glthread_t unresolvable_list_glue;
+        /* list of Instantiated Route nexthops rtm_nh */
+        Fglthread_t route_nh_list;
+
+
+        /* Target fib this route is installed */
+        struct {
+            uint8_t vrf;
+            AFI_T afi;
+        } target_fib;
+
+        /* L3 VPN properties */
+        mpls_label_val_t l3_vpn_label;
+        rt_t import_rt;
+        rt_t export_rt;
+        
+        /*MPLS  Label Stack*/
+        mpls_lstack_t *label_stack;
+
+        /*SRv6 Stack*/
+        Srv6_endpcode_t endfn;
+        uint8_t n_segment_list;
+        cmn_prefix_t *v6segment_lst;
+
+        /* GRE Tunnel End-Point */
+        cmn_prefix_t gre_tunnel_src;
+        cmn_prefix_t gre_tunnel_dst;
+
+        time_t install_time;
+
+        /* glue into rtm->tnh_tree*/
+        avltree_node_t rtm_tnh_glue;
+
+} rtm_tnh_t;
 
 /**
  * @brief Nexthop structure
@@ -135,6 +214,9 @@ typedef struct rtm_nh_ {
         glthread_t route_resolved_list_glue;
         /* Glue to rtm->unresolvable_paths*/
         glthread_t unresolvable_list_glue;
+        /* glue into rtm_tnh->route_nh_list*/
+        glthread_t tnh_member_glue;
+
         glthread_t stats_resolved_glue;
 
         bool is_active;
@@ -152,6 +234,9 @@ typedef struct rtm_nh_ {
         
         /*MPLS  Label Stack*/
         mpls_lstack_t *label_stack;
+
+        /* Backpointer to templated nexthop*/
+        rtm_tnh_t *tnh;
 
         /*SRv6 Stack*/
         Srv6_endpcode_t endfn;
@@ -206,6 +291,7 @@ GLTHREAD_TO_STRUCT( advt_glue_to_rtm_nh, rtm_nh, advt_glue);
 GLTHREAD_TO_STRUCT( src_glue_to_rtm_nh, rtm_nh, src_glue);
 GLTHREAD_TO_STRUCT( unresolvable_list_glue_to_rtm_nh, rtm_nh, unresolvable_list_glue);
 GLTHREAD_TO_STRUCT( stats_resolved_glue_to_rtm_nh, rtm_nh, stats_resolved_glue);
+GLTHREAD_TO_STRUCT( tnh_member_glue_to_rtm_nh, rtm_nh, tnh_member_glue);
 
 /* Methods */
 int8_t rtm_nh_is_equal(rtm_nh *nh1, rtm_nh *nh2);
@@ -264,5 +350,37 @@ rtm_nh_avl_insert (rtm_nh *nh, avltree_t *tree, avltree_node_t *avlnode);
 void 
 rtm_nh_avl_remove (rtm_t *rtm, rtm_nh *nh, 
         avltree_t *tree, avltree_node_t *avlnode);
+
+/* rtm_tnh_t methods*/
+void
+rtm_tnh_initialize(rtm_tnh_t *tnh);
+
+/* Deep ordered compare of static TNH fields. Returns <0, 0, >0. */
+int
+rtm_tnh_compare(rtm_tnh_t *tnh1, rtm_tnh_t *tnh2);
+
+int
+rtm_tnh_avl_tree_comp_fn (const avltree_node_t *node1, const avltree_node_t *node2);
+
+rtm_tnh_t *
+rtm_tnh_create_from_nh_template(cp_nexthop_template_t *cp_nh_template);
+
+/* Lookup existing TNH in rtm->tnh_tree or insert candidate. Ownership of
+ * candidate transfers to the tree on insert; on hit, candidate is freed. */
+rtm_tnh_t *
+rtm_tnh_get_or_insert (rtm_t *rtm, rtm_tnh_t *candidate);
+
+rtm_tnh_t *
+rtm_tnh_lookup (rtm_t *rtm, rtm_tnh_t *candidate_template);
+
+void
+rtm_tnh_link_nh (rtm_t *rtm, rtm_tnh_t *tnh, rtm_nh *nh);
+
+/* Unlink NH from its TNH; free TNH when route_nh_list becomes empty. */
+void
+rtm_tnh_unlink_nh (rtm_t *rtm, rtm_nh *nh);
+
+void
+rtm_tnh_free (rtm_tnh_t *tnh);
 
 #endif 

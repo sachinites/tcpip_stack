@@ -1432,6 +1432,24 @@ rtm_install_route (
     rtm_nh_add_to_idx_tree(rtm, nh);
     rtm_nh_glthread_add_next(nh, &rtm->nhs_by_src[nh->proto], &nh->src_glue);
 
+    /* Create/lookup templated nexthop and bidirectionally link with rtm_nh */
+    rtm_tnh_t *tnh_candidate = rtm_tnh_create_from_nh_template(cp_nh_template);
+    tnh_candidate->rtm_nh_proto = nh->rtm_nh_proto;
+    rtm_nh_proto_reference(tnh_candidate->rtm_nh_proto);
+
+    rtm_tnh_t *tnh = rtm_tnh_lookup(rtm, tnh_candidate);
+
+    if (tnh)  {
+        rtm_tnh_free(tnh_candidate);
+        assert (tnh->rtm_nh_proto == nh->rtm_nh_proto);
+    }
+    else {
+        tnh = tnh_candidate;
+        rtm_tnh_get_or_insert(rtm, tnh);
+    }
+
+    rtm_tnh_link_nh(rtm, tnh, nh);
+
     cp_nh_template->idx = nh->idx;
 
     rtm_route_refresh_nexthops (rtm, route);
@@ -1587,7 +1605,8 @@ rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix,
     rtm_nh_remove_from_idx_tree(rtm, actual_nh);    
     /* Use wrapper function for glthread removal */
     rtm_nh_remove_glthread(rtm, actual_nh, &actual_nh->src_glue);
-    /* Note: rtm_nh_remove_glthread already calls rtm_nh_dereference */
+    /* Unlink from templated nexthop (free TNH if last member) */
+    rtm_tnh_unlink_nh (rtm, actual_nh);
 
     /* Now check if route has 0 Nexthops, then delete the route as well*/
     if (route->nh_count == 0) {

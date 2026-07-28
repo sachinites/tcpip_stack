@@ -528,33 +528,6 @@ rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
     }
 }
 
-static void 
-rtm_rt_resolver_job_cbk (event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
-
-    glthread_t *curr;
-    rtm_route *route;
-    
-    rtm_t *rtm = (rtm_t *)arg;
-
-    rtm->nh_resolution_job = NULL;
-    
-    tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route Propogation Worker Started\n",
-        rtm->name);
-
-    ITERATE_GLTHREAD_BEGIN(&rtm->resolved_unpropogated_routes.head, curr) {
-
-        route = resolved_route_glue_to_route (curr);
-
-        rtm_resolve_routes_recursively (rtm , route);
-
-        rtm_route_remove_Fglthread (rtm, route, 
-            &rtm->resolved_unpropogated_routes,  
-            &route->resolved_route_glue);
-
-    } ITERATE_GLTHREAD_END(&rtm->resolved_unpropogated_routes.head, curr);
-}
-
 /* Withdraw this NH from contribution to Resolution Graph. After this API
     INH/DNH do not contribute to the resolution of any route in RTM, also
     it is not even on rtm->unresolvable list. 

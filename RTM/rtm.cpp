@@ -94,6 +94,8 @@ extern int
 rtm_route_compare(const avltree_node_t *node1, const avltree_node_t *node2);
 extern int
 rtm_nh_compare_by_idx (const avltree_node_t *node1, const avltree_node_t *node2);
+extern int
+rtm_tnh_avl_tree_comp_fn (const avltree_node_t *node1, const avltree_node_t *node2);
 
 /* Wrapper for NH proto compare */
 static int
@@ -165,6 +167,7 @@ rtm_initialize(node_t *node,
     avltree_init(&rtm->route_tree, rtm_route_compare);
     avltree_init (&rtm->nh_proto_info_tree, rtm_nh_proto_avl_tree_comp_fn);
     avltree_init (&rtm->nhs_by_idx, rtm_nh_compare_by_idx);
+    avltree_init (&rtm->tnh_tree, rtm_tnh_avl_tree_comp_fn);
 
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
         init_glthread(&rtm->nhs_by_src[i]);
@@ -175,7 +178,6 @@ rtm_initialize(node_t *node,
     rtm->node = node;
 
     init_Fglthread(&rtm->unresolvable_paths);
-    init_Fglthread(&rtm->resolved_unpropogated_routes);
 
     rtm->nh_resolution_job = NULL;
     rtm->rt_resolution_job = NULL;
@@ -229,6 +231,7 @@ rtm_check_and_delete (rtm_t *rtm, bool free_rtm) {
     assert (avltree_is_empty (&rtm->route_tree) );
     assert (avltree_is_empty (&rtm->nh_proto_info_tree) );
     assert (avltree_is_empty (&rtm->nhs_by_idx));
+    assert (avltree_is_empty (&rtm->tnh_tree));
 
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
         assert (avltree_is_empty (&rtm->proto_info_tree[i]) );
@@ -237,7 +240,6 @@ rtm_check_and_delete (rtm_t *rtm, bool free_rtm) {
     }
     
     assert (Fglthread_list_is_empty(&rtm->unresolvable_paths) );
-    assert (Fglthread_list_is_empty(&rtm->resolved_unpropogated_routes) );
     assert (Fglthread_list_is_empty(&rtm->route_advt_queue) );
     
     assert (rtm->nh_resolution_job == NULL);

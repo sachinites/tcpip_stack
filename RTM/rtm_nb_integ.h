@@ -228,6 +228,8 @@ rtm_nh_template_free_internals (cp_nexthop_template_t *nh_template);
 
 typedef void (*RT_DIST_HANDLERS)(vrf_t *, rt_advert_info_t *);
 
+typedef struct dist_mgr_ dist_mgr_t;
+
 void 
 rtm_unregister_rt_distribution_cbk (
         dist_mgr_t *dist_mgr, 
