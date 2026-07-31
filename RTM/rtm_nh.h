@@ -148,8 +148,6 @@ typedef struct rtm_tnh_ {
         cmn_prefix_t gre_tunnel_src;
         cmn_prefix_t gre_tunnel_dst;
 
-        time_t install_time;
-
         /* glue into rtm->tnh_tree*/
         avltree_node_t rtm_tnh_glue;
 
@@ -170,50 +168,50 @@ typedef struct rtm_nh_ {
         time_t pth_last_update_time;
 
         /* Owning protocol*/
-        RTM_PROTO_T proto;
+        //RTM_PROTO_T proto;
         /* Owning Sub-protocol */
-        RTM_SUB_PROTO_T sub_proto;
+        //RTM_SUB_PROTO_T sub_proto;
 
         /* Backpointer to the owning route (shared Pointer)*/
         rtm_route* owner_route;
         
         /* Glues*/
         glthread_t route_glue;
-        glthread_t src_glue;
-        avltree_node_t idx_glue;
+        //glthread_t src_glue;
+        //avltree_node_t idx_glue;
         glthread_t advt_glue; // keyed by idx
         
         /* Shared pointer to the protocol info */
-        rtm_nh_proto_t *rtm_nh_proto;
+        //rtm_nh_proto_t *rtm_nh_proto;
 
         /* Admin distance */
-        RTM_AD_T ad;
+        //RTM_AD_T ad;
 
         /* Metric */
-        uint32_t metric;
+        //uint32_t metric;
 
         /* Action */
-        RTM_NH_ACTION_TYPE_T action;
+        //RTM_NH_ACTION_TYPE_T action;
 
         /* Nexthop prefix */
-        cmn_prefix_t prefix;
+        //cmn_prefix_t prefix;
 
         /* ifindex if OIF, dont use InterfaceP to make
         it stay a pure C structure */
-        uint32_t oif;
+        //uint32_t oif;
         
         /* Backpointer to the owning RTM, used in cross RTM route resolution*/
-        rtm_t *rtm;
+        //rtm_t *rtm;
         
-        bool is_indirect;
+        //bool is_indirect;
         /* Data node List of direct nexthops which resolves this INH*/
-        Fglthread_t direct_nh_list;
+        //Fglthread_t direct_nh_list;
         /* This INH is resolved by this route*/
-        rtm_route *resolved_via_route; 
+        //rtm_route *resolved_via_route; 
         /* Glue to rtm_route->resolved_lnhs */
-        glthread_t route_resolved_list_glue;
+        //glthread_t route_resolved_list_glue;
         /* Glue to rtm->unresolvable_paths*/
-        glthread_t unresolvable_list_glue;
+        //glthread_t unresolvable_list_glue;
         /* glue into rtm_tnh->route_nh_list*/
         glthread_t tnh_member_glue;
 
@@ -222,30 +220,35 @@ typedef struct rtm_nh_ {
         bool is_active;
 
         /* Target fib this route is installed */
+        /*
         struct {
             uint8_t vrf;
             AFI_T afi;
         } target_fib;
+        */
 
         /* L3 VPN properties */
+        /*
         mpls_label_val_t l3_vpn_label;
         rt_t import_rt;
         rt_t export_rt;
-        
+        */
         /*MPLS  Label Stack*/
-        mpls_lstack_t *label_stack;
+        //mpls_lstack_t *label_stack;
 
         /* Backpointer to templated nexthop*/
         rtm_tnh_t *tnh;
 
         /*SRv6 Stack*/
+        /*
         Srv6_endpcode_t endfn;
         uint8_t n_segment_list;
         cmn_prefix_t *v6segment_lst;
+        */
 
         /* GRE Tunnel End-Point */
-        cmn_prefix_t gre_tunnel_src;
-        cmn_prefix_t gre_tunnel_dst;
+        //cmn_prefix_t gre_tunnel_src;
+        //cmn_prefix_t gre_tunnel_dst;
 
         time_t install_time;
         uint32_t ref_count;
@@ -285,11 +288,11 @@ typedef struct rtm_nh_fwd_info_ {
 
 #pragma pack(pop)
 
-GLTHREAD_TO_STRUCT( resolution_list_glue_to_rtm_nh, rtm_nh, route_resolved_list_glue);
+GLTHREAD_TO_STRUCT( resolution_list_glue_to_rtm_nh, rtm_tnh_t, route_resolved_list_glue);
 GLTHREAD_TO_STRUCT( route_glue_to_rtm_nh, rtm_nh, route_glue);
 GLTHREAD_TO_STRUCT( advt_glue_to_rtm_nh, rtm_nh, advt_glue);
-GLTHREAD_TO_STRUCT( src_glue_to_rtm_nh, rtm_nh, src_glue);
-GLTHREAD_TO_STRUCT( unresolvable_list_glue_to_rtm_nh, rtm_nh, unresolvable_list_glue);
+GLTHREAD_TO_STRUCT( src_glue_to_rtm_nh, rtm_tnh_t, src_glue);
+GLTHREAD_TO_STRUCT( unresolvable_list_glue_to_rtm_nh, rtm_tnh_t, unresolvable_list_glue);
 GLTHREAD_TO_STRUCT( stats_resolved_glue_to_rtm_nh, rtm_nh, stats_resolved_glue);
 GLTHREAD_TO_STRUCT( tnh_member_glue_to_rtm_nh, rtm_nh, tnh_member_glue);
 

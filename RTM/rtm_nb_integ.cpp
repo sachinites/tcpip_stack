@@ -691,7 +691,7 @@ cp_rtm_uninstall_route_by_idx (
         tracer(rtm->node->cptr, DRTM | DERR,
             "RTM[%s] : Route %s, Nexthop %s[%u] not found\n", rtm->name, 
             rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)), 
-            rtm_format_nexthop(&nh->prefix, gw_str, sizeof (gw_str)), idx);
+            rtm_format_nexthop(&nh->tnh->prefix, gw_str, sizeof (gw_str)), idx);
         return RTM_ERROR_CONTAINER_LOOKUP_FAILED;
     }
 
@@ -699,7 +699,7 @@ cp_rtm_uninstall_route_by_idx (
         "RTM[%s] : Uninstalling route %s, Nexthop %s[%u]\n",
         rtm->name,
         rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str)),
-        rtm_format_nexthop(&nh->prefix, gw_str, sizeof (gw_str)), idx);
+        rtm_format_nexthop(&nh->tnh->prefix, gw_str, sizeof (gw_str)), idx);
 
     /* Withdraw nexthop from resolution system */
     /* This ensures any dependent routes are notified */
@@ -726,10 +726,6 @@ cp_rtm_uninstall_route_by_idx (
     /* Remove nexthop from index tree for O(1) lookup */
     rtm_nh_remove_from_idx_tree(rtm, nh);
     
-    /* Remove nexthop from source protocol list */
-    /* Note: rtm_nh_remove_glthread already calls rtm_nh_dereference */
-    rtm_nh_remove_glthread(rtm, nh, &nh->src_glue);
-
     /* Unlink from templated nexthop (free TNH if last member) */
     rtm_tnh_unlink_nh (rtm, nh);
 

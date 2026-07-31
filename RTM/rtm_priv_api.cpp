@@ -1429,12 +1429,10 @@ rtm_install_route (
         return rc;
     }
 
-    rtm_nh_add_to_idx_tree(rtm, nh);
-    rtm_nh_glthread_add_next(nh, &rtm->nhs_by_src[nh->proto], &nh->src_glue);
-
     /* Create/lookup templated nexthop and bidirectionally link with rtm_nh */
     rtm_tnh_t *tnh_candidate = rtm_tnh_create_from_nh_template(cp_nh_template);
-    tnh_candidate->rtm_nh_proto = nh->rtm_nh_proto;
+    tnh_candidate->rtm = rtm;
+    tnh_candidate->rtm_nh_proto = nh->tnh->rtm_nh_proto;
     rtm_nh_proto_reference(tnh_candidate->rtm_nh_proto);
 
     rtm_tnh_t *tnh = rtm_tnh_lookup(rtm, tnh_candidate);
@@ -1446,6 +1444,7 @@ rtm_install_route (
     else {
         tnh = tnh_candidate;
         rtm_tnh_get_or_insert(rtm, tnh);
+        glthread_add_last(&rtm->nhs_by_src[tnh->proto], &tnh->src_glue);
     }
 
     rtm_tnh_link_nh(rtm, tnh, nh);

@@ -43,29 +43,29 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
     mpls_label_val_t label_val;
     bool is_mpls_label_stck = false;
 
-    fwd_info_out->oif = dnh->oif;
-    fwd_info_out->fwd_flags = inh->fwd_flags;
-    fwd_info_out->nh_addr = dnh->prefix;
+    fwd_info_out->oif = dnh->tnh->oif;
+    fwd_info_out->fwd_flags = inh->tnh->fwd_flags;
+    fwd_info_out->nh_addr = dnh->tnh->prefix;
 
     /* If INHs resolves over local/connected route , ex, configuring BGP route
         with IGP like nexthop (which is actually very common) */
-    if (inh->is_indirect &&
-        inh->prefix.afi == AF_IPV4 &&
+    if (inh->tnh->is_indirect &&
+        inh->tnh->prefix.afi == AF_IPV4 &&
         dnh->fwd_flags & (FIB_NH_FWD_F_CONNECTED | FIB_NH_FWD_F_LOCAL)) {
 
         assert(fwd_info_out->nh_addr.u.v4_addr == 0);
 
         cmn_prefix_initialize_v4(&fwd_info_out->nh_addr,
-                                 inh->prefix.u.v4_addr, 32);
+                                 inh->tnh->prefix.u.v4_addr, 32);
     }
 
     mpls_lstack_init (&fwd_info_out->u.mpls_fwd.label_stack);
 
-    if (inh->l3_vpn_label) {
+    if (inh->tnh->l3_vpn_label) {
     
         /* Copy VPN label from INH (innermost label) */
         mpls_label_init(&label);
-        mpls_label_set_value  (&label.label_val, inh->l3_vpn_label);
+        mpls_label_set_value  (&label.label_val, inh->tnh->l3_vpn_label);
         label.op = MPLS_OP_PUSH;
         mpls_lstack_push(&fwd_info_out->u.mpls_fwd.label_stack, label);  
         l3_vpn = true;      
@@ -78,8 +78,8 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
         uint8_t max_label_stk_depth = l3_vpn ? MAX_LBL_DEPTH -1 : MAX_LBL_DEPTH;
 
         while (i < max_label_stk_depth &&
-                !mpls_label_is_null(dnh->label_stack->labels[i])) {
-            label_val = mpls_label_get_value (dnh->label_stack->labels[i].label_val);
+                !mpls_label_is_null(dnh->tnh->label_stack->labels[i])) {
+            label_val = mpls_label_get_value (dnh->tnh->label_stack->labels[i].label_val);
             mpls_label_init(&label);
             mpls_label_set_value  (&label.label_val, label_val);
             label.op = MPLS_OP_PUSH;
@@ -101,19 +101,19 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
 
     if (inh->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) {
 
-        fwd_info_out->u.v6_fwd.endfn = inh->endfn;
-        fwd_info_out->u.v6_fwd.n_segment_list = inh->n_segment_list;
+        fwd_info_out->u.v6_fwd.endfn = inh->tnh->endfn;
+        fwd_info_out->u.v6_fwd.n_segment_list = inh->tnh->n_segment_list;
         
-        for (uint8_t i = 0; i < inh->n_segment_list; i++) {
+        for (uint8_t i = 0; i < inh->tnh->n_segment_list; i++) {
             memcpy(fwd_info_out->u.v6_fwd.v6segment_lst[i],
-                   inh->v6segment_lst[i].u.v6_addr,
-                   sizeof(inh->v6segment_lst[i].u.v6_addr));
+                   inh->tnh->v6segment_lst[i].u.v6_addr,
+                   sizeof(inh->tnh->v6segment_lst[i].u.v6_addr));
         }
     }
 
     if (inh->fwd_flags & FIB_NH_FWD_F_TUNNEL) {
-        fwd_info_out->u.gre_fwd.gre_tunnel_src = inh->gre_tunnel_src;
-        fwd_info_out->u.gre_fwd.gre_tunnel_dst = inh->gre_tunnel_dst;
+        fwd_info_out->u.gre_fwd.gre_tunnel_src = inh->tnh->gre_tunnel_src;
+        fwd_info_out->u.gre_fwd.gre_tunnel_dst = inh->tnh->gre_tunnel_dst;
     }
 
     return RTM_SUCCESS;
@@ -125,33 +125,33 @@ rtm_resolution_create_dnh_fwd_info (rtm_t *rtm,
                                     rtm_nh_fwd_info_t *fwd_info_out) 
 {   
     /* Populate outgoing interface */
-    fwd_info_out->oif = pnh->oif;
+    fwd_info_out->oif = pnh->tnh->oif;
     
     /* Populate nexthop address */
-    fwd_info_out->nh_addr = pnh->prefix;
+    fwd_info_out->nh_addr = pnh->tnh->prefix;
     
     /* Populate forwarding flags */
-    fwd_info_out->fwd_flags = pnh->fwd_flags;
+    fwd_info_out->fwd_flags = pnh->tnh->fwd_flags;
 
     /* Handle MPLS label stack if present */
-    if (pnh->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK)
+    if (pnh->tnh->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK)
     {
-        memcpy(&fwd_info_out->u.mpls_fwd.label_stack, pnh->label_stack,
+        memcpy(&fwd_info_out->u.mpls_fwd.label_stack, pnh->tnh->label_stack,
                sizeof(mpls_lstack_t));
     }
 
     /* Handle SRv6 segment list if present */
-    if (pnh->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) {
+    if (pnh->tnh->fwd_flags & FIB_NH_FWD_F_IPV6_STCK) {
 
-        fwd_info_out->u.v6_fwd.endfn = pnh->endfn;
-        fwd_info_out->u.v6_fwd.n_segment_list = pnh->n_segment_list;
+        fwd_info_out->u.v6_fwd.endfn = pnh->tnh->endfn;
+        fwd_info_out->u.v6_fwd.n_segment_list = pnh->tnh->n_segment_list;
 
         /* v6segment_lst stores raw 16-byte addresses; copy only the v6_addr
          * field from each cmn_prefix_t — not the whole struct. */
-        for (uint8_t i = 0; i < pnh->n_segment_list; i++) {
+        for (uint8_t i = 0; i < pnh->tnh->n_segment_list; i++) {
             memcpy(fwd_info_out->u.v6_fwd.v6segment_lst[i],
-                   pnh->v6segment_lst[i].u.v6_addr,
-                   sizeof(pnh->v6segment_lst[i].u.v6_addr));
+                   pnh->tnh->v6segment_lst[i].u.v6_addr,
+                   sizeof(pnh->tnh->v6segment_lst[i].u.v6_addr));
         }
     }
     
@@ -201,12 +201,12 @@ rtm_get_target_fib (rtm_t *rtm,
     
     /* BGP VPN Route in Customer VRF Rib, eg : red.inet.0*/
     if (inh &&
-        inh->proto == RTM_PROTO_BGP && 
-        inh->sub_proto == RTM_PROTO_BGP_VPN &&
-        inh->rtm->vrf != RTM_DEFAULT_VRF && 
-        inh->rtm->rtm_id == 0) {
+        inh->tnh->proto == RTM_PROTO_BGP && 
+        inh->tnh->sub_proto == RTM_PROTO_BGP_VPN &&
+        inh->tnh->rtm->vrf != RTM_DEFAULT_VRF && 
+        inh->tnh->rtm->rtm_id == 0) {
 
-        vrf_t *vrf = vrf_get_by_id(rtm->node, inh->rtm->vrf);
+        vrf_t *vrf = vrf_get_by_id(rtm->node, inh->tnh->rtm->vrf);
         if (!vrf) return false;
 
         fib_t *fib = fib_get(rtm->node->dp_ctx, route->afi, vrf->vrf_id);
@@ -220,8 +220,8 @@ rtm_get_target_fib (rtm_t *rtm,
 
     /* ISIS - SR routes */
     if (!inh &&
-        (nh->proto == RTM_PROTO_ISIS || nh->proto == RTM_PROTO_OSPF) && 
-        nh->sub_proto == RTM_SUB_PROTO_SR) {
+        (nh->tnh->proto == RTM_PROTO_ISIS || nh->tnh->proto == RTM_PROTO_OSPF) && 
+        nh->tnh->sub_proto == RTM_SUB_PROTO_SR) {
 
         /* SR Transit routes will go in global mpls.0 fib*/
         if (route->afi == AF_MPLS) {
@@ -287,8 +287,8 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
                            &target_fib_afi);
 
         if (fib_found) {
-            presentation_data->nh->target_fib.vrf = target_fib_vrf_out;
-            presentation_data->nh->target_fib.afi = target_fib_afi;
+            presentation_data->nh->tnh->target_fib.vrf = target_fib_vrf_out;
+            presentation_data->nh->tnh->target_fib.afi = target_fib_afi;
         }
     }
     else {

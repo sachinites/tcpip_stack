@@ -2,6 +2,7 @@
 #define __EVPN__
 
 #include <stdint.h>
+#include "../vrf/vrf.h"
 #include "../Interface/InterfaceFwd.h"
 
 
@@ -60,7 +61,38 @@ typedef struct evpn_bum_global_mac_address_table {
 
 } evpn_bum_global_mac_address_table_t;
 
+typedef enum evpn_rt_type_ {
+
+    EVPN_RT_TYPE_MAC_IP_ADVERTISEMENT = 2,
+    EVPN_RT_TYPE_INCLUSIVE_MULTICAST_ETHERNET_TAG = 3,
+    EVPN_RT_TYPE_ETHERNET_SEGMENT = 4,
+    EVPN_RT_TYPE_IP_PREFIX_ROUTE = 5
+
+} evpn_rt_type_t;
 
 
+/* BGP EVPN Route structure , to be stored in BGP EVPN RIB
+Ex : 
+Route Distinguisher: 10.0.0.1:32777
+
+ *>i [2]:[0]:[48]:[00:50:79:66:68:00]
+                    10.0.0.1                      100      0 i
+                    RT:65501:10 ET:8
+ *>i [2]:[0]:[48]:[00:50:79:66:68:00]:[32]:[192.168.10.10]
+                    10.0.0.1                      100      0 i
+                    RT:65501:10 RT:65501:99999 ET:8 Rmac:0c:e4:00:00:1b:08
+*/
+typedef struct bgp_evpn_route_ {
+    
+    evpn_rt_type_t rt_type;
+    mac_addr_t mac_addr;
+    uint8_t prefix_len;
+    uint32_t prefix;
+    uint32_t leaf_ip;
+    rt_t mac_vrf_rt;
+    rt_t ip_vrf_rt;
+    mac_addr_t rmac;
+
+} evpn_route_t;
 
 #endif 

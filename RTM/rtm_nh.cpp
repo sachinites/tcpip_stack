@@ -1000,6 +1000,11 @@ rtm_tnh_unlink_nh (rtm_t *rtm, rtm_nh *nh) {
     rtm_nh_remove_Fglthread (rtm, nh, &tnh->route_nh_list, &nh->tnh_member_glue);
 
     if (Fglthread_list_is_empty (&tnh->route_nh_list)) {
+
+        /* Remove from Src List */
+        assert (IS_QUEUED_UP_IN_THREAD(&tnh->src_glue));
+        remove_glthread (&tnh->src_glue);
+        
         assert (avltree_node_is_inuse (&rtm->tnh_tree, &tnh->rtm_tnh_glue));
         avltree_strict_remove (&tnh->rtm_tnh_glue, &rtm->tnh_tree);
         rtm_tnh_free (tnh);
