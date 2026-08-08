@@ -186,6 +186,38 @@ void locator_tlv_set_subtlv_len (locator_tlv_t *loc_tlv, uint8_t subtlv_len) ;
 uint8_t locator_tlv_get_subtlv_len (locator_tlv_t *loc_tlv);
 uint8_t locator_tlv_get_total_size (locator_tlv_t *loc_tlv) ;
 
+/* Segment Routing ( SR-MPLS ) SR-Capability SubTLV of Router CAPABILITY TLV(242).
+    Advertises the SRGB ( Segment Routing Global Block ) owned by this router.
+    See the comment next to ISIS_TLV_RTR_CAP_SR_CAP_SUBTLV for why a
+    non-standard SubTLV type number is used. */
+typedef struct isis_rtr_cap_sr_cap_subtlv_ {
+
+    uint8_t type;
+    uint8_t length;
+    #define SR_CAP_SUBTLV_FLAG_I (1 << 7) /* MPLS IPv4 flag */
+    #define SR_CAP_SUBTLV_FLAG_V (1 << 6) /* MPLS IPv6 flag */
+    uint8_t flags;
+    /* SRGB : Segment Routing Global Block owned by this router */
+    uint32_t srgb_base;
+    uint32_t srgb_range;
+
+} isis_rtr_cap_sr_cap_subtlv_t;
+
+/* Very basic / minimal, self-contained Node-SID TLV ( see comment next to
+    ISIS_TLV_NODE_SID ). Carries the Prefix ( Loopback / Router-Id ) that
+    owns this SID, together with the SID Index ( relative to the
+    advertising router's own SRGB ) and flags. */
+typedef struct isis_node_sid_tlv_ {
+
+    uint32_t prefix;
+    uint8_t prefix_len;
+    #define NODE_SID_FLAG_N (1 << 7) /* Node-SID Flag */
+    #define NODE_SID_FLAG_P (1 << 6) /* No-PHP Flag */
+    uint8_t flags;
+    uint32_t sid_index;
+
+} isis_node_sid_tlv_t;
+
 typedef struct isis_tlv_27_subtlv_5_ {
 
     // not defined yet. // not defined yet. 7.2
@@ -205,6 +237,9 @@ isis_print_formatted_tlv236( byte* out_buff, byte* tlv236_start,  uint8_t tlv_le
 
 uint32_t
 isis_print_formatted_tlv27( byte* out_buff, byte* tlv27_start,  uint8_t tlv_len);
+
+uint32_t
+isis_print_formatted_node_sid_tlv (byte* out_buff, byte* tlv_start, uint8_t tlv_len);
 
 pkt_size_t
 isis_format_nbr_tlv22(byte *buff, 

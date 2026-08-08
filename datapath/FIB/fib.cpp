@@ -132,8 +132,9 @@ fib_get (dp_ctx_t *dp_ctx, AFI_T afi, uint8_t vrf_id) {
     case AF_IPV6:
         fib = vrf->fib_inet6;
         break;
-    case AF_MPLS:
+    case AF_LABEL:
         fib = vrf->fib_mpls0;
+        break;
     default:
         return NULL;
     }

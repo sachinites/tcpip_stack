@@ -41,6 +41,13 @@ typedef struct ted_prefix_ {
     uint8_t flags;
     ted_src_fr_no_t src;
 
+    /* SR-MPLS Prefix-SID/Node-SID data, learnt from the owning router's
+        Node-SID TLV. Only meaningful when has_sid is true ( currently only
+        the router's own Loopback/Router-Id prefix carries a Node-SID ) */
+    bool has_sid;
+    uint32_t sid_index;
+    uint8_t sid_flags;
+
 } __attribute__((aligned(8))) ted_prefix_t;
 
 typedef struct ted_v6prefix_ {
@@ -75,6 +82,13 @@ typedef struct ted_node_ {
     bool is_installed_in_teddb;
     bool is_fake;
     uint8_t pn_no;
+
+    /* SR-MPLS data for this router, learnt from its Router CAPABILITY
+        TLV(242) SR-Capability SubTLV. has_srgb is false if this router
+        never advertised ( or does not run ) SR-MPLS */
+    bool has_srgb;
+    uint32_t srgb_base;
+    uint32_t srgb_range;
 
 } __attribute__((aligned(8))) ted_node_t;
 
@@ -194,6 +208,12 @@ typedef struct  ted_template_node_data_ {
     uint8_t fr_no;
     uint8_t n_nbrs;
     char padding[1];
+
+    /* SR-MPLS SRGB, parsed out of the Router CAPABILITY TLV(242) */
+    bool has_srgb;
+    uint32_t srgb_base;
+    uint32_t srgb_range;
+
     ted_template_nbr_data_t nbr_data[0];
 
 } ted_template_node_data_t;

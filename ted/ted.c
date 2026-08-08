@@ -518,6 +518,9 @@ ted_create_or_update_node (ted_db_t *ted_db,
 
     ted_node->flags = template_node_data->flags;
     ted_node->seq_no = template_node_data->seq_no;
+    ted_node->has_srgb = template_node_data->has_srgb;
+    ted_node->srgb_base = template_node_data->srgb_base;
+    ted_node->srgb_range = template_node_data->srgb_range;
     ted_prefix_tree_cleanup_tree (ted_node);
     ted_node->prefix_tree_root = prefix_tree_root;
     ted_v6prefix_tree_cleanup_tree (ted_node);
@@ -571,6 +574,11 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
         rc += cprintf("  is_fake : %s\n", node->is_fake ? "Yes" : "No");
     }
 
+    if (node->has_srgb) {
+        rc += cprintf("  SRGB : [ %u - %u ]\n",
+                node->srgb_base, node->srgb_base + node->srgb_range - 1);
+    }
+
     if (!detail) return rc;
     
     TED_ITERATE_NODE_INTF_BEGIN(node, intf) {
@@ -605,6 +613,11 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
                         ted_prefix->mask,
                         ted_prefix->metric,
                         ted_prefix->flags);
+
+        if (ted_prefix->has_sid) {
+            rc += cprintf ("    Node-SID : Index %u  Flags 0x%x\n",
+                        ted_prefix->sid_index, ted_prefix->sid_flags);
+        }
 
     } ITERATE_AVL_TREE_END;
 

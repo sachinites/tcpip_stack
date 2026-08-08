@@ -1,4 +1,5 @@
 #include <string.h>
+#include <ctype.h>
 #include <arpa/inet.h>
 
 #include "InterfaceUApi.h"
@@ -11,6 +12,40 @@
 #include "../dpal/cp2dp.h"
 #include "../datapath/enums/l2_enums.h"
 #include "../datapath/dp-program/dp-prog-intf-struct.h"
+
+/* Normalize loopback names to Cisco-style "loN".
+ *   "1" / "0"  → "lo1" / "lo0"
+ *   "lo1"      → "lo1" (unchanged)
+ * Returns true if the name was rewritten. */
+bool
+interface_loopback_canonical_name (const char *ifname, char *out, size_t out_len) {
+
+    size_t i;
+
+    if (!ifname || !ifname[0] || !out || out_len == 0) {
+        if (out && out_len) out[0] = '\0';
+        return false;
+    }
+
+    /* Already has an "lo" / "Lo" / "LO" prefix — keep as-is */
+    if ((ifname[0] == 'l' || ifname[0] == 'L') &&
+        (ifname[1] == 'o' || ifname[1] == 'O') &&
+        ifname[2] != '\0') {
+        snprintf(out, out_len, "%s", ifname);
+        return false;
+    }
+
+    /* Pure numeric id → prepend "lo" */
+    for (i = 0; ifname[i]; i++) {
+        if (!isdigit((unsigned char)ifname[i])) {
+            snprintf(out, out_len, "%s", ifname);
+            return false;
+        }
+    }
+
+    snprintf(out, out_len, "lo%s", ifname);
+    return true;
+}
 
 void
 interface_set_ip_addr(node_t *node, 
@@ -232,17 +267,32 @@ Interface *
 interface_loopback_create (node_t *node, char *ifname) {
 
     Interface *intf;
-    if ((intf = node_interface_lookup_by_name(node, ifname))) {
+    char lo_name[IF_NAME_SIZE];
+
+    if (!ifname || !ifname[0]) {
+        cprintf("Error : Loopback interface name required\n");
+        return NULL;
+    }
+
+    interface_loopback_canonical_name(ifname, lo_name, sizeof(lo_name));
+
+    if ((intf = node_interface_lookup_by_name(node, lo_name))) {
         return intf;
     }
+
+    /* Legacy: interface was previously created as bare numeric name "1" */
+    if (strcmp(lo_name, ifname) != 0) {
+        intf = node_interface_lookup_by_name(node, ifname);
+        if (intf) return intf;
+    }
     
-    InterfaceP intfP = std::make_shared<LoopbackInterface>(std::string(ifname));
+    InterfaceP intfP = std::make_shared<LoopbackInterface>(std::string(lo_name));
     intfP->SetSharedPtr(intfP);
     intfP->att_node = node;
     intfP->ifindex = interface_get_new_ifindex(node);
     
     if (!node_global_intf_map_insert(node, intfP.get())) {
-        cprintf("Error : Failed to insert loopback interface %s\n", ifname);
+        cprintf("Error : Failed to insert loopback interface %s\n", lo_name);
         return NULL;
     }
     
@@ -256,20 +306,32 @@ interface_loopback_delete (node_t *node, char *ifname) {
 
     Interface *intf;
     uint32_t if_change_flags = 0;
-    char loopback_name[IF_NAME_SIZE];
+    char lo_name[IF_NAME_SIZE];
     intf_prop_changed_t intf_prop_changed;
     
     memset (&intf_prop_changed, 0, sizeof (intf_prop_changed_t));
 
-    intf = node_interface_lookup_by_name(node, (const char *)ifname);
+    if (!ifname || !ifname[0]) {
+        cprintf("Error : Loopback interface name required\n");
+        return;
+    }
+
+    interface_loopback_canonical_name(ifname, lo_name, sizeof(lo_name));
+
+    intf = node_interface_lookup_by_name(node, lo_name);
+    /* Also accept legacy bare-numeric names ("1") on delete */
+    if (!intf && strcmp(lo_name, ifname) != 0) {
+        intf = node_interface_lookup_by_name(node, ifname);
+    }
 
     if (!intf) {
-        cprintf ("Error : Loopback %s Do Not  Exist\n", ifname);
+        cprintf ("Error : Loopback %s Do Not  Exist\n", lo_name);
         return;
     }
 
     if (intf->IsCrossReferenced () ) {
-        cprintf("Error : Loopback interface %s is in use, cannot delete \n", ifname);
+        cprintf("Error : Loopback interface %s is in use, cannot delete \n",
+                intf->if_name.c_str());
         return;
     }
 

@@ -9,6 +9,7 @@
 
 #include "../../dp_ctx.h"
 #include "../../dp_utils.h"
+#include "../L3vpn/l3vpn.h"
 #include "../../Vrfs/dp_vrf.h"
 #include "../../dp_uapi.h"
 #include "../../Interface/dp_intf.h"
@@ -21,12 +22,6 @@
 #include "../ping.h"
 
 extern int cprintf (const char* format, ...) ;
-
-extern void 
-vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx, 
-                             dp_vrf_t *vrf, 
-                             struct rte_mbuf *mbuf, 
-                             fib_nh_t *srv6_nh);
                              
 extern void 
 dp2cp_punt_pkt_to_layer4(void *_node,
@@ -154,8 +149,9 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             "for VPNv4 case where nexthop is SRv6\n", 
             vrf->vrf_name, dest_ip_addr);
 
-        return vpnv4_ingress_pe_encap_srv6(dp_ctx, vrf, mbuf, nh);
-    }
+        vpnv4_ingress_pe_encap_srv6(dp_ctx, vrf, mbuf, nh);
+        return;
+    }    
 
     /*L3 route exist, 3 cases now : 
      * case 1 : pkt is destined to self(this router only)
@@ -480,6 +476,24 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             tcp_ip_covert_ip_n_to_p(nh->fwd_info->u.gre_fwd.gre_tunnel_dst.u.v4_addr, (c_string)dest_ip_addr),
             proto_id_str(encap_proto));
     }
+
+
+    else if (IS_BIT_SET (nh->fwd_info->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK)) {
+
+        tracer (dp_ctx->dptr, DL3FWD, 
+            "VRF %s: Pkt : %s : L3 forwarding switched from v4 to mpls "
+            "for VPNv4 case where nexthop is SR-MPLS\n", 
+            vrf->vrf_name, dest_ip_addr);
+
+        vpnv4_ingress_pe_encap_mpls(dp_ctx, vrf, mbuf, nh);
+
+        dp_demote_pkt_to_layer2(dp_ctx, 
+            vrf, 
+            next_hop_ip,
+            nh->fwd_info->oif,
+            mbuf,
+            IP_PROTO_IP_IN_IP);        
+    }    
     
     dp_demote_pkt_to_layer2(dp_ctx, 
             vrf, 

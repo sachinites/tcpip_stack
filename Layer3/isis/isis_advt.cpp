@@ -275,6 +275,7 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
         case ISIS_TLV_IPV6_REACH:
         case ISIS_TLV_IPV6_MT_REACH:
         case ISIS_LOCATOR_PFX_SID_SUBTLV:
+        case ISIS_TLV_NODE_SID:
             if (adv_data->src.holder && *adv_data->src.holder)
                 *(adv_data->src.holder) = NULL;
             adv_data->src.holder = NULL;
@@ -1056,7 +1057,23 @@ isis_fragment_print (isis_node_info_t *node_info, isis_fragment_t *fragment, byt
                     rc += cprintf("\t    Max # of END.DX6 or END.DT6 SIDs supported by platform  : %d\n", srv6_subtlv->max_end_D_srh_msd);
                 }
 
+                if (advt_data->u.rtr_cap.is_rtr_cap_sr_cap_subtlv_present)
+                {
+                    isis_rtr_cap_sr_cap_subtlv_t *sr_cap_subtlv = &advt_data->u.rtr_cap.rtr_cap_sr_cap_subtlv;
+                    rc += cprintf("\t  SubTLV%d  SR-MPLS Capability Subtlv  len:%d\n", sr_cap_subtlv->type, sr_cap_subtlv->length);
+                    rc += cprintf("\t    flags : 0x%x   SRGB : [ %u - %u ]\n", 
+                        sr_cap_subtlv->flags, sr_cap_subtlv->srgb_base,
+                        sr_cap_subtlv->srgb_base + sr_cap_subtlv->srgb_range - 1);
+                }
+
             break;
+            case ISIS_TLV_NODE_SID:
+                rc += cprintf ("       Prefix : %s/%d   SID-Index : %u   Flags : 0x%x\n",
+                            tcp_ip_covert_ip_n_to_p (advt_data->u.node_sid.prefix, system_id_str),
+                            advt_data->u.node_sid.prefix_len,
+                            advt_data->u.node_sid.sid_index,
+                            advt_data->u.node_sid.flags);
+                break;
             default: 
                 cprintf ("        Error : Unsupported TLV : %d\n", advt_data->tlv_no);
                 break;

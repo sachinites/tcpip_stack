@@ -24,6 +24,8 @@ ISIS_OBJS=isis_adjacency.o \
 		  isis_utils.o \
 		  isis_ipc.o \
 		  isis_srv6.o \
+		  isis_sr.o \
+		  isis_sr_cli.o \
 		  isis_nxthop.o \
 
 isis_adjacency.o:isis_adjacency.c
@@ -82,6 +84,12 @@ isis_utils.o:isis_utils.cpp
 
 isis_srv6.o:isis_srv6.cpp
 	${CC} ${CFLAGS} -c -fPIC  -I . isis_srv6.cpp -o isis_srv6.o
+
+isis_sr.o:isis_sr.cpp
+	${CC} ${CFLAGS} -c -fPIC  -I . isis_sr.cpp -o isis_sr.o
+
+isis_sr_cli.o:isis_sr_cli.cpp
+	${CC} ${CFLAGS} -c -fPIC  -I . isis_sr_cli.cpp -o isis_sr_cli.o
 
 isis_nxthop.o:isis_nxthop.cpp
 	${CC} ${CFLAGS} -c -fPIC  -I . isis_nxthop.cpp -o isis_nxthop.o

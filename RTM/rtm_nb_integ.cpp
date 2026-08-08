@@ -939,7 +939,8 @@ cp_rtm_install_route_advanced (
     InterfaceP oif,
     uint32_t *label_stack,
     uint8_t label_stack_count,
-    mpls_label_val_t l3_vpn_label) {
+    mpls_label_val_t l3_vpn_label,
+    mpls_opr_t out_label_op) {
 
     uint16_t fwd_flags = 0;
     rtm_error_t rc = RTM_SUCCESS;
@@ -1050,10 +1051,25 @@ cp_rtm_install_route_advanced (
         /* Populate label stack */
         for (uint8_t i = 0; i < label_stack_count; i++) {
             lstack->labels[i].label_val = label_stack[i];
-            lstack->labels[i].op = MPLS_OP_PUSH;
+            lstack->labels[i].op = (rtm->afi == AF_LABEL) ?
+                MPLS_OP_SWAP : MPLS_OP_PUSH;
             lstack->curr_index++;
         }
 
+        mpls_label_set_stack_bottom(&lstack->labels[0].label_val);
+
+        nh_template.u.l_stack.label_stack = lstack;
+        fwd_flags |= FIB_NH_FWD_F_MPLS_LBL_STCK;
+    }
+    else if (out_label_op == MPLS_OP_POP) {
+
+        /* PHP on a transit ( mpls.0 ) route : pop the incoming label and
+            forward as plain IP toward the directly connected destination */
+        mpls_lstack_t *lstack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
+        mpls_lstack_init (lstack);
+        lstack->labels[0].label_val = 0;
+        lstack->labels[0].op = MPLS_OP_POP;
+        lstack->curr_index = 0;
         nh_template.u.l_stack.label_stack = lstack;
         fwd_flags |= FIB_NH_FWD_F_MPLS_LBL_STCK;
     }
@@ -1101,7 +1117,8 @@ cp_rtm_uninstall_route_advanced (
     InterfaceP oif,
     uint32_t *label_stack,
     uint8_t label_stack_count,
-    mpls_label_val_t l3_vpn_label) {
+    mpls_label_val_t l3_vpn_label,
+    mpls_opr_t out_label_op) {
 
     uint16_t fwd_flags = 0;
     rtm_error_t rc = RTM_SUCCESS;
@@ -1219,6 +1236,16 @@ cp_rtm_uninstall_route_advanced (
             lstack->curr_index++;
         }
 
+        nh_template.u.l_stack.label_stack = lstack;
+        fwd_flags |= FIB_NH_FWD_F_MPLS_LBL_STCK;
+    }
+    else if (out_label_op == MPLS_OP_POP) {
+
+        mpls_lstack_t *lstack = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
+        mpls_lstack_init(lstack);
+        lstack->labels[0].label_val = 0;
+        lstack->labels[0].op = MPLS_OP_POP;
+        lstack->curr_index = 0;
         nh_template.u.l_stack.label_stack = lstack;
         fwd_flags |= FIB_NH_FWD_F_MPLS_LBL_STCK;
     }

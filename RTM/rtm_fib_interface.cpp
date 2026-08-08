@@ -95,7 +95,7 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
         mpls_label_t *bottom_label = &fwd_info_out->u.mpls_fwd.label_stack.labels[0];
         mpls_label_set_stack_bottom (&bottom_label->label_val);
         mpls_label_t *top_label = mpls_lstack_get_top (&fwd_info_out->u.mpls_fwd.label_stack);
-        top_label->op = (afi == AF_MPLS) ? MPLS_OP_SWAP : MPLS_OP_PUSH;
+        top_label->op = (afi == AF_LABEL) ? MPLS_OP_SWAP : MPLS_OP_PUSH;
         SET_BIT (fwd_info_out->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK);
     }
 
@@ -224,7 +224,7 @@ rtm_get_target_fib (rtm_t *rtm,
         nh->sub_proto == RTM_SUB_PROTO_SR) {
 
         /* SR Transit routes will go in global mpls.0 fib*/
-        if (route->afi == AF_MPLS) {
+        if (route->afi == AF_LABEL) {
             *vrf_out = RTM_DEFAULT_VRF;
             *afi_out = route->afi;
 

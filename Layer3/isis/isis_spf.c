@@ -6,11 +6,13 @@
 #include "isis_ted.h"
 #include "isis_utils.h"
 #include "isis_nxthop.h"
+#include "isis_tlv_struct.h"
 #include "../../RTM/rtm_enums.h"
 #include "../../RTM/rtm_nb_integ.h"
 #include "../../RTM/rtm_route.h"
 #include "../../RTM/rtm_enums.h"
 #include "../../Layer3/SegmentRouting/SRv6/cp/srv6_rtm.h"
+#include "isis_sr.h"
 
 void
 isis_cancel_spf_job(isis_node_info_t *node_info) {
@@ -145,7 +147,7 @@ isis_rt_ipv6_route_add(
         metric,
         &rtm_gateway,
         oif->GetSharedPtr(), 
-        NULL, 0, 0);
+        NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
 }
 
 static void
@@ -199,7 +201,7 @@ isis_rt_ipv6_route_del(
             metric,
             &rtm_gateway,
             oif ? oif->GetSharedPtr() : 0, 
-            NULL, 0, 0);
+            NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
         
             return;
     }
@@ -470,7 +472,7 @@ isis_rt_ipv4_route_add(
         metric,
         &rtm_gateway,
         oif->GetSharedPtr(), 
-        NULL, 0, 0);
+        NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
 }
 
 static void
@@ -531,7 +533,7 @@ isis_rt_ipv4_route_del(
             metric,
             &rtm_gateway,
             oif ? oif->GetSharedPtr():0,
-            NULL, 0, 0);
+            NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
         return;
     }
 
@@ -740,6 +742,179 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
                          count++;
                     }
              } ITERATE_AVL_TREE_END;
+
+    } ITERATE_GLTHREAD_END(&spf_data->spf_result_head, curr);
+
+    return count;
+}
+
+/* Compute SR-MPLS ( Spring ) routes out of the plain IPv4 SPF results and
+    install them :
+
+    - vrf.inet.3  : IPv4 -> MPLS ingress/imposition routes, keyed by the
+                    destination's Loopback prefix, pushing the label the
+                    next-hop router expects for that FEC.
+    - 0.mpls.0    : Transit swap/pop routes, keyed by this router's own
+                    ( local ) incoming label for that FEC.
+
+    PHP ( Penultimate Hop Popping ) : if the next-hop router ( one hop away
+    from this node, along the shortest path ) IS the destination itself,
+    this node is the penultimate hop, so no label is imposed/swapped-to -
+    the packet is simply forwarded as plain IP ( unless the destination
+    explicitly disabled PHP via the Node-SID P-Flag ) */
+static int
+isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf_root) {
+
+    int i;
+    int count = 0;
+    rtm_t *rtm_inet3;
+    rtm_t *rtm_mpls0;
+    glthread_t *curr;
+    char ip_addr[IPV4_ADDR_LEN_STR];
+    ted_prefix_t *ted_prefix;
+    avltree_node_t *avl_node;
+    nexthop_t *nexthop = NULL;
+    isis_spf_result_t *spf_result;
+    vrf_t *vrf = node_info->vrf;
+
+    /* Full replace: flush then reinstall current SPF SR reachability */
+    isis_sr_mpls_flush_rtm_routes(node_info);
+
+    rtm_inet3 = cp_rtm_get_route_target_rtm (vrf, AF_IPV4, RTM_PROTO_ISIS, RTM_SUB_PROTO_SR);
+    rtm_mpls0 = cp_rtm_get_route_target_rtm (vrf, AF_LABEL, RTM_PROTO_ISIS, RTM_SUB_PROTO_SR);
+
+    /* SR-MPLS needs a valid, self-advertised SRGB on this router to compute
+        the local ( incoming ) label for any FEC */
+    if (!ted_spf_root->has_srgb) return 0;
+
+    isis_spf_data_t *spf_data = (isis_spf_data_t *)(ISIS_NODE_SPF_DATA(ted_spf_root));
+
+    ITERATE_GLTHREAD_BEGIN(&spf_data->spf_result_head, curr) {
+
+        spf_result = isis_spf_res_glue_to_spf_result(curr);
+
+        if (spf_result->node->pn_no) continue;
+
+        ITERATE_AVL_TREE_BEGIN(spf_result->node->prefix_tree_root, avl_node) {
+
+            ted_prefix = avltree_container_of(avl_node, ted_prefix_t, avl_glue);
+
+            /* Only take the native ipv4 ( Loopback ) route which carries a
+                Node-SID, and convert it into a Spring/SR-MPLS route */
+            if (!ted_prefix->has_sid) continue;
+
+            uint32_t prefix32bit = ted_prefix->prefix;
+            tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr);
+
+            /* This router's own ( local ) incoming label for this FEC - used
+                as the lookup key in 0.mpls.0 */
+            uint32_t local_in_label = ted_spf_root->srgb_base + ted_prefix->sid_index;
+
+            tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS,
+                "%s : Dest %s  : Considering Spring Route %s/%d  Node-SID Index %u  Local Label %u\n",
+                    ISIS_SR_MPLS, spf_result->node->node_name,
+                    ip_addr, ted_prefix->mask, ted_prefix->sid_index, local_in_label);
+
+            for (i = 0; i < MAX_NXT_HOPS; i++) {
+
+                nexthop = spf_result->nexthops[i];
+                if (!nexthop) continue;
+
+                /* Map this nexthop's local OIF back to the TED link's
+                    remote node, to find out who the actual next-hop
+                    Router ( one hop away ) is */
+                ted_intf_t *root_oif = ted_node_lookup_intf(ted_spf_root, nexthop->ifindex);
+                ted_node_t *nh_node = root_oif ? ted_get_nbr_node(root_oif) : NULL;
+
+                /* PHP : Next-hop Router is the destination itself - this
+                    node is the penultimate hop. Skip label imposition,
+                    unless the destination advertised the No-PHP flag */
+                bool php = (nh_node == spf_result->node) &&
+                            !IS_BIT_SET(ted_prefix->sid_flags, NODE_SID_FLAG_P);
+
+                uint32_t label_stack[1] = {0};
+                uint8_t label_stack_count = 0;
+
+                if (!php) {
+
+                    /* Non-PHP : Push the label that the next-hop Router
+                        expects to receive for this FEC, computed from the
+                        next-hop's own SRGB */
+                    if (!nh_node || !nh_node->has_srgb) {
+
+                        tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS,
+                            "%s : Dest %s  : Nexthop %s has no usable SRGB, "
+                            "Spring route can not be formed via this nexthop, skipped\n",
+                                ISIS_SR_MPLS, spf_result->node->node_name,
+                                nh_node ? (char *)nh_node->node_name : "-");
+                        continue;
+                    }
+
+                    mpls_label_set_value (&label_stack[0],
+                        nh_node->srgb_base + ted_prefix->sid_index);
+                    label_stack_count = 1;
+                }
+
+                cmn_prefix_t rtm_gateway;
+                cmn_prefix_initialize_v4 (&rtm_gateway,
+                    tcp_ip_convert_ip_p_to_n(nexthop->gw_ip), 32);
+
+                /* Install the ingress/imposition route in vrf.inet.3 */
+                if (rtm_inet3) {
+
+                    cmn_prefix_t rtm_prefix;
+                    cmn_prefix_initialize_v4 (&rtm_prefix, prefix32bit, ted_prefix->mask);
+
+                    tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS,
+                        "%s : Dest %s  : inet.3 Route Add %s/%d  OIF %s  %s\n",
+                            ISIS_SR_MPLS, spf_result->node->node_name,
+                            ip_addr, ted_prefix->mask,
+                            nexthop->oif ? nexthop->oif->if_name.c_str() : "-",
+                            php ? "( PHP - No Label )" : "( Push Label )");
+
+                    cp_rtm_install_route_advanced (
+                        rtm_inet3, &rtm_prefix,
+                        RTM_PROTO_ISIS, RTM_SUB_PROTO_SR, 0,
+                        RTM_NH_ACTION_FORWARD,
+                        spf_result->spf_metric + ted_prefix->metric,
+                        &rtm_gateway, nexthop->oif,
+                        label_stack_count ? label_stack : NULL, label_stack_count, 0,
+                        MPLS_OP_STACK_OPS_UNKNOWN);
+
+                    count++;
+                }
+
+                /* Install the transit swap/pop route in 0.mpls.0, keyed by
+                    this router's own local incoming label for the FEC */
+                if (rtm_mpls0) {
+
+                    cmn_prefix_t rtm_label_prefix;
+                    memset (&rtm_label_prefix, 0, sizeof(rtm_label_prefix));
+                    rtm_label_prefix.afi = AF_LABEL;
+                    mpls_label_set_value (&rtm_label_prefix.u.mpls_label, local_in_label);
+                    rtm_label_prefix.prefix_len = 20;
+
+                    tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS,
+                        "%s : Dest %s  : mpls.0 Route Add In-Label %u  OIF %s  %s\n",
+                            ISIS_SR_MPLS, spf_result->node->node_name,
+                            local_in_label,
+                            nexthop->oif ? nexthop->oif->if_name.c_str() : "-",
+                            php ? "( Pop )" : "( Swap )");
+
+                    cp_rtm_install_route_advanced (
+                        rtm_mpls0, &rtm_label_prefix,
+                        RTM_PROTO_ISIS, RTM_SUB_PROTO_SR, 0,
+                        RTM_NH_ACTION_FORWARD,
+                        spf_result->spf_metric + ted_prefix->metric,
+                        &rtm_gateway, nexthop->oif,
+                        label_stack_count ? label_stack : NULL, label_stack_count, 0,
+                        php ? MPLS_OP_POP : MPLS_OP_STACK_OPS_UNKNOWN);
+
+                    count++;
+                }
+            }
+
+        } ITERATE_AVL_TREE_END;
 
     } ITERATE_GLTHREAD_END(&spf_data->spf_result_head, curr);
 
@@ -1301,6 +1476,11 @@ isis_compute_spf (isis_node_info_t *node_info){
 
     tracer (ISIS_TR(node_info), TR_ISIS_SPF,
         "%s : ipv6 Route Installation Count = %d\n", ISIS_SPF, count);
+
+    count = isis_spf_install_srmpls_routes(node_info, ted_spf_root);
+
+    tracer (ISIS_TR(node_info), TR_ISIS_SPF,
+        "%s : SR-MPLS Route Installation Count = %d\n", ISIS_SPF, count);
 }
 
 void

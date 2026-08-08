@@ -693,7 +693,8 @@ config node R0 no interface ethernet eth1 vrf 0
 config node R0 vrf red route-distinguisher 1:1
 config node R0 interface ethernet eth1 vrf red
 config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
-config node R0 rtm-route prefix 10.0.0.2/32 3 5 0 l3vpn srv6-sid 2001:dbe8:4:1:: 
+#xonfig node R0 rtm-route prefix 10.0.0.2/32 3 5 0 l3vpn srv6-sid 2001:dbe8:4:1:: 
+#config node R0 rtm-route prefix 10.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3
 config node R0 protocol source-packet-routing srv6 endpoint end-dt4-sid 2001:dbe8:1:1:: vrf red
 config node R0 vrf red rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.1 interface eth1
 
@@ -703,13 +704,44 @@ config node R3 no interface ethernet eth1 vrf 0
 config node R3 vrf red route-distinguisher 1:1
 config node R3 interface ethernet eth1 vrf red
 config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
-config node R3 rtm-route prefix 10.0.0.1/32 3 5 0 l3vpn srv6-sid 2001:dbe8:1:1:: 
+#xonfig node R3 rtm-route prefix 10.0.0.1/32 3 5 0 l3vpn srv6-sid 2001:dbe8:1:1:: 
+#config node R3 rtm-route prefix 30.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0
 config node R3 protocol source-packet-routing srv6 endpoint end-dt4-sid 2001:dbe8:4:1:: vrf red
 config node R3 vrf red rtm-route prefix 10.0.0.2/32 0 0 0 2 10 gateway 192.168.0.1 interface eth1
 
 config node CE1 rtm-route prefix 10.0.0.2/32 0 0 0 2 10 gateway 192.168.0.2 interface eth0
 config node CE2 rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.2 interface eth0
 
+/* 
+VPNv4 using SR-MPLS Transport in ISP core
+======================================= 
+
+run ut Layer3/isis/ut/isis_config_sample_cross_link_topology.ut 0
+
+config node R0 no protocol isis interface eth1
+config node R0 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R0 no interface ethernet eth1 vrf 0
+config node R0 vrf red route-distinguisher 1:1
+config node R0 interface ethernet eth1 vrf red
+config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
+
+config node R0 rtm-route prefix 10.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3
+config node R0 protocol source-packet-routing srv6 endpoint end-dt4-sid 2001:dbe8:1:1:: vrf red
+config node R0 vrf red rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.1 interface eth1
+
+config node R3 no protocol isis interface eth1
+config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R3 no interface ethernet eth1 vrf 0
+config node R3 vrf red route-distinguisher 1:1
+config node R3 interface ethernet eth1 vrf red
+config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
+
+config node R3 rtm-route prefix 30.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0
+config node R3 protocol source-packet-routing srv6 endpoint end-dt4-sid 2001:dbe8:4:1:: vrf red
+config node R3 vrf red rtm-route prefix 10.0.0.2/32 0 0 0 2 10 gateway 192.168.0.1 interface eth1
+
+config node CE1 rtm-route prefix 10.0.0.2/32 0 0 0 2 10 gateway 192.168.0.2 interface eth0
+config node CE2 rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.2 interface eth0
 
 
                                                                                 +--------+-+

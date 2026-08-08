@@ -18,6 +18,7 @@
 #include "isis_policy.h"
 #include "isis_advt.h"
 #include "isis_srv6.h"
+#include "isis_sr.h"
 #include "../../RTM/rtm_nb_integ.h"
 #include "../../datapath/dp_uapi.h"
 
@@ -80,7 +81,8 @@ isis_check_delete_node_info(isis_node_info_t *node_info) {
     assert (!node_info->isis_event_count [isis_event_tlv_wait_listed]);
     assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv236);
     assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv237);
-    assert (!node_info->srv6_config ); 
+    assert (!node_info->srv6_config );
+    assert (!node_info->srmpls_config);
 
     /* Must not be any pending LSP for regeneration*/
     assert (IS_GLTHREAD_LIST_EMPTY (&node_info->pending_lsp_gen_queue));
@@ -115,6 +117,7 @@ isis_protocol_shutdown_now (isis_node_info_t *node_info) {
     } ITERATE_NODE_ISIS_INTERFACES_END;
     
     isis_disable_srv6(node_info);
+    isis_sr_mpls_disable(node_info);
     /* Destroy all Major DBs in the end*/
     isis_destroy_advt_db(node_info, 0);
     /* This should be No-Op, buts lets do*/
@@ -179,6 +182,7 @@ isis_schedule_route_delete_task(isis_node_info_t *node_info,
 
     vrf_t *vrf = node_info->vrf;
 
+    /* inet.0 / inet6.0 : classic ISIS IP routes */
     cp_rtm_uninstall_routes_by_proto  (
             vrf->inet0,
             RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
@@ -190,6 +194,9 @@ isis_schedule_route_delete_task(isis_node_info_t *node_info,
     cp_rtm_uninstall_routes_by_proto  (
             vrf->inet6,
             RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6, 0);
+
+    /* inet.3 / mpls.0 : SR-MPLS routes (SPF is blocked during shutdown) */
+    isis_sr_mpls_flush_rtm_routes(node_info);
 
     isis_check_and_shutdown_protocol_now(node_info,
             ISIS_PRO_SHUTDOWN_DEL_ROUTES_WORK);

@@ -163,11 +163,13 @@ OSPF:
 config node H1 rtm-route prefix 11.0.0.0/24 5 10 0 2 10 gateway 192.168.0.12 interface eth1
 
 BGP :
-config node H1 rtm-route prefix 10.0.0.0/24 0 0 0 2 10 gateway 192.168.0.12 interface eth1
+config node R0 rtm-route prefix 30.1.1.1/32 0 0 0 2 10 gateway  122.1.1.3
 config node H1 rtm-route prefix 20.0.0.0/16 0 0 0 2 10 gateway 192.168.0.13 interface eth1
 config node H1 rtm-route prefix 122.1.1.2/32 3 6 0 2 10 gateway 20.1.1.2
 config node H1 rtm-route prefix 123.1.1.0/24 3 6 0 2 10 gateway 122.1.1.2
 
+BGP EVPN : 
+config node R0 vrf red rtm-route prefix 30.1.1.1/32 3 7 0 2 10 gateway 122.1.1.3
 
 #endif
 
@@ -184,7 +186,8 @@ cp_rtm_install_route_advanced (
     InterfaceP oif,
     uint32_t *label_stack,
     uint8_t label_stack_count,
-    mpls_label_val_t l3_vpn_label);
+    mpls_label_val_t l3_vpn_label,
+    mpls_opr_t out_label_op);
 
 rtm_error_t
 cp_rtm_uninstall_route_advanced (
@@ -199,7 +202,8 @@ cp_rtm_uninstall_route_advanced (
     InterfaceP oif,
     uint32_t *label_stack,
     uint8_t label_stack_count,
-    mpls_label_val_t l3_vpn_label);
+    mpls_label_val_t l3_vpn_label,
+    mpls_opr_t out_label_op);
 
 
 /* Protocol Subscribing to RTM */

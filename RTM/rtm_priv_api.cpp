@@ -318,7 +318,8 @@ rtm_format_prefix(cmn_prefix_t *prefix, char *buffer, size_t buflen) {
             snprintf(buffer, buflen, "%s/%u", addr_buf, prefix->prefix_len);
             break;
         case AF_LABEL:
-            snprintf(buffer, buflen, "%u", prefix->u.mpls_label);
+            snprintf(buffer, buflen, "%u",
+                    mpls_label_get_value(prefix->u.mpls_label));
             break;
         case AF_MAC:
             snprintf(buffer, buflen, "%02x:%02x:%02x:%02x:%02x:%02x",
@@ -360,7 +361,8 @@ char *rtm_format_nexthop(cmn_prefix_t *prefix, char *buffer, size_t buflen) {
             snprintf(buffer, buflen, "%s", addr_buf);
             break;
         case AF_LABEL:
-            snprintf(buffer, buflen, "%u", prefix->u.mpls_label);
+            snprintf(buffer, buflen, "%u",
+                    mpls_label_get_value(prefix->u.mpls_label));
             break;
         case AF_MAC:
             snprintf(buffer, buflen, "%02x:%02x:%02x:%02x:%02x:%02x",
@@ -803,7 +805,8 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                 oif,
                 label_stack_count > 0 ? label_stack : NULL,
                 label_stack_count,
-                l3_vpn_label);
+                l3_vpn_label,
+                MPLS_OP_STACK_OPS_UNKNOWN);
 
             if (rc != RTM_SUCCESS) {
                 cprintf("Error: Failed to install route: %s\n", rtm_error_to_string(rc));
@@ -1109,7 +1112,8 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                 oif,
                 label_stack_count > 0 ? label_stack : NULL,
                 label_stack_count,
-                l3_vpn_label
+                l3_vpn_label,
+                MPLS_OP_STACK_OPS_UNKNOWN
             );
 
             if (rc != RTM_SUCCESS) {
@@ -1816,7 +1820,7 @@ rtm_get_client_rtm_set (rtm_t *rtm, glthread_t *lst_head_out) {
     if (rtm == node->node_nw_prop.def_vrf->l3vpnv4 ||
         rtm == node->node_nw_prop.def_vrf->l3vpnv6)
     {
-        for (i = 0; i < MAX_VRF_PER_NODE; i++)
+        for (i = 1; i < MAX_VRF_PER_NODE; i++)
         {
             if (!node->vrf[i]) continue;
             vrf = node->vrf[i];

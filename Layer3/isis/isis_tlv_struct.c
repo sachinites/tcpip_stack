@@ -110,8 +110,13 @@ isis_print_formatted_rtr_cap_tlv242 (byte* out_buff, byte* tlv242_start,  uint8_
         return rc;
     }
 
-    /* It may have two SubTLVs : Algorithm Sub TLV and SRv6 Sub TLV*/
+    /* It may have multiple SubTLVs : Algorithm SubTLV, SRv6 SubTLV, SR-MPLS 
+        SR-Capability SubTLV etc. Track cumulative bytes consumed ( instead of 
+        computing each subtlv's offset from tlv242_start in isolation ) so that
+        subtlvs are walked correctly regardless of how many/which ones precede 
+        the current one. */
     byte *subtlv = (byte *)(tlv242_start + TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t));
+    pkt_size_t consumed = TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t);
     bool next_subtlv = false;
 
     do
@@ -133,11 +138,9 @@ isis_print_formatted_rtr_cap_tlv242 (byte* out_buff, byte* tlv242_start,  uint8_
                 rc += cprintf("\t   SPRING Algorithm : %d\n", algo_subtlv->algorithms[i]);
             }
 
-            if (tlv_len > (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) + 
-                                        TLV_OVERHEAD_SIZE + algo_subtlv->length))
-            {
-                subtlv = tlv242_start + (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) +
-                                         TLV_OVERHEAD_SIZE + algo_subtlv->length);
+            consumed += TLV_OVERHEAD_SIZE + algo_subtlv->length;
+            if (tlv_len > consumed) {
+                subtlv += TLV_OVERHEAD_SIZE + algo_subtlv->length;
                 next_subtlv = true;
             }
         }
@@ -154,18 +157,59 @@ isis_print_formatted_rtr_cap_tlv242 (byte* out_buff, byte* tlv242_start,  uint8_
             rc += cprintf("\t    Max # of T-ENCAP SIDs supported by platform             : %d\n", srv6_subtlv->max_t_encap_srh_msd);
             rc += cprintf("\t    Max # of END.DX6 or END.DT6 SIDs supported by platform  : %d\n", srv6_subtlv->max_end_D_srh_msd);
 
-            if (tlv_len > (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) + 
-                                        TLV_OVERHEAD_SIZE + srv6_subtlv->length))
-            {
-                subtlv = tlv242_start + (TLV_OVERHEAD_SIZE + sizeof(isis_rtr_cap_tlv242_t) +
-                                         TLV_OVERHEAD_SIZE + srv6_subtlv->length);
+            consumed += TLV_OVERHEAD_SIZE + srv6_subtlv->length;
+            if (tlv_len > consumed) {
+                subtlv += TLV_OVERHEAD_SIZE + srv6_subtlv->length;
                 next_subtlv = true;
             }
         }
         break;
+
+        case ISIS_TLV_RTR_CAP_SR_CAP_SUBTLV:
+        {
+            isis_rtr_cap_sr_cap_subtlv_t *sr_cap_subtlv = (isis_rtr_cap_sr_cap_subtlv_t *)subtlv;
+            rc += cprintf("\t  SubTLV%d  SR-MPLS Capability Subtlv  len:%d\n", 
+                            sr_cap_subtlv->type, sr_cap_subtlv->length);
+            rc += cprintf("\t    flags : 0x%x   SRGB : [ %u - %u ]\n", 
+                            sr_cap_subtlv->flags,
+                            sr_cap_subtlv->srgb_base,
+                            sr_cap_subtlv->srgb_base + sr_cap_subtlv->srgb_range - 1);
+
+            consumed += TLV_OVERHEAD_SIZE + sr_cap_subtlv->length;
+            if (tlv_len > consumed) {
+                subtlv += TLV_OVERHEAD_SIZE + sr_cap_subtlv->length;
+                next_subtlv = true;
+            }
+        }
+        break;
+
+        default:
+            /* Unknown/garbage subtlv type - stop walking rather than 
+                risk mis-interpreting subsequent bytes */
+            break;
         }
 
     } while (next_subtlv);
+
+    return rc;
+}
+
+uint32_t
+isis_print_formatted_node_sid_tlv (byte* out_buff, byte* tlv_start, uint8_t tlv_len) {
+
+    uint32_t rc = 0;
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
+
+    isis_node_sid_tlv_t *tlv_fmt = (isis_node_sid_tlv_t *)(tlv_start + TLV_OVERHEAD_SIZE);
+
+    rc += cprintf("\tTLV%d NODE-SID TLV   len:%dB\n", ISIS_TLV_NODE_SID, tlv_len - TLV_OVERHEAD_SIZE);
+    rc += cprintf("\t  %s/%d  SID-Index : %u  Flags : 0x%x  %s%s\n",
+                tcp_ip_covert_ip_n_to_p(htonl(tlv_fmt->prefix), ip_addr_str),
+                tlv_fmt->prefix_len,
+                htonl(tlv_fmt->sid_index),
+                tlv_fmt->flags,
+                IS_BIT_SET(tlv_fmt->flags, NODE_SID_FLAG_N) ? "N-Flag " : "",
+                IS_BIT_SET(tlv_fmt->flags, NODE_SID_FLAG_P) ? "P-Flag" : "");
 
     return rc;
 }
@@ -223,12 +267,21 @@ isis_get_adv_data_size(isis_adv_data_t *adv_data)
         if (adv_data->u.rtr_cap.is_rtr_cap_srv6_subtlv2_present) {
             ptlv_data_len += sizeof (isis_rtr_cap_srv6_subtlv2_t) ;
         }
+        if (adv_data->u.rtr_cap.is_rtr_cap_sr_cap_subtlv_present) {
+            ptlv_data_len += sizeof (isis_rtr_cap_sr_cap_subtlv_t) ;
+        }
         break;
     case ISIS_TLV_RTR_CAP_ALGO_SUBTLV:
         ptlv_data_len += TLV_OVERHEAD_SIZE + adv_data->u.rtr_cap.rtr_cap_algorithm_subtlv19.length;
         break;
     case ISIS_TLV_RTR_CAP_SRV6_SUBTLV:
         ptlv_data_len += sizeof (isis_rtr_cap_srv6_subtlv2_t) ;
+        break;
+    case ISIS_TLV_RTR_CAP_SR_CAP_SUBTLV:
+        ptlv_data_len += sizeof (isis_rtr_cap_sr_cap_subtlv_t) ;
+        break;
+    case ISIS_TLV_NODE_SID:
+        ptlv_data_len += sizeof (isis_node_sid_tlv_t) + TLV_OVERHEAD_SIZE;
         break;
     default:
         assert (0);
@@ -375,7 +428,25 @@ isis_get_adv_data_tlv_content(
                                                     advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.length,
                                                     (byte *)&advt_data->u.rtr_cap.rtr_cap_srv6_subtlv2.flags);  
             }
+
+            if (advt_data->u.rtr_cap.is_rtr_cap_sr_cap_subtlv_present) {
+
+                tlv_content = tlv_buffer_insert_tlv (tlv_content, 
+                                                    ISIS_TLV_RTR_CAP_SR_CAP_SUBTLV,
+                                                    advt_data->u.rtr_cap.rtr_cap_sr_cap_subtlv.length,
+                                                    (byte *)&advt_data->u.rtr_cap.rtr_cap_sr_cap_subtlv.flags);
+            }
             
+        }
+        break;
+
+        case ISIS_TLV_NODE_SID:
+        {
+            isis_node_sid_tlv_t *tlv_fmt = (isis_node_sid_tlv_t *)tlv_content;
+            tlv_fmt->prefix = htonl(advt_data->u.node_sid.prefix);
+            tlv_fmt->prefix_len = advt_data->u.node_sid.prefix_len;
+            tlv_fmt->flags = advt_data->u.node_sid.flags;
+            tlv_fmt->sid_index = htonl(advt_data->u.node_sid.sid_index);
         }
         break;
 
@@ -525,6 +596,11 @@ isis_show_one_lsp_pkt_detail_info (byte *buff, isis_lsp_pkt_t *lsp_pkt) {
                         tlv_value - TLV_OVERHEAD_SIZE,
                         tlv_len + TLV_OVERHEAD_SIZE);
                 break;  
+            case ISIS_TLV_NODE_SID:
+                rc += isis_print_formatted_node_sid_tlv(0,
+                        tlv_value - TLV_OVERHEAD_SIZE,
+                        tlv_len + TLV_OVERHEAD_SIZE);
+                break;
             default: ;
         }
     } ITERATE_TLV_END(lsp_tlv_buffer, tlv_type,
@@ -540,6 +616,7 @@ isis_is_zero_fragment_tlv (uint16_t tlv_no) {
     switch (tlv_no) {
         case  ISIS_TLV_HOSTNAME:
         case ISIS_TLV_RTR_CAP:
+        case ISIS_TLV_NODE_SID:
             return true;
         case ISIS_IS_REACH_TLV:
         case ISIS_TLV_IP_REACH:

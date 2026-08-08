@@ -139,4 +139,15 @@
 /* config node <node-name> [no] protocol isis fast-reroute use-source-packet-routing */
 #define CMDCODE_CONF_NODE_ISIS_PROTO_FRR_USE_SPR 59
 
+/* Segment Routing ( SR-MPLS ) */
+/* config node <node-name> [no] protocol isis source-packet-routing mpls */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_SR_MPLS 60
+/* config node <node-name> [no] protocol isis source-packet-routing mpls srgb [<base> <range>]
+ * "no" form resets SRGB to default (cannot delete while SR-MPLS is enabled) */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_SR_MPLS_SRGB 61
+/* config node <node-name> [no] protocol isis source-packet-routing mpls node-sid <sid-index> */
+#define CMDCODE_CONF_NODE_ISIS_PROTO_SR_MPLS_NODE_SID 62
+/* show node <node-name> protocol isis segment-routing */
+#define CMDCODE_SHOW_NODE_ISIS_PROTOCOL_SR_MPLS 63
+
 #endif /* __ISIS_CMDCODES__ */

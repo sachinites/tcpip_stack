@@ -90,3 +90,71 @@ This distinction is fundamental to understanding symmetric IRB. The IP VRF needs
 
 Type-5 routes for routing decisions ("Which subnet or prefix?"), and
 Type-2 MAC+IP routes for host adjacencies ("Once I've decided to forward toward this connected subnet or remote host, what MAC and VTEP should I use?").
+
+
+
+
+
+Stitching of Cust-A VRF and EVPN IP VRF 
+==========================================
+
+PE1#show running-config | section vrf
+vrf definition Cust-A
+ rd 100:100
+ route-target export 100:100
+ route-target import 100:100
+ !
+ address-family ipv4
+  route-target export 100:100
+  route-target import 100:100
+  route-target export 100:100 stitching     <<< configure export RT for hidden IP VRF RIB which belong to Cust-A
+  route-target import 100:100 stitching     <<< configure import RT for hidden IP VRF RIB which belong to Cust-A
+ exit-address-family
+ vrf forwarding Cust-A
+PE1#
+
+The stitching RT is not exchanging routes with the BGP EVPN RIB. It's exchanging routes between the local IP-VRF (Cust-A) and the local EVPN IP-VRF.
+
+Route-target export 100:100 stitching : 
+• Export eligible routes from the local IPv4 VRF (Cust-A) into the local EVPN IP-VRF.
+• The EVPN IP-VRF can then advertise them as EVPN Type-5 routes.
+• The EVPN IP-VRF must have an import RT of 100:100
+
+Route-target import 100:100 stitching
+• Import routes from the local EVPN IP-VRF into the local IPv4 VRF (Cust-A).
+• Those routes originated as imported EVPN Type-5 routes.
+• The EVPN IP-VRF must have an export RT of 100:100.
+
+     VRF Cust-A
+          │
+     (stitching RT)
+          ▼
+     EVPN IP-VRF
+          │
+     (normal EVPN RT)
+          ▼
+     BGP EVPN
+          │
+     (normal EVPN RT)
+          ▼
+     Remote EVPN IP-VRF
+          │
+     (stitching RT)
+          ▼
+     Remote VRF Cust-A
+
+     Or 
+
+                BGP EVPN
+                     ▲
+                     │
+              Type-5 NLRI
+                     ▲
+                     │
+             EVPN IP-VRF
+          (EVPN Control Plane)
+               ▲        ▼
+   export stitching   import stitching
+               ▲        ▼
+            VRF Cust-A
+          (IPv4 RIB/FIB)

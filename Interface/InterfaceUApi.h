@@ -18,6 +18,11 @@ node_interface_lookup_by_name(node_t *node, const char *if_name);
 Interface *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) ;
 
+/* Canonicalize loopback names: "1" → "lo1"; "lo1" unchanged.
+ * out always receives a NUL-terminated copy. Returns true if rewritten. */
+bool
+interface_loopback_canonical_name(const char *ifname, char *out, size_t out_len);
+
 /* Global Node Interface Map Management APIs */
 bool node_global_intf_map_insert(node_t *node, Interface *intf);
 bool node_global_intf_map_delete_by_name(node_t *node, const char *ifname);

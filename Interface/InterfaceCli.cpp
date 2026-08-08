@@ -188,10 +188,18 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
     vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
     vrf_t *def_vrf = NODE_DEF_VRF(node);
     char intf_name[IF_NAME_SIZE];
+    char lo_canonical[IF_NAME_SIZE];
 
     if (!if_name && gre_tunnel_id) {
         snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", gre_tunnel_id);
         if_name = (c_string)intf_name;
+    }
+
+    /* `interface loopback 1 ...` → treat as lo1 for all follow-on config */
+    if (if_name &&
+        interface_loopback_canonical_name((const char *)if_name,
+                                          lo_canonical, sizeof(lo_canonical))) {
+        if_name = (c_string)lo_canonical;
     }
 
     switch(cmdcode){
@@ -1165,7 +1173,8 @@ Interface_config_cli_tree (param_t *root) {
                 libcli_register_param(&interface, &loopback);
                 {
                     static param_t loname;
-                    init_param(&loname, LEAF, 0, intf_config_handler, NULL, STRING, "if-name", "Loopback ifname");
+                    init_param(&loname, LEAF, 0, intf_config_handler, NULL, STRING, "if-name",
+                                "Loopback ifname (loN, or N → loN)");
                     libcli_register_param(&loopback, &loname);
                     libcli_set_param_cmd_code(&loname, CMDCODE_INTF_CONFIG_LOOPBACK_CREATE);
                     uint64_t unsupported_configs = 0;

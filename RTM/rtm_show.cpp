@@ -91,6 +91,48 @@ extern graph_t *topo;
 
 static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route);
 
+static void
+rtm_format_nh_label_stack (rtm_nh *nh, char *buffer, size_t buflen) {
+
+    size_t off = 0;
+
+    buffer[0] = '\0';
+
+    if (!nh->label_stack || nh->label_stack->curr_index < 0) {
+        return;
+    }
+
+    for (int i = 0; i <= nh->label_stack->curr_index; i++) {
+
+        mpls_label_t *label = &nh->label_stack->labels[i];
+        const char *op_str = "UNK";
+
+        switch (label->op) {
+            case MPLS_OP_SWAP: op_str = "Swap"; break;
+            case MPLS_OP_PUSH: op_str = "Push"; break;
+            case MPLS_OP_POP:  op_str = "Pop"; break;
+            default: break;
+        }
+
+        uint32_t label_value = mpls_label_get_value(label->label_val);
+
+        if (label->op == MPLS_OP_POP) {
+            off += snprintf(buffer + off, buflen - off,
+                    "%sPop",
+                    (i == 0) ? "label " : "-> ");
+        } else {
+            off += snprintf(buffer + off, buflen - off,
+                    "%s%u(%s)",
+                    (i == 0) ? "label " : "-> ",
+                    label_value, op_str);
+        }
+
+        if (off >= buflen) {
+            break;
+        }
+    }
+}
+
 /* ========================================================================
  * Detailed Route Display Functions
  * ======================================================================== */
@@ -244,7 +286,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
         cprintf("    Ref Count      : %u\n", nh->ref_count);
         
         /* Display label stack if present */
-        if (nh->label_stack && nh->label_stack->curr_index > 0) {
+        if (nh->label_stack && nh->label_stack->curr_index >= 0) {
             cprintf("    Label Stack    : ");
             for (int i = 0; i <= nh->label_stack->curr_index; i++) {
                 mpls_label_t *label = &nh->label_stack->labels[i];
@@ -256,8 +298,12 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
                     default: break;
                 }
                 /* Extract the actual 20-bit label value */
-                uint32_t label_value = mpls_label_get_value(label->label_val);
-                cprintf("[%u:%s]", label_value, op_str);
+                if (label->op == MPLS_OP_POP) {
+                    cprintf("[%s]", op_str);
+                } else {
+                    uint32_t label_value = mpls_label_get_value(label->label_val);
+                    cprintf("[%u:%s]", label_value, op_str);
+                }
                 if (i < nh->label_stack->curr_index) {
                     cprintf(" -> ");
                 }
@@ -550,14 +596,30 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
                            if_name);
                 } else {
                     /* Normal route with nexthop - Cisco format */
-                    cprintf("%-4s %-18s [%u/%u] via %s, %s, %s\n",
-                           proto_code,
-                           prefix_str,
-                           best_nh->ad,
-                           best_nh->metric,
-                           nh_addr_str,
-                           (char *)time_str,
-                           if_name);
+                    char label_stack_str[64] = {0};
+                    rtm_format_nh_label_stack(best_nh, label_stack_str,
+                            sizeof(label_stack_str));
+
+                    if (label_stack_str[0]) {
+                        cprintf("%-4s %-18s [%u/%u] via %s, %s, %s, %s\n",
+                               proto_code,
+                               prefix_str,
+                               best_nh->ad,
+                               best_nh->metric,
+                               nh_addr_str,
+                               label_stack_str,
+                               (char *)time_str,
+                               if_name);
+                    } else {
+                        cprintf("%-4s %-18s [%u/%u] via %s, %s, %s\n",
+                               proto_code,
+                               prefix_str,
+                               best_nh->ad,
+                               best_nh->metric,
+                               nh_addr_str,
+                               (char *)time_str,
+                               if_name);
+                    }
                 }
             }
         }
@@ -606,15 +668,31 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
                 
                 /* Display continuation line for additional nexthops */
                 if (!cmn_prefix_is_null(&nh->prefix)) {
-                    /* Nexthop has explicit gateway address */
-                    cprintf("%-4s %-18s [%u/%u] via %s, %s, %s\n",
-                           "",  /* Empty protocol code for continuation lines */
-                           "",  /* Empty prefix for continuation lines */
-                           nh->ad,
-                           nh->metric,
-                           nh_addr_str,
-                           (char *)time_str,
-                           if_name);
+                    char label_stack_str[64] = {0};
+                    rtm_format_nh_label_stack(nh, label_stack_str,
+                            sizeof(label_stack_str));
+
+                    if (label_stack_str[0]) {
+                        cprintf("%-4s %-18s [%u/%u] via %s, %s, %s, %s\n",
+                               "",
+                               "",
+                               nh->ad,
+                               nh->metric,
+                               nh_addr_str,
+                               label_stack_str,
+                               (char *)time_str,
+                               if_name);
+                    } else {
+                        /* Nexthop has explicit gateway address */
+                        cprintf("%-4s %-18s [%u/%u] via %s, %s, %s\n",
+                               "",
+                               "",
+                               nh->ad,
+                               nh->metric,
+                               nh_addr_str,
+                               (char *)time_str,
+                               if_name);
+                    }
                 } else {
                     /* Nexthop is interface-only (no explicit gateway) */
                     cprintf("%-4s %-18s [%u/%u], %s, %s\n",

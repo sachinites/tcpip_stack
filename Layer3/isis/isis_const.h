@@ -40,6 +40,24 @@
 #define ISIS_TLV_RTR_CAP_ALGO_SUBTLV 19
 #define ISIS_TLV_RTR_CAP_SRV6_SUBTLV 2
 
+/* Segment Routing ( SR-MPLS ) - very basic / minimal support.
+    NOTE : RFC 8667 assigns Sub-TLV type 2 to the SR-Capabilities (SRGB)
+    Sub-TLV of TLV 242. This codebase already uses type 2 for the SRv6
+    Capability Sub-TLV (see ISIS_TLV_RTR_CAP_SRV6_SUBTLV above), so a
+    distinct, non-conflicting type is used here so that SRv6 and SR-MPLS
+    can be advertised independently, in the same LSP, without clashing. */
+#define ISIS_TLV_RTR_CAP_SR_CAP_SUBTLV 9
+/* Self-contained, non-standard Node-SID TLV. Real IS-IS Segment Routing
+    (RFC 8667) encodes the Prefix-SID as a Sub-TLV of the Extended IP
+    Reachability TLV(135), but this stack's IPv4 Reachability TLV(130)
+    does not support Sub-TLVs. To keep this minimal, the Node-SID is
+    advertised in its own dedicated top level TLV instead. */
+#define ISIS_TLV_NODE_SID    149
+
+/* Default SRGB ( Segment Routing Global Block ) */
+#define ISIS_SR_DEFAULT_SRGB_BASE    16000
+#define ISIS_SR_DEFAULT_SRGB_RANGE    8000
+
 /* SRv6 MSD Defauls Values */
 #define MAX_END_D_SRH_MSD 4
 #define MAX_T_ENCAP_SRH_MSD 4
@@ -77,6 +95,7 @@
 #define ISIS_EXPOLICY " ISIS(EX-POLICY)"
 #define ISIS_ROUTE " ISIS(ROUTE)"
 #define ISIS_SRV6 " ISIS(SRV6)"
+#define ISIS_SR_MPLS " ISIS(SR-MPLS)"
 
 /* ISIS Trace Codes*/
 #define TR_ISIS_SPF                   (1 << 0)
@@ -91,6 +110,7 @@
 #define TR_ISIS_ERRORS         (1 << 9)
 #define TR_ISIS_IPC                   (1 << 10)
 #define TR_ISIS_SRV6                (1 << 11)
+#define TR_ISIS_SR_MPLS         (1 << 12)
 #define TR_ISIS_ALL                 (TR_ISIS_SPF |  \
                                                        TR_ISIS_EVENTS | \
                                                        TR_ISIS_LSDB | \
@@ -102,6 +122,7 @@
                                                        TR_ISIS_POLICY | \
                                                        TR_ISIS_ERRORS | \
                                                        TR_ISIS_IPC | \
-                                                       TR_ISIS_SRV6 )
+                                                       TR_ISIS_SRV6 | \
+                                                       TR_ISIS_SR_MPLS )
 
 #endif 

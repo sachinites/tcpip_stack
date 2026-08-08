@@ -528,10 +528,17 @@ rtm_route_delete (rtm_t *rtm, rtm_route* route) {
     
     assert (route->nh_count == 0);
     assert (IS_GLTHREAD_LIST_EMPTY(&route->path_list));
-    
-    /* Remove from LPM tree */
-    assert (rtm_lpm_tree_delete(rtm, &route->prefix) == RTM_SUCCESS);
-    rtm_route_dereference(rtm, route);
+
+    /* Remove from LPM tree. Only v4/v6 routes live in the LPM tree and hence
+        hold a reference on account of it - MPLS/MAC routes are AVL tree only,
+        dereferencing them here would underflow the ref-count ( see the
+        symmetric condition in rtm_route_add ) */
+    if (route->prefix.afi == AF_IPV4 ||
+            route->prefix.afi == AF_IPV6) {
+
+        assert (rtm_lpm_tree_delete(rtm, &route->prefix) == RTM_SUCCESS);
+        rtm_route_dereference(rtm, route);
+    }
 
     /* Handle INHs resolved over by this route */
     ITERATE_GLTHREAD_BEGIN(&route->resolved_lnhs.head, curr_lnh_glue) {

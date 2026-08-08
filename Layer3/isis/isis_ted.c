@@ -24,6 +24,16 @@ isis_ted_update_or_install_lsp (isis_node_info_t *node_info, ted_db_t *ted_db, i
     avltree_t *v6prefix_tree_root = NULL;
     avltree_t *srv6prefixsid_tree_root = NULL;
     byte tlv_type2, tlv_len2, *tlv_value2 = NULL;
+
+    /* Node-SID TLV(149) is a standalone top level TLV, its target prefix
+        may be scanned before or after this TLV appears in the LSP - stash
+        it here and reconcile against prefix_tree_root once the TLV walk
+        is done */
+    bool node_sid_present = false;
+    uint32_t node_sid_prefix = 0;
+    uint8_t node_sid_prefix_len = 0;
+    uint32_t node_sid_index = 0;
+    uint8_t node_sid_flags = 0;
    
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)lsp_pkt->pkt;
     isis_pkt_hdr_t *lsp_pkt_hdr = (isis_pkt_hdr_t *)(eth_hdr->payload);
@@ -200,11 +210,130 @@ isis_ted_update_or_install_lsp (isis_node_info_t *node_info, ted_db_t *ted_db, i
                             tlv_len2, tlv_value2, subtlv_len);
         }
         break;
+        case ISIS_TLV_RTR_CAP:
+        {
+            /* Router CAPABILITY TLV(242) : rtr_id(4) + flags(1), followed by
+                zero or more SubTLVs. We only care about the SR-MPLS
+                SR-Capability SubTLV ( SRGB ) here. Sub-TLVs embed their own
+                type/length as the first two bytes of their struct ( unlike
+                ITERATE_TLV_BEGIN's convention ), so walk them manually -
+                mirrors isis_print_formatted_rtr_cap_tlv242() */
+            size_t fixed_hdr_size = sizeof(isis_rtr_cap_tlv242_t);
+
+            if (tlv_len > fixed_hdr_size) {
+
+                byte *subtlv = tlv_value + fixed_hdr_size;
+                uint16_t consumed = (uint16_t)fixed_hdr_size;
+                bool next_subtlv;
+
+                do {
+                    next_subtlv = false;
+
+                    switch (*subtlv) {
+
+                        case ISIS_TLV_RTR_CAP_SR_CAP_SUBTLV:
+                        {
+                            isis_rtr_cap_sr_cap_subtlv_t *sr_cap_subtlv =
+                                (isis_rtr_cap_sr_cap_subtlv_t *)subtlv;
+
+                            node_data->has_srgb = true;
+                            node_data->srgb_base = sr_cap_subtlv->srgb_base;
+                            node_data->srgb_range = sr_cap_subtlv->srgb_range;
+
+                            consumed += TLV_OVERHEAD_SIZE + sr_cap_subtlv->length;
+                            if (tlv_len > consumed) {
+                                subtlv += TLV_OVERHEAD_SIZE + sr_cap_subtlv->length;
+                                next_subtlv = true;
+                            }
+                        }
+                        break;
+
+                        case ISIS_TLV_RTR_CAP_ALGO_SUBTLV:
+                        {
+                            isis_rtr_cap_algorithm_subtlv19_t *algo_subtlv =
+                                (isis_rtr_cap_algorithm_subtlv19_t *)subtlv;
+
+                            consumed += TLV_OVERHEAD_SIZE + algo_subtlv->length;
+                            if (tlv_len > consumed) {
+                                subtlv += TLV_OVERHEAD_SIZE + algo_subtlv->length;
+                                next_subtlv = true;
+                            }
+                        }
+                        break;
+
+                        case ISIS_TLV_RTR_CAP_SRV6_SUBTLV:
+                        {
+                            isis_rtr_cap_srv6_subtlv2_t *srv6_subtlv =
+                                (isis_rtr_cap_srv6_subtlv2_t *)subtlv;
+
+                            consumed += TLV_OVERHEAD_SIZE + srv6_subtlv->length;
+                            if (tlv_len > consumed) {
+                                subtlv += TLV_OVERHEAD_SIZE + srv6_subtlv->length;
+                                next_subtlv = true;
+                            }
+                        }
+                        break;
+
+                        default:
+                            /* Unknown/garbage subtlv - stop walking */
+                            break;
+                    }
+
+                } while (next_subtlv);
+            }
+        }
+        break;
+        case ISIS_TLV_NODE_SID:
+        {
+            isis_node_sid_tlv_t *node_sid_tlv = (isis_node_sid_tlv_t *)tlv_value;
+
+            node_sid_present = true;
+            node_sid_prefix = htonl(node_sid_tlv->prefix);
+            node_sid_prefix_len = node_sid_tlv->prefix_len;
+            node_sid_index = htonl(node_sid_tlv->sid_index);
+            node_sid_flags = node_sid_tlv->flags;
+        }
+        break;
                 default:;
         }
     }
     ITERATE_TLV_END(tlv_buffer, tlv_type,
                     tlv_len, tlv_value, tlv_buff_size);
+
+    /* Reconcile the Node-SID ( if any ) against the prefix it is bound to.
+        The Node-SID TLV may have been scanned before or after the matching
+        IP-REACH TLV above, so this can only be done once the TLV walk over
+        this LSP fragment is complete */
+    if (node_sid_present) {
+
+        if (!prefix_tree_root) {
+            prefix_tree_root = (avltree_t *)XCALLOC(0, 1, avltree_t);
+            avltree_init(prefix_tree_root, avltree_prefix_tree_comp_fn);
+        }
+
+        ted_prefix_t dummy_prefix;
+        memset(&dummy_prefix, 0, sizeof(dummy_prefix));
+        dummy_prefix.prefix = node_sid_prefix;
+        dummy_prefix.mask = node_sid_prefix_len;
+
+        avltree_node_t *avl_node = avltree_lookup(&dummy_prefix.avl_glue, prefix_tree_root);
+        ted_prefix_t *ted_prefix;
+
+        if (avl_node) {
+            ted_prefix = avltree_container_of(avl_node, ted_prefix_t, avl_glue);
+        }
+        else {
+            ted_prefix = (ted_prefix_t *)XCALLOC2(0, 1, ted_prefix_t);
+            ted_prefix->prefix = node_sid_prefix;
+            ted_prefix->mask = node_sid_prefix_len;
+            ted_prefix->src = lsp_pkt_hdr->fr_no;
+            avltree_insert(&ted_prefix->avl_glue, prefix_tree_root);
+        }
+
+        ted_prefix->has_sid = true;
+        ted_prefix->sid_index = node_sid_index;
+        ted_prefix->sid_flags = node_sid_flags;
+    }
 
     node_data->n_nbrs = n_tlv22;
     ted_create_or_update_node(ted_db, node_data, 

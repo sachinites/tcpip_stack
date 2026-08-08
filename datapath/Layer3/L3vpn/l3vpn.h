@@ -12,5 +12,10 @@ vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx,
                              struct rte_mbuf *mbuf, 
                              fib_nh_t *srv6_nh);
 
+void 
+vpnv4_ingress_pe_encap_mpls (dp_ctx_t *dp_ctx, 
+                             dp_vrf_t *vrf, 
+                             struct rte_mbuf *mbuf, 
+                             fib_nh_t *srv6_nh);
 
 #endif 

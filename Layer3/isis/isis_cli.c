@@ -25,6 +25,13 @@ extern void
 rtm_build_distribution_policy_cli_tree(
             param_t *mount_point, 
             RTM_PROTO_T exempt_proto) ;
+
+/* Segment Routing ( SR-MPLS ) CLI tree hookups - implemented in isis_sr_cli.cpp */
+extern void
+isis_sr_mpls_build_config_cli_tree (param_t *spring);
+
+extern void
+isis_sr_mpls_build_show_cli_tree (param_t *isis_proto);
             
 static int
 isis_config_traceoption_handler (int64_t cmdcode,
@@ -1311,6 +1318,10 @@ isis_config_cli_tree(param_t *param) {
                     }
                 }
             }
+            {
+                /* config node <node-name> [no] protocol isis source-packet-routing mpls ... */
+                isis_sr_mpls_build_config_cli_tree (&spring);
+            }
         }
 
 
@@ -1542,6 +1553,8 @@ isis_show_cli_tree(param_t *param) {
             libcli_register_param(&isis_proto, &intf_grps);
             libcli_set_param_cmd_code(&intf_grps, CMDCODE_SHOW_NODE_ISIS_PROTO_INTF_GROUPS);
         }
+        /* show node <node-name> protocol isis segment-routing */
+        isis_sr_mpls_build_show_cli_tree (&isis_proto);
     }
     return 0;
 }

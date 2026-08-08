@@ -89,3 +89,12 @@ vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx,
     /* Have to do forwarding in Default VRF */
     ipv6_layer3_forward_nexthop(dp_ctx, dp_ctx->default_vrf, srv6_nh, mbuf);
 }
+
+void 
+vpnv4_ingress_pe_encap_mpls (dp_ctx_t *dp_ctx, 
+                             dp_vrf_t *vrf, 
+                             struct rte_mbuf *mbuf, 
+                             fib_nh_t *sr_nh) {
+
+    assert(0);
+}

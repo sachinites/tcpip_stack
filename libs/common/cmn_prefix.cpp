@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "cmn_prefix.h"
 #include "ipv6_utils.h"
+#include "mpls_lstack.h"
 #include "../BitOp/bitmap.h"
 
 bool cmn_prefix_is_null (cmn_prefix_t *prefix) {
@@ -60,7 +61,8 @@ cmn_prefix_to_string(cmn_prefix_t *prefix, char (*buffer)[48]) {
             break;
             
         case AF_LABEL:
-            snprintf(*buffer, 48, "Label %u", prefix->u.mpls_label);
+            snprintf(*buffer, 48, "Label %u",
+                     mpls_label_get_value(prefix->u.mpls_label));
             break;
             
         default:

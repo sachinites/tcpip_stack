@@ -146,8 +146,21 @@ typedef struct isis_adv_data_ {
             isis_rtr_cap_algorithm_subtlv19_t rtr_cap_algorithm_subtlv19;
             bool is_rtr_cap_srv6_subtlv2_present;
             isis_rtr_cap_srv6_subtlv2_t rtr_cap_srv6_subtlv2;
+            /* Segment Routing ( SR-MPLS ) SR-Capability SubTLV : Advertises SRGB */
+            bool is_rtr_cap_sr_cap_subtlv_present;
+            isis_rtr_cap_sr_cap_subtlv_t rtr_cap_sr_cap_subtlv;
 
         } __attribute__((aligned(8))) rtr_cap;
+
+        /* Node-SID TLV - very basic / minimal SR-MPLS Node SID advertisement */
+        struct {
+
+            uint32_t prefix;
+            uint32_t sid_index;
+            uint8_t prefix_len;
+            uint8_t flags;
+
+        } __attribute__((aligned(8))) node_sid;
 
     } __attribute__((aligned(8))) u;
 

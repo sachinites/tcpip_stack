@@ -925,7 +925,7 @@ rtm_get_route_target_rtm(
     if (!is_def_vrf && afi == AF_IPV6) return vrf->inet6;
 
     /* MPLS routes always go to mpls.0 (default VRF only) */
-    if (afi == AF_MPLS) 
+    if (afi == AF_LABEL) 
         return NODE_DEF_VRF_MEMBER(node, mpls0);
 
     return NULL;
