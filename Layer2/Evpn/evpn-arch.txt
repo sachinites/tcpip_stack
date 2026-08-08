@@ -1,0 +1,92 @@
+
+Remote Routes EVPN Programming
+=================================== 
+                         
+                                    Remote EVPN Routes
+                               (Received from Remote VTEPs)
+                                             │
+                                             ▼
+                   +--------------------------------------------------+
+                   |             Global BGP EVPN RIB                  |
+                   |--------------------------------------------------|
+                   | Type-2  MAC                                      |
+                   | Type-2  MAC + IP                                 |
+                   | Type-3  IMET                                     |
+                   | Type-5  IP Prefix                                |
+                   +--------------------------------------------------+
+                                             │
+                                   Best Path Selection
+                                             │
+                                             ▼
+                +---------------------------------------------------------+
+                |             EVPN Import / Route Manager                  |
+                |                 (L2RIB / EVPN Manager)                   |
+                |----------------------------------------------------------|
+                | • Match Route Targets (RT Import)                        |
+                | • Determine MAC VRF imports                              |
+                | • Determine IP VRF imports                               |
+                | • Notify forwarding databases                            |
+                +----------------------------------------------------------+
+                               │                                   │
+                               │                                   │
+                RT:65501:10    │                                   │   RT:65501:99999
+             (L2VNI Import)    │                                   │   (L3VNI Import)
+                               ▼                                   ▼
+        +--------------------------------+        +--------------------------------------+
+        |         MAC VRF                |        |              IP VRF                  |
+        |        (Bridge Domain)         |        |         (Tenant Routing VRF)         |
+        |--------------------------------|        |--------------------------------------|
+        | VLAN 10                        |        | VRF Cust-A                           |
+        | L2VNI 5010                     |        | L3VNI 99999                          |
+        +--------------------------------+        +--------------------------------------+
+                  │                                          │
+                  │                                          │
+                  │                                          │
+      ┌───────────┼──────────────┐               ┌───────────┼───────────────┐
+      │           │              │               │                           │
+      ▼           ▼              ▼               ▼                           ▼
+
+ Type-2      Type-2 MAC-IP    Type-3 IMET   Type-2 MAC-IP               Type 5
+ MAC-only        │                │               │                     Prefixes/
+     │           │                │               │                     Static, OSPF, etc
+     │           │                │               │                         │
+     ▼           ▼                ▼               ▼                         ▼
+  |----------------------+   +-------------+   +------------------+   +-------------+
+  |       Remote MAC FDB |   | Flood List  |   | Neighbor / Host  |   |  VRF RIB    |
+  |       MAC -> VTEP    |   | per L2VNI   |   | Database         |   |             |
+  |----------------------+   +-------------+   | IP -> MAC ->     |   +-------------+
+                 │                  │          | VTEP             |           │
+                 │                  │          +------------------+           │
+                 │                  │                    │                    │
+                 │                  │                    │                    │
+                 │                  │         +----------+-----------+        │
+                 │                  │         |                      |        │
+                 │                  │         ▼                      ▼        ▼
+                 │                  │   ARP Suppression         Proxy ARP  Route Lookup
+                 │                  │        Cache                         (/24,/32,...)
+                 │                  │                                     │
+                 │                  │                                     ▼
+                 │                  └───────────────┐             Recursive NH Resolution
+                 │                                  │                      │
+                 ▼                                  ▼                      ▼
+          Known Unicast                    BUM Replication          Hardware FIB
+            Bridging                       (Bcast/Ucast/Mcast)           │
+                 │                                  │                    │
+                 └──────────────────────────────────┴────────────────────┘
+                                            │
+                                            ▼
+                                  VXLAN Encapsulation
+                                  (Outer IP + UDP + VNI)
+
+
+
+
+A more precise statement is:
+
+Type-2 MAC+IP is a MAC VRF route, but its IP information is imported by the IP VRF to create neighbor/adjacency state for integrated routing and bridging (IRB).
+Type-5 is an IP VRF route that installs actual IP prefixes into the VRF routing table.
+
+This distinction is fundamental to understanding symmetric IRB. The IP VRF needs both:
+
+Type-5 routes for routing decisions ("Which subnet or prefix?"), and
+Type-2 MAC+IP routes for host adjacencies ("Once I've decided to forward toward this connected subnet or remote host, what MAC and VTEP should I use?").

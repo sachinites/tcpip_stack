@@ -1113,6 +1113,50 @@ config node H3 rtm-route prefix 0.0.0.0/0 0 0 0 2 1 gateway 192.168.0.1 interfac
 
  configs : 
 
+config node Spine1 interface loopback lo0
+config node Spine1 interface loopback lo0 ip-address 10.0.0.1 32
+config node Spine1 interface loopback lo0 up
+
+config node Spine2 interface loopback lo0
+config node Spine2 interface loopback lo0 ip-address 10.0.0.2 32
+config node Spine2 interface loopback lo0 up
+
+config node Leaf1 interface loopback lo0
+config node Leaf1 interface loopback lo0 ip-address 10.0.0.11 32
+config node Leaf1 interface loopback lo0 up
+
+config node Leaf1 interface loopback lo0
+config node Leaf1 interface loopback lo0 ip-address 10.0.0.11 32
+config node Leaf1 interface loopback lo0 up
+
+config node Leaf2 interface loopback lo0
+config node Leaf2 interface loopback lo0 ip-address 10.0.0.12 32
+config node Leaf2 interface loopback lo0 up
+
+config node Leaf3 interface loopback lo0
+config node Leaf3 interface loopback lo0 ip-address 10.0.0.13 32
+config node Leaf3 interface loopback lo0 up
+
+config node Leaf4 interface loopback lo0
+config node Leaf4 interface loopback lo0 ip-address 10.0.0.14 32
+config node Leaf4 interface loopback lo0 up
+
+config node Host1 interface loopback lo0
+config node Host1 interface loopback lo0 ip-address 192.168.10.1 32
+config node Host1 interface loopback lo0 up
+
+config node Host2 interface loopback lo0
+config node Host2 interface loopback lo0 ip-address 192.168.10.2 32
+config node Host2 interface loopback lo0 up
+
+config node Host3 interface loopback lo0
+config node Host3 interface loopback lo0 ip-address 192.168.10.3 32
+config node Host3 interface loopback lo0 up
+
+config node Host4 interface loopback lo0
+config node Host4 interface loopback lo0 ip-address 192.168.10.4 32
+config node Host4 interface loopback lo0 up
+
 config node Spine1 protocol isis interface eth0
 config node Spine1 protocol isis interface eth1
 config node Spine1 protocol isis interface eth2
@@ -1146,10 +1190,10 @@ config node Leaf2 interface vlan 10 vni 5010
 config node Leaf3 interface vlan 10 vni 5010
 config node Leaf4 interface vlan 10 vni 5010
 
-config node Leaf1 interface nve nve1 member l2vni 5010
-config node Leaf2 interface nve nve1 member l2vni 5010
-config node Leaf3 interface nve nve1 member l2vni 5010
-config node Leaf4 interface nve nve1 member l2vni 5010
+config node Leaf1 interface network-virtualization-edge nve1 member l2vni 5010
+config node Leaf2 interface network-virtualization-edge nve1 member l2vni 5010
+config node Leaf3 interface network-virtualization-edge nve1 member l2vni 5010
+config node Leaf4 interface network-virtualization-edge nve1 member l2vni 5010
 
 config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.11
 config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.12
