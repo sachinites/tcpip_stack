@@ -616,14 +616,22 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
         
         /* This is INH with no resolution of self */
 
-        // Since this is inactive, it must not be on unresolvable thread/list
-        assert (!IS_QUEUED_UP_IN_THREAD (&nh->unresolvable_list_glue));
         // Since it is unresolved, it cannot be on route->resolved_lnhs list
         assert (!IS_QUEUED_UP_IN_THREAD (&nh->route_resolved_list_glue));
         assert (!nh->resolved_via_route);
         // Since it is unresolved, its borrowed DNH list must be empty
         assert (Fglthread_list_is_empty (&nh->direct_nh_list));
-        // Action : No Action 
+
+        /* Action : The INH could have been deactivated while it was still
+            awaiting resolution ( rtm_nh_set_inactive() flips is_active before
+            withdrawing ). Withdrawal must leave it off the resolution queue,
+            else the resolution worker would pick up a NH which is on its way
+            out of the RTM */
+        if (IS_QUEUED_UP_IN_THREAD (&nh->unresolvable_list_glue)) {
+
+            rtm_nh_remove_Fglthread (rtm, nh,
+                &rtm->unresolvable_paths, &nh->unresolvable_list_glue);
+        }
         return;
     }
 
@@ -684,6 +692,15 @@ rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {
         if (IS_QUEUED_UP_IN_THREAD(&nh->unresolvable_list_glue))
         {
             assert(nh->resolved_via_route == NULL);
+
+            /* The INH is awaiting resolution. Dequeue it : after withdrawal
+                the NH must not be reachable from the resolution graph at all,
+                otherwise the asynchronous resolution worker resurrects a NH
+                which the caller is about to delete from the RTM - it would get
+                linked into a resolver route's resolved_lnhs list behind the
+                back of the delete path and blow up in the GC */
+            rtm_nh_remove_Fglthread(rtm, nh,
+                &rtm->unresolvable_paths, &nh->unresolvable_list_glue);
             return;
         }
 
