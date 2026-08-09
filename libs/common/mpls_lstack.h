@@ -102,6 +102,90 @@ mpls_label_clear_stack_bottom(mpls_label_val_t *label) {
     *label &= ~(1 << 8);
 }
 
+/* Extract TTL (lower 8 bits) from mpls_label_t */
+static inline uint8_t
+mpls_label_get_ttl(mpls_label_val_t label) {
+    return (uint8_t)(label & 0xFF);
+}
+
+static inline void
+mpls_label_set_ttl(mpls_label_val_t *label, uint8_t ttl) {
+    *label = (*label & ~(mpls_label_val_t)0xFF) | (mpls_label_val_t)ttl;
+}
+
+/* Extract EXP/TC (bits 11..9) from mpls_label_t */
+static inline uint8_t
+mpls_label_get_exp(mpls_label_val_t label) {
+    return (uint8_t)((label >> 9) & 0x7);
+}
+
+/* A label stack begins 14 bytes into an ethernet frame, so a label entry
+   living in packet memory is never 4-byte aligned. Label entries on the wire
+   must therefore be accessed only through this 1-byte-aligned type. */
+typedef struct mpls_label_wire_ {
+
+    mpls_label_val_t label_val;
+
+} __attribute__((packed)) mpls_label_wire_t;
+
+static inline mpls_label_val_t
+mpls_wire_read (const mpls_label_wire_t *wlabel) {
+    return wlabel->label_val;
+}
+
+static inline void
+mpls_wire_write (mpls_label_wire_t *wlabel, mpls_label_val_t label) {
+    wlabel->label_val = label;
+}
+
+static inline uint32_t
+mpls_wire_get_value (const mpls_label_wire_t *wlabel) {
+    return mpls_label_get_value (wlabel->label_val);
+}
+
+static inline void
+mpls_wire_set_value (mpls_label_wire_t *wlabel, uint32_t value) {
+    mpls_label_val_t label = wlabel->label_val;
+    mpls_label_set_value (&label, value);
+    wlabel->label_val = label;
+}
+
+static inline bool
+mpls_wire_is_stack_bottom (const mpls_label_wire_t *wlabel) {
+    return mpls_label_is_stack_bottom (wlabel->label_val);
+}
+
+static inline void
+mpls_wire_set_stack_bottom (mpls_label_wire_t *wlabel) {
+    mpls_label_val_t label = wlabel->label_val;
+    mpls_label_set_stack_bottom (&label);
+    wlabel->label_val = label;
+}
+
+static inline void
+mpls_wire_clear_stack_bottom (mpls_label_wire_t *wlabel) {
+    mpls_label_val_t label = wlabel->label_val;
+    mpls_label_clear_stack_bottom (&label);
+    wlabel->label_val = label;
+}
+
+static inline uint8_t
+mpls_wire_get_ttl (const mpls_label_wire_t *wlabel) {
+    return mpls_label_get_ttl (wlabel->label_val);
+}
+
+static inline void
+mpls_wire_set_ttl (mpls_label_wire_t *wlabel, uint8_t ttl) {
+    mpls_label_val_t label = wlabel->label_val;
+    mpls_label_set_ttl (&label, ttl);
+    wlabel->label_val = label;
+}
+
+static inline uint8_t
+mpls_wire_get_exp (const mpls_label_wire_t *wlabel) {
+    return mpls_label_get_exp (wlabel->label_val);
+}
+
 static bool 
 mpls_lstack_compare (mpls_lstack_t *label_stk1, mpls_lstack_t *label_stk2) {
 

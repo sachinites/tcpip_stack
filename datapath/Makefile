@@ -39,6 +39,7 @@ OBJS=dp_init.o \
 	 FIB/fib_route.o \
 	 FIB/fib_show.o \
 	 Layer3/layer3.o \
+	 Layer3/mpls_fwd.o \
 	 Layer3/ping.o \
 	 Layer3/SRv6/srv6-end-behavior.o \
 	 Layer3/SRv6/srv6-endpoint.o \

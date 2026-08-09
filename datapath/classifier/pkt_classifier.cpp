@@ -8,6 +8,7 @@
 #include "../../libs/common/l4_hdrs.h"
 #include "../../libs/common/ipv6_hdrs.h"
 #include "../../libs/common/cmn_prefix.h"
+#include "../../libs/common/mpls_lstack.h"
 #include "../../libs/pkt-block/pkt_mbuf.h"
 #include "../dp_ctx.h"
 #include "cp_trap_fns.h"
@@ -177,8 +178,8 @@ dp_pkt_classify(struct rte_mbuf *mbuf)
     case ETH_TYPE_MPLS_UC:
     case ETH_TYPE_MPLS_MC: {
         /* Read the top MPLS label (first 20 bits of the 4-byte label entry) */
-        uint32_t lse = ntohl(*(uint32_t *)l3);
-        cls.sub_proto = (uint16_t)((lse >> 12) & 0xFFFFF);   /* label value */
+        cls.sub_proto =
+            (uint16_t)mpls_wire_get_value((mpls_label_wire_t *)l3);
         break;
     }
 

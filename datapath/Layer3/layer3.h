@@ -15,12 +15,14 @@
 #define __LAYER3__
 
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef struct dp_vrf_ dp_vrf_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct rte_mbuf pkt_mbuf_t;
 typedef struct fib_nh_ fib_nh_t;
+typedef struct mpls_lstack_ mpls_lstack_t;
 
 void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
@@ -46,5 +48,20 @@ dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *mbuf);
 
 void
 dp_send_ip6_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *mbuf);
+
+void
+dp_mpls_fwd_pkt(dp_ctx_t *dp_ctx,
+                dp_vrf_t *vrf,
+                dp_intf_t *iif,
+                struct rte_mbuf *mbuf);
+
+/* Impose/swap/pop the labels in lstack onto mbuf, in stack order
+   ( index 0 = innermost/BoS .. curr_index = outermost ). Works whether the
+   packet already carries an MPLS header ( transit swap/pop/push ) or is bare
+   IP ( first PUSH imposes the label with S-bit set and TTL 255 ).
+   Returns true if the packet's top header is still MPLS after applying the
+   stack, false if the last label was popped off. */
+bool
+mpls_apply_nh_label_stack(struct rte_mbuf *mbuf, mpls_lstack_t *lstack);
 
 #endif /* __LAYER3__ */

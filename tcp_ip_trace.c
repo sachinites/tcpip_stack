@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <arpa/inet.h>
 #include "tcp_public.h"
+#include "libs/common/mpls_lstack.h"
 #include "datapath/Interface/dp_intf.h"
 #include "datapath/Interface/dp_intf_store.h"
 #include "datapath/Layer3/ping.h"
@@ -37,6 +38,12 @@ string_ethernet_hdr_type(unsigned short type, char *string_buffer){
             break;
         case ETH_TYPE_ARP:
             string_copy((char *)string_buffer, "ARP_MSG", strlen("ARP_MSG"));
+            break;
+        case ETH_TYPE_MPLS_UC:
+            string_copy((char *)string_buffer, "ETH_TYPE_MPLS_UC", strlen("ETH_TYPE_MPLS_UC"));
+            break;
+        case ETH_TYPE_MPLS_MC:
+            string_copy((char *)string_buffer, "ETH_TYPE_MPLS_MC", strlen("ETH_TYPE_MPLS_MC"));
             break;
         default:
             sprintf((char *)string_buffer, "L2-Proto : %hu", type);
@@ -83,6 +90,9 @@ string_ip_hdr_protocol_val(uint16_t type,   c_string string_buffer){
              break;      
         case IP_PROTO_SRH:
                 string_copy((char *)string_buffer, "IP_PROTO_SRH", strlen("IP_PROTO_SRH"));
+                break;
+        case IP_PROTO_MPLS_IN_IP:
+                string_copy((char *)string_buffer, "IP_PROTO_MPLS_IN_IP", strlen("IP_PROTO_MPLS_IN_IP"));
                 break;
         default:
             return NULL;
@@ -257,6 +267,71 @@ tcp_dump_arp_hdr(c_string buff, arp_hdr_t *arp_hdr,
     return rc;
 }
 
+/* Walk MPLS label stack (outer → inner) until BoS, then dump inner payload. */
+int
+tcp_dump_mpls_hdr(char *buff, mpls_label_wire_t *labels, pkt_size_t pkt_size) {
+
+    int rc = 0;
+    int depth = 0;
+    pkt_size_t consumed = 0;
+    mpls_label_wire_t *lbl = labels;
+    bool bos = false;
+
+    if (!labels || pkt_size < sizeof(mpls_label_wire_t)) {
+        return 0;
+    }
+
+    rc += sprintf(buff + rc, "MPLS Stack (outer→inner):\n");
+
+    while (consumed + sizeof(mpls_label_wire_t) <= pkt_size && depth < MAX_LBL_DEPTH) {
+
+        uint32_t val = mpls_wire_get_value(lbl);
+        uint8_t  exp = mpls_wire_get_exp(lbl);
+        uint8_t  ttl = mpls_wire_get_ttl(lbl);
+        bos = mpls_wire_is_stack_bottom(lbl);
+
+        rc += sprintf(buff + rc,
+                      "  [%d] Label %u  Exp %u  S %u  TTL %u%s\n",
+                      depth, val, exp, bos ? 1 : 0, ttl,
+                      bos ? "  (BoS)" : "");
+
+        consumed += sizeof(mpls_label_wire_t);
+        lbl++;
+        depth++;
+
+        if (bos) break;
+    }
+
+    if (!bos) {
+        rc += sprintf(buff + rc, "  (warning: BoS not found within %d labels)\n", depth);
+        return rc;
+    }
+
+    /* Payload after bottom-of-stack label */
+    if (consumed >= pkt_size) {
+        return rc;
+    }
+
+    {
+        /* Heuristics to detct the next Header after mpls label stack in the pkt */
+        byte *payload = (byte *)labels + consumed;
+        pkt_size_t rem = pkt_size - consumed;
+        uint8_t ver = (payload[0] >> 4) & 0x0F;
+
+        if (ver == 4) {
+            rc += tcp_dump_ip_hdr(buff + rc, (ip_hdr_t *)payload, rem);
+        } else if (ver == 6) {
+            rc += tcp_dump_ip6_hdr(buff + rc, (ipv6_hdr_t *)payload, rem);
+        } else {
+            rc += sprintf(buff + rc,
+                          "MPLS Payload : unknown (first-nibble=0x%x, %uB)\n",
+                          ver, rem);
+        }
+    }
+
+    return rc;
+}
+
 int
 tcp_dump_ethernet_hdr(char *buff, 
                         ethernet_hdr_t *eth_hdr, 
@@ -316,6 +391,11 @@ tcp_dump_ethernet_hdr(char *buff,
                     (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
                     payload_size);
             break;
+        case ETH_TYPE_MPLS_UC:
+            rc += tcp_dump_mpls_hdr(buff + rc,
+                    (mpls_label_wire_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr),
+                    payload_size);
+            break;
         default:
             break;
     }
@@ -341,6 +421,12 @@ tcp_dump_gre_hdr(char *buff,
         case ETH_TYPE_GRE:
             rc += tcp_dump_ethernet_hdr(buff + rc, 
                     (ethernet_hdr_t *)(gre_hdr + 1), 
+                    pkt_size - sizeof(gre_hdr_t));
+            break;
+
+        case ETH_TYPE_MPLS_UC:
+            rc += tcp_dump_mpls_hdr(buff + rc,
+                    (mpls_label_wire_t *)(gre_hdr + 1),
                     pkt_size - sizeof(gre_hdr_t));
             break;
 
@@ -383,6 +469,11 @@ tcp_dump_srh_hdr(unsigned char *buffer, srh_hdr_t *srh_hdr, pkt_size_t pkt_size)
         case IP_PROTO_GRE:
             rc += tcp_dump_gre_hdr(buffer + rc,
                                 (gre_hdr_t *)((char *)srh_hdr + srh_hdr->hdrlen),
+                                pkt_size - srh_hdr->hdrlen);
+            break;
+        case IP_PROTO_MPLS_IN_IP:
+            rc += tcp_dump_mpls_hdr(buffer + rc,
+                                (mpls_label_wire_t *)((char *)srh_hdr + srh_hdr->hdrlen),
                                 pkt_size - srh_hdr->hdrlen);
             break;
         case ETHERNET_HEADER:
@@ -496,6 +587,11 @@ tcp_dump(int sock_fd,
         case ETH_TYPE_IPv6:
             rc = tcp_dump_ip6_hdr(out_buff + write_OFFset, 
                 (ipv6_hdr_t *)pkt, pkt_size);
+            break;
+        case ETH_TYPE_MPLS_UC:
+        case IP_PROTO_MPLS_IN_IP:
+            rc = tcp_dump_mpls_hdr(out_buff + write_OFFset,
+                (mpls_label_wire_t *)pkt, pkt_size);
             break;
         case IP_PROTO_GRE:
             rc = tcp_dump_gre_hdr (out_buff + write_OFFset, 

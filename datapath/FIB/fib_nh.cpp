@@ -174,9 +174,10 @@ fib_nh_t *fib_get_forwarding_nh(fib_t *fib, cmn_prefix_t *prefix) {
     
     /* Perform lookup based on AFI type */
     if (fib->afi == AF_LABEL) {
-        /* MPLS label lookup - exact match using hashtable */
-        mpls_label_val_t label_val = mpls_label_get_value(prefix->u.mpls_label);
-        route = (fib_route_t *)hashtable_search(fib->u.label_ht, &label_val);
+        /* Hash keys are stored as shifted label words (see fib_route_add).
+           Lookup must use the same key representation, not the bare 20-bit value. */
+        uint32_t label_key = prefix->u.mpls_label;
+        route = (fib_route_t *)hashtable_search(fib->u.label_ht, &label_key);
         if (!route) return NULL;
     }
     else if (fib->afi == AF_IPV4 || fib->afi == AF_IPV6) {

@@ -65,6 +65,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     char nh_str[48];
     int8_t nf_result;
+     dp_vrf_t *nh_vrf;
     char *l4_hdr, *l5_hdr;
     ip_hdr_t *ip_hdr = NULL;
     uint32_t next_hop_ip= 0;
@@ -115,6 +116,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         return;
     }
 
+    nh_vrf = nh->fwd_info->oif->vrf;
 
     tracer (dp_ctx->dptr, DL3FWD, 
             "VRF %s: Pkt : %s : L3 Route Found\n", 
@@ -137,21 +139,6 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             vrf->vrf_name, dest_ip_addr);
         return;
     }
-    
-    
-    /* VPNv4 case : when vrf.inet FIB has SRv6 nexthop 
-       Handover to ipv6 forwarding stack ... */
-
-    if (IS_BIT_SET (nh->fwd_info->fwd_flags, FIB_NH_FWD_F_SRv6_FORWARD)) {
-
-        tracer (dp_ctx->dptr, DL3FWD, 
-            "VRF %s: Pkt : %s : L3 forwarding switched from v4 to v6 "
-            "for VPNv4 case where nexthop is SRv6\n", 
-            vrf->vrf_name, dest_ip_addr);
-
-        vpnv4_ingress_pe_encap_srv6(dp_ctx, vrf, mbuf, nh);
-        return;
-    }    
 
     /*L3 route exist, 3 cases now : 
      * case 1 : pkt is destined to self(this router only)
@@ -389,7 +376,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     dp_demote_pkt_to_layer2 (
             dp_ctx,
-            vrf,           /*Current processing node*/
+            nh_vrf ? nh_vrf : vrf,           /*Current processing node*/
             ntohl(ip_hdr->dst_ip),     /*next hop IP is dest itself as dest is present in local subnet*/
             nh->fwd_info->oif,           /*No oif as dest is present in local subnet*/
             mbuf,  /*Network Layer payload and size*/
@@ -485,18 +472,20 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
             "for VPNv4 case where nexthop is SR-MPLS\n", 
             vrf->vrf_name, dest_ip_addr);
 
-        vpnv4_ingress_pe_encap_mpls(dp_ctx, vrf, mbuf, nh);
+        int n = vpnv4_ingress_pe_encap_mpls(dp_ctx, vrf, mbuf, nh);
 
         dp_demote_pkt_to_layer2(dp_ctx, 
-            vrf, 
+            nh_vrf ? nh_vrf : vrf, 
             next_hop_ip,
             nh->fwd_info->oif,
             mbuf,
-            IP_PROTO_IP_IN_IP);        
+            n ? IP_PROTO_MPLS_IN_IP : IP_PROTO_IP_IN_IP);
+            
+        return;
     }    
     
     dp_demote_pkt_to_layer2(dp_ctx, 
-            vrf, 
+            nh_vrf ? nh_vrf : vrf, 
             next_hop_ip,
             nh->fwd_info->oif,
             mbuf,

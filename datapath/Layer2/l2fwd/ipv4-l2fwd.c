@@ -11,6 +11,7 @@
 #include "../../dp_utils.h"
 #include "../../dp_uapi.h"
 #include "../../classifier/pkt_classifier.h"
+#include "../../Layer3/layer3.h"
 
 extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
@@ -43,9 +44,10 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
     pkt_size_t ethernet_payload_size = 
         pkt_size - sizeof(ethernet_hdr_t) - ETH_FCS_SIZE;
 
-    /* Handling L2 forwarding for any payload other than ipv4. Sinply,
+    /* Handling L2 forwarding for any payload other than ipv4. Simply,
         encap the pkt within ethernet hdr with dst mac as broadcast mac */
-    if (ethernet_hdr->type != htons(ETH_TYPE_IPv4)) {
+    if (ethernet_hdr->type != htons(ETH_TYPE_IPv4) && 
+        ethernet_hdr->type != htons(ETH_TYPE_MPLS_UC)) {
 
         layer2_fill_with_broadcast_mac (ethernet_hdr->dst_mac.mac);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
@@ -63,6 +65,11 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         arp_entry = arp_table_lookup(vrf->arp_table, next_hop_ip);
 
         if (!arp_entry || arp_entry_sane(arp_entry)) {
+
+            tracer(dp_ctx->dptr, DL2FWD, 
+                "VRF %s: Dest : %s : ARP not yet resolved, posting ARP_RESOLVE job\n",
+                vrf->vrf_name, next_hop_ip_str);
+                
             /*
              * ARP not yet resolved (or pending).  Ref the mbuf and post an
              * ARP_RESOLVE job to dp_ev_dis.  dp_ev_dis will:
@@ -70,9 +77,9 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
              *  2. Send an ARP broadcast request.
              * The packet will be forwarded when the ARP reply arrives.
              */
-            pkt_mbuf_ref_inc(mbuf);
+            //pkt_mbuf_ref_inc(mbuf);
             dp_post_arp_resolve_job(dp_ctx, vrf, oif->port_id,
-                                    next_hop_ip, mbuf);
+                                    next_hop_ip, NULL);
             return;
         }
 
@@ -153,6 +160,8 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                           gen_proto_id_t hdr_type)
 {
 
+    gen_proto_id_t starting_hdr_type = pkt_mbuf_get_starting_hdr(mbuf);
+
     pkt_mbuf_tcp_ip_expand_buffer_ethernet_hdr(mbuf);
 
     ethernet_hdr_t *empty_ethernet_hdr =
@@ -164,6 +173,9 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
             break;
         case IP_PROTO_IPv6:
             SET_COMMON_ETH_HDR_TYPE(empty_ethernet_hdr, ETH_TYPE_IPv6);
+            break;
+        case IP_PROTO_MPLS_IN_IP:
+            SET_COMMON_ETH_HDR_TYPE(empty_ethernet_hdr, ETH_TYPE_MPLS_UC);
             break;
         default:
             assert(0);
@@ -349,6 +361,16 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                     dp_ctx,
                     vrf, iif, 
                     mbuf);
+            break;
+
+        case ETH_TYPE_MPLS_UC:
+            pkt_mbuf_slide(mbuf, -1, 1, 
+                    is_vlan_tagged ? (uint16_t)sizeof(vlan_ethernet_hdr_t) : \
+                    (uint16_t)sizeof(ethernet_hdr_t));
+            pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
+            pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_MPLS_IN_IP);
+
+            dp_mpls_fwd_pkt (dp_ctx, vrf, iif, mbuf);
             break;
 
         default: ;

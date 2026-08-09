@@ -216,8 +216,9 @@ fib_forward(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *pkt, uint8_t vrf_i
    
     if (fib->afi == AF_LABEL) {
 
-        mpls_label_val_t label_val = mpls_label_get_value (dest.u.mpls_label);
-        route = (fib_route_t *)hashtable_search(fib->u.label_ht, &label_val);
+        /* Hash keys are stored as shifted label words (see fib_route_add). */
+        uint32_t label_key = dest.u.mpls_label;
+        route = (fib_route_t *)hashtable_search(fib->u.label_ht, &label_key);
         if (!route) return FIB_ERROR_ROUTE_NOT_FOUND;
     }
     else {

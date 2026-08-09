@@ -36,6 +36,7 @@
 #include "libs/BitOp/bitsop.h"
 #include "utils.h"
 #include "libs/common/protoIds.h"
+#include "libs/common/mpls_lstack.h"
 #include "libs/pkt-block/pkt_mbuf.h"
 
 #define TCP_PRINT_BUFFER_SIZE 1528
@@ -80,6 +81,7 @@ void tcp_ip_show_log_status(node_t *node);
 
 /* Packet header dump functions */
 int tcp_dump_ethernet_hdr(char *buff, ethernet_hdr_t *eth_hdr, pkt_size_t pkt_size);
+int tcp_dump_mpls_hdr(char *buff, mpls_label_wire_t *labels, pkt_size_t pkt_size);
 
 extern char tlb[TCP_LOG_BUFFER_LEN];
 

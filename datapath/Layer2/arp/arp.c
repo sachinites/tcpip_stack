@@ -81,6 +81,7 @@ add_arp_pending_entry(dp_ctx_t *dp_ctx,
                       arp_processing_fn cb,
                       struct rte_mbuf *mbuf)
 {
+    if (!mbuf) return;
     arp_pending_entry_t *pe =
         (arp_pending_entry_t *)XCALLOC2(0, 1, arp_pending_entry_t);
     init_glthread(&pe->arp_pending_entry_glue);
@@ -626,7 +627,10 @@ create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
         /* Sane entry exists — append pending packet. */
         add_arp_pending_entry(dp_ctx, entry,
                               pending_arp_processing_callback_function, mbuf);
-        pkt_mbuf_dereference(mbuf); /* release the extra ref taken by the caller */
+
+        if (mbuf) {
+            pkt_mbuf_dereference(mbuf); /* release the extra ref taken by the caller */
+        }
         return;
     }
 
@@ -642,7 +646,8 @@ create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
     init_glthread(&entry->arp_pending_list);
     add_arp_pending_entry(dp_ctx, entry,
                           pending_arp_processing_callback_function, mbuf);
-    pkt_mbuf_dereference(mbuf); /* release the extra ref taken by the caller */
+    
+    if (mbuf) pkt_mbuf_dereference(mbuf); /* release the extra ref taken by the caller */
     assert(arp_table_entry_add_nolock(dp_ctx, vrf, arp_table, entry, 0));
 }
 
