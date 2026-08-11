@@ -71,6 +71,8 @@ typedef struct acl_client_ acl_client_t;
 typedef struct acl_builder_ acl_builder_t;
 typedef struct ifm_ ifm_t;
 typedef struct rdbms_instance_ rdbms_t;
+typedef struct label_mgr_ label_mgr_t;
+typedef struct label_mgr_block_ label_mgr_block_t;
 
 struct node_ {
 
@@ -118,6 +120,10 @@ struct node_ {
     tracer_t *acl_cptr;
     /* VRFs*/
     vrf_t* vrf[MAX_VRF_PER_NODE];
+    /* MPLS Label Manager */
+    label_mgr_t *lbl_mgr;
+    /* L3VPN pre-reserved label Block*/
+    label_mgr_block_t *l3vpn_lbl_block;
     /* SQL DB*/
     BPlusTree_t *sql_db;
     /* Data Path */

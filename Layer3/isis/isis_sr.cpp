@@ -11,6 +11,7 @@
 #include "../../RTM/rtm_enums.h"
 #include "../../RTM/rtm_nb_integ.h"
 #include "../../ted/ted.h"
+#include "../../LabelMgr/label_mgr.h"
 
 isis_srmpls_config_t *
 isis_sr_mpls_get_config (isis_node_info_t *node_info) {
@@ -102,9 +103,21 @@ isis_sr_mpls_enable (isis_node_info_t *node_info) {
 
     node_info->srmpls_config = (isis_srmpls_config_t *)XCALLOC2(0, 1, isis_srmpls_config_t);
 
-    srgb_create(ISIS_SR_DEFAULT_SRGB_BASE, ISIS_SR_DEFAULT_SRGB_RANGE, 
+    label_mgr_rc_t rc = label_mgr_reserve_range(
+            node_info->vrf->node->lbl_mgr,
+            label_mgr_make_client(LABEL_CLIENT_ISIS, node_info->vrf->vrf_id),
+            (node_info->vrf->vrf_id + 1) * ISIS_SR_DEFAULT_SRGB_BASE,
+            ISIS_SR_DEFAULT_SRGB_RANGE);
+
+    assert (rc == LABEL_MGR_OK);
+
+    srgb_error_t rc1 = srgb_create((node_info->vrf->vrf_id + 1) * ISIS_SR_DEFAULT_SRGB_BASE, 
+                 ISIS_SR_DEFAULT_SRGB_RANGE, 
                 "ISIS-SRGB", &node_info->srmpls_config->srgb);
-    srgb_register_client(node_info->srmpls_config->srgb, SRGB_CLIENT_ISIS);
+
+    assert (rc1 == SRGB_OK);
+
+    srgb_register_client(node_info->srmpls_config->srgb, SRGB_CLIENT_ISIS);   
 
     isis_sr_mpls_advertise_rtr_cap_tlv242(node_info);
 
@@ -155,7 +168,12 @@ isis_sr_mpls_disable (isis_node_info_t *node_info) {
     isis_sr_mpls_flush_rtm_routes(node_info);
 
     isis_sr_mpls_withdraw_node_sid(node_info);
+
     isis_sr_mpls_withdraw_rtr_cap_tlv242(node_info);
+
+    label_mgr_release_range (node_info->vrf->node->lbl_mgr,
+        label_mgr_make_client(LABEL_CLIENT_ISIS, node_info->vrf->vrf_id),
+        srgb_get_base_label(node_info->srmpls_config->srgb));
 
     srgb_unregister_client(node_info->srmpls_config->srgb, SRGB_CLIENT_ISIS);
     srgb_destroy(node_info->srmpls_config->srgb);

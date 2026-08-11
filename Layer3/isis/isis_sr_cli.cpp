@@ -25,16 +25,16 @@ isis_sr_mpls_config_handler (int64_t cmdcode,
         else if (parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
             vrf_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "srgb-base"))
-            srgb_base = (uint32_t)atoi(tlv->value);
+            srgb_base = (uint32_t)atoi((const char *)tlv->value);
         else if (parser_match_leaf_id(tlv->leaf_id, "srgb-range"))
-            srgb_range = (uint32_t)atoi(tlv->value);
+            srgb_range = (uint32_t)atoi((const char *)tlv->value);
         else if (parser_match_leaf_id(tlv->leaf_id, "sid-index"))
-            sid_index = (uint32_t)atoi(tlv->value);
+            sid_index = (uint32_t)atoi((const char *)tlv->value);
 
     } TLV_LOOP_END;
 
     node_t *node = node_get_node_by_name(topo, node_name);
-    vrf_t *vrf = vrf_name ? vrf_get_by_name(node, vrf_name) : NODE_DEF_VRF(node);
+    vrf_t *vrf = vrf_name ? vrf_get_by_name(node, (char *)vrf_name) : NODE_DEF_VRF(node);
 
     if (!isis_is_protocol_enable_on_node(vrf)) {
         cprintf("\n"ISIS_ERROR_PROTO_NOT_ENABLE);
@@ -112,7 +112,7 @@ isis_sr_mpls_show_handler (int64_t cmdcode,
     } TLV_LOOP_END;
 
     node_t *node = node_get_node_by_name(topo, node_name);
-    vrf_t *vrf = vrf_name ? vrf_get_by_name(node, vrf_name) : NODE_DEF_VRF(node);
+    vrf_t *vrf = vrf_name ? vrf_get_by_name(node, (char *)vrf_name) : NODE_DEF_VRF(node);
 
     if (!isis_is_protocol_enable_on_node(vrf)) {
         cprintf("\n"ISIS_ERROR_PROTO_NOT_ENABLE);

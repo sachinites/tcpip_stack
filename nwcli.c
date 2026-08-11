@@ -97,6 +97,7 @@ extern int rtm_show_dist_mgr_database_handler (int64_t cmdcode, Stack_t *tlv_sta
 extern int rtm_show_dist_mgr_policies_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int rtm_show_dist_mgr_targets_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int rtm_show_dist_mgr_target_route_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int mpls_label_mgr_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 
 static int
 display_mem_usage(int64_t cmdcode, Stack_t *tlv_stack,
@@ -1031,7 +1032,7 @@ nw_init_cli(){
 				init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App protocol");
 				libcli_register_param(&node_name, &protocol);
 
-				/* show node <node-name> protocol ...*/
+				/* clear node <node-name> protocol ...*/
 				cli_register_application_cli_trees(&protocol, 
 							 cli_register_cb_arr_clear_node_node_name_protcol_level);
 			}
@@ -1107,6 +1108,14 @@ nw_init_cli(){
                          /* show node <node-name> protocol ...*/
                          cli_register_application_cli_trees(&protocol,
                                                             cli_register_cb_arr_show_node_node_name_protcol_level);
+                     }
+
+                     {
+                        /* show node <node-name> mpls-label-mgr */
+                        static param_t mplslabel_mgr;
+                        init_param(&mplslabel_mgr, CMD, "mpls-label-mgr", mpls_label_mgr_show_handler, 0, INVALID, 0, "MPLS Label Manager");
+                        libcli_register_param(&node_name, &mplslabel_mgr);
+                        libcli_set_param_cmd_code(&mplslabel_mgr, CMDCODE_SHOW_NODE_MPLS_LABEL_MGR);
                      }
 
                      {

@@ -167,7 +167,7 @@ typedef struct isis_adv_data_ {
     isis_fragment_t *fragment;
 
     union {
-        struct isis_adv_data_ **holder; // for IS REACH
+        struct isis_adv_data_ **holder;
     }src;
 
     glthread_t glue;

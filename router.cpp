@@ -7,6 +7,7 @@
 #include "CLIBuilder/libcli.h"
 
 #include "libs/pkt-block/cp_pkt_block.h"
+#include "LabelMgr/label_mgr.h"
 
 extern graph_t *topo;
 extern int cprintf (const char * format, ...);
@@ -177,5 +178,23 @@ cp_punted_pkt_recv_job_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_siz
 
     /* Free the pkt after use */
     cp_pkt_block_dereference(cp_pkt_block);
+    return 0;
+}
+
+int 
+mpls_label_mgr_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) {
+
+    node_t *node;
+    c_string node_name;
+    tlv_struct_t *tlv = NULL;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+    }TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    label_mgr_show_all(node->lbl_mgr);
+
     return 0;
 }

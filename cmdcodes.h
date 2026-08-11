@@ -200,6 +200,9 @@
 
 #define SQL_QUERY_CMD_CODE 83
 
+/* show node <node-name> mpls-label-mgr */
+#define CMDCODE_SHOW_NODE_MPLS_LABEL_MGR 84
+
 /* Flag to distinguish if the CLI typed should go to
   control plane scheduler or data plane scheduler*/
 #define CLI_F_CONTROL_PLANE 1

@@ -49,6 +49,7 @@ export LIBS=${ISIS_LIB_PATH} \
 			-Ldatapath -ldp \
 			-Llibs -lstd \
 			-LRTM -lrtm \
+			-LLabelMgr -llabelmgr \
 			${DBMS_LIB_PATH} \
 			${MEXPR_LIB_PATH} \
 			${DBMS_LIB_PATH} \
@@ -134,7 +135,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a LabelMgr/liblabelmgr.a
 	${CC} ${CFLAGS} main.o ${OBJS} ${LIBS} ${DPDK} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -257,6 +258,8 @@ datapath/libdp.a:
 	(cd datapath; make)
 libs/libstd.a:
 	(cd libs; make)
+LabelMgr/liblabelmgr.a:
+	(cd LabelMgr; make)
 clean:
 	rm -f *.o *.d
 	rm -f *exe
@@ -292,6 +295,7 @@ cleanall:
 	(cd RTM; make clean)
 	(cd datapath; make clean)
 	(cd libs; make clean)
+	(cd LabelMgr; make clean)
 
 # Auto-generated header dependencies (-MMD -MP); only .o members of OBJS
 -include $(filter %.o,$(OBJS:.o=.d))

@@ -12,6 +12,7 @@
 #include "../Interface/InterfacEnums.h"
 #include "../net.h"
 #include "../dpal/cp2dp.h"
+#include "../LabelMgr/label_mgr.h"
 
 /* Initialize Default VRF */
 def_vrf_t* vrf_def_init(node_t *node) {
@@ -49,7 +50,12 @@ vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name, vrf_t *vrf) {
     vrf->intf_by_ifindex = new std::unordered_map<uint32_t, InterfaceP>();
 
     /* Initialize L3 VPN label to 0 */
-    vrf->l3_vpn_label = node_get_sequence_no(node);
+    if (vrf_id == 0) 
+        vrf->l3_vpn_label = 0;
+    else  {
+        assert (label_mgr_block_alloc_label(
+            node->l3vpn_lbl_block, &vrf->l3_vpn_label) == LABEL_MGR_OK);
+    }
 
     /* Initialize Route Distinguisher */
     vrf->rd.asn = 0;
@@ -108,12 +114,13 @@ void vrf_delete(vrf_t* vrf, bool _free) {
         delete vrf->intf_by_ifindex;
         vrf->intf_by_ifindex = nullptr;
     }
-    
-    //mpls_label_release (vrf->l3_vpn_label);
-    vrf->l3_vpn_label = 0;
+
+    vrf->node->vrf[vrf->vrf_id] = NULL;
     vrf->node = NULL;
 
-    if (_free) XFREE(vrf);
+    if (_free) {
+        XFREE(vrf);
+    }
 }
 
 /* Add interface to VRF */
@@ -229,10 +236,10 @@ show_vrfs(node_t *node) {
     int i;
     bool has_vrf = false;
 
-    cprintf("%-10s %-20s %-15s %-15s %-15s %-20s %-20s\n", 
-            "VRF ID", "VRF Name", "RD", "Import RT", "Export RT", "IPv4 RIB", "IPv6 RIB");
-    cprintf("%-10s %-20s %-15s %-15s %-15s %-20s %-20s\n",
-            "------", "--------", "--", "---------", "---------", "---------", "---------");
+    cprintf("%-10s %-20s %-15s %-15s %-15s %-12s\n",
+            "VRF ID", "VRF Name", "RD", "Import RT", "Export RT", "L3VPN Label");
+    cprintf("%-10s %-20s %-15s %-15s %-15s %-12s\n",
+            "------", "--------", "--", "---------", "---------", "-----------");
 
     for (i = 0; i < MAX_VRF_PER_NODE; i++) {
         
@@ -269,14 +276,13 @@ show_vrfs(node_t *node) {
         }
 
         /* Display VRF information */
-        cprintf("%-10u %-20s %-15s %-15s %-15s %-20s %-20s\n",
+        cprintf("%-10u %-20s %-15s %-15s %-15s %-12u\n",
                 vrf->vrf_id,
                 vrf->vrf_name,
                 rd_str,
                 import_rt_str,
                 export_rt_str,
-                vrf->inet0 ? vrf->inet0->name : "N/A",
-                vrf->inet6 ? vrf->inet6->name : "N/A");
+                vrf->l3_vpn_label);
     }
 
     if (!has_vrf) {

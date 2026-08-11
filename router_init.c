@@ -49,11 +49,13 @@
 #include "libs/common/cmn_prefix.h"
 #include "datapath/dp_uapi.h"
 #include "../RDBMSImplementation/uapi/sql_api.h"
+#include "LabelMgr/label_mgr.h"
 
 extern void cp_init_ipc_pub_sub(node_t *node);
 extern void rtm_dist_mgr_init (node_t *node);
 extern void acl_builder_init (node_t *, acl_builder_t **acl_builder);
 extern void ifm_init(node_t *node);
+
 extern int
 cp_punted_pkt_recv_job_cbk(event_dispatcher_t *ev_dis, void *arg, size_t arg_size) ;
 
@@ -196,6 +198,15 @@ Router_Create(graph_t *graph, const c_string node_name){
 
     rtm_dist_mgr_init(node);
     ifm_init(node);
+
+    /* Initialize MPLs label Mgr*/
+    node->lbl_mgr = label_mgr_init();
+
+    /* Label Manager Block for L3VPN pre-reserved labels*/
+    (label_mgr_reserve_block_at(node->lbl_mgr,
+            label_mgr_make_client(LABEL_CLIENT_L3VPN, 0),
+            VPNV4_START_LABEL, VPNV4_LABEL_RANGE,
+            &node->l3vpn_lbl_block) == LABEL_MGR_OK);
 
     /* Initialize global interface maps */
     node->intf_by_name = NULL;
