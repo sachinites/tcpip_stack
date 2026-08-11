@@ -25,6 +25,7 @@
 typedef  struct hashtable hashtable_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_ctx_ dp_ctx_t;
+typedef struct dp_vrf_ dp_vrf_t;
 
 void
 dp_insert_interface (dp_ctx_t *dp_ctx, dp_intf_t *intf);
@@ -78,5 +79,8 @@ dp_intf_t *
 dp_lookup_gre_tunnel_intf (dp_ctx_t *dp_ctx, 
                            uint32_t tunnel_src, 
                            uint32_t tunnel_dst);
+
+void
+dp_create_vpnv4_steering_intf (dp_ctx_t *dp_ctx, dp_vrf_t *vrf);
 
 #endif /* __DP_INTF_STORE__ */

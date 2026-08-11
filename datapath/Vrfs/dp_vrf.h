@@ -23,6 +23,7 @@ typedef struct fib_ fib_t;
 typedef struct hashtable hashtable_t;
 typedef struct arp_table_ arp_table_t;
 typedef struct dp_ctx_ dp_ctx_t;
+typedef struct dp_intf_ dp_intf_t;
 
 #pragma pack(push, 8)
 
@@ -40,7 +41,9 @@ typedef struct dp_vrf_ {
     fib_t *fib_mpls0;
     /* ARP table */
     arp_table_t *arp_table;
-
+    /* VPN v4 Steering interface */
+    dp_intf_t *vpnv4_steering_intf;
+    
 } dp_vrf_t;
 
 #pragma pack(pop)

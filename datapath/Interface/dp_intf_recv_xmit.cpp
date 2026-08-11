@@ -31,6 +31,7 @@
 #include "dp_intf.h"
 #include "dp_intf_log.h"
 #include "dp_intf_store.h"
+#include "../Vrfs/dp_vrf.h"
 
 #include "../Layer2/l2fwd/ipv4-l2fwd.h"
 #include "../Layer3/layer3.h"
@@ -618,6 +619,37 @@ SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
     return 0;
 }
 
+/* This interface is used to steer the MPLS traffic from Default VRF 
+    ( ISP Core Side ) to Customer VRF 
+    The packet recvd must have already popped out all MPLS Labels and
+    top hde of the packet would be IP HDR ( but dont expect )    
+    pkt_mbuf_get_starting_hdr () Would return IP_PROTO_IP_IN_IP, because
+    we are inferring the top of the pkt SHOULD be IP HDR based on MPLS
+    label context ( we land here from LFIB ).
+
+    Algorithm : 
+    Route the packet in Customer VRF (intf->steered_vpnv4_vrf)
+*/
+static int 
+VPNv4_XConnect_SendPacketOut(
+        dp_ctx_t *dp_ctx, 
+        dp_intf_t *intf, 
+        struct rte_mbuf *mbuf){
+
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
+
+    pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
+    assert (intf->port_id == VPNV4_INTF_STEER_IFINDEX);
+    
+    tracer (dp_ctx->dptr, DL3FWD, 
+        "VRF:%s: Dest : %s :  Pkt Context Switched from Def-vrf to VPN VRF\n",
+	    intf->steered_vpnv4_vrf->vrf_name,
+        pkt_mbuf_ip(mbuf, ip_addr_str));
+
+    layer3_ip_route_pkt(dp_ctx, intf->steered_vpnv4_vrf, NULL, mbuf);
+    return 0;
+}
+
 /* This array is arranged in sequence of these enums : InterfaceType_t */
 static SendPacketOut_fptr intf_xmit_cbk[] = 
     {
@@ -630,6 +662,7 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
         VlanFloodInterface_SendPacketOut,
         NVEInterface_SendPacketOut,
         SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut,
+        VPNv4_XConnect_SendPacketOut,
         0,
         0
     };

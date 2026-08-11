@@ -38,6 +38,7 @@ typedef struct cmn_prefix_ {
 bool cmn_prefix_is_null (cmn_prefix_t *prefix);
 void cmn_prefix_initialize_v4 (cmn_prefix_t *prefix, uint32_t ip_addr, uint8_t mask);
 void cmn_prefix_initialize_v6 (cmn_prefix_t *prefix, uint8_t (*addr)[16], uint8_t mask);
+void cmn_prefix_initialize_label (cmn_prefix_t *prefix, uint32_t label_val);
 
 /* Helper Functions for Prefix to Bitmap Conversion */
 void cmn_prefix_to_bitmap(cmn_prefix_t *prefix, bitmap_t *bm);

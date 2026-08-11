@@ -198,6 +198,12 @@ char* vrf_name (node_t *node, uint8_t vrf_id) {
     return NULL;
 }
 
+char *
+cp_get_vrf_name_from_vrf_id (void *ctx, uint8_t vrf_id) {
+
+    return vrf_name((node_t *)ctx, vrf_id);
+}
+
 vrf_t* 
 vrf_get_by_name (node_t *node, char *name) {
 

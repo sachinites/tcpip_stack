@@ -8,6 +8,7 @@
 #include "../libs/common/cmn_prefix.h"
 #include "../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 #include "../vrf/vrf.h"
+#include "../Interface/InterfacEnums.h"
 #include "../libs/common/ipv6_hdrs.h"
 
 typedef struct isis_node_info_ isis_node_info_t;
@@ -183,7 +184,8 @@ cp_rtm_install_route_advanced (
     RTM_NH_ACTION_TYPE_T action,
     uint32_t metric,
     cmn_prefix_t *gateway,
-    InterfaceP oif,
+    uint32_t oif_ifindex,
+    InterfaceType_t oif_iftype,
     uint32_t *label_stack,
     uint8_t label_stack_count,
     mpls_label_val_t l3_vpn_label,
@@ -199,7 +201,8 @@ cp_rtm_uninstall_route_advanced (
     RTM_NH_ACTION_TYPE_T action,
     uint32_t metric,
     cmn_prefix_t *gateway,
-    InterfaceP oif,
+    uint32_t oif_ifindex,
+    InterfaceType_t oif_iftype,
     uint32_t *label_stack,
     uint8_t label_stack_count,
     mpls_label_val_t l3_vpn_label,
@@ -249,5 +252,8 @@ extern void
 rtm_build_distribution_policy_cli_tree(
                 param_t *mount_point, 
                 RTM_PROTO_T exempt_proto);
+
+void
+rtm_install_xconnect_vpnv4_route (vrf_t *vrf);
 
 #endif 

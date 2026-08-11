@@ -805,3 +805,29 @@ node_global_intf_map_lookup_by_ifindex(node_t *node, uint32_t ifindex) {
     
     return it->second.get();
 }
+
+char *
+cp_get_intf_name_from_ifindex(void *ctx, 
+                              uint32_t ifindex, 
+                              char *buffer) {
+
+    node_t *node = (node_t *)ctx;
+
+    if (!buffer) {
+        return NULL;
+    }
+
+    if (ifindex == VPNV4_INTF_STEER_IFINDEX) {
+        snprintf(buffer, IF_NAME_SIZE, "vpnv4-xconn-if");
+        return buffer;
+    }
+
+    Interface *intf = node_get_intf_by_ifindex(node, ifindex);
+
+    if (!intf) {
+        return NULL;
+    }
+
+    snprintf(buffer, IF_NAME_SIZE, "%s", intf->if_name.c_str());
+    return buffer;
+}

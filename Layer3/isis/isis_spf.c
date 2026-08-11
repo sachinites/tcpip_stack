@@ -146,7 +146,8 @@ isis_rt_ipv6_route_add(
         action,
         metric,
         &rtm_gateway,
-        oif->GetSharedPtr(), 
+        oif->ifindex,
+        oif->iftype,
         NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
 }
 
@@ -200,7 +201,8 @@ isis_rt_ipv6_route_del(
             action,
             metric,
             &rtm_gateway,
-            oif ? oif->GetSharedPtr() : 0, 
+            oif ? oif->ifindex : 0,
+            oif ? oif->iftype : INTF_TYPE_UNKNOWN,
             NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
         
             return;
@@ -471,7 +473,8 @@ isis_rt_ipv4_route_add(
         action,
         metric,
         &rtm_gateway,
-        oif->GetSharedPtr(), 
+        oif->ifindex,
+        oif->iftype,
         NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
 }
 
@@ -532,7 +535,8 @@ isis_rt_ipv4_route_del(
             action,
             metric,
             &rtm_gateway,
-            oif ? oif->GetSharedPtr():0,
+            oif ? oif->ifindex : 0,
+            oif ? oif->iftype : INTF_TYPE_UNKNOWN,
             NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
         return;
     }
@@ -877,7 +881,9 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
                         RTM_PROTO_ISIS, RTM_SUB_PROTO_SR, 0,
                         RTM_NH_ACTION_FORWARD,
                         spf_result->spf_metric + ted_prefix->metric,
-                        &rtm_gateway, nexthop->oif,
+                        &rtm_gateway,
+                        nexthop->ifindex,
+                        nexthop->oif ? nexthop->oif->iftype : INTF_TYPE_UNKNOWN,
                         label_stack_count ? label_stack : NULL, label_stack_count, 0,
                         MPLS_OP_STACK_OPS_UNKNOWN);
 
@@ -906,7 +912,9 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
                         RTM_PROTO_ISIS, RTM_SUB_PROTO_SR, 0,
                         RTM_NH_ACTION_FORWARD,
                         spf_result->spf_metric + ted_prefix->metric,
-                        &rtm_gateway, nexthop->oif,
+                        &rtm_gateway,
+                        nexthop->ifindex,
+                        nexthop->oif ? nexthop->oif->iftype : INTF_TYPE_UNKNOWN,
                         label_stack_count ? label_stack : NULL, label_stack_count, 0,
                         php ? MPLS_OP_POP : MPLS_OP_STACK_OPS_UNKNOWN);
 

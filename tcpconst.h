@@ -99,13 +99,13 @@ tcpip_protocol_classification(uint16_t proto) {
 
 #define MAX_PREFIX_LIST_CLIE
 /* Special interface ifindices */
-#define RMAC_INTF_INDEX   (MAX_INTF_IFINDEX)
-#define VLAN_FLOOD_INDEX  (MAX_INTF_IFINDEX - 1)
-#define HOST_PATH_IFINDEX (MAX_INTF_IFINDEX - 2)
+#define RMAC_INTF_INDEX    (MAX_INTF_IFINDEX)
+#define VLAN_FLOOD_INDEX   (MAX_INTF_IFINDEX - 1)
+#define HOST_PATH_IFINDEX  (MAX_INTF_IFINDEX - 2)
+#define VPNV4_INTF_STEER_IFINDEX  (MAX_INTF_IFINDEX - 3)
 
 /* VPNV4 LABEL SPACE */
 #define VPNV4_START_LABEL 1
-#define VPNV4_LABEL_RANGE 128
-
+#define VPNV4_LABEL_RANGE 32 /* Must be Same as MAX_VRF_PER_NODE */
 
 #endif /* __TCPCONST__ */

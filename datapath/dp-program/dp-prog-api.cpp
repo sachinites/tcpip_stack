@@ -315,6 +315,8 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
             dp_vrf_t *vrf = dp_create_vrf(dp_ctx->dp_vrf_ht, dp_ctx->ctx_name, vrf_msg->vrf_name, vrf_msg->vrf_id);
             if (vrf_msg->vrf_id == DEFAULT_VRF) dp_ctx->default_vrf = vrf;
+            /* If it is customer VRF , then create a steering interface also for this vrf */
+            if (vrf_msg->vrf_id != DEFAULT_VRF) dp_create_vpnv4_steering_intf (dp_ctx, vrf);
             break;
         }
         

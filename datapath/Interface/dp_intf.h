@@ -101,6 +101,8 @@ typedef struct dp_intf_ {
 
     } srv6_data;
 
+    dp_vrf_t *steered_vpnv4_vrf; 
+
     /* Logging */
     log_t log_info;
 

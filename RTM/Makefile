@@ -28,6 +28,7 @@ OBJS=rtm.o \
 	 rtm_fib_common.o \
 	 rtm_dist_mgr.o \
 	 rtm_dist_cli.o \
+	 rtm_ext_calls.o \
 
 all: $(TARGET)
 

@@ -886,6 +886,45 @@ cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm,
  * Advanced Route Installation APIs
  * ======================================================================== */
 
+static void
+cp_rtm_nh_template_set_oif(
+    rtm_t *rtm,
+    cp_nexthop_template_t *nh_template,
+    uint32_t oif_ifindex,
+    InterfaceType_t oif_iftype)
+{
+    if (oif_ifindex == 0) {
+        return;
+    }
+
+    nh_template->oif = oif_ifindex;
+
+    switch (oif_iftype) {
+
+        case INTF_TYPE_GRE_TUNNEL: {
+            Interface *intf = node_get_intf_by_ifindex(rtm->node, oif_ifindex);
+            GRETunnelInterface *gre_tunnel = NULL;
+
+            assert(nh_template->action == RTM_NH_ACTION_TUNNEL);
+            assert(intf);
+            nh_template->is_indirect = true;
+            nh_template->is_resolved = false;
+            gre_tunnel = dynamic_cast<GRETunnelInterface *>(intf);
+            assert(gre_tunnel);
+            cmn_prefix_initialize_v4(&nh_template->u.gre_tunnel.gre_tunnel_src,
+                                     gre_tunnel->tunnel_src_ip, 32);
+            cmn_prefix_initialize_v4(&nh_template->u.gre_tunnel.gre_tunnel_dst,
+                                     gre_tunnel->tunnel_dst_ip, 32);
+            break;
+        }
+
+        default:
+            nh_template->is_indirect = false;
+            nh_template->is_resolved = true;
+            break;
+    }
+}
+
 /**
  * @brief Advanced route installation API with full control
  * 
@@ -919,7 +958,8 @@ cp_rtm_uninstall_routes_by_proto ( rtm_t *rtm,
  * @param action Nexthop action (FORWARD, LOCAL, DROP, etc.)
  * @param metric Route metric
  * @param gateway Gateway address (optional)
- * @param oif Outgoing interface (optional)
+ * @param oif_ifindex Outgoing interface index (0 = none)
+ * @param oif_iftype Outgoing interface type (ignored when oif_ifindex is 0)
  * @param label_stack MPLS label stack (optional)
  * @param label_stack_count Number of labels in stack
  * @param l3_vpn_label L3VPN service label
@@ -936,7 +976,8 @@ cp_rtm_install_route_advanced (
     RTM_NH_ACTION_TYPE_T action,
     uint32_t metric,
     cmn_prefix_t *gateway,
-    InterfaceP oif,
+    uint32_t oif_ifindex,
+    InterfaceType_t oif_iftype,
     uint32_t *label_stack,
     uint8_t label_stack_count,
     mpls_label_val_t l3_vpn_label,
@@ -977,6 +1018,7 @@ cp_rtm_install_route_advanced (
 
     /* Set gateway if provided */
     if (gateway && !cmn_prefix_is_null(gateway)) {
+
         nh_template.gateway = *gateway;
 
         /* Set forwarding flags based on gateway address family */
@@ -995,28 +1037,8 @@ cp_rtm_install_route_advanced (
     }
 
     /* Set outgoing interface if provided */
-    if (oif != nullptr) {
-
-        nh_template.oif = oif->ifindex;
-        GRETunnelInterface *gre_tunnel = NULL;
-
-        switch (oif->iftype) {
-
-            case INTF_TYPE_GRE_TUNNEL:
-                assert (nh_template.action == RTM_NH_ACTION_TUNNEL);
-                nh_template.is_indirect = true;
-                nh_template.is_resolved = false;
-                gre_tunnel = dynamic_cast<GRETunnelInterface *>(oif.get());
-                cmn_prefix_initialize_v4(&nh_template.u.gre_tunnel.gre_tunnel_src, gre_tunnel->tunnel_src_ip, 32);
-                cmn_prefix_initialize_v4(&nh_template.u.gre_tunnel.gre_tunnel_dst, gre_tunnel->tunnel_dst_ip, 32);
-                break;
-
-            default:
-                nh_template.is_indirect = false;
-                nh_template.is_resolved = true;
-                break;
-        }
-
+    if (oif_ifindex != 0) {
+        cp_rtm_nh_template_set_oif(rtm, &nh_template, oif_ifindex, oif_iftype);
     }
     
     else if (nh_template.action == RTM_NH_ACTION_REJECT || 
@@ -1114,7 +1136,8 @@ cp_rtm_uninstall_route_advanced (
     RTM_NH_ACTION_TYPE_T action,
     uint32_t metric,
     cmn_prefix_t *gateway,
-    InterfaceP oif,
+    uint32_t oif_ifindex,
+    InterfaceType_t oif_iftype,
     uint32_t *label_stack,
     uint8_t label_stack_count,
     mpls_label_val_t l3_vpn_label,
@@ -1173,28 +1196,8 @@ cp_rtm_uninstall_route_advanced (
     }
 
     /* Set outgoing interface if provided */
-    /* Set outgoing interface if provided */
-    if (oif != nullptr) {
-
-        nh_template.oif = oif->ifindex;
-        GRETunnelInterface *gre_tunnel = NULL;
-
-        switch (oif->iftype) {
-
-            case INTF_TYPE_GRE_TUNNEL:
-                assert (nh_template.action == RTM_NH_ACTION_TUNNEL);
-                nh_template.is_indirect = true;
-                nh_template.is_resolved = false;
-                gre_tunnel = dynamic_cast<GRETunnelInterface *>(oif.get());
-                cmn_prefix_initialize_v4(&nh_template.u.gre_tunnel.gre_tunnel_src, gre_tunnel->tunnel_src_ip, 32);
-                cmn_prefix_initialize_v4(&nh_template.u.gre_tunnel.gre_tunnel_dst, gre_tunnel->tunnel_dst_ip, 32);
-                break;
-
-            default:
-                nh_template.is_indirect = false;
-                nh_template.is_resolved = true;
-                break;
-        }
+    if (oif_ifindex != 0) {
+        cp_rtm_nh_template_set_oif(rtm, &nh_template, oif_ifindex, oif_iftype);
     }
     
     else if (nh_template.action == RTM_NH_ACTION_REJECT || 
@@ -1586,4 +1589,37 @@ cp_rtm_get_route_target_rtm(
                           RTM_SUB_PROTO_T sub_proto) {
 
     return rtm_get_route_target_rtm(vrf, afi, proto, sub_proto);
+}
+
+void
+rtm_install_xconnect_vpnv4_route (vrf_t *vrf) {
+
+    assert (vrf->vrf_id != DEFAULT_VRF);
+    assert (vrf->l3_vpn_label);
+
+    cmn_prefix_t gateway;
+    cmn_prefix_t mpls_in_label;
+
+    cmn_prefix_initialize_label(&mpls_in_label, vrf->l3_vpn_label);
+
+    /* Encode VRF ID in the gateway for display VRF as nexthop at 
+        RTM and FIB level */
+    cmn_prefix_initialize_v4(&gateway, vrf->vrf_id, 32);
+
+    rtm_error_t rc = cp_rtm_install_route_advanced (
+                    ((def_vrf_t *)vrf->node->vrf[0])->mpls0,
+                    &mpls_in_label,
+                    RTM_PROTO_STATIC,
+                    RTM_PROTO_BGP_VPN,
+                    0,
+                    RTM_NH_ACTION_FORWARD,
+                    0,
+                    &gateway,
+                    VPNV4_INTF_STEER_IFINDEX, 
+                    INTF_TYPE_VPNV4_STEER, 
+                    NULL,
+                    0,
+                    0, 
+                    MPLS_OP_POP);
+
 }

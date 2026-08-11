@@ -15,7 +15,9 @@
 #include "../../libs/common/mpls_lstack.h"
 #include "../../RTM/rtm_fib_common.h"
 #include "../../utils.h"
+#include "../../tcpconst.h"
 #include "../../datapath/Interface/dp_intf.h"
+#include "../../datapath/Vrfs/dp_vrf.h"
 #include "../../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 extern int cprintf (const char* format, ...) ;
@@ -78,6 +80,21 @@ fib_format_nh_addr(cmn_prefix_t *nh_addr, char *buffer, size_t buf_size) {
             }
             break;
     }
+}
+
+/* VPNv4 steer OIF: print "To vrf:<name>", else normal gateway */
+static void
+fib_format_nh_gateway(fib_nh_fwd_info_t *fi, char *buffer, size_t buf_size) {
+
+    if (fi->oif &&
+        fi->oif->port_id == VPNV4_INTF_STEER_IFINDEX &&
+        fi->oif->steered_vpnv4_vrf) {
+        snprintf(buffer, buf_size, "vrf:%s",
+                 fi->oif->steered_vpnv4_vrf->vrf_name);
+        return;
+    }
+
+    fib_format_nh_addr(&fi->nh_addr, buffer, buf_size);
 }
 
 /* Helper function to display label stack */
@@ -285,7 +302,7 @@ fib_show_routes(fib_t *fib) {
                 
                 /* Nexthop address */
                 char nh_addr_str[128];
-                fib_format_nh_addr(&nh->fwd_info->nh_addr, nh_addr_str, sizeof(nh_addr_str));
+                fib_format_nh_gateway(nh->fwd_info, nh_addr_str, sizeof(nh_addr_str));
                 cprintf("      Gateway: %s\n", nh_addr_str);
                 
                 /* Outgoing interface */
@@ -380,7 +397,7 @@ fib_show_routes(fib_t *fib) {
                 
                 /* Nexthop address */
                 char nh_addr_str[128];
-                fib_format_nh_addr(&nh->fwd_info->nh_addr, nh_addr_str, sizeof(nh_addr_str));
+                fib_format_nh_gateway(nh->fwd_info, nh_addr_str, sizeof(nh_addr_str));
                 cprintf("      Gateway: %s\n", nh_addr_str);
                 
                 /* Outgoing interface */
@@ -435,15 +452,16 @@ fib_show_routes_brief(fib_t *fib) {
     
     uint32_t route_count = 0;
 
+    /* Column widths: use %-W.Ws so longer values truncate instead of shifting */
     /* ---- MPLS LFIB ---- */
     if (fib->afi == AF_LABEL) {
 
-        cprintf("%-10s %-13s %-15s %-28s %-8s\n",
+        cprintf("%-10s %-16s %-18s %-28s %-8s\n",
                 "Local", "OIF", "Gateway", "Label Stack", "Bytes");
-        cprintf("%-10s %-13s %-15s %-28s %-8s\n",
+        cprintf("%-10s %-16s %-18s %-28s %-8s\n",
                 "Label", "", "", "", "Switched");
-        cprintf("%-10s %-13s %-15s %-28s %-8s\n",
-                "----------", "-------------", "---------------",
+        cprintf("%-10s %-16s %-18s %-28s %-8s\n",
+                "----------", "----------------", "------------------",
                 "----------------------------", "--------");
 
         if (!hashtable_count(fib->u.label_ht)) {
@@ -467,7 +485,7 @@ fib_show_routes_brief(fib_t *fib) {
             }
 
             if (active_nh_count == 0) {
-                cprintf("%-10u %-13s %-15s %-28s %-8s\n",
+                cprintf("%-10u %-16.16s %-18.18s %-28.28s %-8s\n",
                         local_label, "-", "-", "-", "-");
                 hashtable_iterator_advance(itr);
                 continue;
@@ -481,7 +499,7 @@ fib_show_routes_brief(fib_t *fib) {
                 fib_nh_fwd_info_t *fi = nh->fwd_info;
 
                 char nh_addr_str[48];
-                fib_format_nh_addr(&fi->nh_addr, nh_addr_str, sizeof(nh_addr_str));
+                fib_format_nh_gateway(fi, nh_addr_str, sizeof(nh_addr_str));
 
                 char stack_str[128];
                 fib_format_label_stack_ops(fi, stack_str, sizeof(stack_str));
@@ -489,12 +507,12 @@ fib_show_routes_brief(fib_t *fib) {
                 const char *oif_name = fi->oif ? fi->oif->if_name : "-";
 
                 if (first) {
-                    cprintf("%-10u %-13s %-15s %-28s %-8u\n",
+                    cprintf("%-10u %-16.16s %-18.18s %-28.28s %-8u\n",
                             local_label, oif_name, nh_addr_str,
                             stack_str, nh->hit_count);
                     first = false;
                 } else {
-                    cprintf("%-10s %-13s %-15s %-28s %-8u\n",
+                    cprintf("%-10s %-16.16s %-18.18s %-28.28s %-8u\n",
                             "", oif_name, nh_addr_str,
                             stack_str, nh->hit_count);
                 }
@@ -506,18 +524,18 @@ fib_show_routes_brief(fib_t *fib) {
 
         free(itr);
 
-        cprintf("%-10s %-13s %-15s %-28s %-8s\n",
-                "----------", "-------------", "---------------",
+        cprintf("%-10s %-16s %-18s %-28s %-8s\n",
+                "----------", "----------------", "------------------",
                 "----------------------------", "--------");
         cprintf("Total Labels: %u\n", route_count);
         return;
     }
 
     /* ---- IPv4 / IPv6 FIB ---- */
-    cprintf("%-26s %-15s %-13s %-28s %-8s\n",
+    cprintf("%-26s %-18s %-16s %-28s %-8s\n",
             "Prefix", "Gateway", "OIF", "Label Stack", "Hits");
-    cprintf("%-26s %-15s %-13s %-28s %-8s\n",
-            "--------------------------", "---------------", "-------------",
+    cprintf("%-26s %-18s %-16s %-28s %-8s\n",
+            "--------------------------", "------------------", "----------------",
             "----------------------------", "--------");
 
     if (fib->afi != AF_IPV4 && fib->afi != AF_IPV6) {
@@ -545,7 +563,7 @@ fib_show_routes_brief(fib_t *fib) {
         }
 
         if (active_nh_count == 0) {
-            cprintf("%-26s %-15s %-13s %-28s %-8s\n",
+            cprintf("%-26.26s %-18.18s %-16.16s %-28.28s %-8s\n",
                     prefix_str, "-", "-", "-", "-");
             continue;
         }
@@ -558,7 +576,7 @@ fib_show_routes_brief(fib_t *fib) {
             fib_nh_fwd_info_t *fi = nh->fwd_info;
 
             char nh_addr_str[48];
-            fib_format_nh_addr(&fi->nh_addr, nh_addr_str, sizeof(nh_addr_str));
+            fib_format_nh_gateway(fi, nh_addr_str, sizeof(nh_addr_str));
 
             char stack_str[128];
             fib_format_label_stack_ops(fi, stack_str, sizeof(stack_str));
@@ -567,12 +585,12 @@ fib_show_routes_brief(fib_t *fib) {
 
             if (first) {
                 const char *ecmp = active_nh_count > 1 ? "*" : "";
-                cprintf("%-26s %-15s %-13s %-28s %-8u %s\n",
+                cprintf("%-26.26s %-18.18s %-16.16s %-28.28s %-8u %s\n",
                         prefix_str, nh_addr_str, oif_name,
                         stack_str, nh->hit_count, ecmp);
                 first = false;
             } else {
-                cprintf("%-26s %-15s %-13s %-28s %-8u\n",
+                cprintf("%-26.26s %-18.18s %-16.16s %-28.28s %-8u\n",
                         "", nh_addr_str, oif_name,
                         stack_str, nh->hit_count);
             }
@@ -582,8 +600,8 @@ fib_show_routes_brief(fib_t *fib) {
 
     } ITERATE_GLTHREAD_END(&fib->u.rts.rt_lst_head.head, curr);
 
-    cprintf("%-26s %-15s %-13s %-28s %-8s\n",
-            "--------------------------", "---------------", "-------------",
+    cprintf("%-26s %-18s %-16s %-28s %-8s\n",
+            "--------------------------", "------------------", "----------------",
             "----------------------------", "--------");
     cprintf("Total Routes: %u (* = ECMP)\n", route_count);
 }

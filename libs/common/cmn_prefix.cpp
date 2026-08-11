@@ -40,6 +40,15 @@ cmn_prefix_initialize_v6(cmn_prefix_t *prefix, uint8_t (*addr)[16], uint8_t mask
     prefix->afi = AF_IPV6;
 }
 
+void 
+cmn_prefix_initialize_label (cmn_prefix_t *prefix, uint32_t label_val) {
+
+    memset (prefix, 0, sizeof (sizeof (*prefix)));
+    prefix->afi = AF_LABEL;
+    mpls_label_set_value (&prefix->u.mpls_label, label_val);
+    prefix->prefix_len = 20;
+}
+
 char *
 cmn_prefix_to_string(cmn_prefix_t *prefix, char (*buffer)[48]) {
 

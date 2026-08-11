@@ -733,7 +733,8 @@ config_rtm_route_cli_handler(int64_t cmdcode,
             }
 
             /* Get interface and VRF*/
-            InterfaceP oif = nullptr;
+            uint32_t oif_ifindex = 0;
+            InterfaceType_t oif_iftype = INTF_TYPE_UNKNOWN;
             if (if_name) {
                 Interface *intf = node_interface_lookup_by_name(node, (const char *)if_name);
                 if (!intf) {
@@ -741,7 +742,8 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                             if_name, node_name);
                     return -1;
                 }
-                oif = intf->GetSharedPtr();
+                oif_ifindex = intf->ifindex;
+                oif_iftype = intf->iftype;
             }
 
             /* Validate protocol and action IDs */
@@ -802,7 +804,8 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                 (RTM_NH_ACTION_TYPE_T)action_id,
                 metric,
                 gw_ip ? &gateway : NULL,
-                oif,
+                oif_ifindex,
+                oif_iftype,
                 label_stack_count > 0 ? label_stack : NULL,
                 label_stack_count,
                 l3_vpn_label,
@@ -1039,8 +1042,9 @@ config_rtm_route_cli_handler(int64_t cmdcode,
             }
 
             /* Get interface and vrf */
-            InterfaceP oif = nullptr;
-           vrf_t *vrf = NODE_DEF_VRF(node);
+            uint32_t oif_ifindex = 0;
+            InterfaceType_t oif_iftype = INTF_TYPE_UNKNOWN;
+            vrf_t *vrf = NODE_DEF_VRF(node);
             if (if_name) {
                 Interface *intf = node_interface_lookup_by_name(node, (const char *)if_name);
                 if (!intf) {
@@ -1048,7 +1052,8 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                             if_name, node_name); 
                     return -1;
                 }
-                oif = intf->GetSharedPtr();
+                oif_ifindex = intf->ifindex;
+                oif_iftype = intf->iftype;
             }
 
             /* Validate protocol and action IDs */
@@ -1109,7 +1114,8 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                 (RTM_NH_ACTION_TYPE_T)action_id,
                 metric,
                 gw_ip ? &gateway : NULL,
-                oif,
+                oif_ifindex,
+                oif_iftype,
                 label_stack_count > 0 ? label_stack : NULL,
                 label_stack_count,
                 l3_vpn_label,

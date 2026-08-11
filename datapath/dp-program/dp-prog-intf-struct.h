@@ -109,15 +109,16 @@ typedef struct dp_intf_log_update_ {
 // code to bind steering vrf with dt4 interfaces, it has no
 //  structure, dp_intf_cp2dp_msg_hdr_t will contain all info required
 #define CP2DP_CODE_DT4_INTF_STEER_VRF_BIND 16
+#define CP2DP_CODE_VPNV4_INTF_STEER_VRF_BIND 17
 
 // use dp_intf_boolean_property_t
-#define CP2DP_CODE_INTF_ACCESS_MODE           17
+#define CP2DP_CODE_INTF_ACCESS_MODE           18
 
 // use dp_intf_cp2dp_msg_hdr_t
-#define CP2DP_CODE_ACCESS_INTF_VLAN_ADD 18
-#define CP2DP_CODE_ACCESS_INTF_VLAN_DEL  19
+#define CP2DP_CODE_ACCESS_INTF_VLAN_ADD 19
+#define CP2DP_CODE_ACCESS_INTF_VLAN_DEL  20
 
-#define CP2DP_CODE_INTF_ADD_ACL 20
+#define CP2DP_CODE_INTF_ADD_ACL 21
 typedef struct dp_intf_acl_update_ {
 
     uintptr_t acl;
@@ -127,7 +128,7 @@ typedef struct dp_intf_acl_update_ {
 } dp_intf_acl_update_t;
 
 /* GRE tunnel overlay / encapsulation attributes */
-#define CP2DP_CODE_INTF_GRE_TUNNEL 21
+#define CP2DP_CODE_INTF_GRE_TUNNEL 22
 typedef struct dp_intf_gre_tunnel_update_ {
 
     uint32_t lcl_ip;

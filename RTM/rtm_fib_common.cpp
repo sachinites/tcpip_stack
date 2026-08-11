@@ -2,6 +2,7 @@
 #include "rtm_fib_common.h"
 #include "rtm_nh.h"
 #include "../datapath/FIB/fib_nh.h"
+#include "../datapath/Vrfs/dp_vrf.h"
 #include "../router_init.h"
 #include "../Interface/InterfaceUApi.h"
 #include "../datapath/Interface/dp_intf_store.h"
@@ -12,13 +13,22 @@ rtm_fib_copy_fwd_info (dp_ctx_t *dp_ctx,
                        dp_fib_nh_fwd_info_t *src, 
                        fib_nh_fwd_info_t *dst) {
 
-    /* SRv6 Local SIDs with END function may not have any interface*/
-    if (src->oif) {
-        dst->oif = dp_ctx->intf_table[src->oif];
-    }
-
     dst->nh_addr = src->nh_addr;
     dst->fwd_flags = src->fwd_flags;
+
+    if (src->oif == VPNV4_INTF_STEER_IFINDEX) {
+
+        /* Steer to VPN VRF */
+        uint8_t vrf_id = (uint8_t)src->nh_addr.u.v4_addr;
+        dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, vrf_id);
+        assert(vrf);
+        dst->oif = vrf->vpnv4_steering_intf;
+        cmn_prefix_initialize_v4(&dst->nh_addr, 0, 0);
+    }
+
+    else if (src->oif) {
+        dst->oif = dp_ctx->intf_table[src->oif];
+    }
 
     if (src->fwd_flags & FIB_NH_FWD_F_MPLS_LBL_STCK) {
 

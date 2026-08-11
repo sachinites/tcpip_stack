@@ -84,12 +84,29 @@ typedef struct graph_ graph_t;
 
 extern int cprintf (const char * format, ...);
 extern graph_t *topo;
+extern char * (*rtm_get_intf_name) (void *ctx, uint32_t ifindex, char *buffer);
+extern char * (*rtm_get_vrf_name) (void *ctx, uint8_t vrf_id);
 
 /* ========================================================================
  * Forward Declarations
  * ======================================================================== */
 
 static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route);
+
+/* Format nexthop gateway; VPNv4 steer OIF prints "To vrf:<name>" */
+static void
+rtm_format_nh_gateway (rtm_t *rtm, rtm_nh *nh, char *buffer, size_t buflen) {
+
+    if (nh->oif && nh->oif == VPNV4_INTF_STEER_IFINDEX) {
+        uint8_t vrf_id = (uint8_t)nh->prefix.u.v4_addr;
+        char *vrf_name = rtm_get_vrf_name(rtm->node, vrf_id);
+        snprintf(buffer, buflen, "vrf:%s",
+                 vrf_name ? vrf_name : "?");
+        return;
+    }
+
+    rtm_format_nexthop(&nh->prefix, buffer, buflen);
+}
 
 static void
 rtm_format_nh_label_stack (rtm_nh *nh, char *buffer, size_t buflen) {
@@ -153,6 +170,7 @@ rtm_format_nh_label_stack (rtm_nh *nh, char *buffer, size_t buflen) {
 static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
 
     char prefix_str[128];
+    char if_name_str[IF_NAME_SIZE];
     byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
     
     rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
@@ -201,7 +219,8 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
         
         rtm_nh *nh = route_glue_to_rtm_nh(curr_glthread);
         char nh_prefix_str[128];
-        rtm_format_nexthop(&nh->prefix, nh_prefix_str, sizeof(nh_prefix_str));
+
+        rtm_format_nh_gateway(rtm, nh, nh_prefix_str, sizeof(nh_prefix_str));
 
         nh_index++;
         cprintf("\n  Nexthop %d:\n", nh_index);
@@ -214,8 +233,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
         {
             const char *oif_name = "-";
             if (nh->oif) {
-                Interface *oif_intf = node_get_intf_by_ifindex(rtm->node, nh->oif);
-                oif_name = oif_intf ? oif_intf->if_name.c_str() : "<unknown>";
+                oif_name = rtm_get_intf_name(rtm->node, nh->oif, if_name_str);
             }
             cprintf("    OIF            : %s\n", oif_name);
         }
@@ -266,15 +284,16 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
                     rtm_nh *direct_nh = (rtm_nh *)data_node->data;
                     
                     char direct_nh_prefix_str[128];
-                    rtm_format_nexthop(&direct_nh->prefix, 
-                                      direct_nh_prefix_str, 
-                                      sizeof(direct_nh_prefix_str));
-                    
-                    Interface *dnh_intf = node_get_intf_by_ifindex(rtm->node, direct_nh->oif);
+
+                    rtm_format_nh_gateway(rtm, direct_nh,
+                                          direct_nh_prefix_str,
+                                          sizeof(direct_nh_prefix_str));
+
+                    rtm_get_intf_name(rtm->node, direct_nh->oif, if_name_str);
                     cprintf("        [%d] %s, %s, %s\n",
                            direct_nh->idx,
                            direct_nh_prefix_str,
-                           dnh_intf ? dnh_intf->if_name.c_str() : "<unknown>",
+                           if_name_str,
                            rtm_proto_to_string(direct_nh->proto));
                            
                 } ITERATE_GLTHREAD_END(&nh->direct_nh_list.head, dnh_glthread);
@@ -458,6 +477,7 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
     memset(&default_prefix, 0, sizeof(default_prefix));
     default_prefix.afi = AF_IPV4;
     default_prefix.prefix_len = 0;
+    char if_name_str [IF_NAME_SIZE];
     
     rtm_route *default_route = rtm_route_lookup(rtm, &default_prefix);
     if (default_route) {
@@ -544,8 +564,8 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
         {
             /* Format nexthop address */
             char nh_addr_str[48];
-            rtm_format_nexthop(&best_nh->prefix, nh_addr_str, sizeof(nh_addr_str));
-            
+
+            rtm_format_nh_gateway(rtm, best_nh, nh_addr_str, sizeof(nh_addr_str));
             /* Format uptime - Cisco uses h:mm:ss format */
             byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
             RTM_UP_TIME(best_nh->install_time, time_str, sizeof(time_str));
@@ -553,8 +573,7 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
             /* Get interface name */
             const char *if_name = "-";
             if (best_nh->oif) {
-                Interface *intf = node_get_intf_by_ifindex(rtm->node, best_nh->oif);
-                if_name = intf ? intf->if_name.c_str() : "<unknown>";
+                if_name = rtm_get_intf_name((void *)rtm->node, best_nh->oif, if_name_str);
             } else if (best_nh->is_indirect && !Fglthread_list_is_empty(&best_nh->direct_nh_list)) {
                 /* For indirect nexthops, try to get interface from first direct nexthop */
                 glthread_t *dnh_glthread = best_nh->direct_nh_list.head.right;
@@ -562,8 +581,7 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
                     glthread_data_node_t *data_node = glue_to_glthread_data_node(dnh_glthread);
                     rtm_nh *direct_nh = (rtm_nh *)data_node->data;
                     if (direct_nh && direct_nh->oif) {
-                        Interface *intf = node_get_intf_by_ifindex(rtm->node, direct_nh->oif);
-                        if_name = intf ? intf->if_name.c_str() : "<unknown>";
+                        if_name = rtm_get_intf_name(rtm->node, direct_nh->oif, if_name_str);
                     }
                 }
             }
@@ -643,8 +661,8 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
                 
                 /* Format nexthop address */
                 char nh_addr_str[48];
-                rtm_format_nexthop(&nh->prefix, nh_addr_str, sizeof(nh_addr_str));
-                
+
+                rtm_format_nh_gateway(rtm, nh, nh_addr_str, sizeof(nh_addr_str));
                 /* Format uptime */
                 byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
                 RTM_UP_TIME(nh->install_time, time_str, sizeof(time_str));
@@ -652,16 +670,14 @@ void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter) {
                 /* Get interface name */
                 const char *if_name = "-";
                 if (nh->oif) {
-                    Interface *intf = node_get_intf_by_ifindex(rtm->node, nh->oif);
-                    if_name = intf ? intf->if_name.c_str() : "<unknown>";
+                    if_name = rtm_get_intf_name(rtm->node, nh->oif, if_name_str);
                 } else if (nh->is_indirect && !Fglthread_list_is_empty(&nh->direct_nh_list)) {
                     glthread_t *dnh_glthread = nh->direct_nh_list.head.right;
                     if (dnh_glthread && dnh_glthread != &nh->direct_nh_list.head) {
                         glthread_data_node_t *data_node = glue_to_glthread_data_node(dnh_glthread);
                         rtm_nh *direct_nh = (rtm_nh *)data_node->data;
                         if (direct_nh && direct_nh->oif) {
-                            Interface *intf = node_get_intf_by_ifindex(rtm->node, direct_nh->oif);
-                            if_name = intf ? intf->if_name.c_str() : "<unknown>";
+                            if_name = rtm_get_intf_name(rtm->node, direct_nh->oif, if_name_str);
                         }
                     }
                 }
@@ -945,6 +961,7 @@ void rtm_show_protocol_subscriptions(rtm_t *rtm) {
 
 void rtm_show_unresolvable_routes(rtm_t *rtm) {
     
+    char if_name_str[IF_NAME_SIZE];
 
     cprintf("\nRTM : %s\n",  rtm->name);
 
@@ -955,10 +972,11 @@ void rtm_show_unresolvable_routes(rtm_t *rtm) {
     }
 
     /* Display header */
-    cprintf("%-20s %-12s %-15s %-10s %-10s %-15s %-8s\n",
+    cprintf("%-20s %-12s %-18s %-10s %-10s %-16s %-8s\n",
            "Route Prefix", "Protocol", "Gateway", "Action", "Metric", "OIF", "Active");
-    cprintf("%-20s %-12s %-15s %-10s %-10s %-15s %-8s\n",
-           "------------", "--------", "-------", "------", "------", "---", "------");
+    cprintf("%-20s %-12s %-18s %-10s %-10s %-16s %-8s\n",
+           "--------------------", "------------", "------------------",
+           "----------", "----------", "----------------", "--------");
 
     /* Iterate through unresolvable paths */
     glthread_t *curr_glue = NULL;
@@ -977,7 +995,8 @@ void rtm_show_unresolvable_routes(rtm_t *rtm) {
 
         /* Format gateway/nexthop */
         char gateway_str[128];
-        rtm_format_nexthop(&indirect_nh->prefix, gateway_str, sizeof(gateway_str));
+
+        rtm_format_nh_gateway(rtm, indirect_nh, gateway_str, sizeof(gateway_str));
 
         /* Get action string */
         const char *action_str = rtm_nh_action_to_string(indirect_nh->action);
@@ -985,12 +1004,14 @@ void rtm_show_unresolvable_routes(rtm_t *rtm) {
         /* Get OIF name */
         const char *oif_str = "-";
         if (indirect_nh->oif) {
-            Interface *ind_intf = node_get_intf_by_ifindex(rtm->node, indirect_nh->oif);
-            oif_str = ind_intf ? ind_intf->if_name.c_str() : "<unknown>";
+            oif_str = rtm_get_intf_name(rtm->node, indirect_nh->oif, if_name_str);
+            if (!oif_str) {
+                oif_str = "-";
+            }
         }
 
         /* Display the unresolvable route information */
-        cprintf("%-20s %-12s %-15s %-10s %-10u %-15s %-8s\n",
+        cprintf("%-20.20s %-12.12s %-18.18s %-10.10s %-10u %-16.16s %-8s\n",
                route_prefix_str,
                rtm_proto_to_string(indirect_nh->proto),
                gateway_str,
