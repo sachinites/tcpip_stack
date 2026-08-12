@@ -196,6 +196,16 @@ dp_mpls_fwd_pkt(dp_ctx_t *dp_ctx,
         vrf->vrf_name, in_label, 
         top_hdr_is_mpls ? "still MPLS" : "non-MPLS anymore");
 
+    switch (nh->fwd_info->oif->if_type)
+    {
+        /* Handle Special Interfaces */
+        case DP_INTF_TYPE_VPNV4_STEER:
+            dp_send_pkt_out(dp_ctx, nh->fwd_info->oif, mbuf);
+            return;
+        default:
+            break;
+    }
+
     /* Transit swap/push: forward labeled packet to L2 */
     dp_demote_pkt_to_layer2(dp_ctx, 
         vrf,

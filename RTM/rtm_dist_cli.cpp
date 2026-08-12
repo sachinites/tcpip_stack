@@ -71,7 +71,7 @@ static void
 rtm_distribution_policy_common_subtree_cli(
             param_t *mount_point, 
             int64_t cmdcode, 
-            int (*cbk)(int, Stack_t*, op_mode) ) {
+            int (*cbk)(int64_t, Stack_t*, op_mode) ) {
 
  {
             param_t *prefix_list = (param_t *)calloc (1, sizeof (param_t));

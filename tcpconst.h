@@ -105,7 +105,7 @@ tcpip_protocol_classification(uint16_t proto) {
 #define VPNV4_INTF_STEER_IFINDEX  (MAX_INTF_IFINDEX - 3)
 
 /* VPNV4 LABEL SPACE */
-#define VPNV4_START_LABEL 1
-#define VPNV4_LABEL_RANGE 32 /* Must be Same as MAX_VRF_PER_NODE */
+#define VPNV4_START_LABEL 16
+#define VPNV4_LABEL_RANGE 48 /* Must be Same as MAX_VRF_PER_NODE */
 
 #endif /* __TCPCONST__ */

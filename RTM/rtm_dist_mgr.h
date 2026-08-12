@@ -42,6 +42,9 @@ typedef struct rt_redist_route_ {
         to evaulate against filters  */
     rtm_nh_proto_t *nh_proto;
 
+    /* Route's owning VRF (may differ from nh_proto->vrf_id for cross-VRF resolution) */
+    uint8_t route_vrf;
+
     /* Hook up for advertisement to clients */
     glthread_t redis_glue;
 

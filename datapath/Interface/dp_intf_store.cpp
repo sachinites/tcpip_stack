@@ -332,11 +332,11 @@ dp_create_vpnv4_steering_intf (dp_ctx_t *dp_ctx, dp_vrf_t *vrf) {
     uint8_t mac_addr[6] = {0};
 
     dp_intf_t *intf = dp_create_interface 
-                        ( VPNV4_INTF_STEER_IFINDEX,  /* Not required */
+                        ( VPNV4_INTF_STEER_IFINDEX,
                           DP_INTF_TYPE_VPNV4_STEER,
                           &mac_addr, 0 );
 
-    intf->vrf = dp_ctx->default_vrf;
+    intf->vrf = NULL;
     intf->is_up = true;
     intf->steered_vpnv4_vrf = vrf;
     vrf->vpnv4_steering_intf = intf;

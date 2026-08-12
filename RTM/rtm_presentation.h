@@ -102,6 +102,8 @@ typedef struct rtm_presentation_data_ {
 
     /* Route prefix being advertised */
     cmn_prefix_t route;
+    /* Route owning vrf*/
+    uint8_t vrf;
     /* Pointer to Direct nexthop being added, if deleted it would be NULL*/
     rtm_nh *nh; 
     /* nh_idx of DNH being added or deleted. Clients must use this if nh ptr is NULL*/

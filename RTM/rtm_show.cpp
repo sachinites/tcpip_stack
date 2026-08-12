@@ -404,6 +404,8 @@ static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_pro
                 case RTM_SUB_PROTO_OSPF_EXT:
                     return "O E2";
                 case RTM_SUB_PROTO_SRv6:
+                    return "O SRv6";
+                case RTM_SUB_PROTO_SR:
                     return "O SR";
                 default:
                     return "O";
@@ -421,6 +423,8 @@ static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_pro
                 case RTM_PROTO_L2_ISIS_EXT:
                     return "I L2";
                 case RTM_SUB_PROTO_SRv6:
+                    return "I SRv6";
+                case RTM_SUB_PROTO_SR:
                     return "I SR";
                 default:
                     return "I";
@@ -1157,7 +1161,7 @@ rtm_show_dist_mgr_database (dist_mgr_t *dist_mgr) {
                 rtm_proto_to_string(redis_rt->nh_proto->proto),
                 rtm_sub_proto_to_string(redis_rt->nh_proto->sub_proto),
                 (unsigned long long)redis_rt->Cnhidx,
-                vrf_name(dist_mgr->node, redis_rt->nh_proto->vrf_id));
+                vrf_name(dist_mgr->node, redis_rt->route_vrf));
 
         entry_count++;
     }
@@ -1401,7 +1405,7 @@ rtm_show_dist_mgr_targets (dist_mgr_t *dist_mgr,
         rtm_format_prefix(&dist_rt->prefix, prefix_str, sizeof(prefix_str));
 
         const char *src_vrf_name = vrf_name(dist_mgr->node,
-                                            dist_rt->nh_proto->vrf_id);
+                                            dist_rt->route_vrf);
 
         cprintf("%-4d %-26s %-12s %-14s %-12s %-10u 0x%-18llx\n",
                 ++idx,
@@ -1489,8 +1493,8 @@ rtm_show_dist_mgr_target_route(dist_mgr_t *dist_mgr, const char *prefix_str)
         cprintf("  Source       : %s / %s  vrf=%s  instance=%u\n",
                 rtm_proto_to_string(dist_rt->nh_proto->proto),
                 rtm_sub_proto_to_string(dist_rt->nh_proto->sub_proto),
-                vrf_name(dist_mgr->node, dist_rt->nh_proto->vrf_id)
-                    ? vrf_name(dist_mgr->node, dist_rt->nh_proto->vrf_id)
+                vrf_name(dist_mgr->node, dist_rt->route_vrf)
+                    ? vrf_name(dist_mgr->node, dist_rt->route_vrf)
                     : "?",
                 dist_rt->nh_proto->instance_no);
         cprintf("  State        : %s\n",

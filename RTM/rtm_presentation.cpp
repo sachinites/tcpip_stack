@@ -152,6 +152,7 @@ void rtm_on_demand_route_request(rtm_t *rtm, uint8_t vrf_id,
                     rtm_nh_reference(nh);
                     presentation_data->nh_idx = dnh->idx;
                     presentation_data->route = route->prefix;
+                    presentation_data->vrf = rtm->vrf;
                     presentation_data->nh_addr = dnh->prefix;
                     presentation_data->rtm_nh_proto = dnh->rtm_nh_proto;
                     rtm_nh_proto_reference(dnh->rtm_nh_proto);
@@ -171,6 +172,7 @@ void rtm_on_demand_route_request(rtm_t *rtm, uint8_t vrf_id,
                 presentation_data->inh = NULL;
                 presentation_data->nh_idx = dnh->idx;
                 presentation_data->route = route->prefix;
+                presentation_data->vrf = rtm->vrf;
                 presentation_data->nh_addr = dnh->prefix;
                 presentation_data->rtm_nh_proto = dnh->rtm_nh_proto;
                 rtm_nh_proto_reference(dnh->rtm_nh_proto);
@@ -1062,6 +1064,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                     presentation_data->inh_idx = inh->idx;
                     presentation_data->nh_idx = dnh_list[dnh_idx].dnh_idx; /* Always valid */
                     presentation_data->route = route->prefix;
+                    presentation_data->vrf = rtm->vrf;
                     presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
                     presentation_data->rtm_nh_proto = dnh ? dnh->rtm_nh_proto : dnh_gc->rtm_nh_proto;
                     rtm_nh_proto_reference(presentation_data->rtm_nh_proto);
@@ -1090,6 +1093,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                 presentation_data->inh_idx = 0;
                 presentation_data->nh_idx = nh_entry->nh_pidx; /* Always valid */
                 presentation_data->route = route->prefix;
+                presentation_data->vrf = rtm->vrf;
                 presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
                 presentation_data->rtm_nh_proto = dnh ? dnh->rtm_nh_proto : dnh_gc->rtm_nh_proto;
                 rtm_nh_proto_reference(presentation_data->rtm_nh_proto);
@@ -1135,6 +1139,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                     presentation_data->inh_idx = nh->idx;
                     presentation_data->nh_idx = dnh->idx;
                     presentation_data->route = route->prefix;
+                    presentation_data->vrf = rtm->vrf;
                     presentation_data->nh_addr = dnh->prefix;
                     presentation_data->rtm_nh_proto = dnh->rtm_nh_proto;
                     rtm_nh_proto_reference(dnh->rtm_nh_proto);
@@ -1153,6 +1158,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                 presentation_data->inh_idx = 0;
                 presentation_data->nh_idx = nh_entry->nh_pidx;
                 presentation_data->route = route->prefix;
+                presentation_data->vrf = rtm->vrf;
                 presentation_data->nh_addr = nh->prefix;
                 presentation_data->rtm_nh_proto = nh->rtm_nh_proto;
                 rtm_nh_proto_reference(nh->rtm_nh_proto);

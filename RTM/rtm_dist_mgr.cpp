@@ -453,6 +453,8 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
                                  presentation_data->inh->rtm_nh_proto : presentation_data->nh->rtm_nh_proto;
             rtm_nh_proto_reference(redis_rt->nh_proto);
 
+            redis_rt->route_vrf = presentation_data->vrf;
+
             init_glthread (&redis_rt->redis_glue);
             redis_rt->is_deleted = false;
             redis_rt->ref_count = 0;
@@ -494,7 +496,7 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
             rt_redist_route_reference(redis_rt);
 
             avl_vrf_node_t avl_vrf_node_tmplate;
-            avl_vrf_node_tmplate.vrf_no = redis_rt->nh_proto->vrf_id;
+            avl_vrf_node_tmplate.vrf_no = presentation_data->vrf;
             avl_vrf_node_tmplate.instance_no = redis_rt->nh_proto->instance_no;
             avltree_node_init (&avl_vrf_node_tmplate.glue);
 
@@ -568,7 +570,7 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
 
             /* Remove from vrf/proto-keyed tree; prune the vrf node when empty */
             avl_vrf_node_t avl_vrf_node_tmplate;
-            avl_vrf_node_tmplate.vrf_no     = redis_rt->nh_proto->vrf_id;
+            avl_vrf_node_tmplate.vrf_no     = presentation_data->vrf;
             avl_vrf_node_tmplate.instance_no = redis_rt->nh_proto->instance_no;
             avltree_node_init(&avl_vrf_node_tmplate.glue);
 
@@ -665,7 +667,9 @@ dist_mgr_schedule_route_advertise(dist_mgr_t *dist_mgr, rt_redist_route_t *dist_
 /* ------------------------------------------------------------------------- */
 
 static bool
-rtm_dist_mgr_rule_source_matches (dist_rule_t *rule, rtm_nh_proto_t *nh_proto) {
+rtm_dist_mgr_rule_source_matches (dist_rule_t *rule, 
+                                   rtm_nh_proto_t *nh_proto,
+                                   uint8_t route_vrf) {
 
     if (rule->src_proto != nh_proto->proto) return false;
 
@@ -675,7 +679,7 @@ rtm_dist_mgr_rule_source_matches (dist_rule_t *rule, rtm_nh_proto_t *nh_proto) {
 
     if ((uint32_t)rule->src_instance_no != nh_proto->instance_no) return false;
 
-    if (rule->src_vrf_id != nh_proto->vrf_id) return false;
+    if (rule->src_vrf_id != route_vrf) return false;
     
     return true;
 }
@@ -717,7 +721,7 @@ rtm_dist_mgr_target_first_permitting_rule(
 
     for (rule = target->rule_list; rule; rule = rule->next) {
 
-        if (!rtm_dist_mgr_rule_source_matches(rule, dist_rt->nh_proto))
+        if (!rtm_dist_mgr_rule_source_matches(rule, dist_rt->nh_proto, dist_rt->route_vrf))
             continue;
 
         switch (rtm_dist_mgr_rule_filter_eval(rule, &dist_rt->prefix)) {
@@ -743,7 +747,7 @@ rtm_dist_mgr_advert_fill_from_route(
     memset(advert_info, 0, sizeof(*advert_info));
     memcpy(&advert_info->route, &dist_rt->prefix, sizeof(advert_info->route));
     advert_info->src_proto = dist_rt->nh_proto->proto;
-    advert_info->src_vrf_id = dist_rt->nh_proto->vrf_id;
+    advert_info->src_vrf_id = dist_rt->route_vrf;
     advert_info->Cnhidx = dist_rt->Cnhidx;
 }
 

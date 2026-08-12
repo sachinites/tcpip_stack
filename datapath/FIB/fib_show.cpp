@@ -182,17 +182,17 @@ fib_format_label_stack_ops(fib_nh_fwd_info_t *fi, char *buf, size_t buf_size) {
     int off = 0;
     for (int i = 0; i <= ls->curr_index && off < (int)buf_size - 1; i++) {
         uint32_t val = mpls_label_get_value(ls->labels[i].label_val);
-        const char *sep = (i > 0) ? " -> " : "";
+        const char *sep = (i > 0) ? " " : "";
 
         switch (ls->labels[i].op) {
             case MPLS_OP_POP:
                 off += snprintf(buf + off, buf_size - off, "%sPop", sep);
                 break;
             case MPLS_OP_SWAP:
-                off += snprintf(buf + off, buf_size - off, "%sSwap %u", sep, val);
+                off += snprintf(buf + off, buf_size - off, "%sSw(%u)", sep, val);
                 break;
             case MPLS_OP_PUSH:
-                off += snprintf(buf + off, buf_size - off, "%sPush %u", sep, val);
+                off += snprintf(buf + off, buf_size - off, "%sP(%u)", sep, val);
                 break;
             default:
                 off += snprintf(buf + off, buf_size - off, "%sOp(%u) %u",
@@ -456,13 +456,13 @@ fib_show_routes_brief(fib_t *fib) {
     /* ---- MPLS LFIB ---- */
     if (fib->afi == AF_LABEL) {
 
-        cprintf("%-10s %-16s %-18s %-28s %-8s\n",
-                "Local", "OIF", "Gateway", "Label Stack", "Bytes");
-        cprintf("%-10s %-16s %-18s %-28s %-8s\n",
+        cprintf("%-10s %-28s %-18s %-16s %-8s\n",
+                "Local", "Label Stack", "Gateway", "OIF", "Bytes");
+        cprintf("%-10s %-28s %-18s %-16s %-8s\n",
                 "Label", "", "", "", "Switched");
-        cprintf("%-10s %-16s %-18s %-28s %-8s\n",
-                "----------", "----------------", "------------------",
-                "----------------------------", "--------");
+        cprintf("%-10s %-28s %-18s %-16s %-8s\n",
+                "----------", "----------------------------",
+                "------------------", "----------------", "--------");
 
         if (!hashtable_count(fib->u.label_ht)) {
             cprintf("Total Labels: 0\n");
@@ -485,7 +485,7 @@ fib_show_routes_brief(fib_t *fib) {
             }
 
             if (active_nh_count == 0) {
-                cprintf("%-10u %-16.16s %-18.18s %-28.28s %-8s\n",
+                cprintf("%-10u %-28.28s %-18.18s %-16.16s %-8s\n",
                         local_label, "-", "-", "-", "-");
                 hashtable_iterator_advance(itr);
                 continue;
@@ -507,14 +507,14 @@ fib_show_routes_brief(fib_t *fib) {
                 const char *oif_name = fi->oif ? fi->oif->if_name : "-";
 
                 if (first) {
-                    cprintf("%-10u %-16.16s %-18.18s %-28.28s %-8u\n",
-                            local_label, oif_name, nh_addr_str,
-                            stack_str, nh->hit_count);
+                    cprintf("%-10u %-28.28s %-18.18s %-16.16s %-8u\n",
+                            local_label, stack_str, nh_addr_str,
+                            oif_name, nh->hit_count);
                     first = false;
                 } else {
-                    cprintf("%-10s %-16.16s %-18.18s %-28.28s %-8u\n",
-                            "", oif_name, nh_addr_str,
-                            stack_str, nh->hit_count);
+                    cprintf("%-10s %-28.28s %-18.18s %-16.16s %-8u\n",
+                            "", stack_str, nh_addr_str,
+                            oif_name, nh->hit_count);
                 }
 
                 fib_show_nh_extra_encap(fi, "           ");
@@ -524,9 +524,9 @@ fib_show_routes_brief(fib_t *fib) {
 
         free(itr);
 
-        cprintf("%-10s %-16s %-18s %-28s %-8s\n",
-                "----------", "----------------", "------------------",
-                "----------------------------", "--------");
+        cprintf("%-10s %-28s %-18s %-16s %-8s\n",
+                "----------", "----------------------------",
+                "------------------", "----------------", "--------");
         cprintf("Total Labels: %u\n", route_count);
         return;
     }

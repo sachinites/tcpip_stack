@@ -724,9 +724,12 @@ config node R0 no interface ethernet eth1 vrf 0
 config node R0 vrf red route-distinguisher 1:1
 config node R0 interface ethernet eth1 vrf red
 config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
+config node R0 vrf red protocol isis
+config node R0 vrf red protocol isis interface eth1
+config node R0 vrf red protocol isis redistribute bgp
 
-config node R0 rtm-route prefix 10.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3
-config node R0 vrf red rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.1 interface eth1
+config node R0 vrf red rtm-route prefix 10.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3 l3vpn 16
+config node R0 vrf red rtm-route prefix 100.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3 l3vpn 16
 
 config node R3 no protocol isis interface eth1
 config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
@@ -734,12 +737,45 @@ config node R3 no interface ethernet eth1 vrf 0
 config node R3 vrf red route-distinguisher 1:1
 config node R3 interface ethernet eth1 vrf red
 config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
+config node R3 vrf red protocol isis
+config node R3 vrf red protocol isis interface eth1
+config node R3 vrf red protocol isis redistribute bgp
 
-config node R3 rtm-route prefix 10.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0
-config node R3 vrf red rtm-route prefix 10.0.0.2/32 0 0 0 2 10 gateway 192.168.0.1 interface eth1
+config node R3 vrf red rtm-route prefix 10.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0 l3vpn 16
+config node R3 vrf red rtm-route prefix 100.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0 l3vpn 16
 
-config node CE1 rtm-route prefix 10.0.0.2/32 0 0 0 2 10 gateway 192.168.0.2 interface eth0
-config node CE2 rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.2 interface eth0
+config node CE1 interface loopback 0
+config node CE1 interface loopback 0 up
+config node CE1 interface loopback 0 ip-address 10.0.0.1 32
+config node CE1 protocol isis
+config node CE1 protocol isis interface lo0
+config node CE1 protocol isis interface eth1
+config node CE1 protocol isis interface eth0
+
+
+config node CE2 interface loopback 0
+config node CE2 interface loopback 0 up
+config node CE2 interface loopback 0 ip-address 10.0.0.2 32
+config node CE2 protocol isis
+config node CE2 protocol isis interface lo0
+config node CE2 protocol isis interface eth1
+config node CE2 protocol isis interface eth0
+
+config node H1 interface loopback 0
+config node H1 interface loopback 0 up
+config node H1 interface loopback 0 ip-address 100.0.0.1 32
+config node H1 protocol isis
+config node H1 protocol isis interface lo0
+config node H1 protocol isis interface eth1
+
+config node H2 interface loopback 0
+config node H2 interface loopback 0 up
+config node H2 interface loopback 0 ip-address 100.0.0.2 32
+config node H2 protocol isis
+config node H2 protocol isis interface lo0
+config node H2 protocol isis interface eth1
+
+run node H1 ping 100.0.0.2 -c 10
 
 
                                                                                 +--------+-+
@@ -843,8 +879,8 @@ config node CE2 rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.2 inte
 
     node_set_intf_ip_address(R3, "eth1","192.168.0.2", 24);
     node_set_intf_ip_address(CE2, "eth0","192.168.0.1", 24);
-    node_set_intf_ip_address(CE2, "eth1","172.168.1.1", 24);
-    node_set_intf_ip_address(H2, "eth1","172.168.1.2", 24);
+    node_set_intf_ip_address(CE2, "eth1","172.168.0.1", 24);
+    node_set_intf_ip_address(H2, "eth1","172.168.0.2", 24);
 
     /* Run control plane schedulers in the end so as to avoid 
     Race condition between main thread and CP-Schedulers since 
