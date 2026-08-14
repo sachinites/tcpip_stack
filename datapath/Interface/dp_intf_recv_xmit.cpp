@@ -650,6 +650,25 @@ VPNv4_XConnect_SendPacketOut(
     return 0;
 }
 
+extern int 
+AC_SendPacketOut(
+        dp_ctx_t *dp_ctx, 
+        dp_intf_t *intf, 
+        struct rte_mbuf *mbuf);
+
+extern int 
+BD_SendPacketOut(
+        dp_ctx_t *dp_ctx, 
+        dp_intf_t *intf, 
+        struct rte_mbuf *mbuf);
+
+extern int 
+BD_FloodPacketOut(
+        dp_ctx_t *dp_ctx, 
+        dp_intf_t *intf, 
+        struct rte_mbuf *mbuf);
+
+
 /* This array is arranged in sequence of these enums : InterfaceType_t */
 static SendPacketOut_fptr intf_xmit_cbk[] = 
     {
@@ -663,6 +682,9 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
         NVEInterface_SendPacketOut,
         SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut,
         VPNv4_XConnect_SendPacketOut,
+        AC_SendPacketOut,
+        BD_SendPacketOut,
+        BD_FloodPacketOut,
         0,
         0
     };

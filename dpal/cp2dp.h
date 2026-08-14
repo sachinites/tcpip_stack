@@ -150,6 +150,12 @@ cp2dp_send_vlan_add_access_port (node_t *node,
                                     uint32_t access_port_id, bool add);
 
 void
+cp2dp_bd_ac_bind (node_t *node,
+                  uint32_t bd_ifindex,
+                  uint32_t ac_ifindex,
+                  bool add);
+
+void
 cp2dp_srv6_dt4_intf_steered_vrf (node_t *node, Interface *intf, bool add);
 
 void 

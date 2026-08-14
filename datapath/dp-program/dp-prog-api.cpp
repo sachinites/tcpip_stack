@@ -22,12 +22,14 @@
 #include "../Layer2/arp/arp.h"
 #include "../../libs/common/l2_hdrs.h"
 #include "../Layer2/vxlan/vlan_vni_ht.h"
+#include "../Layer2/bridge-domain/bd.h"
 
 
 #include "../Vrfs/dp_vrf.h"
 
 #include "../Interface/dp_intf.h"
 #include "../Interface/dp_intf_store.h"
+#include "../Layer2/bridge-domain/bd.h"
 
 /* Fibs */
 #include "../FIB/fib_error.h"
@@ -69,31 +71,36 @@ void
 dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
     
     mac_update_msg_t *mac_update_msg;
-    mac_table_t *mac_table = dp_ctx->mac_table;
-    
-    assert(dp_msg->component_type == MAC_TABLE);
+    mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+
+    assert(dp_msg->component_type == MAC_TABLE || 
+           dp_msg->component_type == BD_MAC_TABLE );
+
+    mac_table_t *mac_table = dp_msg->component_type == MAC_TABLE ? \
+                             dp_ctx->mac_table:                    \
+                             dp_ctx->intf_table[mac_update_msg->vlan_id]->mac_table;
     
     switch (dp_msg->opr_type) {
         
         case DP_CREATE:
-            mac_update_msg = (mac_update_msg_t *)dp_msg->data;
-            mac_table_entry_add (dp_ctx, mac_table, 
-                                                    mac_update_msg->mac_addr,   
-                                                    mac_update_msg->vlan_id,
-                                                    mac_update_msg->ifindex,
-                                                    mac_update_msg->flags,
-                                                    mac_update_msg->remote_dst_ip);
+            
+            mac_table_entry_add(dp_ctx, mac_table,
+                                mac_update_msg->mac_addr,
+                                mac_update_msg->vlan_id,
+                                mac_update_msg->ifindex,
+                                mac_update_msg->flags,
+                                mac_update_msg->remote_dst_ip);
             break;
             
         case DP_DEL:
-            mac_update_msg = (mac_update_msg_t *)dp_msg->data;
-            mac_table_entry_delete (dp_ctx, mac_table, 
-                                                    mac_update_msg->mac_addr,   
-                                                    mac_update_msg->vlan_id,
-                                                    mac_update_msg->ifindex,
-                                                    mac_update_msg->remote_dst_ip);
-            break;
             
+            mac_table_entry_delete(dp_ctx, mac_table,
+                                   mac_update_msg->mac_addr,
+                                   mac_update_msg->vlan_id,
+                                   mac_update_msg->ifindex,
+                                   mac_update_msg->remote_dst_ip);
+            break;
+
         case DP_UPDATE:
             // Handle MAC entry updates if needed
             break;
@@ -742,6 +749,60 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                     } else {
                          intf->l2_mode = DP_LAN_MODE_NONE;
                     }
+                }
+                break;
+
+                case CP2DP_CODE_BD_AC_BIND:
+                {
+                    uint8_t zero_mac_addr[6] = {0};
+
+                    dp_intf_bd_ac_bind_t *bind_msg =
+                        (dp_intf_bd_ac_bind_t *)(msg + 1);
+
+                    dp_intf_t *bd_intf = dp_ctx->intf_table[bind_msg->bd_port_id];
+                    dp_intf_t *phy_intf = dp_ctx->intf_table[bind_msg->ac_port_id];
+
+                    if (!bd_intf || !phy_intf) {
+                        assert (0);
+                    }
+
+                    assert(bd_intf->if_type == DP_INTF_TYPE_BD);
+
+                    /* This AC must not exist in BD already */
+                    if (bd_has_ac_member(bd_intf, phy_intf->port_id)) {
+                        assert (0);
+                    }
+
+                    /* Dynamically create AC */
+                    dp_intf_t *ac_intf = bd_ac_create(dp_ctx, bind_msg->ac_port_id);
+                    bd_add_ac(bd_intf, ac_intf);
+                    tracer(dp_ctx->dptr, DCONF,
+                        "Bind AC %s to BD %s\n", ac_intf->if_name, bd_intf->if_name);
+                }
+                break;
+
+                case CP2DP_CODE_BD_AC_UNBIND:
+                {
+                    uint8_t zero_mac_addr[6] = {0};
+
+                    dp_intf_bd_ac_bind_t *bind_msg =
+                        (dp_intf_bd_ac_bind_t *)(msg + 1);
+
+                    dp_intf_t *bd_intf = dp_ctx->intf_table[bind_msg->bd_port_id];
+                    dp_intf_t *phy_intf = dp_ctx->intf_table[bind_msg->ac_port_id];
+
+                    assert (bd_intf && phy_intf);
+                    assert(bd_intf->if_type == DP_INTF_TYPE_BD);
+
+                    /* This AC must exist in BD already */
+                    if (!bd_has_ac_member(bd_intf, phy_intf->port_id)) {
+                        assert (0);
+                    }
+
+                    /* Dynamically create AC */
+                    bd_del_ac (bd_intf, phy_intf->port_id);
+                    tracer(dp_ctx->dptr, DCONF,
+                        "UnBind AC %u from BD %s\n", phy_intf->port_id, bd_intf->if_name);
                 }
                 break;
 

@@ -99,6 +99,12 @@ TransportService::AttachInterface(Interface *intf) {
         return false;
     }
 
+    if (interface_is_bd_member(intf)) {
+        cprintf ("\nError : Interface %s is a bridge-domain member, cannot attach transport service",
+                 intf->if_name.c_str());
+        return false;
+    }
+
     node = intf->att_node;
     uint32_t ifindex = intf->ifindex;
     auto it = this->ifSet.find ( ifindex );

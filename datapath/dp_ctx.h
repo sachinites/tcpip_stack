@@ -104,6 +104,7 @@ typedef struct dp_ctx_ {
     /* Special interfaces (RMAC, VLAN flood, host path, SRv6 end, NVE) */
     dp_intf_t *dp_rmac_intf;
     dp_intf_t *dp_vlan_flood_intf;
+    dp_intf_t *dp_bd_flood_intf; /* only one instance of this interface exist in datapath*/
     dp_intf_t *dp_host_path_intf;
     dp_intf_t *dp_nve_intf;
     

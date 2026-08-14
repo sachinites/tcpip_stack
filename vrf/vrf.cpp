@@ -115,6 +115,10 @@ void vrf_delete(vrf_t* vrf, bool _free) {
         vrf->intf_by_ifindex = nullptr;
     }
 
+    /* Release L3 VPN label */
+    label_mgr_block_release_label(vrf->node->l3vpn_lbl_block, vrf->l3_vpn_label);
+    vrf->l3_vpn_label = 0;
+
     vrf->node->vrf[vrf->vrf_id] = NULL;
     vrf->node = NULL;
 

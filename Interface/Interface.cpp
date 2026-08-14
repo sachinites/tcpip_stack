@@ -50,15 +50,18 @@ access_group_unconfig (node_t *node,
                        char *dirn, 
                        access_list_t *acc_lst) ;
 
-extern void l2_switch_forward_frame(
+extern void 
+l2_switch_forward_frame(
                         node_t *node,
+                        mac_table_t *mac_table,
                         Interface *recv_intf, 
                         pkt_block_t *pkt_block);
+
 extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
-                      dp_vrf_t *vrf,
-                      dp_intf_t *interface, 
-                      pkt_block_t *pkt_block);
+                         dp_vrf_t *vrf, 
+                         dp_intf_t *interface, 
+                         pkt_block_t *pkt_block);
 
 extern bool LinuxRtr;
 
@@ -119,7 +122,9 @@ Interface::~Interface()
     cprintf ("%s : Interface %s deleted\n", 
         this->att_node->node_name, this->if_name.c_str());
 
-    cp2dp_interface_delete (this->att_node, if_index);
+    /* AC are deleted in DP when they are dettached from BD */
+    if (if_index || iftype != INTF_TYPE_AC)
+        cp2dp_interface_delete (this->att_node, if_index);
 }
 
 InterfaceP 
@@ -322,8 +327,12 @@ Interface::InterfaceReleaseAllResources() {
     /* This is configuration, this fn call must not see it set*/
     assert (!this->isis_intf_info);
 
-    interface_release_index(this->att_node, this->ifindex);
-    this->ifindex = 0;
+    /* AC interfaces borrow the physical ifindex and zero it before
+       destruction so the bitmap bit is not released twice. */
+    if (this->ifindex) {
+        interface_release_index(this->att_node, this->ifindex);
+        this->ifindex = 0;
+    }
 }
 
 bool 
@@ -383,6 +392,7 @@ PhysicalInterface::PhysicalInterface(std::string ifname, InterfaceType_t iftype,
     this->used_as_underlying_tunnel_intf = 0;
     this->trans_svc = NULL;
     this->access_vlan_intf = nullptr;
+    this->bd_ac = nullptr;
 }
 
 PhysicalInterface::~PhysicalInterface()
@@ -544,6 +554,13 @@ void PhysicalInterface::SetSwitchport(bool enable)
     if (this->switchport == enable)
         return;
 
+    if (!enable) {
+        if (this->access_vlan_intf || this->trans_svc || this->bd_ac) {
+            cprintf("Error : Remove L2 Config first (VLAN or bridge-domain membership)\n");
+            return;
+        }
+    }
+
     if (this->used_as_underlying_tunnel_intf > 0)
     {
         cprintf("Error : Intf being used as underlying tunnel interface\n");
@@ -562,10 +579,6 @@ void PhysicalInterface::SetSwitchport(bool enable)
     }
     else
     {
-        if (this->access_vlan_intf || this->trans_svc) {
-            cprintf("Error : Remove L2 Config first\n");
-            return;
-        }
         this->l2_mode = LAN_MODE_NONE;
     }
     this->switchport = enable;
@@ -628,6 +641,12 @@ PhysicalInterface::IntfConfigTransportSvc(std::string& trans_svc_name) {
         return false;
     }
 
+    if (interface_is_bd_member(this)) {
+        cprintf("Error : Interface %s is a bridge-domain member, cannot attach transport service\n",
+                this->if_name.c_str());
+        return false;
+    }
+
     TransportService *trans_svc_obj = TransportServiceLookUp (this->att_node->TransPortSvcDB, trans_svc_name);
     
     if (!trans_svc_obj) {
@@ -665,6 +684,12 @@ PhysicalInterface::IntfConfigVlan(vlan_id_t vlan_id, bool add)
     int i;
     if (!this->switchport)
         return false;
+    if (interface_is_bd_member(this))
+    {
+        cprintf("Error : Interface %s is a bridge-domain member, cannot configure VLAN\n",
+                this->if_name.c_str());
+        return false;
+    }
     if (this->used_as_underlying_tunnel_intf > 0)
     {
         cprintf("Error : Intf being used as underlying tunnel interface");
@@ -1948,3 +1973,187 @@ HostPathInterface::IsCrossReferenced() {
 }
 
 
+/* AC Interface */
+ACInterface::ACInterface(std::string ifname, InterfaceType_t iftype) 
+    : Interface (ifname, iftype),
+    encap_tag_8021q(0),
+    forwarding_intf(nullptr),
+    bd_intf(nullptr)
+{
+    SetSwitchport(true);
+}
+
+ACInterface::~ACInterface() {
+
+    assert (IsCrossReferenced() == false );
+    InterfaceReleaseAllResources();
+    assert(forwarding_intf == nullptr);
+    assert(bd_intf == nullptr);
+    /* ifindex was borrowed from the physical port. */
+    this->ifindex = 0;
+}
+
+void 
+ACInterface::InterfaceReleaseAllResources() {
+
+    UnSetUnderlyingInterface();
+    UnSetBdInterface();
+}
+
+void 
+ACInterface::SetEncap_tag_8021q(uint16_t vlan_id) {
+
+    assert (encap_tag_8021q == 0);
+    encap_tag_8021q = vlan_id;
+}
+
+void 
+ACInterface::UnSetEncap_tag_8021q(uint16_t vlan_id) {
+
+    if (!encap_tag_8021q) return;
+    encap_tag_8021q = 0;
+}
+
+bool
+ACInterface::SetUnderlyingInterface(InterfaceP intf) {
+
+    if (!intf) return false;
+
+    if (forwarding_intf) {
+        return forwarding_intf == intf;
+    }
+
+    switch (intf->iftype) {
+
+        case INTF_TYPE_PHY:
+        case INTF_TYPE_GRE_TUNNEL:
+            break;
+
+        default:
+            return false;
+    }
+
+    forwarding_intf = intf;
+
+    if (intf->iftype == INTF_TYPE_PHY) {
+        PhysicalInterface *phy = dynamic_cast<PhysicalInterface *>(intf.get());
+        if (phy) {
+            phy->used_as_underlying_tunnel_intf++;
+            phy->bd_ac = std::dynamic_pointer_cast<ACInterface>(this->GetSharedPtr());
+        }
+    }
+
+    return true;
+}
+
+void 
+ACInterface::UnSetUnderlyingInterface() {
+
+    if (!forwarding_intf) return;
+
+    if (forwarding_intf->iftype == INTF_TYPE_PHY) {
+        PhysicalInterface *phy =
+            dynamic_cast<PhysicalInterface *>(forwarding_intf.get());
+        if (phy) {
+            if (phy->used_as_underlying_tunnel_intf)
+                phy->used_as_underlying_tunnel_intf--;
+            if (phy->bd_ac.get() == this)
+                phy->bd_ac.reset();
+        }
+    }
+
+    forwarding_intf.reset();
+}
+
+InterfaceP
+ACInterface::GetUnderlyingInterface() {
+
+    return forwarding_intf;
+}
+
+bool
+ACInterface::SetBdInterface(BDInterfaceP bd) {
+
+    if (!bd) return false;
+    if (bd_intf) return bd_intf == bd;
+    bd_intf = bd;
+    return true;
+}
+
+void
+ACInterface::UnSetBdInterface() {
+
+    bd_intf.reset();
+}
+
+BDInterfaceP
+ACInterface::GetBdInterface() {
+
+    return bd_intf;
+}
+
+bool 
+ACInterface::IsCrossReferenced() {
+
+    return this->GetSharedPtr().use_count() > (BD_AC_IF_REFCOUNT + 1);
+}
+
+/* BD Interface */
+BDInterface::BDInterface(std::string ifname, InterfaceType_t iftype)
+    : VirtualInterface(ifname, iftype),
+      bd_id(0)
+{
+}
+
+BDInterface::~BDInterface() {
+
+    assert(IsCrossReferenced() == false);
+    InterfaceReleaseAllResources();
+}
+
+void
+BDInterface::InterfaceReleaseAllResources() {
+    assert(member_ac.empty());
+}
+
+bool
+BDInterface::IsCrossReferenced() {
+
+    return this->GetSharedPtr().use_count() > (BD_IF_REFCOUNT + 1);
+}
+
+bool
+BDInterface::AddMemberAC(ACInterfaceP ac) {
+
+    if (!ac) return false;
+    if (FindMemberAC(ac->GetUnderlyingInterface().get()))
+        return false;
+    member_ac.push_back(ac);
+    return true;
+}
+
+bool
+BDInterface::DelMemberAC(ACInterfaceP ac) {
+
+    if (!ac) return false;
+    for (auto it = member_ac.begin(); it != member_ac.end(); ++it) {
+        if (*it == ac) {
+            ac->UnSetBdInterface();
+            member_ac.erase(it);
+            ac->UnSetUnderlyingInterface();
+            return true;
+        }
+    }
+    return false;
+}
+
+ACInterfaceP
+BDInterface::FindMemberAC(Interface *phy) {
+
+    if (!phy) return nullptr;
+    for (auto &ac : member_ac) {
+        if (ac && ac->GetUnderlyingInterface().get() == phy)
+            return ac;
+    }
+    return nullptr;
+}

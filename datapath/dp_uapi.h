@@ -118,7 +118,12 @@ void dp_post_mac_learn_job(dp_ctx_t *dp_ctx,
                            uint16_t vlan_id,
                            uint32_t oif_ifindex,
                            uint32_t src_ip);
-
+void
+dp_post_bd_mac_learn_job(dp_ctx_t *dp_ctx,
+                      uint32_t bd_ifindex,
+                      uint8_t *mac_addr,
+                      uint32_t oif_ifindex);
+                      
 /*
  * Post an ARP resolution job to dp_ev_dis.
  * mbuf MUST already be ref-incremented by the caller (pkt_mbuf_ref_inc).

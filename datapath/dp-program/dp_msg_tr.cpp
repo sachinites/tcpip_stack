@@ -56,6 +56,8 @@ dp_intf_update_code_str (uint16_t code) {
         case CP2DP_CODE_INTF_NVE:        return "NVE";
         case CP2DP_CODE_INTF_LOG_UPDATE: return "LOG_UPDATE";
         case CP2DP_CODE_INTF_GRE_TUNNEL: return "GRE_TUNNEL";
+        case CP2DP_CODE_BD_AC_BIND:      return "BD_AC_BIND";
+        case CP2DP_CODE_BD_AC_UNBIND:    return "BD_AC_UNBIND";
         default:                          return "?";
     }
 }
@@ -237,6 +239,16 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                                 "    intf_update: gre_tunnel lcl=%s/%u src=%s dst=%s up=%u\n",
                                 lcl_str, (unsigned)u->mask, src_str, dst_str,
                                 (unsigned)u->tunnel_up);
+                        }
+                        break;
+                    case CP2DP_CODE_BD_AC_BIND:
+                    case CP2DP_CODE_BD_AC_UNBIND:
+                        if (dp_msg->data_size >= hdr_sz + sizeof(dp_intf_bd_ac_bind_t)) {
+                            const dp_intf_bd_ac_bind_t *u =
+                                (const dp_intf_bd_ac_bind_t *)payload;
+                            tracer(dp_ctx->dptr, DCONF,
+                                "    intf_update: bd_ac_bind bd_port_id=%u ac_port_id=%u\n",
+                                u->bd_port_id, u->ac_port_id);
                         }
                         break;
                     default:

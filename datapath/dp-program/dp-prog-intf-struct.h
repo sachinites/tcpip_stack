@@ -140,6 +140,15 @@ typedef struct dp_intf_gre_tunnel_update_ {
 
 } dp_intf_gre_tunnel_update_t;
 
+#define CP2DP_CODE_BD_AC_BIND 23
+#define CP2DP_CODE_BD_AC_UNBIND 24
+typedef struct dp_intf_bd_ac_bind_ {
+
+    uint32_t bd_port_id;
+    uint32_t ac_port_id;
+
+} dp_intf_bd_ac_bind_t;
+
 typedef struct dp_intf_cp2dp_msg_ {
 
     uint32_t port_id;  // key

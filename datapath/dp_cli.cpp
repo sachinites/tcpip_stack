@@ -38,6 +38,7 @@
 #include "../tcpconst.h"
 #include "../libs/common/protoIds.h"
 #include "classifier/pkt_classifier.h"
+#include "Layer2/switching/mac_table.h"
 
 extern graph_t *topo;
 
@@ -49,6 +50,7 @@ extern graph_t *topo;
 #define CMDCODE_SHOW_DP_ARP              5
 #define CMDCODE_DEBUG_DP_MEMPOOL         6
 #define CMDCODE_DEBUG_DP_CLASSIFIERS     7
+#define CMDCODE_SHOW_BD_MAC              8
 
 /* -----  Interface display helpers  ----- */
 
@@ -219,20 +221,45 @@ dp_print_interface(dp_intf_t *intf)
         cprintf("    Parent VLAN     : %u\n", intf->vlan_intf->vlan_id);
     }
 
-    /* Member ports (VLAN SVI) */
-    bool has_members = false;
-    for (int i = 0; i < MAX_VLAN_MEMBER_PORTS; i++) {
-        if (intf->mports[i]) {
-            if (!has_members) {
-                cprintf("    Member Ports     : ");
-                has_members = true;
+    /* Member ACs (Bridge Domain) or member ports (VLAN SVI) */
+    if (intf->if_type == DP_INTF_TYPE_BD) {
+        bool has_acs = false;
+        for (int i = 0; i < MAX_BD_MEMBER_PORTS; i++) {
+            if (!intf->mports[i])
+                continue;
+            if (!has_acs) {
+                cprintf("    Member ACs       : ");
+                has_acs = true;
             } else {
                 cprintf(", ");
             }
-            cprintf("%s", intf->mports[i]->if_name);
+            cprintf("%s", intf->mports[i]->if_name[0] ?
+                    intf->mports[i]->if_name : "N/A");
         }
+        if (has_acs)
+            cprintf("\n");
+        else
+            cprintf("    Member ACs       : None\n");
+    } else {
+        bool has_members = false;
+        for (int i = 0; i < MAX_VLAN_MEMBER_PORTS; i++) {
+            if (intf->mports[i]) {
+                if (!has_members) {
+                    cprintf("    Member Ports     : ");
+                    has_members = true;
+                } else {
+                    cprintf(", ");
+                }
+                cprintf("%s", intf->mports[i]->if_name);
+            }
+        }
+        if (has_members) printw("\n");
     }
-    if (has_members) printw("\n");
+
+    if (intf->bd_intf) {
+        cprintf("    Parent BD        : %s\n",
+                intf->bd_intf->if_name[0] ? intf->bd_intf->if_name : "N/A");
+    }
 
     /* Trunk VLAN bitmap */
     if (intf->vlan_bitmap && intf->l2_mode == DP_LAN_TRUNK_MODE) {
@@ -341,6 +368,7 @@ dp_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
     c_string intf_name_filter = NULL;
     c_string vrf_name = NULL;
     int numa_id = 0;
+    uint16_t bd_id = 0;
     tlv_struct_t *tlv;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
@@ -353,7 +381,9 @@ dp_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
         else if (parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
             vrf_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "numaid"))
-            numa_id = atoi((const char *)tlv->value);            
+            numa_id = atoi((const char *)tlv->value);
+        else if (parser_match_leaf_id(tlv->leaf_id, "bd-id"))
+            bd_id = (uint16_t)atoi((const char *)tlv->value);
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -532,6 +562,32 @@ dp_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
     }
     break;
 
+    case CMDCODE_SHOW_BD_MAC:
+    {
+        char bd_name[DP_INTF_NAME];
+        snprintf(bd_name, sizeof(bd_name), "bd%u", bd_id);
+
+        dp_intf_t *bd_intf = NULL;
+        for (int _i = 0; _i < DP_MAX_INTF; _i++) {
+            dp_intf_t *intf = dp_ctx->intf_table[_i];
+            if (!intf || intf->if_type != DP_INTF_TYPE_BD)
+                continue;
+            if (strcmp(intf->if_name, bd_name) == 0) {
+                bd_intf = intf;
+                break;
+            }
+        }
+
+        if (!bd_intf) {
+            cprintf("Error: Bridge-domain %s not found\n", bd_name);
+            return -1;
+        }
+
+        cprintf("Node: %s - Bridge-domain %u (%s) MAC Address Table\n",
+                node_name, bd_id, bd_intf->if_name);
+        show_mac_table(bd_intf->mac_table, 0);
+        break;
+    }
 
     default:
         break;
@@ -610,6 +666,27 @@ dp_build_dp_show_cli_tree(param_t *node_name)
             libcli_register_param(&arp, &vrf_name);
             libcli_set_param_cmd_code(&vrf_name, CMDCODE_SHOW_DP_ARP);
             libcli_set_user_flag(&vrf_name, CLI_F_DATA_PLANE);
+        }
+    }
+
+    
+    {
+        static param_t bd;
+        init_param(&bd, CMD, "bridge-domain", 0, 0, INVALID, 0, "bridge-domain");
+        libcli_register_param(&data_path, &bd);
+        {
+            static param_t bd_id;
+            init_param(&bd_id, LEAF, NULL, NULL, 0, INT, "bd-id", "bridge-domain id");
+            libcli_register_param(&bd, &bd_id);
+
+            /* MAC Address Table of BD */
+            {
+                static param_t bd_mac;
+                init_param(&bd_mac, CMD, "mac-address-table", dp_show_handler, 0, INVALID, 0, "mac-address-table");
+                libcli_register_param(&bd_id, &bd_mac);
+                libcli_set_param_cmd_code(&bd_mac, CMDCODE_SHOW_BD_MAC);
+                libcli_set_user_flag(&bd_mac, CLI_F_DATA_PLANE);
+            }
         }
     }
 

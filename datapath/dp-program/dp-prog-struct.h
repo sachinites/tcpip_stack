@@ -181,6 +181,7 @@ typedef struct dp_raw_pkt_info_ {
 typedef enum DP_COMPONENT_TYPE_ {
 
     MAC_TABLE,
+    BD_MAC_TABLE,
     PKT_BLOCK,
     FIB_TABLE,
     INTF_TABLE,

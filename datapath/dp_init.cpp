@@ -45,6 +45,7 @@ extern void tcp_ip_register_default_l3_pkt_trap_rules(nf_hook_db_t *nf_hook_db);
 void init_nfc_layer2_proto_reg_db2(notif_chain_t *nfc);
 extern void dp_pkt_xmit_intf_job_cbk(event_dispatcher_t *ev_dis,
                               void *pkt, uint32_t pkt_size);
+extern dp_intf_t *bd_flood_intf_create () ;
 
 extern uint8_t 
 system_get_max_numa_node_count ();
@@ -191,6 +192,7 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     dp_ctx->dp_vlan_flood_intf = NULL;
     dp_ctx->dp_host_path_intf  = NULL;
     dp_ctx->dp_nve_intf        = NULL;
+    dp_ctx->dp_bd_flood_intf      = bd_flood_intf_create ();
 
     dp_ctx->send_log_buffer = (unsigned char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
     dp_ctx->recv_log_buffer = (unsigned char *)calloc(1, TCP_PRINT_BUFFER_SIZE);

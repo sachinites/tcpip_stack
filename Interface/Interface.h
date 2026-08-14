@@ -86,6 +86,19 @@ class TransportService;
 */
 #define SRv6_IF_COUNT   0
 
+
+/*
+  node->intf_by_name
+  node->intf_by_ifindex    
+*/
+#define BD_AC_IF_REFCOUNT  2
+
+/*
+  node->intf_by_name
+  node->intf_by_ifindex    
+*/
+#define BD_IF_REFCOUNT  2
+
 class Interface {
 
     private:
@@ -197,9 +210,10 @@ class PhysicalInterface : public Interface {
          uint16_t used_as_underlying_tunnel_intf;
          char pad4[2];
 
-        /* Below two are mutually exclusive */
+        /* Below two are mutually exclusive with bd_ac */
         TransportService *trans_svc;
         VlanInterfaceP access_vlan_intf;
+        ACInterfaceP bd_ac;
 
         PhysicalInterface(std::string ifname, InterfaceType_t iftype, mac_addr_t *mac_add);
         virtual ~PhysicalInterface();
@@ -520,6 +534,8 @@ class SRv6EndPointEND_DX4Interface : public SRv6VirtualInterface {
         
 }__attribute__((aligned(8)));
 
+/* ------SRv6 Virtual Interfaces ----------- */
+
 #endif 
 /*
     1. Verify SRH exists
@@ -547,10 +563,6 @@ class SRv6EndPointEND_DT4_Egress_Interface : public SRv6VirtualInterface {
 
 
 
-
-
-/* ------SRv6 Virtual Interfaces ----------- */
-
 class HostPathInterface : public VirtualInterface {
 
     private:
@@ -561,6 +573,49 @@ class HostPathInterface : public VirtualInterface {
         virtual bool IsCrossReferenced() final;      
 };
 
+class ACInterface : public Interface {
+
+    private:
+        uint16_t encap_tag_8021q;
+        InterfaceP forwarding_intf;
+        BDInterfaceP bd_intf;
+        void InterfaceReleaseAllResources();
+
+    public:
+        ACInterface(std::string ifname, InterfaceType_t iftype);
+        virtual ~ACInterface();
+        void SetEncap_tag_8021q(uint16_t vlan_id);
+        void UnSetEncap_tag_8021q(uint16_t vlan_id);
+        bool SetUnderlyingInterface(InterfaceP intf);
+        void UnSetUnderlyingInterface();
+        InterfaceP GetUnderlyingInterface();
+        bool SetBdInterface(BDInterfaceP bd);
+        void UnSetBdInterface();
+        BDInterfaceP GetBdInterface();
+        bool IsCrossReferenced() final;
+        
+} __attribute__((aligned(8)));
+
+
+class BDInterface : public VirtualInterface {
+
+    private:
+        void InterfaceReleaseAllResources() ;
+
+    protected:
+
+    public:
+        uint16_t bd_id;
+        BDInterface(std::string ifname, InterfaceType_t iftype);
+        virtual ~BDInterface();
+        bool IsCrossReferenced() final;
+        /* Member Attachment circuits */
+        std::vector<ACInterfaceP> member_ac;
+        bool AddMemberAC(ACInterfaceP ac);
+        bool DelMemberAC(ACInterfaceP ac);
+        ACInterfaceP FindMemberAC(Interface *phy);
+
+} __attribute__((aligned(8)));
 
 
 typedef union intf_prop_changed_ {

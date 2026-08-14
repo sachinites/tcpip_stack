@@ -18,6 +18,9 @@ node_interface_lookup_by_name(node_t *node, const char *if_name);
 Interface *
 node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) ;
 
+bool
+interface_is_bd_member(Interface *intf);
+
 /* Canonicalize loopback names: "1" → "lo1"; "lo1" unchanged.
  * out always receives a NUL-terminated copy. Returns true if rewritten. */
 bool

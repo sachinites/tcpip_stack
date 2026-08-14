@@ -407,6 +407,8 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 case CONFIG_DISABLE:
 
                     interface->SetSwitchport(false);
+                    if (interface->GetSwitchport())
+                        return -1;
                     
                     /* Add link local address*/
                     if (!interface->rtm_link_local_rt6_idx)

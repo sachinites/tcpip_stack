@@ -178,6 +178,30 @@ dp_post_mac_learn_job(dp_ctx_t *dp_ctx,
 }
 
 void
+dp_post_bd_mac_learn_job(dp_ctx_t *dp_ctx,
+                      uint32_t bd_ifindex,
+                      uint8_t *mac_addr,
+                      uint32_t oif_ifindex)
+{
+    dp_msg_t *dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = BD_MAC_TABLE;
+    dp_msg->opr_type       = DP_CREATE;
+    dp_msg->data_size      = sizeof(mac_update_msg_t);
+
+    mac_update_msg_t *m = (mac_update_msg_t *)dp_msg->data;
+    memcpy(m->mac_addr, mac_addr, 6);
+    m->vlan_id       = bd_ifindex;
+    m->ifindex       = oif_ifindex;
+    m->flags         = MAC_DYNAMIC;
+    m->remote_dst_ip = 0;
+
+    task_create_new_job(EV_DP(dp_ctx), (void *)dp_msg,
+                        cp2dp_task_handler,
+                        TASK_ONE_SHOT,
+                        TASK_PRIORITY_PKT_PROCESSING);
+}
+
+void
 dp_post_arp_resolve_job(dp_ctx_t *dp_ctx,
                         dp_vrf_t *vrf,
                         uint32_t oif_ifindex,

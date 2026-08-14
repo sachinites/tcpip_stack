@@ -83,6 +83,8 @@ extern void dp_build_dp_debug_cli_tree(param_t *node_name) ;
 extern int show_scheduler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int config_rtm_route_cli_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) ;
 extern void ipv6_build_cli_run_tree (param_t *root) ;
+extern void bd_config_cli_tree (param_t *node_name) ;
+extern void bd_show_cli_tree (param_t *node_name) ;
 
 extern int ip_traffic_generate_handler(int64_t cmdcode,
                     Stack_t *tlv_stack,
@@ -1170,6 +1172,7 @@ nw_init_cli(){
                  }
                  {
                     dp_build_dp_show_cli_tree (&node_name);
+                    bd_show_cli_tree (&node_name);
                  }
 
                  {
@@ -1524,6 +1527,9 @@ nw_init_cli(){
 
             /* Mount ipv6 CLIs*/
             ipv6_build_cli_tree (&node_name);
+
+            /* Mount point of bridge domain CLIs*/
+            bd_config_cli_tree (&node_name);
         }
 
         param_t *vrf_config_name = NULL;

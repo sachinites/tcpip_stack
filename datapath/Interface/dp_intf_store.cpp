@@ -342,3 +342,20 @@ dp_create_vpnv4_steering_intf (dp_ctx_t *dp_ctx, dp_vrf_t *vrf) {
     vrf->vpnv4_steering_intf = intf;
     strncpy (intf->if_name, "vpnv4-xconn-if", 18);
 }
+
+dp_intf_t *
+bd_flood_intf_create () {
+
+    uint8_t mac_addr[6] = {0};
+
+    dp_intf_t *intf = dp_create_interface 
+                        ( 0,
+                          DP_INTF_TYPE_BD_FLOOD,
+                          &mac_addr, 0 );
+
+    intf->vrf = NULL;
+    intf->is_up = true;
+    strncpy (intf->if_name, "bd-vfif", 8);
+
+    return intf;
+}

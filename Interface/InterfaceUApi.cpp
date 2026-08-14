@@ -831,3 +831,13 @@ cp_get_intf_name_from_ifindex(void *ctx,
     snprintf(buffer, IF_NAME_SIZE, "%s", intf->if_name.c_str());
     return buffer;
 }
+
+bool
+interface_is_bd_member(Interface *phyintfP) {
+
+    if (!phyintfP || !phyintfP->att_node || phyintfP->iftype != INTF_TYPE_PHY)
+        return false;
+
+    PhysicalInterface *phy_if = static_cast<PhysicalInterface *>(phyintfP);
+    return phy_if->bd_ac != nullptr;
+}

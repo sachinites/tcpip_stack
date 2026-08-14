@@ -58,7 +58,8 @@ void
 l2_switch_perform_mac_learning(dp_ctx_t *dp_ctx,
                                vlan_id_t vlan_id,
                                c_string src_mac,
-                               dp_intf_t *oif, uint32_t src_ip)
+                               dp_intf_t *oif, 
+                               uint32_t src_ip)
 {
     if (memcmp(src_mac, "\x00\x00\x00\x00\x00\x00", sizeof(mac_addr_t)) == 0)
         return;
@@ -150,6 +151,7 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
 
 static void
 l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
+                                mac_table_t *mac_table,
                                 dp_intf_t *exempted_intf,
                                 struct rte_mbuf *mbuf)
 {
@@ -160,7 +162,7 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
     mac_table_entry_t *mac_flood_entry = NULL;
 
     mac_flood_entry =
-        mac_table_lookup(dp_ctx->mac_table,
+        mac_table_lookup(mac_table,
                          1,
                          BROADCAST_MAC);
 
@@ -182,6 +184,7 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
 void
 l2_switch_forward_frame(
                         dp_ctx_t *dp_ctx,
+                        mac_table_t *mac_table,
                         dp_intf_t *recv_intf, 
                         struct rte_mbuf *mbuf) {
 
@@ -191,32 +194,47 @@ l2_switch_forward_frame(
     mac_table_entry_t *mac_table_entry = NULL;
     vlan_8021q_hdr_t *vlan_8021q_hdr = NULL;
 
+    bool bd_processing = (recv_intf->if_type == DP_INTF_TYPE_AC) ? true : false;
+
     ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
-    assert ((vlan_8021q_hdr = is_pkt_vlan_tagged (ethernet_hdr))) ;  
+    if (!bd_processing) {
 
-    tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in vlan %d\n",  
-        pkt_mbuf_str (mbuf), 
-        GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
+        assert ((vlan_8021q_hdr = is_pkt_vlan_tagged (ethernet_hdr))) ;  
+
+        tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in vlan %d\n",  
+            pkt_mbuf_str (mbuf), 
+            GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
+    }
+    else {
+
+        tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in BD %s\n",  
+            pkt_mbuf_str (mbuf), 
+            recv_intf->bd_intf->if_name);
+    }
 
      pkt_mbuf_set_ingress_intf (mbuf, recv_intf);
-     vlan_id = (uint16_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr);
 
-    mac_table_entry = mac_table_lookup(dp_ctx->mac_table, 
+     vlan_id = (!bd_processing) ? (uint16_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr) : DEFAULT_VLAN_ID;
+
+     mac_table_entry = mac_table_lookup(mac_table, 
                                       vlan_id,
                                       ethernet_hdr->dst_mac.mac);
 
     if (mac_table_entry) {
+
         mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf, recv_intf);
+
         if (!(mac_table_entry->flags & MAC_STATIC))
             mac_table_entry_touch(mac_table_entry); /* cheap timestamp store */
+
         return;
     }
 
     if (IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)) {
 
             /* Handle BUM traffic for EVPN case */
-            mac_table_entry = mac_table_lookup(dp_ctx->mac_table,
+            mac_table_entry = mac_table_lookup(mac_table,
                                         vlan_id,
                                         BROADCAST_MAC);
 
@@ -225,7 +243,7 @@ l2_switch_forward_frame(
                 return;
             }        
 
-            mac_table_entry = mac_table_lookup(dp_ctx->mac_table, 
+            mac_table_entry = mac_table_lookup(mac_table, 
                                         DEFAULT_VLAN_ID,
                                         BROADCAST_MAC);
 
@@ -242,7 +260,7 @@ l2_switch_forward_frame(
     if (mac_address_compare (dp_ctx->rmac.mac, ethernet_hdr->dst_mac.mac)) {
 
         mac_table_entry = 
-            mac_table_lookup(dp_ctx->mac_table, 
+            mac_table_lookup(mac_table, 
                                       DEFAULT_VLAN_ID,
                                       ethernet_hdr->dst_mac.mac);    
 
@@ -259,7 +277,7 @@ l2_switch_forward_frame(
     tracer (dp_ctx->dptr, DL2SW, 
             "Mac Table Lookup Failed for vlan = %d, "
             "Mac = %02x:%02x:%02x:%02x:%02x:%02x\n",
-            GET_802_1Q_VLAN_ID(vlan_8021q_hdr),
+            (!bd_processing) ? GET_802_1Q_VLAN_ID(vlan_8021q_hdr) : DEFAULT_VLAN_ID,
             ethernet_hdr->dst_mac.mac[0],
             ethernet_hdr->dst_mac.mac[1],
             ethernet_hdr->dst_mac.mac[2],
@@ -267,7 +285,7 @@ l2_switch_forward_frame(
             ethernet_hdr->dst_mac.mac[4],
             ethernet_hdr->dst_mac.mac[5]);
 
-        l2_switch_flood_unknown_unicast(dp_ctx, recv_intf, mbuf);
+        l2_switch_flood_unknown_unicast(dp_ctx, mac_table, recv_intf, mbuf);
 }
 
 void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
@@ -292,5 +310,5 @@ void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
         pkt_mbuf_str (mbuf), interface->if_name, vlan_id);
 
     l2_switch_perform_mac_learning(dp_ctx, vlan_id, src_mac, interface, 0);
-    l2_switch_forward_frame(dp_ctx, interface, mbuf);
+    l2_switch_forward_frame(dp_ctx, dp_ctx->mac_table, interface, mbuf);
 }

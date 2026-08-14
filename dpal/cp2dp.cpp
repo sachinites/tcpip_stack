@@ -852,6 +852,34 @@ cp2dp_send_vlan_add_access_port (node_t *node,
     cp2dp_submit(node, dp_msg, true);
 }
 
+void
+cp2dp_bd_ac_bind (node_t *node,
+                  uint32_t bd_ifindex,
+                  uint32_t ac_ifindex,
+                  bool add) {
+
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_hdr_t *intf_msg;
+    dp_intf_bd_ac_bind_t *bind_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_bd_ac_bind_t);
+
+    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
+    intf_msg->port_id = ac_ifindex;
+    intf_msg->iftype = 0;
+    intf_msg->update_code = add ? CP2DP_CODE_BD_AC_BIND : CP2DP_CODE_BD_AC_UNBIND;
+
+    bind_msg = (dp_intf_bd_ac_bind_t *)(intf_msg + 1);
+    bind_msg->bd_port_id = bd_ifindex;
+    bind_msg->ac_port_id = ac_ifindex;
+
+    cp2dp_submit(node, dp_msg, true);
+}
+
 void 
 cp2dp_ping_request(node_t *node, 
                    ping_ctx_t *pctx) {

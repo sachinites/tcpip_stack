@@ -30,6 +30,7 @@ typedef struct bitmap_ bitmap_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct mtrie_ mtrie_t;
 typedef struct trap_rule_ trap_rule_t;
+typedef struct mac_table_ mac_table_t;
 
 #pragma pack(push, 8)
 
@@ -69,12 +70,24 @@ typedef struct dp_intf_ {
     */
     struct dp_intf_ *vlan_intf;
 
+    /* If this is a physical interface under AC, then this is the
+        pointer to owning AC */
+    struct dp_intf_ *ac_intf;
+
+    /* Attachment Circuit */
+    struct dp_intf_ *bd_intf;       /* Pointer to parent BD  */
+    uint16_t encap_8021q_tag;
+    mpls_lstack_t *lbl_stack;       /* If this AC is MPLS tunnel bridging domains */
+    struct dp_intf_ *underlying_intf;
+
+
     /* If this interface is vlan interface, then vlan id */
     uint16_t vlan_id;
     uint32_t vni_id;
     DP_IntfL2Mode l2_mode;
 
     /* If it is a vlan interface, then array of member ports*/
+    /* If it is a BD interface, then array of AC member ports */
     struct dp_intf_ *mports[MAX_VLAN_MEMBER_PORTS];
 
     /* If it is a switchport operating in a trunk node, then
@@ -101,7 +114,11 @@ typedef struct dp_intf_ {
 
     } srv6_data;
 
+    /* If this is vpnv4 steering interface */
     dp_vrf_t *steered_vpnv4_vrf; 
+
+    /* If it is a BD interface, then it owns a mac table */
+    mac_table_t *mac_table;
 
     /* Logging */
     log_t log_info;

@@ -69,6 +69,7 @@ OBJS=     router_init.o   \
 		  Layer2/transport_svc.o \
 		  Layer2/vxlan/cp/vlan_vni_mapping.o \
 		  Layer2/vxlan/cp/vxlan_cli.o \
+		  Layer2/BD/bd_cli.o \
 		  Layer3/layer3.o  \
 		  Layer3/gre-tunneling/grecli.o \
 		  Layer3/gre-tunneling/gre.o \
@@ -109,6 +110,9 @@ Layer2/vxlan/cp/vlan_vni_mapping.o:Layer2/vxlan/cp/vlan_vni_mapping.c
 
 Layer2/vxlan/cp/vxlan_cli.o:Layer2/vxlan/cp/vxlan_cli.c 
 	${CC} ${CFLAGS} -c -I . Layer2/vxlan/cp/vxlan_cli.c -o Layer2/vxlan/cp/vxlan_cli.o
+
+Layer2/BD/bd_cli.o:Layer2/BD/bd_cli.cpp
+	${CC} ${CFLAGS} -c -I . Layer2/BD/bd_cli.cpp -o Layer2/BD/bd_cli.o
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
@@ -265,8 +269,8 @@ clean:
 	rm -f *exe
 	rm -f ted/*.o
 	rm -f Layer2/*.o
+	rm -f Layer2/BD/*.o
 	rm -f Layer2/vxlan/cp/*.o
-	rm -f Layer2/vxlan/dp/*.o
 	rm -f Layer3/*.o
 	rm -f Layer3/rt_table/*.o
 	rm -f Layer4/*.o

@@ -18,8 +18,10 @@
 #define DP_INTF_NAME    32
 #define DP_INTF_UPDATE_MSG_LEN 256
 #define MAX_VLAN_MEMBER_PORTS 16
+#define MAX_BD_MEMBER_PORTS 16
 #define DP_MAX_VLAN_SUPORT 4096
 #define DP_MAX_INTF 1024
+#define DP_MAX_BD_SUPPORT 64
 
 enum DP_IntfL2Mode
 {
@@ -40,6 +42,9 @@ enum DP_InterfaceType_t {
     DP_INTF_TYPE_NVE,
     DP_INTF_TYPE_SRv6_DT4,
     DP_INTF_TYPE_VPNV4_STEER,
+    DP_INTF_TYPE_AC,
+    DP_INTF_TYPE_BD,
+    DP_INTF_TYPE_BD_FLOOD,
     DP_INTF_TYPE_HOST_PATH,
     DP_INTF_TYPE_UNKNOWN
 };
@@ -58,6 +63,9 @@ dp_intf_type_str (uint32_t iftype) {
         case DP_INTF_TYPE_NVE: return "NVE";
         case DP_INTF_TYPE_SRv6_DT4: return "SRv6-DT4";
         case DP_INTF_TYPE_HOST_PATH: return "HostPath";
+        case DP_INTF_TYPE_AC: return "AC";
+	    case DP_INTF_TYPE_BD: return "BD";
+        case DP_INTF_TYPE_BD_FLOOD: return "bd-vfif";
         case DP_INTF_TYPE_UNKNOWN: return "Unknown";
         default: return "Invalid";
     }
