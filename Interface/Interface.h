@@ -99,6 +99,11 @@ class TransportService;
 */
 #define BD_IF_REFCOUNT  2
 
+/*
+  node->node_nw_prop.bdrmac_interface
+*/
+#define BD_RMAC_DEF_REFCOUNT  1
+
 class Interface {
 
     private:
@@ -318,6 +323,21 @@ class RmacInterface : public VirtualInterface {
 
 } __attribute__((aligned(8)));;
 
+
+class BDRmacInterface : public VirtualInterface {
+
+    private:
+        void InterfaceReleaseAllResources() ;
+    protected:
+    public:
+
+        BDRmacInterface();
+        virtual ~BDRmacInterface();
+        virtual void PrintInterfaceDetails ();
+        virtual bool IsCrossReferenced() final;
+        virtual mac_addr_t *GetMacAddr( ) final;
+
+} __attribute__((aligned(8)));;
 
 
 class VlanFloodInterface : public VirtualInterface {
@@ -607,9 +627,19 @@ class BDInterface : public VirtualInterface {
 
     public:
         uint16_t bd_id;
+        uint32_t ip_addr;
+        uint8_t mask;
+        char padding_bd[1];
         BDInterface(std::string ifname, InterfaceType_t iftype);
         virtual ~BDInterface();
         bool IsCrossReferenced() final;
+        virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
+        virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) final;
+        virtual bool IsIpConfigured() final;
+        virtual bool IsSameSubnet(uint32_t ip_addr) final;
+        virtual mac_addr_t *GetMacAddr() final;
+        virtual bool IsSVI() final;
+        virtual bool HasL3Config(bool matchvrf) final;
         /* Member Attachment circuits */
         std::vector<ACInterfaceP> member_ac;
         bool AddMemberAC(ACInterfaceP ac);

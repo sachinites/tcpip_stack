@@ -18,6 +18,7 @@ extern void
 l2_switch_forward_frame(
                         dp_ctx_t *dp_ctx,
                         mac_table_t *mac_table,
+                        dp_intf_t *vlan_bd_intf,
                         dp_intf_t *recv_intf, 
                         struct rte_mbuf *mbuf);
 
@@ -122,6 +123,6 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vt
     tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Decapsulation : Forwarding pkt to L2 Switching\n");
         
-    l2_switch_forward_frame (dp_ctx, dp_ctx->mac_table, dp_ctx->dp_nve_intf,  mbuf);
+    l2_switch_forward_frame (dp_ctx, dp_ctx->mac_table, NULL, dp_ctx->dp_nve_intf,  mbuf);
     dp_ctx->dp_nve_intf->pkt_recv++;
 }

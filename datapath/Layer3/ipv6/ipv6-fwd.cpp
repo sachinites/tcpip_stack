@@ -91,7 +91,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
              nh->fwd_info->u.v6_fwd.endfn == END_DT4) {
 
         assert (nh->fwd_info->oif->if_type == DP_INTF_TYPE_SRv6_DT4);
-        dp_send_pkt_out(dp_ctx, nh->fwd_info->oif, mbuf);
+        dp_send_pkt_out(dp_ctx, nh->fwd_info->oif, mbuf, 0);
         return;
     }
     #endif

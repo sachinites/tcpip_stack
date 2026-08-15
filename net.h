@@ -94,6 +94,8 @@ typedef struct node_nw_prop_{
 
     /* Shared Rmac Interface shared across all SVIs in the system*/
     InterfaceP rmac_interface;
+    /* Shared BDRmac Interface for bridge-domain L3 routing */
+    InterfaceP bdrmac_interface;
     /* Virtual port which represents flood in a vlan */
     InterfaceP vlan_flood_interface;
     /* Host Path Interface */
@@ -128,6 +130,7 @@ typedef struct node_nw_prop_{
 #define NODE_SRv6_SID_POOL(node_ptr) (node_ptr->node_nw_prop.srv6_sid_pools)
 #define NODE_RMAC(node_ptr)      (&node_ptr->node_nw_prop.rmac) 
 #define NODE_RMAC_INTF(node_ptr)    (node_ptr->node_nw_prop.rmac_interface)
+#define NODE_BD_RMAC_INTF(node_ptr) (node_ptr->node_nw_prop.bdrmac_interface)
 #define NODE_VLAN_FLOOD_INTF(node_ptr) (node_ptr->node_nw_prop.vlan_flood_interface)
 #define NODE_NVE_INTF(node_ptr) (node_ptr->node_nw_prop.nve)
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\

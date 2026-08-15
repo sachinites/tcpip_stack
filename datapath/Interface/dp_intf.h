@@ -139,6 +139,10 @@ typedef struct dp_intf_ {
 #pragma pack(pop)
 
 void
-dp_send_pkt_out(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf);
+dp_send_pkt_out(dp_ctx_t *dp_ctx, 
+                dp_intf_t *intf, 
+                struct rte_mbuf *mbuf, 
+                dp_intf_t *pintf); // Today represent as vlan intf/BD intf if 'intf' 
+                                   // is vfif, in all other cases NULL
 
 #endif /* __DP_INTF__ */

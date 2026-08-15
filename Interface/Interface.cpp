@@ -54,6 +54,7 @@ extern void
 l2_switch_forward_frame(
                         node_t *node,
                         mac_table_t *mac_table,
+                        dp_intf_t *vlan_bd_intf,
                         Interface *recv_intf, 
                         pkt_block_t *pkt_block);
 
@@ -909,6 +910,30 @@ bool RmacInterface::IsCrossReferenced() {
 
 mac_addr_t *
 RmacInterface::GetMacAddr( ) {
+
+    return (NODE_RMAC(this->att_node));
+}
+
+/**      BDRmac Interface (stateless, shared across all bridge domains) */
+
+BDRmacInterface::BDRmacInterface()
+    :VirtualInterface(std::string(BDRMAC_INTF_NAME), INTF_TYPE_BD_RMAC) {}
+
+BDRmacInterface::~BDRmacInterface() {
+
+    InterfaceReleaseAllResources();
+}
+
+void BDRmacInterface::PrintInterfaceDetails () {}
+void BDRmacInterface::InterfaceReleaseAllResources() {}
+
+bool BDRmacInterface::IsCrossReferenced() {
+
+    return this->GetSharedPtr().use_count() > (BD_RMAC_DEF_REFCOUNT + 1);
+}
+
+mac_addr_t *
+BDRmacInterface::GetMacAddr( ) {
 
     return (NODE_RMAC(this->att_node));
 }
@@ -2113,7 +2138,9 @@ ACInterface::IsCrossReferenced() {
 /* BD Interface */
 BDInterface::BDInterface(std::string ifname, InterfaceType_t iftype)
     : VirtualInterface(ifname, iftype),
-      bd_id(0)
+      bd_id(0),
+      ip_addr(0),
+      mask(0)
 {
 }
 
@@ -2121,6 +2148,60 @@ BDInterface::~BDInterface() {
 
     assert(IsCrossReferenced() == false);
     InterfaceReleaseAllResources();
+}
+
+void
+BDInterface::InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) {
+
+    this->ip_addr = ip_addr;
+    this->mask = mask;
+}
+
+void
+BDInterface::InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) {
+
+    *ip_addr = this->ip_addr;
+    *mask = this->mask;
+}
+
+bool
+BDInterface::IsIpConfigured() {
+
+    return (this->ip_addr && this->mask);
+}
+
+mac_addr_t *
+BDInterface::GetMacAddr() {
+
+    return &this->att_node->node_nw_prop.rmac;
+}
+
+bool
+BDInterface::IsSameSubnet(uint32_t ip_addr) {
+
+    if (!this->IsIpConfigured()) return false;
+    uint32_t subnet_mask = ~0;
+    if (this->mask != 32) {
+        subnet_mask = subnet_mask << (32 - this->mask);
+    }
+    return ((this->ip_addr & subnet_mask) == (ip_addr & subnet_mask));
+}
+
+bool
+BDInterface::IsSVI() {
+
+    return (this->ip_addr && this->mask);
+}
+
+bool
+BDInterface::HasL3Config(bool matchvrf) {
+
+    if (matchvrf && this->vrf) return true;
+    if (this->IsIpConfigured()) return true;
+    if (this->IsIpv6Configured()) return true;
+    if (this->isis_intf_info) return true;
+    if (this->l3_egress_acc_lst || this->l3_ingress_acc_lst) return true;
+    return false;
 }
 
 void

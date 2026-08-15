@@ -190,6 +190,7 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     dp_ctx->default_vrf = NULL;
     dp_ctx->dp_rmac_intf       = NULL;
     dp_ctx->dp_vlan_flood_intf = NULL;
+    dp_ctx->dp_bd_rmac_intf  = NULL;
     dp_ctx->dp_host_path_intf  = NULL;
     dp_ctx->dp_nve_intf        = NULL;
     dp_ctx->intf_table[BD_FLOOD_IFINDEX] = bd_flood_intf_create ();

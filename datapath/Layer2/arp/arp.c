@@ -143,6 +143,29 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
         }
     }
 
+    /* Compute Src interface for this pkt. Since ARP are 
+    locally generated pkts, Take RMAC interface as src interface for such pkts*/
+    dp_intf_t *src_intf = NULL;
+
+    switch (oif->if_type) {
+        case DP_INTF_TYPE_VLAN:
+            src_intf = dp_ctx->intf_table[RMAC_INTF_INDEX];
+            break;
+        case DP_INTF_TYPE_BD:
+            src_intf = dp_ctx->intf_table[BD_RMAC_INTF_INDEX];
+            break;
+        default :
+            ;
+    }
+
+    if (src_intf) {
+
+        pkt_mbuf_set_ingress_intf(mbuf, src_intf);
+        tracer(dp_ctx->dptr, DARP,
+           "VRF:%s: ARP Broadcast Request for %s out of %s, src intf set %s\n",
+           vrf->vrf_name, ip_str, oif->if_name, src_intf->if_name);
+    }
+
     layer2_fill_with_broadcast_mac(eth->dst_mac.mac);
     memcpy(eth->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
     SET_COMMON_ETH_HDR_TYPE(eth, ETH_TYPE_ARP);
@@ -163,7 +186,7 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     tracer(dp_ctx->dptr, DARP,
            "VRF:%s: Sending ARP Broadcast Request for %s out of %s\n",
            vrf->vrf_name, ip_str, oif->if_name);
-    dp_send_pkt_out(dp_ctx, oif, mbuf);
+    dp_send_pkt_out(dp_ctx, oif, mbuf, 0);
     pkt_mbuf_dereference(mbuf);
 }
 
@@ -214,7 +237,23 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *eth_in, dp_intf_t *oif)
            arp_reply->dst_mac.mac[4], arp_reply->dst_mac.mac[5],
            oif->if_name);
 
-    dp_send_pkt_out(dp_ctx, oif, mbuf);
+               /* Compute Src interface for this pkt. Since ARP are 
+    locally generated pkts, Take RMAC interface as src interface for such pkts*/
+    dp_intf_t *src_intf = NULL;
+
+    switch (oif->if_type) {
+        case DP_INTF_TYPE_VLAN:
+            src_intf = dp_ctx->intf_table[RMAC_INTF_INDEX];
+            break;
+        case DP_INTF_TYPE_BD:
+            src_intf = dp_ctx->intf_table[BD_RMAC_INTF_INDEX];
+            break;
+        default :
+            ;
+    }
+
+    if (src_intf) pkt_mbuf_set_ingress_intf(mbuf, src_intf);
+    dp_send_pkt_out(dp_ctx, oif, mbuf, 0);
     pkt_mbuf_dereference(mbuf);
 }
 
@@ -558,7 +597,7 @@ pending_arp_processing_callback_function(dp_ctx_t *dp_ctx,
     memcpy(eth->dst_mac.mac, arp_entry->mac_addr.mac, MAC_ADDR_SIZE);
     memcpy(eth->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
     SET_COMMON_ETH_FCS(eth, pkt_size - GET_ETH_HDR_SIZE_EXCL_PAYLOAD(eth), 0);
-    dp_send_pkt_out(dp_ctx, oif, pe->mbuf);
+    dp_send_pkt_out(dp_ctx, oif, pe->mbuf, 0);
 }
 
 void

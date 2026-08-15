@@ -89,6 +89,7 @@ l2_switch_perform_mac_learning(dp_ctx_t *dp_ctx,
 
 static void 
 mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
+                            dp_intf_t *vlan_bd_intf,
                             mac_table_entry_t *mac_entry, 
                             struct rte_mbuf *mbuf, 
                             dp_intf_t *recv_intf) 
@@ -142,7 +143,7 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
         pvt_data = pkt_mbuf_get_pvt_data(mbuf2);
         pvt_data->encap_data = encap_data;
         encap_data = NULL;
-        dp_send_pkt_out(dp_ctx, oif, mbuf2);
+        dp_send_pkt_out(dp_ctx, oif, mbuf2, vlan_bd_intf);
         pkt_mbuf_dereference(mbuf2);
 
     } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
@@ -151,16 +152,19 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
 
 static void
 l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
+                                dp_intf_t *vlan_bd_intf,
                                 mac_table_t *mac_table,
                                 dp_intf_t *exempted_intf,
                                 struct rte_mbuf *mbuf)
+                                
 {
 
     dp_intf_t *oif;
     struct rte_mbuf *dup_mbuf;
     vlan_8021q_hdr_t *vlan_8021q_hdr;
     mac_table_entry_t *mac_flood_entry = NULL;
-    bool is_bd_processing = (exempted_intf->if_type == DP_INTF_TYPE_AC);
+
+    bool bd_processing = (vlan_bd_intf && (vlan_bd_intf->if_type == DP_INTF_TYPE_BD)) ;
 
     mac_flood_entry =
         mac_table_lookup(mac_table,
@@ -172,7 +176,7 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
         return;
     }
 
-    if (!is_bd_processing ) {
+    if (!bd_processing ) {
 
         assert ((vlan_8021q_hdr = 
             is_pkt_vlan_tagged ((ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, NULL))));
@@ -184,26 +188,33 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
     else {
         tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in BD %d\n",  
             pkt_mbuf_str (mbuf), 
-            exempted_intf->bd_intf->if_name);
+            vlan_bd_intf->if_name);
     }
 
-    mac_table_entry_xmit_frame (dp_ctx, mac_flood_entry, mbuf, exempted_intf);
+    mac_table_entry_xmit_frame (dp_ctx, vlan_bd_intf, mac_flood_entry, mbuf, exempted_intf);
 }
 
 void
 l2_switch_forward_frame(
                         dp_ctx_t *dp_ctx,
                         mac_table_t *mac_table,
-                        dp_intf_t *recv_intf, 
+                        /* This is either vlan or BD interface, for vlans it is NULL*/
+                        dp_intf_t *vlan_bd_intf,
+                        /* Underlying Vlan physical interface or AC . For locally generated 
+                            this interface would be RMAC interface */
+                        dp_intf_t *recv_intf,  
+                        /* Pkt , which */
                         struct rte_mbuf *mbuf) {
 
     uint16_t vlan_id;
     pkt_size_t pkt_size;
+    dp_intf_t *bd_intf = NULL;
     ethernet_hdr_t *ethernet_hdr;
     mac_table_entry_t *mac_table_entry = NULL;
     vlan_8021q_hdr_t *vlan_8021q_hdr = NULL;
-
-    bool bd_processing = (recv_intf->if_type == DP_INTF_TYPE_AC) ? true : false;
+    
+    /* For BD, recv_intf is BD intf, while AC is hidden in pkt pvt data*/
+    bool bd_processing = (vlan_bd_intf && (vlan_bd_intf->if_type == DP_INTF_TYPE_BD)) ;
 
     ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
@@ -218,11 +229,8 @@ l2_switch_forward_frame(
     else {
 
         tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in BD %s\n",  
-            pkt_mbuf_str (mbuf), 
-            recv_intf->bd_intf->if_name);
+            pkt_mbuf_str (mbuf), vlan_bd_intf->if_name);
     }
-
-     pkt_mbuf_set_ingress_intf (mbuf, recv_intf);
 
      vlan_id = (!bd_processing) ? (uint16_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr) : DEFAULT_VLAN_ID;
 
@@ -232,7 +240,7 @@ l2_switch_forward_frame(
 
     if (mac_table_entry) {
 
-        mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf, recv_intf);
+        mac_table_entry_xmit_frame (dp_ctx, vlan_bd_intf, mac_table_entry, mbuf, recv_intf);
 
         if (!(mac_table_entry->flags & MAC_STATIC))
             mac_table_entry_touch(mac_table_entry); /* cheap timestamp store */
@@ -248,7 +256,7 @@ l2_switch_forward_frame(
                                         BROADCAST_MAC);
 
             if (mac_table_entry) {
-                mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf, recv_intf);
+                mac_table_entry_xmit_frame (dp_ctx, vlan_bd_intf, mac_table_entry, mbuf, recv_intf);
                 return;
             }        
 
@@ -261,7 +269,7 @@ l2_switch_forward_frame(
                 return;
             }
        
-            mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf, recv_intf);
+            mac_table_entry_xmit_frame (dp_ctx, vlan_bd_intf, mac_table_entry, mbuf, recv_intf);
             return;
     }
 
@@ -278,7 +286,7 @@ l2_switch_forward_frame(
             return;
         }
 
-        mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf, recv_intf);
+        mac_table_entry_xmit_frame (dp_ctx, vlan_bd_intf, mac_table_entry, mbuf, recv_intf);
         return;
     }
 
@@ -294,7 +302,7 @@ l2_switch_forward_frame(
             ethernet_hdr->dst_mac.mac[4],
             ethernet_hdr->dst_mac.mac[5]);
 
-        l2_switch_flood_unknown_unicast(dp_ctx, mac_table, recv_intf, mbuf);
+        l2_switch_flood_unknown_unicast(dp_ctx, vlan_bd_intf, mac_table, recv_intf, mbuf);
 }
 
 void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
@@ -319,5 +327,5 @@ void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
         pkt_mbuf_str (mbuf), interface->if_name, vlan_id);
 
     l2_switch_perform_mac_learning(dp_ctx, vlan_id, src_mac, interface, 0);
-    l2_switch_forward_frame(dp_ctx, dp_ctx->mac_table, interface, mbuf);
+    l2_switch_forward_frame(dp_ctx, dp_ctx->mac_table, NULL, interface, mbuf);
 }

@@ -133,7 +133,8 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
    node_t *node;
-   vlan_id_t vlan_id;
+   vlan_id_t vlan_id = 0;
+   uint16_t bd_id = 0;
    uint8_t mask;
    int gre_tunnel_id = 0;
    c_string l2_mode_option;
@@ -157,6 +158,8 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
             if_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "vlan-id"))
             vlan_id = atoi((const char *)tlv->value);
+        else if(parser_match_leaf_id(tlv->leaf_id, "bd-id"))
+            bd_id = (uint16_t)atoi((const char *)tlv->value);
         else if(parser_match_leaf_id(tlv->leaf_id, "l2-mode-val"))
             l2_mode_option = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "if-up-down"))
@@ -189,10 +192,16 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
     vrf_t *def_vrf = NODE_DEF_VRF(node);
     char intf_name[IF_NAME_SIZE];
     char lo_canonical[IF_NAME_SIZE];
+    char bd_intf_name[IF_NAME_SIZE];
 
     if (!if_name && gre_tunnel_id) {
         snprintf ((char *)intf_name, IF_NAME_SIZE, "tunnel%d", gre_tunnel_id);
         if_name = (c_string)intf_name;
+    }
+
+    if (!if_name && bd_id) {
+        snprintf(bd_intf_name, IF_NAME_SIZE, "bd%u", bd_id);
+        if_name = (c_string)bd_intf_name;
     }
 
     /* `interface loopback 1 ...` → treat as lo1 for all follow-on config */
@@ -270,8 +279,14 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                         return -1;
                     }
 
+                    if (interface->HasL3Config(false)) {
+                        cprintf ("Error : Remove L3 config first from Interface\nConfiguration Checkout failed\n");
+                        return -1;
+                    }
+
                     if (!vrf_del_interface(vrf, interface)) {
-                        cprintf ("Error : Configuration Checkout failed\n");
+                        cprintf ("Error : Failed to remove interface from VRF %s\nConfiguration Checkout failed\n",
+                                 vrf->vrf_name);
                         return -1;
                     }
                 }
@@ -600,7 +615,6 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     ;
             }
         break;
-     
 
         case CMDCODE_CONFIG_INTF_VLAN_CREATE:
             switch (enable_or_disable)
@@ -1258,6 +1272,30 @@ Interface_config_cli_tree (param_t *root) {
                     libcli_register_param(&ethernet, &if_name);
                     uint64_t unsupported_configs = 0;
                     unsupported_configs |= INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL;
+                    Interface_config_cli_common_subtree (&if_name, intf_config_handler, unsupported_configs);
+		            libcli_support_cmd_negation(&if_name);             
+                    libcli_param_list(&if_name);                  
+                }
+            }
+
+            {
+                /*config node <node-name> interface bridge-domain <x> ... */
+                static param_t bd;
+                init_param(&bd, CMD, "bridge-domain", 0, 0, INVALID, 0, "bridge-domain");
+                libcli_register_param(&interface, &bd);
+                {
+                    /*config node <node-name> interface bridge-domain <bd-id>*/
+                    static param_t if_name;
+                    init_param(&if_name, LEAF, 0, 0, 0, INT, "bd-id",
+                               "bridge domain ID");
+                    libcli_register_param(&bd, &if_name);
+                    uint64_t unsupported_configs = 0;
+                    unsupported_configs |= (INTF_CONFIG_NOT_SUPPORTED_TSP | 
+                                            INTF_CONFIG_NOT_SUPPORTED_SWITCHPORT | 
+                                            INTF_CONFIG_NOT_SUPPORTED_VLAN |
+                                            INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL | 
+                                            INTF_CONFIG_NOT_SUPPORTED_METRIC |
+                                            INTF_CONFIG_NOT_SUPPORTED_OVERLAY_TUNNEL );
                     Interface_config_cli_common_subtree (&if_name, intf_config_handler, unsupported_configs);
 		            libcli_support_cmd_negation(&if_name);             
                     libcli_param_list(&if_name);                  

@@ -34,6 +34,14 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
                         struct rte_mbuf *mbuf);
 
 bool 
+is_arp_pkt_for_bd_svi_interface (dp_ctx_t *dp_ctx,
+                                   struct rte_mbuf *mbuf);
+
+bool
+bd_svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
+                                    struct rte_mbuf *mbuf);
+
+bool 
 is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx, 
                               struct rte_mbuf *mbuf);
 

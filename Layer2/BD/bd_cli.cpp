@@ -77,6 +77,12 @@ bd_config_handler(int64_t cmdcode,
                     }
 
                     cp2dp_interface_create(node, bdP.get());
+                    if (!vrf_add_interface(NODE_DEF_VRF(node), bdP.get())) {
+                        cprintf("Error : Failed to add bridge-domain %s to default VRF\n",
+                                intf_name);
+                        node_global_intf_map_delete_by_ifindex(node, bdP->ifindex);
+                        return -1;
+                    }
                     cp2dp_send_intf_admin_status_update(node, bdP->ifindex, false);
                 }
                 break;
@@ -109,6 +115,20 @@ bd_config_handler(int64_t cmdcode,
                         cprintf("Error : Bridge-domain interface %s is in use, cannot delete\n",
                                 intf->if_name.c_str());
                         return -1;
+                    }
+
+                    if (intf->HasL3Config(false)) {
+                        cprintf("Error : Remove L3 config from bridge-domain %s first\n",
+                                intf_name);
+                        return -1;
+                    }
+
+                    if (intf->vrf) {
+                        if (!vrf_del_interface(intf->vrf, intf)) {
+                            cprintf("Error : Failed to remove bridge-domain %s from VRF\n",
+                                    intf_name);
+                            return -1;
+                        }
                     }
 
                     SET_BIT(if_change_flags, IF_DELETE_F);

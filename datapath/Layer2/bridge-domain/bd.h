@@ -13,14 +13,14 @@ int
 AC_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *intf, 
-        struct rte_mbuf *mbuf);
+        struct rte_mbuf *mbuf, dp_intf_t *pintf);
 
 
 int 
 BD_SendPacketOut(
         dp_ctx_t *dp_ctx, 
-        dp_intf_t *intf, 
-        struct rte_mbuf *mbuf);
+        dp_intf_t *bd_intf, 
+        struct rte_mbuf *mbuf, dp_intf_t *pintf);
 
 void 
 bd_add_ac (dp_intf_t *bd_intf, dp_intf_t *ac);

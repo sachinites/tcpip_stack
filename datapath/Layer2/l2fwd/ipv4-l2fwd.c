@@ -52,7 +52,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         layer2_fill_with_broadcast_mac (ethernet_hdr->dst_mac.mac);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        dp_send_pkt_out(dp_ctx, oif, mbuf);
+        dp_send_pkt_out(dp_ctx, oif, mbuf, 0);
         return;
     }
 
@@ -143,7 +143,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        dp_send_pkt_out(dp_ctx, oif, mbuf);
+        dp_send_pkt_out(dp_ctx, oif, mbuf, 0);
         arp_entry_touch(arp_entry);  /* cheap timestamp store; timer checks this */
     }
 
@@ -748,7 +748,124 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
            arp_hdr_reply->dst_mac.mac[5],
            interface->if_name);
 
-    dp_send_pkt_out(dp_ctx, interface, mbuf2);
+    dp_send_pkt_out(dp_ctx, interface, mbuf2, 0);
+    pkt_mbuf_dereference(mbuf2);
+    return true;
+}
+
+static dp_intf_t *
+dp_ingress_bd_intf(struct rte_mbuf *mbuf)
+{
+    dp_intf_t *ingress = pkt_mbuf_get_ingress_intf(mbuf);
+
+    if (!ingress)
+        return NULL;
+
+    if (ingress->if_type == DP_INTF_TYPE_AC && ingress->bd_intf)
+        return ingress->bd_intf;
+
+    if (ingress->if_type == DP_INTF_TYPE_BD)
+        return ingress;
+
+    return NULL;
+}
+
+bool
+is_arp_pkt_for_bd_svi_interface (dp_ctx_t *dp_ctx,
+                                   struct rte_mbuf *mbuf)
+{
+    pkt_size_t pkt_size;
+    ethernet_hdr_t *ethernet_hdr;
+    arp_hdr_t *arp_hdr;
+    dp_intf_t *bd_intf;
+
+    (void)dp_ctx;
+
+    ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+
+    if (ntohs(ethernet_hdr->type) != ETH_TYPE_ARP)
+        return false;
+
+    arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr));
+
+    if (ntohs(arp_hdr->op_code) != ARP_BROAD_REQ &&
+        ntohs(arp_hdr->op_code) != ARP_REPLY)
+        return false;
+
+    bd_intf = dp_ingress_bd_intf(mbuf);
+
+    if (!bd_intf || !bd_intf->ip_addr)
+        return false;
+
+    return (bd_intf->ip_addr == ntohl(arp_hdr->dst_ip));
+}
+
+bool
+bd_svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
+                                    struct rte_mbuf *mbuf)
+{
+    pkt_size_t pkt_size;
+    dp_intf_t *ingress_ac;
+    dp_intf_t *bd_intf;
+    dp_vrf_t *vrf;
+    ethernet_hdr_t *eth_hdr;
+    arp_hdr_t *arp_hdr;
+    uint32_t svi_ip_addr;
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
+
+    ingress_ac = pkt_mbuf_get_ingress_intf(mbuf);
+    bd_intf = dp_ingress_bd_intf(mbuf);
+
+    if (!ingress_ac || ingress_ac->if_type != DP_INTF_TYPE_AC || !bd_intf)
+        return false;
+
+    vrf = bd_intf->vrf ? bd_intf->vrf : dp_ctx->default_vrf;
+
+    assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
+
+    eth_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+    arp_hdr = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(eth_hdr));
+
+    if (ntohs(arp_hdr->op_code) == ARP_REPLY) {
+        arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table,
+                                        arp_hdr, ingress_ac);
+        return true;
+    }
+
+    if (ntohs(arp_hdr->op_code) != ARP_BROAD_REQ)
+        return true;
+
+    svi_ip_addr = bd_intf->ip_addr;
+
+    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+           "Pkt : %s recvd on BD %s is ARP Broadcast request for SVI IP\n",
+           pkt_mbuf_str(mbuf), bd_intf->if_name);
+
+    arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table, arp_hdr, ingress_ac);
+
+    pkt_size_t arp_reply_pkt_size = sizeof(ethernet_hdr_t) +
+                                    ETH_FCS_SIZE +
+                                    (pkt_size_t)sizeof(arp_hdr_t);
+
+    struct rte_mbuf *mbuf2 = dp_pkt_mbuf_get_new(dp_ctx, arp_reply_pkt_size);
+    ethernet_hdr_t *eth_reply =
+        (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf2, 0);
+
+    l2_prepare_arp_reply_msg(eth_reply,
+                             &arp_hdr->src_mac, ntohl(arp_hdr->src_ip),
+                             (mac_addr_t *)&dp_ctx->rmac, svi_ip_addr);
+
+    pkt_mbuf_update_new_hdr_type(mbuf2, ETHERNET_HEADER);
+
+    arp_hdr_t *arp_hdr_reply =
+        (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(eth_reply));
+
+    tracer(dp_ctx->dptr, DARP,
+        "Sending BD ARP Reply [%s] out of AC %s\n",
+        tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, (c_string)ip_addr_str),
+        ingress_ac->if_name);
+
+    dp_send_pkt_out(dp_ctx, ingress_ac, mbuf2, 0);
     pkt_mbuf_dereference(mbuf2);
     return true;
 }

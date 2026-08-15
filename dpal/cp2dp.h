@@ -64,6 +64,21 @@ cp2dp_mac_table_entry_del (node_t *node,
                       bool async, uint32_t remote_dst_ip);
 
 void
+cp2dp_bd_mac_table_entry_add(node_t *node,
+                             uint8_t *mac_addr,
+                             uint32_t bd_ifindex,
+                             uint32_t oif_ifindex,
+                             uint16_t flags,
+                             bool async);
+
+void
+cp2dp_bd_mac_table_entry_del(node_t *node,
+                             uint8_t *mac_addr,
+                             uint32_t bd_ifindex,
+                             uint32_t oif_ifindex,
+                             bool async);
+
+void
 cp2dp_fib_update (
                 node_t *node,
                 uint8_t target_fib_vrf_id,

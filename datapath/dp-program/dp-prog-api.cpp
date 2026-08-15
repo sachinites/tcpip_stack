@@ -77,15 +77,16 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
     assert(dp_msg->component_type == MAC_TABLE || 
            dp_msg->component_type == BD_MAC_TABLE );
 
-    mac_table_t *mac_table = dp_msg->component_type == MAC_TABLE ? \
-                             dp_ctx->mac_table:                    \
+    mac_table_t *mac_table = dp_msg->component_type == MAC_TABLE ?
+                             dp_ctx->mac_table :
                              dp_ctx->intf_table[mac_update_msg->vlan_id]->mac_table;
-    
-    /* Get underlying physical interface of AC*/
+
+    /* Get egress interface for the MAC entry */
     intf = dp_ctx->intf_table[mac_update_msg->ifindex];
 
-    /* If this is BD mac table, then add AC, else add normal intf*/
-    intf = (dp_msg->component_type == BD_MAC_TABLE) ? intf->ac_intf : intf;
+    /* BD MAC learn uses AC; router MAC uses rmac (or other) OIF directly */
+    if (dp_msg->component_type == BD_MAC_TABLE && intf && intf->ac_intf)
+        intf = intf->ac_intf;
     uint16_t vlan_id = (dp_msg->component_type == BD_MAC_TABLE) ? DEFAULT_VLAN_ID : mac_update_msg->vlan_id;
 
     switch (dp_msg->opr_type) {
@@ -430,11 +431,11 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                     break;
                 case CP2DP_CODE_INTF_RMAC:
                     dp_ctx->dp_rmac_intf = intf;
-                    intf->vrf = dp_ctx->default_vrf;
+                    intf->vrf = NULL;
                     break;
                 case CP2DP_CODE_INTF_VLAN_FLOOD:
                     dp_ctx->dp_vlan_flood_intf = intf;
-                    intf->vrf = dp_ctx->default_vrf;
+                    intf->vrf = NULL;
                     break;
                 case CP2DP_CODE_INTF_NVE:
                     dp_ctx->dp_nve_intf = intf;
@@ -443,6 +444,10 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                 case CP2DP_CODE_INTF_HOST_PATH:
                     dp_ctx->dp_host_path_intf = intf;
                     intf->vrf = dp_ctx->default_vrf;
+                    break;
+                case CP2DP_CODE_INTF_BD_RMAC:
+                    dp_ctx->dp_bd_rmac_intf = intf;
+                    intf->vrf = NULL;
                     break;
                 default: 
                     break;
@@ -501,6 +506,10 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
             }
             else if (msg->port_id == dp_ctx->dp_host_path_intf->port_id) {
                 dp_ctx->dp_host_path_intf = NULL;
+            }
+            else if (dp_ctx->dp_bd_rmac_intf &&
+                    msg->port_id == dp_ctx->dp_bd_rmac_intf->port_id) {
+                dp_ctx->dp_bd_rmac_intf = NULL;
             }
             else if (dp_ctx->dp_nve_intf &&
                     msg->port_id == dp_ctx->dp_nve_intf->port_id) {

@@ -48,11 +48,60 @@ interface_loopback_canonical_name (const char *ifname, char *out, size_t out_len
 }
 
 void
+interface_bd_install_router_mac(node_t *node, BDInterface *bd) {
+
+    uint32_t bd_rmac_ifindex;
+
+    if (!node || !bd || !bd->IsIpConfigured())
+        return;
+
+    bd_rmac_ifindex = NODE_BD_RMAC_INTF(node)->ifindex;
+
+    cp2dp_bd_mac_table_entry_add(node,
+                                 (uint8_t *)NODE_RMAC(node)->mac,
+                                 bd->ifindex,
+                                 bd_rmac_ifindex,
+                                 MAC_STATIC,
+                                 true);
+
+    cp2dp_bd_mac_table_entry_add(node,
+                                 (uint8_t *)BROADCAST_MAC,
+                                 bd->ifindex,
+                                 bd_rmac_ifindex,
+                                 MAC_STATIC,
+                                 true);
+}
+
+void
+interface_bd_uninstall_router_mac(node_t *node, BDInterface *bd) {
+
+    uint32_t bd_rmac_ifindex;
+
+    if (!node || !bd)
+        return;
+
+    bd_rmac_ifindex = NODE_BD_RMAC_INTF(node)->ifindex;
+
+    cp2dp_bd_mac_table_entry_del(node,
+                                 (uint8_t *)NODE_RMAC(node)->mac,
+                                 bd->ifindex,
+                                 bd_rmac_ifindex,
+                                 true);
+
+    cp2dp_bd_mac_table_entry_del(node,
+                                 (uint8_t *)BROADCAST_MAC,
+                                 bd->ifindex,
+                                 bd_rmac_ifindex,
+                                 true);
+}
+
+void
 interface_set_ip_addr(node_t *node, 
                     Interface *intf, 
                     c_string intf_ip_addr, uint8_t mask) {
 
     uint32_t ip_addr_int;
+    BDInterface *bd_intf = NULL;
 
     if (intf->GetSwitchport ()) {
         cprintf("Error : Remove L2 config from interface first\n");
@@ -62,23 +111,28 @@ interface_set_ip_addr(node_t *node,
     assert (intf->iftype != INTF_TYPE_GRE_TUNNEL);
 
     ip_addr_int = tcp_ip_convert_ip_p_to_n(intf_ip_addr);
-    
+
+    if (intf->iftype == INTF_TYPE_BD)
+        bd_intf = dynamic_cast<BDInterface *>(intf);
+
     /* new config */
     if (!intf->IsIpConfigured()) {
 
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
         cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, ip_addr_int, mask);
         interface_install_local_v4_routes(node, intf);
-    }
 
-        /* Add MAC table entry for VLAN interface */
-    if (intf->iftype == INTF_TYPE_VLAN) {
-
+        if (intf->iftype == INTF_TYPE_VLAN) {
             VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
-            cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, vlan_intf->GetVlanId(), 
+            cp2dp_mac_table_entry_add(node, (uint8_t *)BROADCAST_MAC,
+                       vlan_intf->GetVlanId(),
                        NODE_RMAC_INTF(node)->ifindex, MAC_STATIC, true, 0);
+        }
+        else if (bd_intf && intf->IsIpConfigured()) {
+            interface_bd_install_router_mac(node, bd_intf);
+        }
+        return;
     }
-    return;
 
     /* Existing config changed */
     uint32_t existing_ip_addr;
@@ -94,6 +148,9 @@ interface_set_ip_addr(node_t *node,
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
         cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, ip_addr_int, mask);
         interface_install_local_v4_routes  (node, intf);
+
+        if (bd_intf && intf->IsIpConfigured())
+            interface_bd_install_router_mac(node, bd_intf);
     }
 }
 
@@ -131,6 +188,10 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
         VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
          cp2dp_mac_table_entry_del (node, (uint8_t *)BROADCAST_MAC, vlan_intf->GetVlanId(), 
                         NODE_RMAC_INTF(node)->ifindex, true, 0);
+    }
+    else if (intf->iftype == INTF_TYPE_BD) {
+        BDInterface *bd_intf = dynamic_cast<BDInterface *>(intf);
+        interface_bd_uninstall_router_mac(node, bd_intf);
     }
     
     intf->InterfaceSetIpAddressMask(0, 0);
@@ -509,6 +570,10 @@ node_interface_lookup_by_name(node_t *node, const char *if_name){
         return NODE_RMAC_INTF(node).get();
     }
 
+    else if (string_compare(if_name, NODE_BD_RMAC_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
+        return NODE_BD_RMAC_INTF(node).get();
+    }
+
     else if (string_compare(if_name, NODE_VLAN_FLOOD_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
         return NODE_VLAN_FLOOD_INTF(node).get();
     }
@@ -552,6 +617,9 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
 
     if (ifindex == NODE_RMAC_INTF(node)->ifindex) {
         return NODE_RMAC_INTF(node).get();
+    }
+    else if (ifindex == NODE_BD_RMAC_INTF(node)->ifindex) {
+        return NODE_BD_RMAC_INTF(node).get();
     }
     else if (ifindex == NODE_VLAN_FLOOD_INTF(node)->ifindex) {
         return NODE_VLAN_FLOOD_INTF(node).get();

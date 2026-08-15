@@ -45,6 +45,7 @@ enum DP_InterfaceType_t {
     DP_INTF_TYPE_AC,
     DP_INTF_TYPE_BD,
     DP_INTF_TYPE_BD_FLOOD,
+    DP_INTF_TYPE_BD_RMAC,
     DP_INTF_TYPE_HOST_PATH,
     DP_INTF_TYPE_UNKNOWN
 };
@@ -66,6 +67,7 @@ dp_intf_type_str (uint32_t iftype) {
         case DP_INTF_TYPE_AC: return "AC";
 	    case DP_INTF_TYPE_BD: return "BD";
         case DP_INTF_TYPE_BD_FLOOD: return "bd-vfif";
+        case DP_INTF_TYPE_BD_RMAC: return "bdrmacif";
         case DP_INTF_TYPE_UNKNOWN: return "Unknown";
         default: return "Invalid";
     }

@@ -25,7 +25,7 @@ int
 AC_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *ac, 
-        struct rte_mbuf *mbuf) {
+        struct rte_mbuf *mbuf, dp_intf_t *pintf) {
 
     assert (pkt_mbuf_get_starting_hdr(mbuf) == ETHERNET_HEADER);
     
@@ -34,18 +34,12 @@ AC_SendPacketOut(
     vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(eth_hdr);
 
     if (vlan_8021q_hdr) {
-        
+
         tracer(dp_ctx->dptr, DL2SW | DERR,
             "Error : Egress AC %s recvd vlan tagged pkt %s, pkt dropped\n", 
             ac->if_name, pkt_mbuf_str(mbuf));
         ac->xmit_pkt_dropped++;
         return;
-    }
-
-    /* Does this AC has MPLS label stack */
-    if (ac->lbl_stack) {
-        /* Encapsulate the pkt with MPLS label stack */
-        mpls_apply_nh_label_stack (mbuf, ac->lbl_stack);
     }
 
     /* Add 802.1q tag to the pkt */
@@ -55,7 +49,7 @@ AC_SendPacketOut(
     tag_pkt_with_vlan_id(mbuf, vlan_id);
 
     /* Send the pkt out of underlying physical interface */
-    dp_send_pkt_out(dp_ctx, ac->underlying_intf, mbuf);
+    dp_send_pkt_out(dp_ctx, ac->underlying_intf, mbuf, 0);
 
     return 0;
 }
@@ -67,43 +61,56 @@ AC_SendPacketOut(
 int 
 BD_FloodPacketOut(
         dp_ctx_t *dp_ctx, 
-        dp_intf_t *intf, 
-        struct rte_mbuf *mbuf) {
+        dp_intf_t *bd_vfif, 
+        struct rte_mbuf *mbuf,
+        dp_intf_t *bd_intf) {
 
     dp_intf_t *ac ;
     dp_intf_t *exempt_ac = pkt_mbuf_get_ingress_intf(mbuf);
 
+    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+        "Flooding the pkt %s in BD %s, exempt intf %s\n", 
+        pkt_mbuf_str(mbuf), 
+        bd_intf->if_name, exempt_ac ? exempt_ac->if_name : "None");
+
     pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER);
 
-    if (!exempt_ac || exempt_ac->if_type != DP_INTF_TYPE_AC) {
+    if (!exempt_ac) {
         tracer(dp_ctx->dptr, DL2SW | DERR,
-            "BD flood: ingress AC not set on mbuf, pkt %s dropped\n", pkt_mbuf_str(mbuf));
+            "Error : BD flood: ingress AC not set on mbuf, pkt %s dropped\n", pkt_mbuf_str(mbuf));
         return -1;
     }
 
-    dp_intf_t *bd_intf = exempt_ac->bd_intf;
-
     if (!bd_intf) {
         tracer(dp_ctx->dptr, DL2SW | DERR,
-            "BD flood: ingress AC %s has no parent BD, pkt %s dropped\n", 
+            "Error : BD flood: ingress AC %s has no parent BD, pkt %s dropped\n", 
             exempt_ac->if_name, pkt_mbuf_str(mbuf));
         return -1;
     }
 
     /* Iterate over all ACs of BD */
     struct rte_mbuf *dup_mbuf;
+    int count = 0;
 
     for (int i = 0; i < MAX_BD_MEMBER_PORTS; i++) { 
 
         ac = bd_intf->mports[i];
-        if (!ac || ac == exempt_ac || 
+
+        if (!ac || 
+            ac == exempt_ac || 
+            ac == dp_ctx->intf_table[BD_RMAC_INTF_INDEX] ||
             ac == dp_ctx->intf_table[BD_FLOOD_IFINDEX]) continue;
+
         dup_mbuf = PKT_MBUF_DUP(mbuf);
-        dp_send_pkt_out(dp_ctx, ac, dup_mbuf);
+        dp_send_pkt_out(dp_ctx, ac, dup_mbuf, 0);
         pkt_mbuf_dereference(dup_mbuf);
+        count++;
     }
 
-    intf->pkt_sent++;
+    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+        "pkt %s flooded in BD %s in %u ACs\n", pkt_mbuf_str(mbuf), bd_intf->if_name, count);
+
+    bd_intf->pkt_sent++;
     return 0;
 }
 
@@ -227,28 +234,37 @@ extern void
 l2_switch_forward_frame(
                         dp_ctx_t *dp_ctx,
                         mac_table_t *mac_table,
+                        dp_intf_t *vlan_bd_intf,
                         dp_intf_t *recv_intf, 
                         struct rte_mbuf *mbuf);
 
 static void 
 bd_switch_forward_frame (dp_ctx_t *dp_ctx,
                          mac_table_t *mac_table,
+                         dp_intf_t *vlan_bd_intf,
                          dp_intf_t *recv_ac, 
                          struct rte_mbuf *mbuf) {
 
-    l2_switch_forward_frame(dp_ctx, mac_table, recv_ac, mbuf);
+    l2_switch_forward_frame(dp_ctx, mac_table, vlan_bd_intf, recv_ac, mbuf);
 }
 
 int 
 BD_SendPacketOut(
         dp_ctx_t *dp_ctx, 
-        dp_intf_t *intf, 
-        struct rte_mbuf *mbuf) {
+        dp_intf_t *bd_intf, 
+        struct rte_mbuf *mbuf, dp_intf_t *pintf) {
+
+    dp_intf_t *ac = pkt_mbuf_get_ingress_intf(mbuf);
+
+    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+        "pkt %s Recvd on AC %s BD %s\n", 
+        pkt_mbuf_str(mbuf), ac->if_name, bd_intf->if_name);
 
     bd_switch_forward_frame (
             dp_ctx, 
-            intf->bd_intf->mac_table,
-            intf, 
+            bd_intf->mac_table,
+            bd_intf,
+            ac,
             mbuf);
 
     return 0;
@@ -316,5 +332,5 @@ bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
     bd_perform_mac_learning (dp_ctx, ac->bd_intf, &src_mac, ac);
 
     /* Forward the pkt in bridge domain */
-    BD_SendPacketOut (dp_ctx, ac, mbuf);
+    BD_SendPacketOut (dp_ctx, ac->bd_intf, mbuf, 0);
 }

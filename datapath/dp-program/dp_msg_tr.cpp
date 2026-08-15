@@ -53,6 +53,7 @@ dp_intf_update_code_str (uint16_t code) {
         case CP2DP_CODE_INTF_RMAC:       return "RMAC";
         case CP2DP_CODE_INTF_VLAN_FLOOD:  return "VLAN_FLOOD";
         case CP2DP_CODE_INTF_HOST_PATH:  return "HOST_PATH";
+        case CP2DP_CODE_INTF_BD_RMAC:    return "BD_RMAC";
         case CP2DP_CODE_INTF_NVE:        return "NVE";
         case CP2DP_CODE_INTF_LOG_UPDATE: return "LOG_UPDATE";
         case CP2DP_CODE_INTF_GRE_TUNNEL: return "GRE_TUNNEL";

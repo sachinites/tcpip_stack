@@ -1436,6 +1436,39 @@ bridge_domain_topo(void) {
   |122.1.1.1| 10.1.1.1/24              |        |                           |122.1.1.3|                           |        |               10.1.1.2/24 |122.1.1.2|
   +--------+                           +--------+                           +---------+                           +--------+                           +--------+
 
+For INTRA-BRIDGE-DOMAIN Routing
+===========================
+configs :
+config node R1 bridge-domain 10
+config node R1 bridge-domain 10 member eth0 encapsulation dot1q 10
+config node R1 bridge-domain 10 member eth1 encapsulation dot1q 10
+config node R1 debug all
+run node H1 ping 10.1.1.2
+
+
+For INTER-BRIDGE-DOMAIN Routing
+================================
+config node R1 bridge-domain 10
+config node R1 bridge-domain 10 member eth0 encapsulation dot1q 10
+config node R1 bridge-domain 20
+config node R1 bridge-domain 20 member eth1 encapsulation dot1q 10
+config node R1 interface bridge-domain 10 ip-address 10.1.1.10 24
+config node R1 interface bridge-domain 20 ip-address 20.1.1.10 24
+config node H2 interface ethernet eth0 no ip-address 10.1.1.2 24
+config node H2 interface ethernet eth0 ip-address 20.1.1.2 24
+config node H1 rtm-route prefix 0.0.0.0/0 0 0 0 2 10 gateway 10.1.1.10 interface eth0
+config node H2 rtm-route prefix 0.0.0.0/0 0 0 0 2 10 gateway 20.1.1.10 interface eth0
+config node R1 rtm-route prefix 122.1.1.1/32 0 0 0 2 0 gateway 10.1.1.1 interface bd10
+config node R1 rtm-route prefix 122.1.1.2/32 0 0 0 2 0 gateway 20.1.1.2 interface bd20
+config node H1 interface loopback lo0                                                                                                                                                                  
+config node H1 interface loopback lo0 ip-address 122.1.1.1 32                                                                                                                                          
+config node H1 interface loopback lo0 up 
+config node H2 interface loopback lo0                                                                                                                            
+config node H2 interface loopback lo0 ip-address 122.1.1.2 32                                                                                                                                          
+config node H2 interface loopback lo0 up 
+config node R1 debug all
+run node H1 ping 20.1.1.2
+  
 #endif
 
     graph_t *topo = create_new_graph("Bridge Domain Topo");

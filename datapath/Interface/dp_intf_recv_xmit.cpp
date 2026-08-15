@@ -47,7 +47,7 @@
 
 typedef int (*SendPacketOut_fptr)(
             dp_ctx_t *, 
-            dp_intf_t *, struct rte_mbuf *);
+            dp_intf_t *, struct rte_mbuf *, dp_intf_t *);
 
 extern bool LinuxRtr;
 extern int cprintf (const char* format, ...);
@@ -348,7 +348,7 @@ dp_VlanPacketFlood (dp_intf_t *vlan_intf,
 }
 
 static int 
-PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf){
+PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
 
     if (intf->ac_intf) {
         /* Dont do any vlan checks if this is AC underlying interface */
@@ -366,14 +366,14 @@ PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mb
 }
 
 static int 
-VlanInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf){
+VlanInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
 
     dp_VlanPacketFlood (intf, mbuf, NULL);    
     return 0;
 }
 
 static int 
-GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf){
+GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
 
     pkt_size_t pkt_size;
     bool no_modify = false;
@@ -408,7 +408,7 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_m
 
 
 static int 
-VirtualPort_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf){
+VirtualPort_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
 
     pkt_size_t pkt_size;
 
@@ -433,15 +433,129 @@ VirtualPort_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mb
 
     intf->pkt_sent++;
 
-    dp_send_pkt_out(dp_ctx, intf->olay_tunnel_intf, mbuf);
+    dp_send_pkt_out(dp_ctx, intf->olay_tunnel_intf, mbuf, 0);
     return 0;
 }
 
+static dp_intf_t *
+dp_xmit_ingress_bd_intf(struct rte_mbuf *mbuf)
+{
+    dp_intf_t *ingress = pkt_mbuf_get_ingress_intf(mbuf);
+
+    if (!ingress)
+        return NULL;
+
+    if (ingress->if_type == DP_INTF_TYPE_AC && ingress->bd_intf)
+        return ingress->bd_intf;
+
+    if (ingress->if_type == DP_INTF_TYPE_BD)
+        return ingress;
+
+    return NULL;
+}
+
+static int
+BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf)
+{
+    pkt_size_t pkt_size;
+    ethernet_hdr_t *eth_hdr;
+    dp_intf_t *bd_intf;
+    dp_vrf_t *vrf;
+
+    assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
+
+    eth_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+
+    if (is_pkt_vlan_tagged(eth_hdr)) {
+        intf->recvd_pkt_dropped++;
+        return 0;
+    }
+
+    tracer(dp_ctx->dptr, DL2FWD | DERR,
+        "BDRmac Interface %s : Recvd untagged pkt %s\n",
+        intf->if_name, pkt_mbuf_str(mbuf));    
+
+    if (is_arp_pkt_for_bd_svi_interface(dp_ctx, mbuf)) {
+        bd_svi_interface_intercept_arp_pkt(dp_ctx, mbuf);
+        return 0;
+    }
+
+    if (!mac_address_compare((unsigned char *)dp_ctx->rmac.mac,
+                            (unsigned char *)eth_hdr->dst_mac.mac)) {
+        intf->recvd_pkt_dropped++;
+        tracer(dp_ctx->dptr, DL2FWD | DERR,
+            "Error : BDRmac Interface %s : Recvd pkt %s with mis-matched dst mac %s\n",
+            intf->if_name, pkt_mbuf_str(mbuf), eth_hdr->dst_mac.mac);
+        return 0;
+    }
+
+    if (ntohs(eth_hdr->type) != ETH_TYPE_IPv4) {
+        intf->recvd_pkt_dropped++;
+        tracer(dp_ctx->dptr, DL2FWD | DERR,
+            "Error : BDRmac Interface %s : Recvd pkt %s with non-IPv4 type %x\n",
+            intf->if_name, pkt_mbuf_str(mbuf), ntohs(eth_hdr->type));
+        return 0;
+    }
+
+    bd_intf = dp_xmit_ingress_bd_intf(mbuf);
+    vrf = (bd_intf && bd_intf->vrf) ? bd_intf->vrf : dp_ctx->default_vrf;
+
+    pkt_mbuf_slide(mbuf, -1, 1, sizeof(ethernet_hdr_t));
+    pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
+    pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
+    dp_promote_pkt_to_layer3(dp_ctx, vrf, intf, mbuf);
+
+    return 0;
+}
+
+static int
+HostPathInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf)
+{
+    (void)dp_ctx;
+    (void)intf;
+    (void)mbuf;
+    (void)pintf;
+    return 0;
+}
+
+static dp_intf_t *
+dp_xmit_ingress_vlan_intf(dp_ctx_t *dp_ctx,
+                          struct rte_mbuf *mbuf,
+                          uint16_t *vlan_id_out)
+{
+    dp_intf_t *ingress;
+    ethernet_hdr_t *eth_hdr;
+    vlan_8021q_hdr_t *vlan_8021q_hdr;
+    uint16_t vlan_id;
+
+    ingress = pkt_mbuf_get_ingress_intf(mbuf);
+    eth_hdr = pkt_mbuf_get_ethernet_hdr(mbuf);
+    vlan_8021q_hdr = is_pkt_vlan_tagged(eth_hdr);
+
+    if (!vlan_8021q_hdr)
+        return NULL;
+
+    vlan_id = (uint16_t)TCI_VID(vlan_8021q_hdr->tci);
+
+    if (vlan_id_out)
+        *vlan_id_out = vlan_id;
+
+    if (!ingress)
+        return dp_look_up_interface_by_vlan_id(dp_ctx->dp_vlan_intf_ht, vlan_id);
+
+    if (ingress->l2_mode == DP_LAN_ACCESS_MODE)
+        return ingress->vlan_intf;
+
+    return dp_look_up_interface_by_vlan_id(dp_ctx->dp_vlan_intf_ht, vlan_id);
+}
+
 static int 
-RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf){
+RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
 
     pkt_size_t pkt_size;
     vlan_8021q_hdr_t *vlan_8021q_hdr = NULL;
+    dp_intf_t *vlan_intf;
+    dp_vrf_t *vrf;
 
     assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
 
@@ -450,6 +564,9 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
 
     /* Rmac interface never recvs untagged pkt */
     assert ((vlan_8021q_hdr = is_pkt_vlan_tagged (eth_hdr)));
+
+    vlan_intf = dp_xmit_ingress_vlan_intf(dp_ctx, mbuf, NULL);
+    vrf = (vlan_intf && vlan_intf->vrf) ? vlan_intf->vrf : dp_ctx->default_vrf;
 
     /* Case 1 : If this is ARP Broadcast pkt requesting IP for Rmac interface*/
     /* Case 2 : If this is ARP reply packet recvd by Rmac Interface */
@@ -464,15 +581,14 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
                 "Rmac Interface %s : ARP pkt %s Intercepted by SVI interface\n", 
                 intf->if_name, pkt_mbuf_str(mbuf));
 
-        svi_interface_intercept_arp_pkt (dp_ctx, intf->vrf, mbuf);
+        svi_interface_intercept_arp_pkt (dp_ctx, vrf, mbuf);
         return 0;
     }
 
     /* Case 3 : if this is any other ethernet pkt with dst mac = RMAC address */
 
     if (!mac_address_compare ((unsigned char *)dp_ctx->rmac.mac, 
-          (unsigned char *)eth_hdr->dst_mac.mac) != 0) {
-
+                              (unsigned char *)eth_hdr->dst_mac.mac)) {
         intf->recvd_pkt_dropped++;
         return 0;
     }
@@ -483,20 +599,20 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
     pkt_mbuf_slide(mbuf, -1, 1, sizeof (ethernet_hdr_t));
     pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
     pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
-    dp_promote_pkt_to_layer3 (dp_ctx, intf->vrf, intf, mbuf);
+    dp_promote_pkt_to_layer3 (dp_ctx, vrf, intf, mbuf);
 
     return 0;
 }
 
 static int 
-LoopbackInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf){
+LoopbackInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
     
     /* black hole the pkt */
     return 0;
 }
 
 static int 
-NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf){
+NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
 
     pkt_size_t pkt_size;
     pkt_mbuf_pvt_data_t *pvt_data;
@@ -542,11 +658,12 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
     return 0;    
 }
 
-static int 
+static int
 VlanFloodInterface_SendPacketOut(
-                                    dp_ctx_t *dp_ctx, 
-                                    dp_intf_t *vfif_intf, 
-                                    struct rte_mbuf *mbuf) {
+    dp_ctx_t *dp_ctx,
+    dp_intf_t *vfif_intf,
+    struct rte_mbuf *mbuf, dp_intf_t *pintf)
+{
 
     dp_intf_t *exempt_intf = pkt_mbuf_get_ingress_intf(mbuf);
 
@@ -560,6 +677,7 @@ VlanFloodInterface_SendPacketOut(
     assert (vlan_8021q_hdr);
     uint16_t vlan_id = (uint16_t)TCI_VID(vlan_8021q_hdr->tci);
 
+    /* ToDo : Abhishek : Get rid of this look up in DP */
     dp_intf_t *vlan_intf  = exempt_intf->l2_mode == DP_LAN_ACCESS_MODE ?
                     exempt_intf->vlan_intf : \
                     dp_look_up_interface_by_vlan_id (dp_ctx->dp_vlan_intf_ht, vlan_id);
@@ -571,7 +689,6 @@ VlanFloodInterface_SendPacketOut(
     
     return 0;
 }
-
 
 /* Algorithm 
     1. Remove the outer ethernet header if Data layer passed it
@@ -585,7 +702,7 @@ static int
 SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *intf, 
-        struct rte_mbuf *mbuf){
+        struct rte_mbuf *mbuf, dp_intf_t *pintf){
 
     pkt_size_t pkt_size;
 
@@ -642,7 +759,7 @@ static int
 VPNv4_XConnect_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *intf, 
-        struct rte_mbuf *mbuf){
+        struct rte_mbuf *mbuf, dp_intf_t *pintf){
 
     char ip_addr_str[IPV4_ADDR_LEN_STR];
 
@@ -662,19 +779,19 @@ extern int
 AC_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *intf, 
-        struct rte_mbuf *mbuf);
+        struct rte_mbuf *mbuf, dp_intf_t *pintf);
 
 extern int 
 BD_SendPacketOut(
         dp_ctx_t *dp_ctx, 
-        dp_intf_t *intf, 
-        struct rte_mbuf *mbuf);
+        dp_intf_t *bd_intf, 
+        struct rte_mbuf *mbuf, dp_intf_t *pintf);
 
 extern int 
 BD_FloodPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *intf, 
-        struct rte_mbuf *mbuf);
+        struct rte_mbuf *mbuf, dp_intf_t *pintf);
 
 
 /* This array is arranged in sequence of these enums : InterfaceType_t */
@@ -693,12 +810,13 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
         AC_SendPacketOut,
         BD_SendPacketOut,
         BD_FloodPacketOut,
+        BDRmacInterface_SendPacketOut,
+        HostPathInterface_SendPacketOut,
         0,
-        0
     };
 
 void 
-dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf) {
+dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf) {
 
     if (intf->l3_acl_egress) {
 
@@ -718,7 +836,7 @@ dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf) {
         "Sending out frame %s out of interface %s\n", 
         pkt_mbuf_str(mbuf), intf->if_name);
 
-    (intf_xmit_cbk[intf->if_type])(dp_ctx, intf, mbuf);
+    (intf_xmit_cbk[intf->if_type])(dp_ctx, intf, mbuf, pintf);
 }
 
 /* -------------------------------------------------- */
@@ -737,8 +855,6 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
     if (!interface->is_up){
         return;
     }
-
-    pkt_mbuf_set_ingress_intf(mbuf, interface);
     
     if (interface->l3_acl_ingress.load(std::memory_order_acquire)) {
 
@@ -775,9 +891,12 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
 
     if (interface->ac_intf) {
 
+        pkt_mbuf_set_ingress_intf(mbuf, interface->ac_intf);
         bd_ac_recv_pkt(dp_ctx, interface->ac_intf, mbuf);
         return;
     }
+
+    pkt_mbuf_set_ingress_intf(mbuf, interface);
 
     if ((interface->switchport &&
             interface->l2_mode != DP_LAN_MODE_NONE)) {
@@ -802,7 +921,8 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
 
         l2_switch_recv_frame(dp_ctx,
                     vlan_id_to_tag,
-                    interface, mbuf);
+                    interface, 
+                    mbuf);
     }
 
     /* If packet is Recvd on GRE interface and pkt is vlan tagged, 
@@ -896,7 +1016,7 @@ send_pkt_flood(dp_ctx_t *dp_ctx,
         if (intf == exempted_intf) {
             continue;
         }
-        dp_send_pkt_out(dp_ctx, intf, mbuf);
+        dp_send_pkt_out(dp_ctx, intf, mbuf, 0);
 
     } DP_FOR_ALL_INTF_END;
     
@@ -929,7 +1049,7 @@ void dp_pkt_xmit_intf_job_cbk(event_dispatcher_t *ev_dis,
             free(ev_dis_pkt_data);
             continue;
         }
-        dp_send_pkt_out(dp_ctx, dp_intf, mbuf);
+        dp_send_pkt_out(dp_ctx, dp_intf, mbuf, 0);
         pkt_mbuf_dereference(mbuf);
         free(ev_dis_pkt_data);
     }

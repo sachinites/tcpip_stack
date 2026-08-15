@@ -110,7 +110,7 @@ node_assign_router_mac (node_t *node) {
     node->node_nw_prop.rmac_interface->att_node = node;
     node->node_nw_prop.rmac_interface->ifindex = RMAC_INTF_INDEX;
     interface_reserve_ifindex(node, RMAC_INTF_INDEX);
-    node->node_nw_prop.rmac_interface->vrf = NODE_DEF_VRF(node);
+    node->node_nw_prop.rmac_interface->vrf = NULL;
     cp2dp_interface_create(node, node->node_nw_prop.rmac_interface.get());
     cp2dp_send_intf_admin_status_update(node, 
         node->node_nw_prop.rmac_interface->ifindex, false);
@@ -127,10 +127,26 @@ node_create_vlan_flood_interface(node_t *node) {
     node->node_nw_prop.vlan_flood_interface->att_node = node;
     node->node_nw_prop.vlan_flood_interface->ifindex = VLAN_FLOOD_INDEX;
     interface_reserve_ifindex(node, VLAN_FLOOD_INDEX);
-    node->node_nw_prop.vlan_flood_interface->vrf = NODE_DEF_VRF(node);
+    node->node_nw_prop.vlan_flood_interface->vrf = NULL;
     cp2dp_interface_create(node, node->node_nw_prop.vlan_flood_interface.get());
     cp2dp_send_intf_admin_status_update(node, 
         node->node_nw_prop.vlan_flood_interface->ifindex, false);
+}
+
+void
+node_create_bd_rmac_interface(node_t *node) {
+
+    node->node_nw_prop.bdrmac_interface =
+        std::make_shared<BDRmacInterface>();
+    node->node_nw_prop.bdrmac_interface->SetSharedPtr(
+                node->node_nw_prop.bdrmac_interface);
+    node->node_nw_prop.bdrmac_interface->att_node = node;
+    node->node_nw_prop.bdrmac_interface->ifindex = BD_RMAC_INTF_INDEX;
+    interface_reserve_ifindex(node, BD_RMAC_INTF_INDEX);
+    node->node_nw_prop.bdrmac_interface->vrf = NULL;
+    cp2dp_interface_create(node, node->node_nw_prop.bdrmac_interface.get());
+    cp2dp_send_intf_admin_status_update(node,
+        node->node_nw_prop.bdrmac_interface->ifindex, false);
 }
 
 void 
@@ -203,6 +219,7 @@ dump_node_vrf_interfaces(node_t *node) {
 
     /* Dump special interfaces */
     dump_intf_props(NODE_RMAC_INTF(node).get());
+    dump_intf_props(NODE_BD_RMAC_INTF(node).get());
     dump_intf_props(NODE_VLAN_FLOOD_INTF(node).get());
     if (NODE_NVE_INTF(node)) dump_intf_props(NODE_NVE_INTF(node).get());
 }
@@ -267,6 +284,7 @@ dump_node_interface_stats(node_t *node){
     }
     
     dump_interface_stats(NODE_RMAC_INTF(node).get());
+    dump_interface_stats(NODE_BD_RMAC_INTF(node).get());
     dump_interface_stats(NODE_VLAN_FLOOD_INTF(node).get());
     if (NODE_NVE_INTF(node) ) dump_interface_stats(NODE_NVE_INTF(node).get());
 }
@@ -284,6 +302,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     cp2dp_vrf_create(node, DEF_VRF_NAME, RTM_DEFAULT_VRF);
     node_assign_router_mac (node);
     node_create_vlan_flood_interface(node);
+    node_create_bd_rmac_interface(node);
     node_create_host_path_interface (node);
     
     node_nw_prop->log_buffer =  (c_string)calloc(1, TCP_LOG_BUFFER_LEN);

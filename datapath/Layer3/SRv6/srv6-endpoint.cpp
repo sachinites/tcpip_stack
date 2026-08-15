@@ -69,7 +69,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 					struct rte_mbuf *mbuf);
 
 extern void 
-dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf) ;
+dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf) ;
 
 
 /* ============================================================================
@@ -1326,7 +1326,7 @@ Srv6_apply_endpoint_fn(
         case END_DT4:
             /* L3VPN case, Egress PE router processing */
             //srv6_END_DT4(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
-            dp_send_pkt_out(dp_ctx, nexthop->fwd_info->oif, mbuf);
+            dp_send_pkt_out(dp_ctx, nexthop->fwd_info->oif, mbuf, 0);
             break;
 
         default:

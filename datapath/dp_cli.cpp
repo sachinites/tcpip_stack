@@ -128,6 +128,9 @@ dp_print_interface_brief(dp_intf_t *intf)
     const char *l2l3_str = "L3";
     if (intf->switchport) {
         l2l3_str = "L2";
+    } else if (intf->if_type == DP_INTF_TYPE_VLAN_FLOOD ||
+               intf->if_type == DP_INTF_TYPE_BD_FLOOD) {
+        l2l3_str = "L2";
     }
 
     cprintf("%-10s  %-12s  %-20s  %-32s  %-6s  %s\n",

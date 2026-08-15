@@ -185,6 +185,59 @@ cp2dp_mac_table_entry_del (node_t *node,
 }
 
 void
+cp2dp_bd_mac_table_entry_add(node_t *node,
+                             uint8_t *mac_addr,
+                             uint32_t bd_ifindex,
+                             uint32_t oif_ifindex,
+                             uint16_t flags,
+                             bool async)
+{
+    dp_msg_t *dp_msg;
+    mac_update_msg_t *mac_update_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = BD_MAC_TABLE;
+    dp_msg->opr_type = DP_CREATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(mac_update_msg_t);
+    mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+
+    memcpy(mac_update_msg->mac_addr, mac_addr, 6);
+    mac_update_msg->vlan_id = (uint16_t)bd_ifindex;
+    mac_update_msg->ifindex = oif_ifindex;
+    mac_update_msg->flags = flags;
+    mac_update_msg->remote_dst_ip = 0;
+
+    cp2dp_submit(node, dp_msg, async);
+}
+
+void
+cp2dp_bd_mac_table_entry_del(node_t *node,
+                             uint8_t *mac_addr,
+                             uint32_t bd_ifindex,
+                             uint32_t oif_ifindex,
+                             bool async)
+{
+    dp_msg_t *dp_msg;
+    mac_update_msg_t *mac_update_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = BD_MAC_TABLE;
+    dp_msg->opr_type = DP_DEL;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(mac_update_msg_t);
+    mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+
+    memcpy(mac_update_msg->mac_addr, mac_addr, 6);
+    mac_update_msg->vlan_id = (uint16_t)bd_ifindex;
+    mac_update_msg->ifindex = oif_ifindex;
+    mac_update_msg->flags = 0;
+    mac_update_msg->remote_dst_ip = 0;
+
+    cp2dp_submit(node, dp_msg, async);
+}
+
+void
 cp2dp_fib_update (
         node_t *node,
         uint8_t target_fib_vrf_id,
@@ -613,6 +666,9 @@ cp2dp_interface_create (node_t *node, Interface *intf) {
             break;
         case INTF_TYPE_VLAN_FLOOD:
             intf_msg->update_code = CP2DP_CODE_INTF_VLAN_FLOOD;
+            break;
+        case INTF_TYPE_BD_RMAC:
+            intf_msg->update_code = CP2DP_CODE_INTF_BD_RMAC;
             break;
         case INTF_TYPE_NVE:
             intf_msg->update_code = CP2DP_CODE_INTF_NVE;
