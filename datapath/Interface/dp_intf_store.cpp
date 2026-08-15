@@ -16,6 +16,9 @@
 #include "../../libs/c-hashtable/hashtable_itr.h"
 
 #include "../classifier/pkt_classifier.h"
+#include "../dp_const.h"
+#include "../dp_uapi.h"
+#include "../../libs/libtimer/WheelTimer.h"
 
 typedef struct arp_table_ arp_table_t;
 
@@ -52,6 +55,8 @@ dp_insert_interface (dp_ctx_t *dp_ctx, dp_intf_t *intf) {
     dp_ctx->intf_table[intf->port_id] = intf;
 }
 
+extern int cprintf (const char* format, ...);
+
 void 
 dp_check_and_free_interface (dp_intf_t *intf) {
 
@@ -74,6 +79,7 @@ dp_check_and_free_interface (dp_intf_t *intf) {
         assert (!intf->trap_rule_table[i]);
     }
     
+    cprintf ("DP : intf %s deleted\n", intf->if_name);
     free(intf);
 }
 
@@ -91,17 +97,48 @@ dp_intf_de_init_logging(dp_intf_t *intf){
     }
 }
 
-void
-dp_delete_interface (dp_ctx_t *dp_ctx, uint32_t port_id) {
+static void
+dp_intf_delete_timer_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
+{
+    (void)ev_dis;
+    (void)arg_size;
 
-    assert(port_id < DP_MAX_INTF);
-    dp_intf_t *intf = dp_ctx->intf_table[port_id];
+    dp_intf_t *intf = (dp_intf_t *)arg;
+    dp_ctx_t *dp_ctx = intf->dp_ctx;
+
+    assert(dp_ctx);
+    dp_delete_interface(dp_ctx, intf);
+}
+
+void
+dp_schedule_interface_delete (dp_ctx_t *dp_ctx, dp_intf_t *intf)
+{
     assert(intf);
-    dp_ctx->intf_table[port_id] = NULL;
+    assert(intf->port_id < DP_MAX_INTF);
+    assert(dp_ctx->intf_table[intf->port_id] == NULL);
+    assert(intf->dp_ctx == dp_ctx);
+
+    timer_register_app_event(DP_TIMER(dp_ctx),
+                             dp_intf_delete_timer_cbk,
+                             intf,
+                             sizeof(*intf),
+                             DP_INTF_DELETE_GRACE_MS,
+                             0);
+}
+
+void
+dp_delete_interface (dp_ctx_t *dp_ctx, dp_intf_t *intf) {
+
+    assert(intf);
+    assert(intf->port_id < DP_MAX_INTF);
+    assert(dp_ctx->intf_table[intf->port_id] == NULL);
+
     dp_intf_de_init_logging (intf);
 
     if (intf->vrf)
         arp_entry_delete_by_interface(dp_ctx, intf->vrf->arp_table, intf);
+
+    intf->vrf = NULL;
 
     for (int i = 0; i < PROTO_IDX_MAX; i++) {
 
@@ -126,7 +163,6 @@ dp_delete_interface (dp_ctx_t *dp_ctx, uint32_t port_id) {
         assert(mac_table);
         intf->mac_table = NULL;
 
-        /* ToDo : MAC Table should be drained through GC */
         mac_table_delete_all_dynamic(dp_ctx, mac_table);
 
         mac_addr_t flood_mac;

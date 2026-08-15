@@ -9,6 +9,11 @@
  * packet-processing latency on any core. */
 #define DP_TABLE_GC_DELAY_MS  2000   /* 2 seconds */
 
+/* Grace period (ms) between delinking an interface from intf_table and
+ * freeing its memory.  In-flight packets may still hold a pointer to intf
+ * during this window. */
+#define DP_INTF_DELETE_GRACE_MS  3000   /* 3 seconds */
+
 /* Allocate 10k , increase it as per your FIB scale and
     system HUGE-PAGE memory size. This number do not represent
     max number of routes FIB can hold, but total number of nodes

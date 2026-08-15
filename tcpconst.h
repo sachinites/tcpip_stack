@@ -105,6 +105,7 @@ tcpip_protocol_classification(uint16_t proto) {
 #define VPNV4_INTF_STEER_IFINDEX  (MAX_INTF_IFINDEX - 3)
 #define BD_FLOOD_IFINDEX          (MAX_INTF_IFINDEX - 4)
 #define BD_RMAC_INTF_INDEX        (MAX_INTF_IFINDEX - 5)
+#define NVE_IFINDEX               (MAX_INTF_IFINDEX - 6)
 
 #define BDRMAC_INTF_NAME          "bdrmacif"
 

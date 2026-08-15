@@ -709,14 +709,6 @@ void tcp_ip_show_log_status(node_t *node){
         if (dp_intf) tcp_ip_print_dp_intf_log_status(dp_intf);
     }
 
-    /* Special virtual interfaces */
-#if 0
-    if (dp_ctx->dp_rmac_intf)       tcp_ip_print_dp_intf_log_status(dp_ctx->dp_rmac_intf);
-    if (dp_ctx->dp_vlan_flood_intf) tcp_ip_print_dp_intf_log_status(dp_ctx->dp_vlan_flood_intf);
-    if (dp_ctx->dp_host_path_intf)  tcp_ip_print_dp_intf_log_status(dp_ctx->dp_host_path_intf);
-    if (dp_ctx->dp_nve_intf)        tcp_ip_print_dp_intf_log_status(dp_ctx->dp_nve_intf);
-#endif 
-
     cprintf ("\tDebug Logging Status:\n");
 
     tracer_t *cptr = node->cptr;

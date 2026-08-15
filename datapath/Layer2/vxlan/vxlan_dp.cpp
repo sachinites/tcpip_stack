@@ -8,6 +8,7 @@
 #include "../../Layer2/l2fwd/ipv4-l2fwd.h"
 #include "vlan_vni_ht.h"
 #include "../../Interface/dp_intf.h"
+#include "../../Interface/dp_intf_store.h"
 
 extern void
 l2_switch_perform_mac_learning (dp_ctx_t *dp_ctx,
@@ -68,8 +69,9 @@ vxlan_encapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf) {
 void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vtep_ip) 
 {
     pkt_size_t pkt_size;
+    dp_intf_t *nve_intf = DP_NVE_INTF(dp_ctx);
 
-    if (dp_ctx->dp_nve_intf == NULL) {
+    if (!nve_intf) {
 
         tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR,
               "VxLAN Decapsulation : Error : NVE Interface not found, Vxlan pkt dropped\n");
@@ -108,7 +110,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vt
 
         tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR,
               "VxLAN Decapsulation : Error : VNI %u not found in vlan_vni_ht, Vxlan pkt dropped\n", vni);
-              dp_ctx->dp_nve_intf->recvd_pkt_dropped++;
+              nve_intf->recvd_pkt_dropped++;
 
         return;
     }
@@ -117,12 +119,12 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vt
 
     l2_switch_perform_mac_learning (dp_ctx, vlan_id,
                             eth_hdr->src_mac.mac,
-                            dp_ctx->dp_nve_intf,
+                            nve_intf,
                             src_vtep_ip) ;
 
     tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Decapsulation : Forwarding pkt to L2 Switching\n");
         
-    l2_switch_forward_frame (dp_ctx, dp_ctx->mac_table, NULL, dp_ctx->dp_nve_intf,  mbuf);
-    dp_ctx->dp_nve_intf->pkt_recv++;
+    l2_switch_forward_frame (dp_ctx, dp_ctx->mac_table, NULL, nve_intf,  mbuf);
+    nve_intf->pkt_recv++;
 }

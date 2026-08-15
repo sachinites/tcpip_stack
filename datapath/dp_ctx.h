@@ -7,8 +7,8 @@
  * Design:
  *   - Each network node has one dp_ctx_t instance.
  *   - Holds packet queues, timer wheel, tracer, MAC table, interface/VRF
- *     hashtables, netfilter hooks, and references to special interfaces
- *     (RMAC, VLAN flood, host path, SRv6, NVE).
+ *     hashtables, netfilter hooks, and references to reserved virtual interfaces
+ *     via intf_table[] (see RMAC_INTF_INDEX, VLAN_FLOOD_INDEX, etc. in tcpconst.h).
  *   - Used by both control-plane (CP) and data-plane (DP) code; CP configures
  *     it, DP uses it for forwarding and packet I/O.
  *
@@ -101,14 +101,6 @@ typedef struct dp_ctx_ {
 
     dp_vrf_t *default_vrf;
 
-    /* Special interfaces (RMAC, VLAN flood, host path, SRv6 end, NVE) */
-    dp_intf_t *dp_rmac_intf;
-    dp_intf_t *dp_vlan_flood_intf;
-    dp_intf_t *dp_bd_flood_intf; /* only one instance of this interface exist in datapath*/
-    dp_intf_t *dp_bd_rmac_intf;
-    dp_intf_t *dp_host_path_intf;
-    dp_intf_t *dp_nve_intf;
-    
     /* Logging buffers (send/recv packet dump) */
     unsigned char *send_log_buffer;
     unsigned char *recv_log_buffer;

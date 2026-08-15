@@ -13,6 +13,7 @@
 #include "dp-prog-api.h"
 
 #include "../dp_ctx.h"
+#include "../dp_const.h"
 #include "../dp_utils.h"
 #include "../Layer3/layer3.h"
 #include "../Layer3/ping.h"
@@ -430,23 +431,18 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                     }
                     break;
                 case CP2DP_CODE_INTF_RMAC:
-                    dp_ctx->dp_rmac_intf = intf;
                     intf->vrf = NULL;
                     break;
                 case CP2DP_CODE_INTF_VLAN_FLOOD:
-                    dp_ctx->dp_vlan_flood_intf = intf;
                     intf->vrf = NULL;
                     break;
                 case CP2DP_CODE_INTF_NVE:
-                    dp_ctx->dp_nve_intf = intf;
                     intf->vrf = dp_ctx->default_vrf;
                     break;
                 case CP2DP_CODE_INTF_HOST_PATH:
-                    dp_ctx->dp_host_path_intf = intf;
                     intf->vrf = dp_ctx->default_vrf;
                     break;
                 case CP2DP_CODE_INTF_BD_RMAC:
-                    dp_ctx->dp_bd_rmac_intf = intf;
                     intf->vrf = NULL;
                     break;
                 default: 
@@ -497,29 +493,12 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                 dp_remove_vlan_interface(dp_ctx->dp_vlan_intf_ht, intf->vlan_id);
             }
 
-            /* Check if this is special interface*/
-            if (msg->port_id == dp_ctx->dp_rmac_intf->port_id) {
-                dp_ctx->dp_rmac_intf = NULL;
-            }
-            else if (msg->port_id == dp_ctx->dp_vlan_flood_intf->port_id) {
-                dp_ctx->dp_vlan_flood_intf = NULL;
-            }
-            else if (msg->port_id == dp_ctx->dp_host_path_intf->port_id) {
-                dp_ctx->dp_host_path_intf = NULL;
-            }
-            else if (dp_ctx->dp_bd_rmac_intf &&
-                    msg->port_id == dp_ctx->dp_bd_rmac_intf->port_id) {
-                dp_ctx->dp_bd_rmac_intf = NULL;
-            }
-            else if (dp_ctx->dp_nve_intf &&
-                    msg->port_id == dp_ctx->dp_nve_intf->port_id) {
-                dp_ctx->dp_nve_intf = NULL;
-            }                       
-        
-            intf->vrf = NULL;
-            dp_delete_interface (dp_ctx, msg->port_id);
-            tracer (dp_ctx->dptr, DCONF, 
-                "Interface port_id=%u deleted\n", msg->port_id);
+            /* Delink from forwarding table; free after grace period on DP timer. */
+            dp_ctx->intf_table[msg->port_id] = NULL;
+            dp_schedule_interface_delete(dp_ctx, intf);
+            tracer (dp_ctx->dptr, DCONF,
+                "Interface port_id=%u delinked, delete scheduled in %d ms\n",
+                msg->port_id, DP_INTF_DELETE_GRACE_MS);
         }
         break;
 
@@ -938,7 +917,7 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                             dp_ctx->mac_table, 
                             dp_ctx->rmac.mac, 
                             DEFAULT_VLAN_ID,
-                            dp_ctx->dp_rmac_intf,
+                            DP_RMAC_INTF(dp_ctx),
                             MAC_STATIC, 
                             0);
                 break;
@@ -979,7 +958,7 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                             dp_ctx->mac_table, 
                             dp_ctx->rmac.mac, 
                             DEFAULT_VLAN_ID,
-                            dp_ctx->dp_rmac_intf, 
+                            DP_RMAC_INTF(dp_ctx), 
                             MAC_STATIC, 
                             0);
                     break;

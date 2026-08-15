@@ -5,6 +5,8 @@
 #include "../utils.h"
 #include "../tcpip_notif.h"
 #include "../router_init.h"
+#include "../tcpconst.h"
+#include "../net.h"
 #include "InterfaceUApi.h"
 #include "../dpal/cp2dp.h"
 #include "../Layer2/vxlan/cp/vxlan.h"
@@ -813,7 +815,8 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 NVEInterfaceP nve_intfP = std::make_shared<NVEInterface>(std::string((const char *)if_name));
                 nve_intfP->SetSharedPtr(nve_intfP);
                 nve_intfP->att_node = node;
-                nve_intfP->ifindex = interface_get_new_ifindex(node);
+                nve_intfP->ifindex = NVE_IFINDEX;
+                interface_reserve_ifindex(node, NVE_IFINDEX);
                 nve_intfP->is_up = true;  // NVE interfaces are up by default
                 node->node_nw_prop.nve = nve_intfP;
                 node->node_nw_prop.nve->vrf = NODE_DEF_VRF(node);

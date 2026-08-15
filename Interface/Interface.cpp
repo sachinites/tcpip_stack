@@ -120,8 +120,7 @@ Interface::~Interface()
     assert (!vrf);
     assert (!ifindex);
 
-    cprintf ("%s : Interface %s deleted\n", 
-        this->att_node->node_name, this->if_name.c_str());
+    cprintf ("CP : Intf %s deleted\n", this->if_name.c_str());
 
     /* AC are deleted in DP when they are dettached from BD */
     if (if_index || iftype != INTF_TYPE_AC)

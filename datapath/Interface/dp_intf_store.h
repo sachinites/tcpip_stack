@@ -6,7 +6,7 @@
  *
  * Design:
  *   - Interface table: indexed by port_id (ifindex) in dp_ctx_t::intf_table[];
- *     dp_insert_interface, dp_delete_interface.
+ *     dp_insert_interface, dp_schedule_interface_delete, dp_delete_interface.
  *   - VLAN interface table: keyed by vlan_id; dp_init_vlan_intf_hashtable,
  *     dp_look_up_interface_by_vlan_id, dp_insert_vlan_interface,
  *     dp_remove_vlan_interface.
@@ -21,17 +21,32 @@
 
 #include <stdint.h>
 #include "intf_cons.h"
+#include "../../tcpconst.h"
 
 typedef  struct hashtable hashtable_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct dp_vrf_ dp_vrf_t;
 
+/* Reserved virtual interfaces — indexed in dp_ctx::intf_table at fixed ifindexes. */
+#define DP_RMAC_INTF(dp_ctx)       ((dp_ctx)->intf_table[RMAC_INTF_INDEX])
+#define DP_VLAN_FLOOD_INTF(dp_ctx) ((dp_ctx)->intf_table[VLAN_FLOOD_INDEX])
+#define DP_HOST_PATH_INTF(dp_ctx)  ((dp_ctx)->intf_table[HOST_PATH_IFINDEX])
+#define DP_BD_FLOOD_INTF(dp_ctx)   ((dp_ctx)->intf_table[BD_FLOOD_IFINDEX])
+#define DP_BD_RMAC_INTF(dp_ctx)    ((dp_ctx)->intf_table[BD_RMAC_INTF_INDEX])
+#define DP_NVE_INTF(dp_ctx)        ((dp_ctx)->intf_table[NVE_IFINDEX])
+
 void
 dp_insert_interface (dp_ctx_t *dp_ctx, dp_intf_t *intf);
 
+/* Delink from dp_ctx::intf_table and schedule dp_delete_interface after
+ * DP_INTF_DELETE_GRACE_MS on the datapath wheel timer. */
 void
-dp_delete_interface (dp_ctx_t *dp_ctx, uint32_t port_id);
+dp_schedule_interface_delete (dp_ctx_t *dp_ctx, dp_intf_t *intf);
+
+/* Free interface resources. intf must already be delinked from intf_table. */
+void
+dp_delete_interface (dp_ctx_t *dp_ctx, dp_intf_t *intf);
 
 dp_intf_t *
 dp_create_interface (uint32_t port_id, uint32_t iftype, uint8_t (*mac_addr)[6], uint16_t vlan_id) ;

@@ -17,6 +17,8 @@
 #include "../../dp-program/dp-prog-api.h"
 #include "../../dp-program/dp-prog-struct.h"
 #include "../../Layer2/l2fwd/ipv4-l2fwd.h"
+#include "../../dp_const.h"
+#include "../../../libs/libtimer/WheelTimer.h"
 
 extern bool
 mpls_apply_nh_label_stack(struct rte_mbuf *mbuf, mpls_lstack_t *lstack);
@@ -141,6 +143,7 @@ bd_ac_create (dp_ctx_t *dp_ctx, uint32_t ifindex ) {
     ac->underlying_intf = dp_ctx->intf_table[ifindex];
     assert (ac->underlying_intf);
     ac->underlying_intf->ac_intf = ac;
+    ac->dp_ctx = dp_ctx;
     return ac;
 }
 
@@ -173,6 +176,33 @@ bd_has_ac_member (dp_intf_t *bd_intf, uint32_t ifindex) {
     return false;
 }
 
+static void
+bd_ac_delete_timer_cbk (event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
+{
+    (void)ev_dis;
+    (void)arg_size;
+
+    dp_intf_t *ac = (dp_intf_t *)arg;
+
+    dp_check_and_free_interface(ac);
+}
+
+static void
+bd_schedule_ac_delete (dp_ctx_t *dp_ctx, dp_intf_t *ac)
+{
+    assert(ac);
+    assert(ac->bd_intf == NULL);
+    assert(ac->underlying_intf == NULL);
+    assert(ac->dp_ctx == dp_ctx);
+
+    timer_register_app_event(DP_TIMER(dp_ctx),
+                             bd_ac_delete_timer_cbk,
+                             ac,
+                             sizeof(*ac),
+                             DP_INTF_DELETE_GRACE_MS,
+                             0);
+}
+
 void 
 bd_del_ac (dp_intf_t *bd_intf, uint32_t ac_ifindex) {
 
@@ -198,7 +228,7 @@ bd_del_ac (dp_intf_t *bd_intf, uint32_t ac_ifindex) {
     ac->underlying_intf->ac_intf = NULL;
     ac->underlying_intf = NULL;
 
-    free(ac);
+    bd_schedule_ac_delete(bd_intf->dp_ctx, ac);
 }
 
 void 
