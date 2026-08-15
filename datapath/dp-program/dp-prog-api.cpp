@@ -70,6 +70,7 @@ cp2dp_msg_free (dp_msg_t *dp_msg){
 void
 dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
     
+    dp_intf_t *intf;
     mac_update_msg_t *mac_update_msg;
     mac_update_msg = (mac_update_msg_t *)dp_msg->data;
 
@@ -80,14 +81,21 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
                              dp_ctx->mac_table:                    \
                              dp_ctx->intf_table[mac_update_msg->vlan_id]->mac_table;
     
+    /* Get underlying physical interface of AC*/
+    intf = dp_ctx->intf_table[mac_update_msg->ifindex];
+
+    /* If this is BD mac table, then add AC, else add normal intf*/
+    intf = (dp_msg->component_type == BD_MAC_TABLE) ? intf->ac_intf : intf;
+    uint16_t vlan_id = (dp_msg->component_type == BD_MAC_TABLE) ? DEFAULT_VLAN_ID : mac_update_msg->vlan_id;
+
     switch (dp_msg->opr_type) {
         
         case DP_CREATE:
             
             mac_table_entry_add(dp_ctx, mac_table,
                                 mac_update_msg->mac_addr,
-                                mac_update_msg->vlan_id,
-                                mac_update_msg->ifindex,
+                                vlan_id,
+                                intf,
                                 mac_update_msg->flags,
                                 mac_update_msg->remote_dst_ip);
             break;
@@ -96,8 +104,8 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
             
             mac_table_entry_delete(dp_ctx, mac_table,
                                    mac_update_msg->mac_addr,
-                                   mac_update_msg->vlan_id,
-                                   mac_update_msg->ifindex,
+                                   vlan_id,
+                                   intf,
                                    mac_update_msg->remote_dst_ip);
             break;
 
@@ -446,6 +454,28 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
             tracer(dp_ctx->dptr, DCONF, 
                 "Interface if_name=%s created successfully\n",
                 intf->if_name);
+
+            /* Do any processing on interface creation */
+            switch (intf->if_type) {
+
+                case DP_INTF_TYPE_BD:
+                {
+                    init_mac_table(&(intf->mac_table), dp_ctx->ctx_name,
+                                   intf->if_name);
+                    mac_addr_t mac_addr;
+                    layer2_fill_with_broadcast_mac (mac_addr.mac);
+
+                    mac_table_entry_add(
+                            dp_ctx,
+                            intf->mac_table, 
+                            mac_addr.mac,
+                            DEFAULT_VLAN_ID,
+                            dp_ctx->intf_table[BD_FLOOD_IFINDEX],
+                            MAC_STATIC,
+                            0);
+                }
+                break;
+            }
         }   
         break;
 
@@ -806,6 +836,25 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                 }
                 break;
 
+                case CP2DP_CODE_BD_AC_ENCAP_8021Q:
+                {
+                    dp_intf_bd_ac_encap_8021q_t *encap_msg =
+                        (dp_intf_bd_ac_encap_8021q_t *)(msg + 1);
+
+                    dp_intf_t *phy_intf =
+                        dp_ctx->intf_table[encap_msg->ac_port_id];
+                    assert(phy_intf);
+                    assert(phy_intf->ac_intf);
+                    assert(phy_intf->ac_intf->if_type == DP_INTF_TYPE_AC);
+
+                    bd_ac_configure_8021q_tag(phy_intf->ac_intf,
+                                             encap_msg->encap_8021q_tag);
+                    tracer(dp_ctx->dptr, DCONF,
+                        "AC on %s encap 802.1Q tag set to %u\n",
+                        phy_intf->if_name, encap_msg->encap_8021q_tag);
+                }
+                break;
+
                 case CP2DP_CODE_INTF_GRE_TUNNEL:
                 {
                     dp_intf_gre_tunnel_update_t *gre_upd =
@@ -879,8 +928,10 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                     mac_table_entry_add(dp_ctx, 
                             dp_ctx->mac_table, 
                             dp_ctx->rmac.mac, 
-                            0, 
-                            dp_ctx->dp_rmac_intf->port_id, MAC_STATIC, 0);
+                            DEFAULT_VLAN_ID,
+                            dp_ctx->dp_rmac_intf,
+                            MAC_STATIC, 
+                            0);
                 break;
 
 
@@ -918,8 +969,10 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                     mac_table_entry_add(dp_ctx, 
                             dp_ctx->mac_table, 
                             dp_ctx->rmac.mac, 
-                            0, 
-                            dp_ctx->dp_rmac_intf->port_id, 0, 0);
+                            DEFAULT_VLAN_ID,
+                            dp_ctx->dp_rmac_intf, 
+                            MAC_STATIC, 
+                            0);
                     break;
 
 
@@ -1041,6 +1094,7 @@ cp2dp_task_handler  (event_dispatcher_t *ev_dis,  void *arg, uint32_t arg_size) 
     switch (dp_msg->component_type) {
 
         case MAC_TABLE:
+        case BD_MAC_TABLE:
             dp_mac_table_process_msg (dp_ctx, dp_msg);
             break;
         case PKT_BLOCK:

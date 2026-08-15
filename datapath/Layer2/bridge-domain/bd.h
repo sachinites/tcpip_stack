@@ -35,6 +35,9 @@ bool
 bd_has_ac_member (dp_intf_t *bd_intf, uint32_t ac_ifindex);
 
 void 
+bd_ac_configure_8021q_tag (dp_intf_t *ac, uint16_t tag);
+
+void 
 bd_show (dp_intf_t *bd_intf) ;
 
 void

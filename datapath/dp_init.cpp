@@ -162,7 +162,7 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     tracer_enable_file_logging(dp_ctx->dptr, true);
 
     /* Initialize MAC table and hashtables */
-    init_mac_table(&(dp_ctx->mac_table), dp_ctx->ctx_name);
+    init_mac_table(&(dp_ctx->mac_table), dp_ctx->ctx_name, NULL);
     memset(dp_ctx->intf_table, 0, sizeof(dp_ctx->intf_table));
     dp_init_vrf_hashtable(&dp_ctx->dp_vrf_ht);
     dp_init_vlan_intf_hashtable(&dp_ctx->dp_vlan_intf_ht);
@@ -192,8 +192,7 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     dp_ctx->dp_vlan_flood_intf = NULL;
     dp_ctx->dp_host_path_intf  = NULL;
     dp_ctx->dp_nve_intf        = NULL;
-    dp_ctx->dp_bd_flood_intf      = bd_flood_intf_create ();
-
+    dp_ctx->intf_table[BD_FLOOD_IFINDEX] = bd_flood_intf_create ();
     dp_ctx->send_log_buffer = (unsigned char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
     dp_ctx->recv_log_buffer = (unsigned char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
 }

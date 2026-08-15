@@ -160,10 +160,11 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
     struct rte_mbuf *dup_mbuf;
     vlan_8021q_hdr_t *vlan_8021q_hdr;
     mac_table_entry_t *mac_flood_entry = NULL;
+    bool is_bd_processing = (exempted_intf->if_type == DP_INTF_TYPE_AC);
 
     mac_flood_entry =
         mac_table_lookup(mac_table,
-                         1,
+                         DEFAULT_VLAN_ID,
                          BROADCAST_MAC);
 
     if (!mac_flood_entry) {
@@ -171,12 +172,20 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
         return;
     }
 
-    assert ((vlan_8021q_hdr = 
+    if (!is_bd_processing ) {
+
+        assert ((vlan_8021q_hdr = 
             is_pkt_vlan_tagged ((ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, NULL))));
 
-    tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
+        tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
             pkt_mbuf_str (mbuf), 
             TCI_VID(vlan_8021q_hdr->tci));
+    }
+    else {
+        tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in BD %d\n",  
+            pkt_mbuf_str (mbuf), 
+            exempted_intf->bd_intf->if_name);
+    }
 
     mac_table_entry_xmit_frame (dp_ctx, mac_flood_entry, mbuf, exempted_intf);
 }

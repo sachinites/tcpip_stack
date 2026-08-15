@@ -16,6 +16,8 @@ extern graph_t *topo;
 #define CMD_CODE_BD_MEMBER_ADD 2
 /* show node <node-name> bridge-domain <x> */
 #define CMD_CODE_BD_SHOW 3
+/* config node <node-name> [no] bridge-domain x member <if> encapsulation dot1q <vlan-id> */
+#define CMD_CODE_BD_AC_ENCAP_8021Q 4
 
 
 static int
@@ -27,6 +29,7 @@ bd_config_handler(int64_t cmdcode,
     c_string node_name = NULL;
     c_string member_name = NULL;
     uint16_t bd_id = 0;
+    uint16_t vlan_id = 0;
     tlv_struct_t *tlv;
     char intf_name[IF_NAME_SIZE];
 
@@ -38,6 +41,8 @@ bd_config_handler(int64_t cmdcode,
             bd_id = (uint16_t)atoi((const char *)tlv->value);
         else if (parser_match_leaf_id(tlv->leaf_id, "bd-member"))
             member_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "vlan-id"))
+            vlan_id = (uint16_t)atoi((const char *)tlv->value);
 
     } TLV_LOOP_END;
 
@@ -72,6 +77,7 @@ bd_config_handler(int64_t cmdcode,
                     }
 
                     cp2dp_interface_create(node, bdP.get());
+                    cp2dp_send_intf_admin_status_update(node, bdP->ifindex, false);
                 }
                 break;
 
@@ -231,6 +237,7 @@ bd_config_handler(int64_t cmdcode,
                 case CONFIG_DISABLE:
                 {
                     ACInterfaceP acP = bd->FindMemberAC(phy);
+                    
                     if (!acP) {
                         cprintf("Error : %s is not a member of %s\n",
                                 phy->if_name.c_str(), bd->if_name.c_str());
@@ -240,6 +247,70 @@ bd_config_handler(int64_t cmdcode,
                     cp2dp_bd_ac_bind(node, bd->ifindex, acP->ifindex, false);
                     acP->ifindex = 0;
                     bd->DelMemberAC(acP);
+                }
+                break;
+
+                default:
+                    break;
+            }
+        }
+        break;
+
+        case CMD_CODE_BD_AC_ENCAP_8021Q:
+        {
+            Interface *bd_base = node_interface_lookup_by_name(node, intf_name);
+            if (!bd_base || bd_base->iftype != INTF_TYPE_BD) {
+                cprintf("Error : Bridge-domain %s does not exist\n", intf_name);
+                return -1;
+            }
+
+            BDInterface *bd = dynamic_cast<BDInterface *>(bd_base);
+            if (!bd) {
+                cprintf("Error : %s is not a bridge-domain interface\n", intf_name);
+                return -1;
+            }
+
+            if (!member_name || !member_name[0]) {
+                cprintf("Error : Member interface name required\n");
+                return -1;
+            }
+
+            Interface *phy = node_interface_lookup_by_name(
+                node, (const char *)member_name);
+            if (!phy || phy->iftype != INTF_TYPE_PHY) {
+                cprintf("Error : Physical interface %s does not exist\n",
+                        member_name);
+                return -1;
+            }
+
+            ACInterfaceP acP = bd->FindMemberAC(phy);
+            if (!acP) {
+                cprintf("Error : %s is not a member of %s\n",
+                        phy->if_name.c_str(), bd->if_name.c_str());
+                return -1;
+            }
+
+            switch (enable_or_disable) {
+
+                case CONFIG_ENABLE:
+                {
+                    if (vlan_id == 0 || vlan_id > 4094) {
+                        cprintf("Error : Invalid VLAN ID %u (1-4094)\n", vlan_id);
+                        return -1;
+                    }
+
+                    /* Allow replace of an existing tag. */
+                    if (acP->GetEncap_tag_8021q() != vlan_id) {
+                        if (acP->GetEncap_tag_8021q())
+                            acP->UnSetEncap_tag_8021q(acP->GetEncap_tag_8021q());
+                        acP->SetEncap_tag_8021q(vlan_id);
+                    }
+                }
+                break;
+
+                case CONFIG_DISABLE:
+                {
+                    acP->UnSetEncap_tag_8021q(vlan_id);
                 }
                 break;
 
@@ -429,11 +500,11 @@ bd_show_handler(int64_t cmdcode,
 
             cprintf("\nBridge-domain %u  (%s)  ifindex %u\n",
                     bd->bd_id, bd->if_name.c_str(), bd->ifindex);
-            cprintf("%-16s %-16s %-10s %-12s\n",
-                    "AC", "Physical", "Ifindex", "Switchport");
-            cprintf("%-16s %-16s %-10s %-12s\n",
+            cprintf("%-16s %-16s %-10s %-8s %-12s %-12s\n",
+                    "AC", "Physical", "Ifindex", "Status", "Switchport", "Encap");
+            cprintf("%-16s %-16s %-10s %-8s %-12s %-12s\n",
                     "----------------", "----------------",
-                    "----------", "------------");
+                    "----------", "--------", "------------", "------------");
 
             uint32_t count = 0;
             for (auto &ac : bd->member_ac) {
@@ -441,12 +512,22 @@ bd_show_handler(int64_t cmdcode,
                     continue;
                 InterfaceP phyP = ac->GetUnderlyingInterface();
                 const char *phy_name = phyP ? phyP->if_name.c_str() : "-";
+                const char *status =
+                    (phyP && phyP->IsInterfaceUp(0)) ? "UP" : "DOWN";
                 const char *sw = (phyP && phyP->GetSwitchport()) ? "Yes" : "No";
-                cprintf("%-16s %-16s %-10u %-12s\n",
+                uint16_t encap = ac->GetEncap_tag_8021q();
+                char encap_str[16];
+                if (encap)
+                    snprintf(encap_str, sizeof(encap_str), "dot1q %u", encap);
+                else
+                    snprintf(encap_str, sizeof(encap_str), "none");
+                cprintf("%-16s %-16s %-10u %-8s %-12s %-12s\n",
                         ac->if_name.c_str(),
                         phy_name,
                         ac->ifindex,
-                        sw);
+                        status,
+                        sw,
+                        encap_str);
                 count++;
             }
 
@@ -500,6 +581,29 @@ bd_config_cli_tree (param_t *mount_point)
                 init_param(&member, LEAF, NULL, bd_config_handler, 0, STRING, "bd-member", "AC interface name");
                 libcli_register_param(&bd_member, &member);
                 libcli_set_param_cmd_code(&member, CMD_CODE_BD_MEMBER_ADD);
+
+                {
+                    /* encapsulation dot1q <vlan-id> */
+                    static param_t encapsulation;
+                    init_param(&encapsulation, CMD, "encapsulation", 0, 0, INVALID, NULL,
+                               "Encapsulation");
+                    libcli_register_param(&member, &encapsulation);
+                    {
+                        static param_t dot1q;
+                        init_param(&dot1q, CMD, "dot1q", 0, 0, INVALID, NULL,
+                                   "802.1Q encapsulation");
+                        libcli_register_param(&encapsulation, &dot1q);
+                        {
+                            static param_t encapsulation_dot1q;
+                            init_param(&encapsulation_dot1q, LEAF, NULL,
+                                       bd_config_handler, 0, INT, "vlan-id",
+                                       "VLAN ID");
+                            libcli_register_param(&dot1q, &encapsulation_dot1q);
+                            libcli_set_param_cmd_code(&encapsulation_dot1q,
+                                                      CMD_CODE_BD_AC_ENCAP_8021Q);
+                        }
+                    }
+                }
             }
         }
     }

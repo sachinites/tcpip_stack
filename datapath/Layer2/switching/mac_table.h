@@ -73,7 +73,8 @@ typedef struct mac_table_ {
 /* -------------------------------------------------------------------------
  * Lifecycle
  * ---------------------------------------------------------------------- */
-void init_mac_table(mac_table_t **mac_table, const char *ctx_name);
+void init_mac_table(mac_table_t **mac_table, const char *ctx_name,
+                    const char *suffix);
 void destroy_mac_table(dp_ctx_t *dp_ctx, mac_table_t *mac_table);
 
 /* -------------------------------------------------------------------------
@@ -96,12 +97,12 @@ mac_table_entry_touch(mac_table_entry_t *entry) {
  * ---------------------------------------------------------------------- */
 void mac_table_entry_add(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                          uint8_t *mac_addr, uint16_t vlan_id,
-                         uint32_t ifindex, uint16_t flags,
+                         dp_intf_t *oif, uint16_t flags,
                          uint32_t remote_dst_ip);
 
 void mac_table_entry_delete(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                             uint8_t *mac_addr, uint16_t vlan_id,
-                            uint32_t ifindex, uint32_t remote_dst_ip);
+                            dp_intf_t *intf, uint32_t remote_dst_ip);
 
 void mac_table_entry_delete2(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                              uint16_t vlan_id, uint8_t *mac_addr);
@@ -109,6 +110,10 @@ void mac_table_entry_delete2(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
 /* GC delete — called from the periodic table GC scan on dp_ev_dis. */
 void mac_table_gc_delete_entry(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                                mac_table_entry_t *entry);
+
+/* Delete every non-static (dynamic) entry.  Flood / other static entries
+ * are left in place.  Must run on dp_ev_dis. */
+void mac_table_delete_all_dynamic(dp_ctx_t *dp_ctx, mac_table_t *mac_table);
 
 /* -------------------------------------------------------------------------
  * Show — safe to call from dp_ev_dis; uses rte_hash_iterate

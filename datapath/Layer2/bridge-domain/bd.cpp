@@ -5,6 +5,7 @@
 #include "../../../libs/common/l2_hdrs.h"
 #include "../../../libs/common/cmn_struct.h"
 #include "../../../libs/common/mpls_lstack.h"
+#include "../../../libs/Tracer/tracer.h"
 
 #include "../switching/mac_table.h"
 
@@ -33,6 +34,10 @@ AC_SendPacketOut(
     vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(eth_hdr);
 
     if (vlan_8021q_hdr) {
+        
+        tracer(dp_ctx->dptr, DL2SW | DERR,
+            "Error : Egress AC %s recvd vlan tagged pkt %s, pkt dropped\n", 
+            ac->if_name, pkt_mbuf_str(mbuf));
         ac->xmit_pkt_dropped++;
         return;
     }
@@ -68,11 +73,22 @@ BD_FloodPacketOut(
     dp_intf_t *ac ;
     dp_intf_t *exempt_ac = pkt_mbuf_get_ingress_intf(mbuf);
 
-    assert (pkt_mbuf_get_starting_hdr(mbuf) == ETHERNET_HEADER);
+    pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER);
 
-    ethernet_hdr_t *eth_hdr = pkt_mbuf_get_ethernet_hdr(mbuf);
+    if (!exempt_ac || exempt_ac->if_type != DP_INTF_TYPE_AC) {
+        tracer(dp_ctx->dptr, DL2SW | DERR,
+            "BD flood: ingress AC not set on mbuf, pkt %s dropped\n", pkt_mbuf_str(mbuf));
+        return -1;
+    }
 
-    dp_intf_t *bd_intf = intf->bd_intf;
+    dp_intf_t *bd_intf = exempt_ac->bd_intf;
+
+    if (!bd_intf) {
+        tracer(dp_ctx->dptr, DL2SW | DERR,
+            "BD flood: ingress AC %s has no parent BD, pkt %s dropped\n", 
+            exempt_ac->if_name, pkt_mbuf_str(mbuf));
+        return -1;
+    }
 
     /* Iterate over all ACs of BD */
     struct rte_mbuf *dup_mbuf;
@@ -80,23 +96,21 @@ BD_FloodPacketOut(
     for (int i = 0; i < MAX_BD_MEMBER_PORTS; i++) { 
 
         ac = bd_intf->mports[i];
-        if (!ac || ac == exempt_ac) continue;
-        if (!ac->is_up) {
-            continue;
-            ac->xmit_pkt_dropped++;
-        }
+        if (!ac || ac == exempt_ac || 
+            ac == dp_ctx->intf_table[BD_FLOOD_IFINDEX]) continue;
         dup_mbuf = PKT_MBUF_DUP(mbuf);
         dp_send_pkt_out(dp_ctx, ac, dup_mbuf);
-        pkt_mbuf_dereference (dup_mbuf);
+        pkt_mbuf_dereference(dup_mbuf);
     }
 
+    intf->pkt_sent++;
     return 0;
 }
 
 static void 
 bd_ac_set_name (dp_intf_t *ac, const char *name) {
     
-    strncpy(ac->if_name, name, sizeof(ac->if_name) - 1);
+    snprintf (ac->if_name, sizeof(ac->if_name) - 1, "ac-%s", name);
     ac->if_name[sizeof(ac->if_name) - 1] = '\0';
 }
 
@@ -144,7 +158,8 @@ bd_has_ac_member (dp_intf_t *bd_intf, uint32_t ifindex) {
 
     int i;
     for (i = 0; i < MAX_BD_MEMBER_PORTS; i++) {
-        if (bd_intf->mports[i]->port_id == ifindex) {
+        if (bd_intf->mports[i] && 
+            bd_intf->mports[i]->port_id == ifindex) {
             return true;
         }
     }
@@ -157,7 +172,8 @@ bd_del_ac (dp_intf_t *bd_intf, uint32_t ac_ifindex) {
     int i;
 
     for (i = 0; i < MAX_BD_MEMBER_PORTS; i++) {
-        if (bd_intf->mports[i]->port_id != ac_ifindex) {
+        if (!bd_intf->mports[i] || 
+             bd_intf->mports[i]->port_id != ac_ifindex) {
             continue;
         }
         break;
@@ -191,9 +207,10 @@ bd_perform_mac_learning (dp_ctx_t *dp_ctx,
                          dp_intf_t *ac){
 
     mac_table_entry_t *existing =
-        mac_table_lookup(bd->mac_table, 0, (uint8_t *)src_mac);
+        mac_table_lookup(bd->mac_table, DEFAULT_VLAN_ID, (uint8_t *)src_mac);
 
     if (existing) {
+        
         if (!(existing->flags & MAC_STATIC))
             mac_table_entry_touch(existing);
         return;
@@ -233,28 +250,59 @@ BD_SendPacketOut(
             intf->bd_intf->mac_table,
             intf, 
             mbuf);
+
+    return 0;
 }
 
 void 
 bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
 
-    if (pkt_mbuf_get_starting_hdr (mbuf) == ETHERNET_HEADER) return; 
-
     pkt_size_t pkt_size;
+    mac_addr_t src_mac;
+    mac_addr_t dst_mac;
+
+    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+        "Bridge-Domain : pkt %s Recvd on AC %s \n", 
+        pkt_mbuf_str(mbuf), ac->if_name);
+
+    if (pkt_mbuf_get_starting_hdr (mbuf) != ETHERNET_HEADER) {
+
+        tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+            "Error : Non-Ethernet pkt %s Recvd on AC %s, dropped\n", 
+            pkt_mbuf_str(mbuf), ac->if_name);
+
+        return;
+    }
+
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(eth_hdr);
 
     /* Drop the untagged packet */
     if (!vlan_8021q_hdr) {
+
+        tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+            "Error : Untagged pkt %s Recvd on AC %s is dropped\n", 
+            pkt_mbuf_str(mbuf), ac->if_name);
+
+        ac->xmit_pkt_dropped++;
+        return;
+    }
+
+   uint16_t vlan_id = (uint16_t)TCI_VID(vlan_8021q_hdr->tci);
+
+    /* If vlan id do not match AC's dot1q tag, drop the packet */
+    if (vlan_id != ac->encap_8021q_tag) {
+
+        tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+            "Error : Vlan id %d does not match AC's dot1q tag %d\n", 
+            vlan_id, ac->encap_8021q_tag);
+            
         ac->xmit_pkt_dropped++;
         return;
     }
 
     /* Fetch Src and Dst MAC addresses */
-    mac_addr_t src_mac;
-    mac_addr_t dst_mac;
-
     vlan_ethernet_hdr_t *vlan_eth_hdr = (vlan_ethernet_hdr_t *)eth_hdr;
 
     src_mac = vlan_eth_hdr->src_mac;

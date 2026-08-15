@@ -70,15 +70,20 @@ mac_entry_schedule_gc(dp_ctx_t *dp_ctx, mac_table_entry_t *entry)
  * ---------------------------------------------------------------------- */
 
 void
-init_mac_table(mac_table_t **mac_table, const char *ctx_name)
+init_mac_table(mac_table_t **mac_table, const char *ctx_name,
+               const char *suffix)
 {
     *mac_table = (mac_table_t *)XCALLOC2(0, 1, mac_table_t);
 
-    /* Each dp_ctx must have a unique hash name; DPDK uses a process-global
-     * name registry and rte_hash_create fails with EEXIST if two contexts
-     * share the same name. */
+    /* DPDK rte_hash names are process-global.  Global L2 MAC table uses
+     * mac_<ctx>; per-BD tables use mac_<ctx>_<suffix> (e.g. bd10). */
     char hash_name[RTE_HASH_NAMESIZE];
-    snprintf(hash_name, sizeof(hash_name), "mac_%.27s", ctx_name);
+    if (suffix && suffix[0]) {
+        snprintf(hash_name, sizeof(hash_name), "mac_%.13s_%.13s",
+                 ctx_name, suffix);
+    } else {
+        snprintf(hash_name, sizeof(hash_name), "mac_%.27s", ctx_name);
+    }
 
     struct rte_hash_parameters params = {};
     params.name       = hash_name;
@@ -165,22 +170,18 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
                     mac_table_t *mac_table,
                     uint8_t *mac_addr,
                     uint16_t vlan_id,
-                    uint32_t ifindex,
+                    dp_intf_t *oif,
                     uint16_t flags,
                     uint32_t remote_dst_ip)
 {
     ASSERT_ON_DP_EV_DIS(dp_ctx);
+
     if (!mac_table->hash) return;
 
-    dp_intf_t *oif = dp_ctx->intf_table[ifindex];
-    if (!oif) {
-        cprintf("Error: DP_CTX %s: Interface with ifindex %d not found\n",
-                dp_ctx->ctx_name, ifindex);
-        return;
-    }
-
     mac_table_entry_t *existing = mac_table_lookup(mac_table, vlan_id, mac_addr);
+
     if (existing) {
+
         /* Entry already present: just add the new OIF if absent. */
         if (mac_table_entry_add_oif(existing, oif, remote_dst_ip)) {
             tracer(dp_ctx->dptr, DL2SW,
@@ -196,6 +197,7 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     /* New entry. */
     mac_table_entry_t *entry = (mac_table_entry_t *)XCALLOC2(0, 1, mac_table_entry_t);
     entry->vlan_id = vlan_id;
+
     /* Dynamic entries are stamped at creation so the GC ages them from the
      * moment they were learned (source-MAC activity refreshes this too, see
      * l2_switch_perform_mac_learning).  Static entries keep last_used = 0:
@@ -207,7 +209,6 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     mac_table_entry_add_oif(entry, oif, remote_dst_ip);
 
     /* No per-entry timer; GC is handled by the global scan timer. */
-
     mac_table_key_t key = { .vlan_id = vlan_id };
     memcpy(key.mac, mac_addr, 6);
     rte_hash_add_key_data(mac_table->hash, &key, entry);
@@ -243,7 +244,7 @@ mac_table_entry_delete(dp_ctx_t *dp_ctx,
                        mac_table_t *mac_table,
                        uint8_t *mac_addr,
                        uint16_t vlan_id,
-                       uint32_t ifindex,
+                       dp_intf_t *oif,
                        uint32_t remote_dst_ip)
 {
     ASSERT_ON_DP_EV_DIS(dp_ctx);
@@ -251,7 +252,7 @@ mac_table_entry_delete(dp_ctx_t *dp_ctx,
     mac_table_entry_t *entry = mac_table_lookup(mac_table, vlan_id, mac_addr);
     if (!entry) return;
 
-    mac_table_entry_remove_oif(entry, ifindex, remote_dst_ip);
+    mac_table_entry_remove_oif(entry, oif->port_id, remote_dst_ip);
 
     if (!mac_table_entry_has_oifs(entry)) {
         mac_table_key_t key = { .vlan_id = vlan_id };
@@ -286,6 +287,37 @@ mac_table_entry_delete2(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
            mac_addr[3], mac_addr[4], mac_addr[5]);
 
     mac_entry_remove(dp_ctx, mac_table, entry, &key);
+}
+
+void
+mac_table_delete_all_dynamic(dp_ctx_t *dp_ctx, mac_table_t *mac_table)
+{
+    ASSERT_ON_DP_EV_DIS(dp_ctx);
+
+    if (!mac_table || !mac_table->hash)
+        return;
+
+    /* Collect-then-delete so rte_hash_iterate is not invalidated mid-walk. */
+    for (;;) {
+        uint32_t next = 0;
+        const void *key;
+        void *data;
+        mac_table_entry_t *batch[64];
+        int n = 0;
+
+        while (n < 64 &&
+               rte_hash_iterate(mac_table->hash, &key, &data, &next) >= 0) {
+            mac_table_entry_t *entry = (mac_table_entry_t *)data;
+            if (entry && !(entry->flags & MAC_STATIC))
+                batch[n++] = entry;
+        }
+
+        if (n == 0)
+            break;
+
+        for (int i = 0; i < n; i++)
+            mac_table_gc_delete_entry(dp_ctx, mac_table, batch[i]);
+    }
 }
 
 /* -------------------------------------------------------------------------

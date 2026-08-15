@@ -103,6 +103,7 @@ tcpip_protocol_classification(uint16_t proto) {
 #define VLAN_FLOOD_INDEX   (MAX_INTF_IFINDEX - 1)
 #define HOST_PATH_IFINDEX  (MAX_INTF_IFINDEX - 2)
 #define VPNV4_INTF_STEER_IFINDEX  (MAX_INTF_IFINDEX - 3)
+#define BD_FLOOD_IFINDEX          (MAX_INTF_IFINDEX - 4)
 
 /* VPNV4 LABEL SPACE */
 #define VPNV4_START_LABEL 16

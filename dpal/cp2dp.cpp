@@ -603,6 +603,8 @@ cp2dp_interface_create (node_t *node, Interface *intf) {
         case INTF_TYPE_VLAN:
         case INTF_TYPE_GRE_TUNNEL:
         case INTF_TYPE_LOOPBACK:
+        case INTF_TYPE_BD:
+            break;
         case INTF_TYPE_VIRTUAL_PORT:
             intf_msg->update_code = 0;
             break;
@@ -876,6 +878,36 @@ cp2dp_bd_ac_bind (node_t *node,
     bind_msg = (dp_intf_bd_ac_bind_t *)(intf_msg + 1);
     bind_msg->bd_port_id = bd_ifindex;
     bind_msg->ac_port_id = ac_ifindex;
+
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void
+cp2dp_bd_ac_set_encap_8021q (node_t *node,
+                             uint32_t ac_ifindex,
+                             uint16_t encap_8021q_tag) {
+
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_hdr_t *intf_msg;
+    dp_intf_bd_ac_encap_8021q_t *encap_msg;
+
+    assert(ac_ifindex);
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size =
+        sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_bd_ac_encap_8021q_t);
+
+    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
+    intf_msg->port_id = ac_ifindex;
+    intf_msg->iftype = 0;
+    intf_msg->update_code = CP2DP_CODE_BD_AC_ENCAP_8021Q;
+
+    encap_msg = (dp_intf_bd_ac_encap_8021q_t *)(intf_msg + 1);
+    encap_msg->ac_port_id = ac_ifindex;
+    encap_msg->encap_8021q_tag = encap_8021q_tag;
 
     cp2dp_submit(node, dp_msg, true);
 }

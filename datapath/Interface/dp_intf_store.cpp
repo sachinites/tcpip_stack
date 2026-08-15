@@ -3,11 +3,14 @@
 #include <assert.h>
 
 #include "../../libs/BitOp/bitmap.h"
+#include "../../utils.h"
+#include "../../tcpconst.h"
 
 #include "dp_intf.h"
 #include "dp_intf_store.h"
 #include "../Vrfs/dp_vrf.h"
 #include "../dp_ctx.h"
+#include "../Layer2/switching/mac_table.h"
 
 #include "../../libs/c-hashtable/hashtable.h"
 #include "../../libs/c-hashtable/hashtable_itr.h"
@@ -113,6 +116,25 @@ dp_delete_interface (dp_ctx_t *dp_ctx, uint32_t port_id) {
             trap_rule = next_trap_rule;
         }
         intf->trap_rule_table[i] = NULL;
+    }
+
+    /* If it is BD interface, then delete all Dynamic
+        MAC table entries, and flood entry */
+    if (intf->if_type == DP_INTF_TYPE_BD) {
+
+        mac_table_t *mac_table = intf->mac_table;
+        assert(mac_table);
+        intf->mac_table = NULL;
+
+        /* ToDo : MAC Table should be drained through GC */
+        mac_table_delete_all_dynamic(dp_ctx, mac_table);
+
+        mac_addr_t flood_mac;
+        layer2_fill_with_broadcast_mac(flood_mac.mac);
+        mac_table_entry_delete2(dp_ctx, mac_table,
+                                DEFAULT_VLAN_ID, flood_mac.mac);
+        assert(mac_table->entry_count == 0);
+        destroy_mac_table(dp_ctx, mac_table);
     }
 
     dp_check_and_free_interface (intf);
@@ -349,13 +371,12 @@ bd_flood_intf_create () {
     uint8_t mac_addr[6] = {0};
 
     dp_intf_t *intf = dp_create_interface 
-                        ( 0,
+                        ( BD_FLOOD_IFINDEX,
                           DP_INTF_TYPE_BD_FLOOD,
                           &mac_addr, 0 );
 
     intf->vrf = NULL;
     intf->is_up = true;
     strncpy (intf->if_name, "bd-vfif", 8);
-
     return intf;
 }

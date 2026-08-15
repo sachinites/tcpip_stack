@@ -149,6 +149,17 @@ typedef struct dp_intf_bd_ac_bind_ {
 
 } dp_intf_bd_ac_bind_t;
 
+/* Set/clear 802.1Q encap on an AC (ac_port_id == underlying phy ifindex).
+ * tag == 0 clears the encap. */
+#define CP2DP_CODE_BD_AC_ENCAP_8021Q 25
+typedef struct dp_intf_bd_ac_encap_8021q_ {
+
+    uint32_t ac_port_id;
+    uint16_t encap_8021q_tag;
+    uint8_t  _pad[2];
+
+} dp_intf_bd_ac_encap_8021q_t;
+
 typedef struct dp_intf_cp2dp_msg_ {
 
     uint32_t port_id;  // key

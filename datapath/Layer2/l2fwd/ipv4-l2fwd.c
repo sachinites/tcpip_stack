@@ -406,7 +406,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
         "RECV-Qualification test\n", pkt_mbuf_str(mbuf), interface->if_name);
 
     if (!interface->ip_addr &&
-            !interface->switchport) {
+        !interface->switchport) {
 
         tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
             "failed RECV-Qualification test : Interface is neither L3 interface or L2 switchport\n",
@@ -414,6 +414,49 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
 
         return false;
     }
+
+    if (!interface->is_up) {
+
+        interface->recvd_pkt_dropped++;
+        tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+            "Error : Pkt : %s dropped. Reciepient AC %s is not admin up.\n",
+            pkt_mbuf_str(mbuf), interface->if_name);        
+        return false;
+    }
+
+    /* Handle Reception on Attachment Circuits ACs*/
+    if (interface->ac_intf) {
+
+        dp_intf_t *ac = interface->ac_intf;
+
+        if (!ac->bd_intf ) {
+
+            ac->recvd_pkt_dropped++;
+            tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+                "Error : Pkt : %s dropped. Reciepient AC %s is not BD member.\n",
+                pkt_mbuf_str(mbuf), ac->if_name);            
+            return false;
+        }
+
+        if (!ac->bd_intf->is_up) {
+
+            ac->bd_intf->recvd_pkt_dropped++;
+            tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+                "Error : Pkt : %s dropped. Reciepient BD %s is not admin up.\n",
+                pkt_mbuf_str(mbuf), ac->bd_intf->if_name);
+            return false;
+        }
+
+        if (!ac->encap_8021q_tag)
+        {
+            tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+                   "Error : Pkt : %s dropped. Reciepient AC %s is not dot1q enabled.\n",
+                   pkt_mbuf_str(mbuf), ac->if_name);
+        }
+
+        return true;
+    }
+
 
     /* If interface is working in ACCESS mode but at the
      * same time not operating within a vlan, then it must

@@ -56,6 +56,7 @@ extern graph_t *build_inter_vlan_routing_topo(void);
 extern graph_t *build_vxlan_topo(void);
 extern graph_t *evpn_spine_leaf(void) ;
 extern graph_t *Linux_Router_topology(void) ;
+extern graph_t *bridge_domain_topo(void);
 
 extern void nw_init_cli();
 extern void std_lib_init (int (*)(const char *format, ...)) ;
@@ -96,7 +97,7 @@ main(int argc, char **argv){
     tcp_ip_stack_pre_topology_create_initializations();
 
     topo = LinuxRtr ? Linux_Router_topology() : \
-	   	              cross_link_topology();
+                      bridge_domain_topo();
                       
     init_tcp_ip_stack();
     libcli_init_done ();

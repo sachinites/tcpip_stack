@@ -2003,8 +2003,12 @@ ACInterface::InterfaceReleaseAllResources() {
 void 
 ACInterface::SetEncap_tag_8021q(uint16_t vlan_id) {
 
-    assert (encap_tag_8021q == 0);
+    if (encap_tag_8021q == vlan_id)
+        return;
+
     encap_tag_8021q = vlan_id;
+    if (att_node && ifindex)
+        cp2dp_bd_ac_set_encap_8021q(att_node, ifindex, vlan_id);
 }
 
 void 
@@ -2012,6 +2016,14 @@ ACInterface::UnSetEncap_tag_8021q(uint16_t vlan_id) {
 
     if (!encap_tag_8021q) return;
     encap_tag_8021q = 0;
+    if (att_node && ifindex)
+        cp2dp_bd_ac_set_encap_8021q(att_node, ifindex, 0);
+}
+
+uint16_t
+ACInterface::GetEncap_tag_8021q() const {
+
+    return encap_tag_8021q;
 }
 
 bool

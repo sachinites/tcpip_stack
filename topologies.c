@@ -54,6 +54,7 @@ extern graph_t *vlan_extension_topo(void);
 extern graph_t *build_inter_vlan_routing_topo(void);
 extern graph_t *build_vxlan_topo(void);
 extern graph_t *evpn_spine_leaf(void) ;
+extern graph_t *bridge_domain_topo(void) ;
 extern graph_t *Linux_Router_topology(void) ;
 
 graph_t *standalone_node_topology(void) {
@@ -1424,6 +1425,81 @@ evpn_spine_leaf(void) {
 
     return topo;
 }
+
+extern graph_t *
+bridge_domain_topo(void) {
+
+#if 0
+
+  +--------+ eth0                 eth0 +--------+ eth1                 eth0 +----+----+ eth1                 eth0 +--------+
+  |  H1    +---------------------------+ L2SW1  +---------------------------+    R1   +---------------------------+ L2SW2  +---------------------------+  H2    |
+  |122.1.1.1| 10.1.1.1/24              |        |                           |122.1.1.3|                           |        |               10.1.1.2/24 |122.1.1.2|
+  +--------+                           +--------+                           +---------+                           +--------+                           +--------+
+
+#endif
+
+    graph_t *topo = create_new_graph("Bridge Domain Topo");
+
+    node_t *H1 = Router_Create(topo, (const c_string)"H1");
+    node_t *H2 = Router_Create(topo, (const c_string)"H2");
+    node_t *L2SW1 = Router_Create(topo, (const c_string)"L2SW1");
+    node_t *L2SW2 = Router_Create(topo, (const c_string)"L2SW2");
+    node_t *R1 = Router_Create(topo, (const c_string)"R1");
+
+    /* H1 --- L2SW1 --- R1 --- L2SW2 --- H2 */
+    insert_link_between_two_nodes(H1, L2SW1, "eth0", "eth0", 1);
+    insert_link_between_two_nodes(L2SW1, R1, "eth1", "eth0", 1);
+    insert_link_between_two_nodes(R1, L2SW2, "eth1", "eth0", 1);
+    insert_link_between_two_nodes(L2SW2, H2, "eth1", "eth0", 1);
+
+    node_set_rtr_id(H1, "122.1.1.1");
+    interface_loopback_create(H1, "122.1.1.1");
+    node_set_intf_ip_address(H1, "eth0", "10.1.1.1", 24);
+
+    node_set_rtr_id(H2, "122.1.1.2");
+    interface_loopback_create(H1, "122.1.1.2");
+    node_set_intf_ip_address(H2, "eth0", "10.1.1.2", 24);
+
+    node_set_rtr_id(R1, "122.1.1.3");
+    interface_loopback_create(H1, "122.1.1.3");
+
+    /* L2SW1: host-facing + R1-facing switchports */
+    node_set_intf_switchport(L2SW1, "eth0");
+    node_set_intf_switchport(L2SW1, "eth1");
+
+    /* L2SW2: R1-facing + host-facing switchports */
+    node_set_intf_switchport(L2SW2, "eth0");
+    node_set_intf_switchport(L2SW2, "eth1");
+
+    /* R1: AC-capable switchports toward both L2 switches (BD members) */
+    node_set_intf_switchport(R1, "eth0");
+    node_set_intf_switchport(R1, "eth1");
+
+    node_set_intf_vlan_membership(L2SW1, "eth0", 10, false);
+    node_set_intf_vlan_membership(L2SW1, "eth1", 10, true);
+
+    node_set_intf_vlan_membership(L2SW2, "eth0", 10, true);
+    node_set_intf_vlan_membership(L2SW2, "eth1", 10, false);
+
+    /* Run control plane schedulers in the end so as to avoid
+       Race condition between main thread and CP-Schedulers since
+       they are different threads */
+    event_dispatcher_run(&H1->ev_dis, true, 0);
+    event_dispatcher_run(&H2->ev_dis, true, 0);
+    event_dispatcher_run(&L2SW1->ev_dis, true, 0);
+    event_dispatcher_run(&L2SW2->ev_dis, true, 0);
+    event_dispatcher_run(&R1->ev_dis, true, 0);
+
+    event_dispatcher_run(&H1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&L2SW1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&L2SW2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R1->purger_ev_dis, true, 0);
+
+    return topo;
+}
+
+
 
 extern void LinuxLoadInterfaces (node_t *node) ;
 extern void DPDK_LoadInterfaces(node_t *node);

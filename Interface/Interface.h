@@ -586,6 +586,7 @@ class ACInterface : public Interface {
         virtual ~ACInterface();
         void SetEncap_tag_8021q(uint16_t vlan_id);
         void UnSetEncap_tag_8021q(uint16_t vlan_id);
+        uint16_t GetEncap_tag_8021q() const;
         bool SetUnderlyingInterface(InterfaceP intf);
         void UnSetUnderlyingInterface();
         InterfaceP GetUnderlyingInterface();

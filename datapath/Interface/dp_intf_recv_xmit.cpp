@@ -61,6 +61,9 @@ dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_intf_t *interface, 
                       struct rte_mbuf *mbuf);
 
+extern void 
+bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf);
+
 static int
 linux_send_xmit_out (dp_intf_t *dp_intf, struct rte_mbuf *mbuf) {
 
@@ -346,6 +349,11 @@ dp_VlanPacketFlood (dp_intf_t *vlan_intf,
 
 static int 
 PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf){
+
+    if (intf->ac_intf) {
+        /* Dont do any vlan checks if this is AC underlying interface */
+        return send_xmit_out(intf, mbuf);
+    }
 
     if (intf->switchport)
     {
@@ -762,6 +770,12 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
             "Pkt : %s : L2 Frame Rejected in Interface %s, qualification Test Failed\n", 
             pkt_mbuf_str(mbuf), interface->if_name);
 
+        return;
+    }
+
+    if (interface->ac_intf) {
+
+        bd_ac_recv_pkt(dp_ctx, interface->ac_intf, mbuf);
         return;
     }
 

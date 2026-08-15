@@ -583,8 +583,7 @@ dp_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
             return -1;
         }
 
-        cprintf("Node: %s - Bridge-domain %u (%s) MAC Address Table\n",
-                node_name, bd_id, bd_intf->if_name);
+        cprintf("Bridge-domain %u MAC Address Table\n", bd_id, bd_intf->if_name);
         show_mac_table(bd_intf->mac_table, 0);
         break;
     }

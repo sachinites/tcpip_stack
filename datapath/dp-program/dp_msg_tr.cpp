@@ -58,6 +58,7 @@ dp_intf_update_code_str (uint16_t code) {
         case CP2DP_CODE_INTF_GRE_TUNNEL: return "GRE_TUNNEL";
         case CP2DP_CODE_BD_AC_BIND:      return "BD_AC_BIND";
         case CP2DP_CODE_BD_AC_UNBIND:    return "BD_AC_UNBIND";
+        case CP2DP_CODE_BD_AC_ENCAP_8021Q: return "BD_AC_ENCAP_8021Q";
         default:                          return "?";
     }
 }
@@ -249,6 +250,17 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                             tracer(dp_ctx->dptr, DCONF,
                                 "    intf_update: bd_ac_bind bd_port_id=%u ac_port_id=%u\n",
                                 u->bd_port_id, u->ac_port_id);
+                        }
+                        break;
+                    case CP2DP_CODE_BD_AC_ENCAP_8021Q:
+                        if (dp_msg->data_size >=
+                            hdr_sz + sizeof(dp_intf_bd_ac_encap_8021q_t)) {
+                            const dp_intf_bd_ac_encap_8021q_t *u =
+                                (const dp_intf_bd_ac_encap_8021q_t *)payload;
+                            tracer(dp_ctx->dptr, DCONF,
+                                "    intf_update: bd_ac_encap_8021q "
+                                "ac_port_id=%u tag=%u\n",
+                                u->ac_port_id, u->encap_8021q_tag);
                         }
                         break;
                     default:
