@@ -54,7 +54,26 @@ typedef struct fib_nh_fwd_info_ {
             cmn_prefix_t gre_tunnel_dst;
         } gre_fwd;
 
+        /* ToDo : Remove 'gre_fwd' above, it should be property of egress interface 
+            which is GRE */
     }u;                             /* offset 48, now 8-byte aligned */
+
+    /*  At the time of forwarding, this information will be passed as
+        argument to steering interface, therefore we would have to create one
+        steering  virtual interface in DP per device */
+#define STEER_INTO_VRF 1
+#define STEER_INTO_BD 2
+    
+    union {
+        
+        uint8_t xconnect_vrf;
+        uint32_t xconnect_bd_ifindex;
+
+    } u_xconnect_info;
+
+    uint32_t _pad2;                 /* padding to align union to 8 bytes */
+
+    uint8_t xonnect_type;   
 
 }  fib_nh_fwd_info_t;
 

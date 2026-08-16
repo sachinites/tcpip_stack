@@ -1478,6 +1478,13 @@ VlanInterface::IsCrossReferenced() {
     return this->GetSharedPtr().use_count() > (VLAN_IF_DEF_REFCOUNT + 1);
 }
 
+bool 
+VlanInterface::HasL3Config(bool matchvrf) {
+
+    if (matchvrf && this->vrf) return true;
+    if (this->IsIpConfigured()) return true;
+    return false;
+}
 
 void 
 VlanInterface::PrintInterfaceDetails() {

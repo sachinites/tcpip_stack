@@ -24,6 +24,7 @@ enum InterfaceType_t {
     INTF_TYPE_BD,
     INTF_TYPE_BD_FLOOD,
     INTF_TYPE_BD_RMAC,
+    INTF_TYPE_L2VPN_EVPN_STEER,
     INTF_TYPE_HOST_PATH,
     INTF_TYPE_UNKNOWN
 };
@@ -48,6 +49,7 @@ intf_type_str (InterfaceType_t iftype) {
         case INTF_TYPE_BD: return "IntfBD";
         case INTF_TYPE_BD_FLOOD: return "IntfBD-Flood";
         case INTF_TYPE_BD_RMAC: return "IntfBD-RMAC";
+        case INTF_TYPE_L2VPN_EVPN_STEER: return "l2-epvn-xconnect-intf";
         case INTF_TYPE_UNKNOWN: return "Unknown";
         default: return "Invalid";
     }

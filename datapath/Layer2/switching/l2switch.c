@@ -47,6 +47,7 @@
 #include "../../Interface/dp_intf.h"
 #include "../../dp_uapi.h"
 #include "../../classifier/pkt_classifier.h"
+#include "../MacNexthop/L2FwdObject.h"
 
 extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
@@ -144,6 +145,31 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
         pvt_data->encap_data = encap_data;
         encap_data = NULL;
         dp_send_pkt_out(dp_ctx, oif, mbuf2, vlan_bd_intf);
+        pkt_mbuf_dereference(mbuf2);
+
+    } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
+
+}
+
+static void 
+mac_table_entry_xmit_frame2 (dp_ctx_t *dp_ctx,
+                            dp_intf_t *vlan_bd_intf,
+                            mac_table_entry_t *mac_entry, 
+                            struct rte_mbuf *mbuf, 
+                            dp_intf_t *recv_intf) 
+{
+    glthread_t *curr;
+    struct rte_mbuf *mbuf2;
+    mac_fwd_object_t *fwd_obj;
+    mac_oif_entry_t *oif_entry;
+
+    ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
+        
+        oif_entry = mac_oif_glue_to_entry(curr);
+        fwd_obj = oif_entry->fwd_obj;
+
+        mbuf2 = PKT_MBUF_DUP(mbuf);
+        dp_l2fwd(dp_ctx, fwd_obj, mbuf2);
         pkt_mbuf_dereference(mbuf2);
 
     } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);

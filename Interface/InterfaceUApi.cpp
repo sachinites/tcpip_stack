@@ -624,7 +624,6 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
     else if (ifindex == NODE_VLAN_FLOOD_INTF(node)->ifindex) {
         return NODE_VLAN_FLOOD_INTF(node).get();
     }
-
     else if (NODE_NVE_INTF(node) && 
              ifindex == NODE_NVE_INTF(node)->ifindex) {
         return NODE_NVE_INTF(node).get();

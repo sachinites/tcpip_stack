@@ -32,6 +32,8 @@ typedef struct mac_table_ mac_table_t;
 typedef struct vlan_vni_ht_db_ vlan_vni_ht_db_t;
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_vrf_ dp_vrf_t;
+typedef struct avltree avltree_t;
+
 struct ping_ctx_;
 struct rte_mempool;
 
@@ -42,6 +44,7 @@ struct rte_mempool;
 #include "../libs/notifc/notif.h"
 #include "../libs/common/cmn_struct.h"
 #include "Interface/intf_cons.h"
+#include "Layer2/MacNexthop/L2FwdObject.h"
 
 #pragma pack(push, 8)
 
@@ -100,6 +103,9 @@ typedef struct dp_ctx_ {
     uint32_t pkt_dropped;
 
     dp_vrf_t *default_vrf;
+
+    /* Layer 2 Forwarding Objects */
+    avltree_t *l2_fwd_obj_tree[L2_FWD_MAX];
 
     /* Logging buffers (send/recv packet dump) */
     unsigned char *send_log_buffer;

@@ -99,13 +99,13 @@ tcpip_protocol_classification(uint16_t proto) {
 
 #define MAX_PREFIX_LIST_CLIE
 /* Special interface ifindices */
-#define RMAC_INTF_INDEX    (MAX_INTF_IFINDEX)
-#define VLAN_FLOOD_INDEX   (MAX_INTF_IFINDEX - 1)
-#define HOST_PATH_IFINDEX  (MAX_INTF_IFINDEX - 2)
-#define VPNV4_INTF_STEER_IFINDEX  (MAX_INTF_IFINDEX - 3)
-#define BD_FLOOD_IFINDEX          (MAX_INTF_IFINDEX - 4)
-#define BD_RMAC_INTF_INDEX        (MAX_INTF_IFINDEX - 5)
-#define NVE_IFINDEX               (MAX_INTF_IFINDEX - 6)
+#define RMAC_INTF_INDEX    (MAX_INTF_IFINDEX)   /* Only one instance exist, you may lookup in array */
+#define VLAN_FLOOD_INDEX   (MAX_INTF_IFINDEX - 1)/* Only one instance exist, you may lookup in array */
+#define HOST_PATH_IFINDEX  (MAX_INTF_IFINDEX - 2)/* Only one instance exist, you may lookup in array */
+#define VPNV4_INTF_STEER_IFINDEX  (MAX_INTF_IFINDEX - 3) /* Many instances with same ifindex exist, do not lookup in dp_ctx->intf_table[]*/
+#define BD_FLOOD_IFINDEX          (MAX_INTF_IFINDEX - 4)/* Only one instance exist, you may lookup in array */
+#define BD_RMAC_INTF_INDEX        (MAX_INTF_IFINDEX - 5)/* Only one instance exist, you may lookup in array */
+#define NVE_IFINDEX               (MAX_INTF_IFINDEX - 6)/* Only one instance exist, you may lookup in array */
 
 #define BDRMAC_INTF_NAME          "bdrmacif"
 

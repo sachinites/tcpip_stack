@@ -300,6 +300,7 @@ class VlanInterface : public VirtualInterface {
         virtual bool IsCrossReferenced() final;
         virtual bool IsSVI ();
         virtual mac_addr_t *GetMacAddr( );
+        virtual bool HasL3Config(bool matchvrf) final;
         
         /* VNI Management Methods */
         void SetVniId(uint32_t vni_id);

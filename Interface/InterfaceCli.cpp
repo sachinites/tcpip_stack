@@ -655,6 +655,11 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 if (!vlan_intf)
                     return 0;
                 
+                if (vlan_intf->HasL3Config(true)) {
+                    cprintf("Error : Remove L3 Config first\n");
+                    return -1;
+                }
+
                 if (vlan_intf->IsCrossReferenced()) {
                     cprintf("Error : Vlan is in use\n");
                     return -1;

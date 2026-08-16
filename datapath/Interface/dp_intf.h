@@ -90,6 +90,10 @@ typedef struct dp_intf_ {
     /* If it is a BD interface, then array of AC member ports */
     struct dp_intf_ *mports[MAX_VLAN_MEMBER_PORTS];
 
+    /* if this is BD interface, then below interface is used to
+    steer traffic from Default VRF LFIB into this BD */
+    struct dp_intf_ *l2vpn_evpn_steering_intf;
+
     /* If it is a switchport operating in a trunk node, then
         bitmap of vlans of sizeof 4096 (512B) which it is a member of.
     */
@@ -116,6 +120,14 @@ typedef struct dp_intf_ {
 
     /* If this is vpnv4 steering interface */
     dp_vrf_t *steered_vpnv4_vrf; 
+
+    /* If this is L3VPN EVPN Xconnect intf, then steer the 
+    traffic into Cust-VRF*/
+    dp_vrf_t *steered_l3vpn_evpn_vrf;
+    
+    /* If this is L2VPN EVPN Xconnect intf, then steer the 
+    traffic into BD */
+    uint32_t bd_intf_ifindex;
 
     /* If it is a BD interface, then it owns a mac table */
     mac_table_t *mac_table;

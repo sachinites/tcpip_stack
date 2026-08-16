@@ -90,7 +90,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
             (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_SRv6_FORWARD)) &&
              nh->fwd_info->u.v6_fwd.endfn == END_DT4) {
 
-        assert (nh->fwd_info->oif->if_type == DP_INTF_TYPE_SRv6_DT4);
+        assert (nh->fwd_info->oif->if_type == DP_INTF_TYPE_SRv6_DT4_STEER);
         dp_send_pkt_out(dp_ctx, nh->fwd_info->oif, mbuf, 0);
         return;
     }

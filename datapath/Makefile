@@ -30,6 +30,7 @@ OBJS=dp_init.o \
 	 Layer2/arp/arp.o \
 	 Layer2/switching/l2switch.o \
 	 Layer2/switching/mac_table.o \
+	 Layer2/MacNexthop/L2FwdObject.o \
 	 Layer2/bridge-domain/bd.o \
 	 Layer2/vxlan/vlan_vni_ht.o \
 	 Layer2/vxlan/vxlan_dp.o \
@@ -81,6 +82,9 @@ Layer2/arp/%.o: Layer2/arp/%.c
 Layer2/switching/%.o: Layer2/switching/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+Layer2/MacNexthop/%.o: Layer2/MacNexthop/%.cpp
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 Layer2/bridge-domain/%.o: Layer2/bridge-domain/%.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
@@ -121,6 +125,7 @@ clean:
 	rm -f Vrfs/*.o
 	rm -f Layer2/arp/*.o
 	rm -f Layer2/switching/*.o
+	rm -f Layer2/MacNexthop/*.o
 	rm -f Layer2/bridge-domain/*.o
 	rm -f Layer2/vxlan/*.o
 	rm -f Layer2/l2fwd/*.o

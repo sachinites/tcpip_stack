@@ -764,7 +764,7 @@ VPNv4_XConnect_SendPacketOut(
     char ip_addr_str[IPV4_ADDR_LEN_STR];
 
     pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
-    assert (intf->port_id == VPNV4_INTF_STEER_IFINDEX);
+    assert (intf->if_type == DP_INTF_TYPE_VPNV4_STEER);
     
     tracer (dp_ctx->dptr, DL3FWD, 
         "VRF:%s: Dest : %s :  Pkt Context Switched from Def-vrf to VPN VRF\n",

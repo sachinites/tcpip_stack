@@ -8,6 +8,15 @@
 
 typedef struct rtm_ rtm_t;
 
+#if 0
+/* CLI to install static EVPN routes directly in Datapath */
+config node <node-name> protocol evpn mac-route <MAC> nexthop <nexthop-ip> evi <evi-id>  
+config node <node-name> protocol evpn imet-route <ip> evi <evi-id>
+config node <node-name> protocol evpn ip-prefix <ip/mask> nexthop <nexthop-ip> evi <evi-id>
+
+#endif 
+
+
 /*
 
 bgpd

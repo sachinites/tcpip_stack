@@ -171,6 +171,8 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     /* Start the single periodic GC scan timer (replaces per-entry timers). */
     dp_table_gc_start(dp_ctx);
 
+    dp_l2fwd_objects_init(dp_ctx);
+
     /* Netfilter (L3) and L2 protocol registration */
     nf_init_netfilters(&dp_ctx->nf_hook_db);
     tcp_ip_register_default_l3_pkt_trap_rules(&dp_ctx->nf_hook_db);

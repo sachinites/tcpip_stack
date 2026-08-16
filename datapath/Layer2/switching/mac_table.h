@@ -27,6 +27,8 @@
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct rte_mbuf pkt_mbuf_t;
+typedef struct MacFwdObject_ mac_fwd_object_t;
+
 
 /* rte_hash is forward-declared; callers need only mac_table.h, not rte_hash.h */
 struct rte_hash;
@@ -41,9 +43,12 @@ typedef struct mac_table_key_ {
 
 /* Per-OIF entry stored in mac_table_entry_t::oif_list */
 typedef struct mac_oif_entry_ {
+
+    mac_fwd_object_t *fwd_obj;
     dp_intf_t *oif;
     glthread_t glue;
     uint32_t remote_dst_ip;
+
 } mac_oif_entry_t;
 
 GLTHREAD_TO_STRUCT(mac_oif_glue_to_entry, mac_oif_entry_t, glue);
