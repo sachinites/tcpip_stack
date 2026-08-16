@@ -39,7 +39,13 @@ Visit : www.csepracticals.com for more projects and courses.
 
 ## Project 16 : Policy based Route Distribution Manager
 
-## Project 17 :  Integrated DPDK in Data-Path ( Numa Aware , Multi-Core Arch in Data plane )
+## Project 17 : Integrated DPDK in Data-Path ( Numa Aware , Multi-Core Arch in Data plane )
+
+## Project 18 : Bridge Domain Support, Asymmetric IRB between Bridge Domains
+
+## Project 19 : Basic Segment Routing Support using ISIS ( to have MPLS Transport in ISP Core )
+
+## Project 20 : IPV4 L3VPN using MPLS Transport in the core
 
 #### After Doing These Projects, you shall be able to :
 
@@ -117,5 +123,5 @@ Thats it . Enjoy the project. If you make any changes in tcpip_stack dir (main p
 if you make any changes in external private libraries (MathExpressionParser/RDBMSImplementation), then rebuild the library, followed by rebuilding the tcpip_stack project.
 
 
-Last updated : 28 Mar 2026
+Last updated : 16 Aug 2026
 ( Miss you Maa !! )
