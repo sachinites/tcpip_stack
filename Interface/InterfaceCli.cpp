@@ -118,12 +118,12 @@ display_node_interfaces (param_t *param, Stack_t *tlv_stack){
 static Interface *
 node_lookup_interface(node_t *node, c_string intf_name, vlan_id_t vlan_id){
 
-    if (intf_name) {
-        return node_interface_lookup_by_name (node, (const char *)intf_name);
-    }
-
     if (vlan_id) {
         return (VlanInterface::VlanInterfaceLookUp(node, vlan_id));
+    }
+
+    if (intf_name) {
+        return node_interface_lookup_by_name (node, (const char *)intf_name);
     }
 
     return NULL;
@@ -228,7 +228,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                         return -1;
                     }
 
-                    interface = node_lookup_interface(node, if_name, 0);
+                    interface = node_lookup_interface(node, if_name, vlan_id);
 
                     if (!interface) {
                         cprintf ("Error : Interface do not exist\nConfiguration Checkout failed\n");
@@ -258,17 +258,10 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 break;
                 case CONFIG_DISABLE:
                 {
-                    interface = node_lookup_interface(node, if_name, 0);
+                    interface = node_lookup_interface(node, if_name, vlan_id);
 
                     if (!interface) {
                         cprintf ("Error : Interface do not exist\nConfiguration Checkout failed\n");
-                        return -1;
-                    }
-                    
-                    if (!vrf)
-                    {
-                        cprintf("%s : Error : VRF %s do not exist\nConfiguration Checkout failed\n",
-                                node->node_name, vrf_name);
                         return -1;
                     }
 
@@ -637,11 +630,11 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     node->vlan_intf_db = new std::unordered_map<uint16_t, VlanInterfaceP>;
                 }
                 
-                vlan_intfP->vrf = NODE_DEF_VRF(node);
                 node->vlan_intf_db->insert(std::make_pair(vlan_id, vlan_intfP));
-                
+                /* Add it to global Maps as well */
+                node_global_intf_map_insert(node, vlan_intfP.get());
                 cp2dp_interface_create(node, vlan_intfP.get());
-                cp2dp_vrf_add_interface (node, vlan_intfP->vrf->vrf_id,  (vlan_intfP.get())->ifindex);
+                vrf_add_interface(NODE_DEF_VRF(node), vlan_intfP.get());
                 cp2dp_send_intf_admin_status_update(node, vlan_intfP->ifindex, false);
                 cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, 
                         vlan_id, 
@@ -654,7 +647,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     static_cast<VlanInterface *>(VlanInterface::VlanInterfaceLookUp(node, vlan_id));
                 if (!vlan_intf)
                     return 0;
-                
+
                 if (vlan_intf->HasL3Config(true)) {
                     cprintf("Error : Remove L3 Config first\n");
                     return -1;
@@ -675,9 +668,9 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
 
                 cp2dp_mac_table_entry_del (node, (uint8_t *)BROADCAST_MAC, 
                     vlan_id, NODE_VLAN_FLOOD_INTF(node)->ifindex, true, 0);
-                cp2dp_vrf_delete_interface(node, vlan_intf->vrf->vrf_id, vlan_intf->ifindex);
-                
+    
                 node->vlan_intf_db->erase(vlan_id);
+                node_global_intf_map_delete_by_ifindex(node, vlan_intf->ifindex);
             }
             break;
             default:;

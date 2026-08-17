@@ -55,8 +55,11 @@ class TransportService;
 */
 #define PHY_ETH_IF_DEF_REFCOUNT   3
 
-/* node->vlan_intf_db */
-#define VLAN_IF_DEF_REFCOUNT 1
+/* node->vlan_intf_db 
+   node->intf_by_name
+   node->intf_by_ifindex  
+*/
+#define VLAN_IF_DEF_REFCOUNT 3
 
 /* node->node_nw_prop.nve */
 #define NVE_IF_DEF_REFCOUNT 1
