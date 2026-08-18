@@ -95,78 +95,20 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
                             struct rte_mbuf *mbuf, 
                             dp_intf_t *recv_intf) 
 {
-    dp_intf_t *oif; 
-    glthread_t *curr;
-    uint32_t vni_id = 0;
-    uint16_t vlan_id = 0;
-    struct rte_mbuf *mbuf2;
-    mac_oif_entry_t *oif_entry;
-    pkt_mbuf_pvt_data_t *pvt_data;
-    pkt_mbuf_encap_meta_data_t *encap_data = NULL;
-
-    ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
-        
-        oif_entry = mac_oif_glue_to_entry(curr);
-        oif = oif_entry->oif;
-        
-        if (!oif || (oif == recv_intf )) continue;
-
-        if (oif->if_type == DP_INTF_TYPE_NVE) {
-            
-            encap_data = (pkt_mbuf_encap_meta_data_t *) XCALLOC2 (0, 1, pkt_mbuf_encap_meta_data_t);
-            vlan_id = mac_entry->vlan_id;
-
-            /* Get VNI id using DP hashtable*/
-            vni_id = vlan_vni_ht_vlan_to_vni_lookup (dp_ctx, vlan_id);
-
-            if (vni_id == 0) {
-
-                tracer (dp_ctx->dptr, DL2SW | DERR,
-                    "VLAN to VNI mapping not found for vlan %d, Dropping the frame on NVE interface\n", vlan_id);
-                XFREE(encap_data);
-                continue;
-            }
-
-            encap_data->u.vxlan.vni = vni_id;
-            encap_data->u.vxlan.remote_vtep_ip = oif_entry->remote_dst_ip;
-        }
-
-        /* Create a copy of pkt blocks, and xmit them because they can be modified*/
-        /* Flush old encap data if any*/
-        pvt_data = pkt_mbuf_get_pvt_data(mbuf);
-
-        if (pvt_data && pvt_data->encap_data) {
-            XFREE(pvt_data->encap_data);
-            pvt_data->encap_data = NULL;
-        }
-
-        mbuf2 = PKT_MBUF_DUP(mbuf);
-        pvt_data = pkt_mbuf_get_pvt_data(mbuf2);
-        pvt_data->encap_data = encap_data;
-        encap_data = NULL;
-        dp_send_pkt_out(dp_ctx, oif, mbuf2, vlan_bd_intf);
-        pkt_mbuf_dereference(mbuf2);
-
-    } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
-
-}
-
-static void 
-mac_table_entry_xmit_frame2 (dp_ctx_t *dp_ctx,
-                            dp_intf_t *vlan_bd_intf,
-                            mac_table_entry_t *mac_entry, 
-                            struct rte_mbuf *mbuf, 
-                            dp_intf_t *recv_intf) 
-{
     glthread_t *curr;
     struct rte_mbuf *mbuf2;
     mac_fwd_object_t *fwd_obj;
     mac_oif_entry_t *oif_entry;
 
+    (void)vlan_bd_intf;
+    (void)recv_intf;
+
     ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
         
         oif_entry = mac_oif_glue_to_entry(curr);
         fwd_obj = oif_entry->fwd_obj;
+        if (!fwd_obj)
+            continue;
 
         mbuf2 = PKT_MBUF_DUP(mbuf);
         dp_l2fwd(dp_ctx, fwd_obj, mbuf2);
@@ -185,8 +127,6 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
                                 
 {
 
-    dp_intf_t *oif;
-    struct rte_mbuf *dup_mbuf;
     vlan_8021q_hdr_t *vlan_8021q_hdr;
     mac_table_entry_t *mac_flood_entry = NULL;
 

@@ -22,7 +22,7 @@ srv6_rtm_route_install (vrf_t *vrf,
                         uint8_t prefix_len,
                         uint32_t rt_flags,
                         ipv6_addr_t *gw,
-                        Interface* oif,
+                        uint32_t oif_ifindex,
                         ipv6_addr_t (*segment_lst)[16],
                         uint32_t cost,
                         Srv6_endpcode_t endfn,
@@ -68,7 +68,7 @@ srv6_rtm_route_install (vrf_t *vrf,
         nh_template.action = RTM_NH_ACTION_FORWARD;
         nh_template.is_indirect = false;
         nh_template.is_resolved = true;
-        nh_template.oif = oif ? oif->ifindex : 0;
+        nh_template.oif = oif_ifindex;
         nh_template.fwd_flags |= FIB_NH_FWD_F_SRv6_FORWARD;
     }
 
@@ -79,7 +79,7 @@ srv6_rtm_route_install (vrf_t *vrf,
         nh_template.action = RTM_NH_ACTION_FORWARD;
         nh_template.is_indirect = false;
         nh_template.is_resolved = true;
-        nh_template.oif = oif ? oif->ifindex : 0;
+        nh_template.oif = oif_ifindex;
         nh_template.fwd_flags |= FIB_NH_FWD_F_FORWARD;
     }
 

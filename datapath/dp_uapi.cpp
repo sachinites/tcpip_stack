@@ -264,7 +264,7 @@ dp_post_arp_update_from_pkt_job(dp_ctx_t *dp_ctx,
 void
 dp_show_mac_table_sync(dp_ctx_t *dp_ctx, uint16_t vlan_id)
 {
-    show_mac_table(dp_ctx->mac_table, vlan_id);
+    show_mac_table(dp_ctx, dp_ctx->mac_table, vlan_id);
 }
 
 void

@@ -41,13 +41,12 @@ typedef struct mac_table_key_ {
     uint8_t  mac[6];
 } mac_table_key_t;
 
-/* Per-OIF entry stored in mac_table_entry_t::oif_list */
+/* Per-OIF entry stored in mac_table_entry_t::oif_list.
+ * Forwarding context lives in the interned mac_fwd_object_t. */
 typedef struct mac_oif_entry_ {
 
     mac_fwd_object_t *fwd_obj;
-    dp_intf_t *oif;
     glthread_t glue;
-    uint32_t remote_dst_ip;
 
 } mac_oif_entry_t;
 
@@ -123,7 +122,7 @@ void mac_table_delete_all_dynamic(dp_ctx_t *dp_ctx, mac_table_t *mac_table);
 /* -------------------------------------------------------------------------
  * Show — safe to call from dp_ev_dis; uses rte_hash_iterate
  * ---------------------------------------------------------------------- */
-void show_mac_table(mac_table_t *mac_table, uint16_t vlan_id);
+void show_mac_table(dp_ctx_t *dp_ctx, mac_table_t *mac_table, uint16_t vlan_id);
 
 /* -------------------------------------------------------------------------
  * L2 switch entry point
@@ -136,16 +135,17 @@ void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
 /* -------------------------------------------------------------------------
  * OIF list helpers (called only from dp_ev_dis write path)
  * ---------------------------------------------------------------------- */
-mac_oif_entry_t *mac_oif_entry_create(dp_intf_t *oif, uint32_t remote_dst_ip);
-void mac_oif_entry_destroy(mac_oif_entry_t *oif_entry);
-bool mac_table_entry_add_oif(mac_table_entry_t *mac_entry,
-                             dp_intf_t *oif, uint32_t remote_dst_ip);
-bool mac_table_entry_remove_oif(mac_table_entry_t *mac_entry,
-                                uint32_t ifindex, uint32_t remote_dst_ip);
+mac_oif_entry_t *mac_oif_entry_create(mac_fwd_object_t *fwd_obj);
+void mac_oif_entry_destroy(dp_ctx_t *dp_ctx, mac_oif_entry_t *oif_entry);
+bool mac_table_entry_add_oif(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_entry,
+                             dp_intf_t *oif, uint32_t remote_dst_ip,
+                             uint16_t vlan_id);
+bool mac_table_entry_remove_oif(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_entry,
+                                dp_intf_t *oif, uint32_t remote_dst_ip,
+                                uint16_t vlan_id);
 mac_oif_entry_t *mac_table_entry_find_oif(mac_table_entry_t *mac_entry,
-                                          uint32_t ifindex,
-                                          uint32_t remote_dst_ip);
+                                          mac_fwd_object_t *fwd_obj);
 bool mac_table_entry_has_oifs(mac_table_entry_t *mac_entry);
-void mac_table_entry_clear_oifs(mac_table_entry_t *mac_entry);
+void mac_table_entry_clear_oifs(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_entry);
 
 #endif /* __MAC_TABLE_H__ */

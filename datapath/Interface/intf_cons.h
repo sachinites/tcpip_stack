@@ -23,6 +23,8 @@
 #define DP_MAX_INTF 1024
 #define DP_MAX_BD_SUPPORT 64
 
+#include "../../tcpconst.h"
+
 enum DP_IntfL2Mode
 {
     DP_LAN_MODE_NONE,
@@ -40,13 +42,14 @@ enum DP_InterfaceType_t {
     DP_INTF_TYPE_RMAC, // One instance per Device
     DP_INTF_TYPE_VLAN_FLOOD, // One instance per Device
     DP_INTF_TYPE_NVE, // One instance per device 
-    DP_INTF_TYPE_SRv6_DT4_STEER, // One instance per VRF
-    DP_INTF_TYPE_VPNV4_STEER, // One instance per VRF
     DP_INTF_TYPE_AC, // One instance per physical NIC ( So Far )
     DP_INTF_TYPE_BD, // One instance per BD
     DP_INTF_TYPE_BD_FLOOD, // One instance per device 
     DP_INTF_TYPE_BD_RMAC,  // One instance per device 
-    DP_INTF_TYPE_L2VPN_EVPN_STEER, // One instance per BD
+    DP_INTF_TYPE_MPLS_TO_BD_STEER,
+    DP_INTF_TYPE_MPLS_TO_VRF_STEER,
+    DP_INTF_TYPE_SRV6_TO_BD_STEER,
+    DP_INTF_TYPE_SRV6_TO_VRF_STEER,
     DP_INTF_TYPE_HOST_PATH, // One instance per Device
     DP_INTF_TYPE_UNKNOWN
 };
@@ -67,27 +70,29 @@ dp_intf_type_str (uint32_t iftype) {
     case DP_INTF_TYPE_VIRTUAL_PORT:
         return "Virtual";
     case DP_INTF_TYPE_RMAC:
-        return "RMAC";
+        return RMAC_INTF_NAME;
     case DP_INTF_TYPE_VLAN_FLOOD:
-        return "VLAN-Flood";
+        return VLAN_FLOOD_INTF_NAME;
     case DP_INTF_TYPE_NVE:
-        return "NVE";
-    case DP_INTF_TYPE_SRv6_DT4_STEER:
-        return "SRv6-DT4-xconn-if";
-    case DP_INTF_TYPE_VPNV4_STEER:
-        return "vpnv4-xconn-if";
+        return NVE_INTF_NAME;
     case DP_INTF_TYPE_HOST_PATH:
-        return "HostPath";
+        return HOST_PATH_INTF_NAME;
     case DP_INTF_TYPE_AC:
         return "AC";
     case DP_INTF_TYPE_BD:
         return "BD";
     case DP_INTF_TYPE_BD_FLOOD:
-        return "bd-vfif";
+        return BD_FLOOD_INTF_NAME;
     case DP_INTF_TYPE_BD_RMAC:
-        return "bdrmacif";
-    case DP_INTF_TYPE_L2VPN_EVPN_STEER:
-        return "l2-epvn-xconnect-if";
+        return BDRMAC_INTF_NAME;
+    case DP_INTF_TYPE_MPLS_TO_BD_STEER:
+        return MPLS_TO_BD_STEER_INTF_NAME;
+    case DP_INTF_TYPE_MPLS_TO_VRF_STEER:
+        return MPLS_TO_VRF_STEER_INTF_NAME;
+    case DP_INTF_TYPE_SRV6_TO_VRF_STEER:
+        return SRv6_TO_VRF_STEER_INTF_NAME;
+    case DP_INTF_TYPE_SRV6_TO_BD_STEER:
+        return SRv6_TO_BD_STEER_INTF_NAME;
     case DP_INTF_TYPE_UNKNOWN:
         return "Unknown";
     default:

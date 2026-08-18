@@ -397,7 +397,7 @@ isis_spf_install_v6routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root)
                                         ted_prefix->mask, 
                                         FIB_NH_FWD_F_FORWARD,
                                         0, 
-                                        node_get_intf_by_ifindex (spf_root, nexthop->ifindex),
+                                        nexthop->ifindex,
                                         NULL, spf_result->spf_metric + ted_prefix->metric, 
                                         ted_prefix->endfn, 
                                         RTM_PROTO_ISIS, true);

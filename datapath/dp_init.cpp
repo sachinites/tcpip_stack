@@ -24,6 +24,7 @@
 #include "dp_ctx.h"
 #include "dp_table_gc.h"
 #include "dp_const.h"
+#include "Interface/dp_intf_store.h"
 #include "../libs/mtrie/atomic_mtrie.h"
 #include <rte_errno.h>
 #include "dp_uapi.h"
@@ -190,7 +191,9 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     /* Members below are filled by control plane */
     memset(&dp_ctx->rmac, 0, sizeof(dp_ctx->rmac));
     dp_ctx->default_vrf = NULL;
-    dp_ctx->intf_table[BD_FLOOD_IFINDEX] = bd_flood_intf_create ();
     dp_ctx->send_log_buffer = (unsigned char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
     dp_ctx->recv_log_buffer = (unsigned char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
+
+    /* Create Fake Interfaces */
+    dp_intf_create_fake_interfaces (dp_ctx);
 }

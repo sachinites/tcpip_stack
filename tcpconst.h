@@ -87,10 +87,6 @@ tcpip_protocol_classification(uint16_t proto) {
     }
 }
 
-
-#define RMAC_INTF_NAME          "rmacif"
-#define VLAN_FLOOD_INTF_NAME    "vfif"
-#define NVE_INTF_NAME           "nve"
 #define DEFAULT_VLAN_ID         0
 #define MAC_ENTRY_EXP_TIME      1800 /*Seconds*/
 #define DEFAULT_VRF             0
@@ -98,26 +94,38 @@ tcpip_protocol_classification(uint16_t proto) {
 #define MAX_INTF_IFINDEX        1023 
 #define MAX_EVPN_INDEX          8
 
-
 /* Special interface ifindices */
-#define RMAC_INTF_INDEX    (MAX_INTF_IFINDEX)   /* Only one instance exist, you may lookup in array */
-#define VLAN_FLOOD_INDEX   (MAX_INTF_IFINDEX - 1)/* Only one instance exist, you may lookup in array */
-#define HOST_PATH_IFINDEX  (MAX_INTF_IFINDEX - 2)/* Only one instance exist, you may lookup in array */
-#define VPNV4_INTF_STEER_IFINDEX  (MAX_INTF_IFINDEX - 3) /* Many instances with same ifindex exist, do not lookup in dp_ctx->intf_table[]*/
-#define BD_FLOOD_IFINDEX          (MAX_INTF_IFINDEX - 4)/* Only one instance exist, you may lookup in array */
-#define BD_RMAC_INTF_INDEX        (MAX_INTF_IFINDEX - 5)/* Only one instance exist, you may lookup in array */
-#define NVE_IFINDEX               (MAX_INTF_IFINDEX - 6)/* Only one instance exist, you may lookup in array */
-#define EVPN_MPLS_TO_BD_STEER_IFINDEX (MAX_INTF_IFINDEX - 7)/* Only one instance exist, you may lookup in array */
-#define EVPN_MPLS_TO_VRF_STEER_IFINDEX (MAX_INTF_IFINDEX - 8)/* Only one instance exist, you may lookup in array */
+#define RMAC_INTF_INDEX               (MAX_INTF_IFINDEX)   /* Only one instance exist, you may lookup in array */
+#define RMAC_INTF_NAME                 "rmacif"
+#define BD_RMAC_INTF_INDEX             (MAX_INTF_IFINDEX - 1)/* Only one instance exist, you may lookup in array */
+#define BDRMAC_INTF_NAME                "bdrmacif"
 
+#define VLAN_FLOOD_INDEX               (MAX_INTF_IFINDEX - 2)/* Only one instance exist, you may lookup in array */
+#define VLAN_FLOOD_INTF_NAME            "vfif"
+#define BD_FLOOD_IFINDEX               (MAX_INTF_IFINDEX - 3)/* Only one instance exist, you may lookup in array */
+#define BD_FLOOD_INTF_NAME              "bdvfif"
 
-#define BDRMAC_INTF_NAME          "bdrmacif"
+#define NVE_IFINDEX                    (MAX_INTF_IFINDEX - 4)/* Only one instance exist, you may lookup in array */
+#define NVE_INTF_NAME                   "nve"
+
+#define HOST_PATH_IFINDEX              (MAX_INTF_IFINDEX - 5)/* Only one instance exist, you may lookup in array */
+#define HOST_PATH_INTF_NAME             "hpif"
+
+#define MPLS_TO_BD_INTF_STEER_IFINDEX  (MAX_INTF_IFINDEX - 6) /* Many instances with same ifindex exist, do not lookup in dp_ctx->intf_table[]*/
+#define MPLS_TO_BD_STEER_INTF_NAME      "mpls-xconn-bd"
+#define MPLS_TO_VRF_INTF_STEER_IFINDEX (MAX_INTF_IFINDEX - 7) /* Many instances with same ifindex exist, do not lookup in dp_ctx->intf_table[]*/
+#define MPLS_TO_VRF_STEER_INTF_NAME     "mpls-xconn-vrf"
+
+#define SRv6_TO_VRF_INTF_STEER_IFINDEX (MAX_INTF_IFINDEX - 8) /* Many instances with same ifindex exist, do not lookup in dp_ctx->intf_table[]*/
+#define SRv6_TO_VRF_STEER_INTF_NAME     "srv6-xconn-vrf"
+#define SRv6_TO_BD_STEER_IFINDEX       (MAX_INTF_IFINDEX - 9)/* Only one instance exist, you may lookup in array */
+#define SRv6_TO_BD_STEER_INTF_NAME      "srv6-xconn-bd"
 
 /* VPNV4 LABEL SPACE */
 #define VPNV4_START_LABEL 16
-#define VPNV4_LABEL_RANGE 48 /* Must be Same as MAX_VRF_PER_NODE */
+#define VPNV4_LABEL_RANGE 48   /* Must be Same as MAX_VRF_PER_NODE */
 
 #define L2VPN_START_LABEL (VPNV4_LABEL_RANGE + 1)
-#define L2VPN_LABEL_RANGE 48
+#define L2VPN_LABEL_RANGE 48   /* Must be Same as MAX_VRF_PER_NODE */
 
 #endif /* __TCPCONST__ */

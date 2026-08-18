@@ -97,7 +97,7 @@ srv6_locator_handler
     } TLV_LOOP_END;
 
     node_t *node = node_get_node_by_name(topo, node_name);
-    vrf_t *vrf = vrf_get_by_name (node, vrf_name);
+    vrf_t *vrf = vrf_get_by_name (node, (char *)vrf_name);
 
     switch (cmdcode)
     {
@@ -503,7 +503,7 @@ srv6_adjacency_sid_config_handler
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
+    vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
     Interface *intf = node_interface_lookup_by_name(node, (const char *)oif_name);
 
     if (!intf) {
@@ -618,7 +618,8 @@ srv6_adjacency_sid_config_handler
                                         &adjsid->sid,
                                         adjsid->prefix_len,
                                         FIB_NH_FWD_F_SRv6_FORWARD,
-                                        &adjsid->gw, intf,
+                                        &adjsid->gw, 
+                                        intf->ifindex,
                                         NULL, 0, 
                                         endpCode,
                                         RTM_PROTO_STATIC, true);
@@ -674,7 +675,8 @@ srv6_adjacency_sid_config_handler
                                         &adjsid->sid,
                                         adjsid->prefix_len,
                                         FIB_NH_FWD_F_SRv6_FORWARD,
-                                        &adjsid->gw, intf,
+                                        &adjsid->gw, 
+                                        intf->ifindex,
                                         NULL, 0, 
                                         endpCode,
                                         RTM_PROTO_STATIC, false);
@@ -756,7 +758,7 @@ srv6_end_b6_encaps_config_handler
     } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
-    vrf_t *vrf = vrf_get_by_name(node, vrf_name);
+    vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
 
     switch (enable_or_disable) {
 
@@ -813,6 +815,7 @@ srv6_end_dt4_sid_config_handler(int64_t cmdcode,
     c_string vrf_name = NULL;
     c_string vrf_name2 = NULL;
     c_string ipv6_addr = NULL;
+
     pool_error_codes_t prc = SRv6_POOL_OK;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
@@ -923,42 +926,16 @@ srv6_end_dt4_sid_config_handler(int64_t cmdcode,
 
             mnode->data = (void *)pfxsid;
 
-            /* Now look for DT4 steering interface for steered vrf*/
-            def_vrf_t *def_vrf = (def_vrf_t *)vrf;
-
-            /* Lookup def_vrf->dt4_intf_by_vrf using vrf_id as key*/
-            if (!def_vrf->dt4_intf_by_vrf) {
-
-                def_vrf->dt4_intf_by_vrf =  
-                    new std::unordered_map<uint8_t, SRv6EndPointEND_DT4_Egress_Interface*>();  
-            }
-
-            auto it = def_vrf->dt4_intf_by_vrf->find(vrf->vrf_id);
-            SRv6EndPointEND_DT4_Egress_Interface *dt4_intf = nullptr;
-
-            if (it != def_vrf->dt4_intf_by_vrf->end()) {
-                dt4_intf = it->second;
-            }
-
-            if (dt4_intf == NULL) {
-
-                /* Create a new SRv6EndPointEND_DT4InterfaceP and insert it into map */
-                dt4_intf = new SRv6EndPointEND_DT4_Egress_Interface(steered_vrf);
-                dt4_intf->ifindex = interface_get_new_ifindex(node);
-                def_vrf->dt4_intf_by_vrf->insert({steered_vrf->vrf_id, dt4_intf});
-                cp2dp_interface_create(node, dt4_intf);
-                cp2dp_vrf_add_interface(node, vrf->vrf_id, dt4_intf->ifindex);
-                cp2dp_srv6_dt4_intf_steered_vrf(node, dt4_intf, true);
-            } 
-
-            /* dt4_intf is to be used by this sid, increase ref count */
-            dt4_intf->inc_ref_count(1);
+            /* Disguide steered vrf VRF in GW ip */
+            ipv6_addr_t gw_addr = {};
+            gw_addr.addr[0] = steered_vrf->vrf_id;;
 
             srv6_rtm_route_install(vrf,
                                    &pfxsid->sid,
                                    pfxsid->prefix_len,
                                    FIB_NH_FWD_F_SRv6_FORWARD,
-                                   0, (Interface *)dt4_intf,
+                                   &gw_addr,
+                                   SRv6_TO_VRF_INTF_STEER_IFINDEX,
                                    NULL, 0,
                                    pfxsid->endP,
                                    RTM_PROTO_STATIC, true);
@@ -1010,44 +987,22 @@ srv6_end_dt4_sid_config_handler(int64_t cmdcode,
                     return -1;
             }
 
-            /* Decrement the ref count on the DT4 steering interface for the
-             * steered VRF. When the last SID referencing it is removed, tear
-             * the interface down completely. */
-            def_vrf_t *def_vrf = (def_vrf_t *)vrf;
-            auto it = def_vrf->dt4_intf_by_vrf->find(steered_vrf->vrf_id);
-
-            SRv6EndPointEND_DT4_Egress_Interface *dt4_intf = it->second;
-
             /* Uninstall the route that was pointing at this DT4 SID */
+            ipv6_addr_t gw_addr = {};
+            gw_addr.addr[0] = steered_vrf->vrf_id;
+
             srv6_rtm_route_install(vrf,
                                    &pfxsid->sid,
                                    pfxsid->prefix_len,
                                    FIB_NH_FWD_F_SRv6_FORWARD,
-                                   0, (Interface *)dt4_intf,
-                                   NULL, 0,
+                                   &gw_addr,
+                                   SRv6_TO_VRF_INTF_STEER_IFINDEX,
+                                   NULL, 
+                                   0,
                                    pfxsid->endP,
                                    RTM_PROTO_STATIC, false);
 
             XFREE(pfxsid);   
-
-            uint16_t remaining = dt4_intf->inc_ref_count(-1);
-
-            if (remaining == 0) {
-
-                /* Notify the datapath to delete this interface */
-                cp2dp_srv6_dt4_intf_steered_vrf(node, dt4_intf, false);
-                cp2dp_vrf_delete_interface(node, vrf->vrf_id, dt4_intf->ifindex);
-                cp2dp_interface_delete(node, dt4_intf->ifindex);
-
-                /* Remove from map before deletion so no stale pointer remains */
-                def_vrf->dt4_intf_by_vrf->erase(it);
-                delete dt4_intf;
-
-                if (def_vrf->dt4_intf_by_vrf->empty()) {
-                    delete def_vrf->dt4_intf_by_vrf;
-                    def_vrf->dt4_intf_by_vrf = NULL;
-                }
-            }
         }
         break;
     }

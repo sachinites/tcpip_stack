@@ -830,34 +830,6 @@ cp2dp_send_rtr_id(node_t *node, uint32_t rtr_id) {
 
 
 void
-cp2dp_srv6_dt4_intf_steered_vrf(node_t *node, 
-                                Interface *intf, 
-                                bool add) {
-
-    dp_msg_t *dp_msg;
-    dp_intf_cp2dp_msg_hdr_t *intf_msg;
-
-    dp_msg = cp2dp_msg_alloc();
-    dp_msg->component_type = INTF_TABLE;
-    dp_msg->opr_type = DP_UPDATE;
-    dp_msg->flags = 0;
-    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t);
-    dp_msg->vrf_id = DEFAULT_VRF;
-
-    SRv6EndPointEND_DT4_Egress_Interface *dt4_intf = 
-        dynamic_cast<SRv6EndPointEND_DT4_Egress_Interface *>(intf);
-
-    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
-    intf_msg->port_id = intf->ifindex;
-    intf_msg->vlan_id = add ? dt4_intf->vrf->vrf_id : UINT32_MAX;
-    intf_msg->iftype = (uint32_t)intf->iftype;
-    intf_msg->update_code = CP2DP_CODE_DT4_INTF_STEER_VRF_BIND;
-
-    cp2dp_submit(node, dp_msg, true);
-}
-
-
-void
 cp2dp_send_switchport_intf_access (node_t *node, Interface *intf, bool add) {
 
     dp_msg_t *dp_msg;

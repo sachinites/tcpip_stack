@@ -328,9 +328,10 @@ fn_template(srv6_END_DT4) {
     
     assert (pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_IP_IN_IP);
 
-    layer3_ip_route_pkt(dp_ctx, 
-        nexthop->fwd_info->oif->srv6_data.steered_dt4_vrf,
-        NULL, mbuf);
+    dp_vrf_t *x_connect_vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, nexthop->fwd_info->xconnect_id);
+    if (!vrf) return;
+
+    layer3_ip_route_pkt(dp_ctx, x_connect_vrf, NULL, mbuf);
 }
 
 fn_template(srv6_END_DT46) {

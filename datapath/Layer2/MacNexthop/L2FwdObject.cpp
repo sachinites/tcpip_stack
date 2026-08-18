@@ -4,9 +4,14 @@
 #include <string.h>
 #include "L2FwdObject.h"
 #include "../../Interface/dp_intf.h"
+#include "../../Interface/dp_intf_store.h"
 #include "../../dp_ctx.h"
 #include "../../../libs/common/mpls_lstack.h"
+#include "../../../libs/common/l2_hdrs.h"
 #include "../../../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../../../libs/pkt-block/pkt_mbuf.h"
+#include "../vxlan/vlan_vni_ht.h"
+#include "../../../tcpconst.h"
 
 static int
 l2_fwd_cmp_u32 (uint32_t a, uint32_t b)
@@ -27,79 +32,124 @@ l2_fwd_cmp_ptr (const void *a, const void *b)
     return 0;
 }
 
-extern void 
-dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, 
-                struct rte_mbuf *mbuf, dp_intf_t *pintf);
+extern void
+dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf,
+                struct rte_mbuf *mbuf, uint32_t ctx);
 
-static void 
-l2_flood_forwarding (dp_ctx_t *dp_ctx, 
-                    mac_fwd_object_t *fwd_obj, 
+static dp_intf_t *
+l2_fwd_resolve_port (dp_ctx_t *dp_ctx, uint32_t ifindex)
+{
+    if (ifindex >= DP_MAX_INTF)
+        return NULL;
+    return dp_ctx->intf_table[ifindex];
+}
+
+static void
+l2_flood_forwarding (dp_ctx_t *dp_ctx,
+                    mac_fwd_object_t *fwd_obj,
                     struct rte_mbuf *mbuf) {
 
     assert (fwd_obj->fwd_type == L2_FWD_FLOODING);
-
-    assert (fwd_obj->u.l2_flood.vfif->if_type == DP_INTF_TYPE_VLAN_FLOOD || 
+    assert (fwd_obj->u.l2_flood.vfif);
+    assert (fwd_obj->u.l2_flood.vfif->if_type == DP_INTF_TYPE_VLAN_FLOOD ||
             fwd_obj->u.l2_flood.vfif->if_type == DP_INTF_TYPE_BD_FLOOD);
 
-    assert  ( 
-             fwd_obj->u.l2_flood.vlan_bd_port == NULL ||  /* For vlan flooding we pass NULL (which needs to be corrected )*/
-             fwd_obj->u.l2_flood.vlan_bd_port->if_type == DP_INTF_TYPE_VLAN_FLOOD ||
-             fwd_obj->u.l2_flood.vlan_bd_port->if_type == DP_INTF_TYPE_BD_FLOOD
-            );
-
-    dp_send_pkt_out(dp_ctx, fwd_obj->u.l2_flood.vfif, 
-                    mbuf, 
+    dp_send_pkt_out(dp_ctx, fwd_obj->u.l2_flood.vfif,
+                    mbuf,
                     fwd_obj->u.l2_flood.vlan_bd_port);
 }
 
-static void 
-l2_mpls_tunnel_forwarding (dp_ctx_t *dp_ctx, 
-                           mac_fwd_object_t *fwd_obj, 
+static void
+l2_mpls_tunnel_forwarding (dp_ctx_t *dp_ctx,
+                           mac_fwd_object_t *fwd_obj,
                            struct rte_mbuf *mbuf) {
 
+    (void)dp_ctx;
+    (void)mbuf;
     assert (fwd_obj->fwd_type == L2_FWD_MPLS_TUNNEL);
 
     assert (fwd_obj->u.lbl_stk);
 
-    /* ToDo : 
+    /* ToDo :
         Resolve top Label in Lbl Stack from MPLS FIB to know
-        Nexthop and egress physical interface 
-        Merge the Label list in into pkt, and pass it down to L2 for forwarding    
+        Nexthop and egress physical interface
+        Merge the Label list in into pkt, and pass it down to L2 for forwarding
     */
 }
 
-static void 
-l2_srv6_tunnel_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj, 
+static void
+l2_srv6_tunnel_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
                            struct rte_mbuf *mbuf) {
 
+    (void)dp_ctx;
+    (void)mbuf;
     assert (fwd_obj->fwd_type == L2_FWD_SRv6_TUNNEL);
 
     assert (fwd_obj->u.srv6.seg_lst_cnt);
 
-    /* ToDo : 
+    /* ToDo :
         Resolve top Segment in Segment List from ipv6 FIB to know
-        Nexthop and egress physical interface 
-        Merge the Segment list into pkt, and pass it down to L2 for forwarding    
+        Nexthop and egress physical interface
+        Merge the Segment list into pkt, and pass it down to L2 for forwarding
     */
 }
 
-static void 
-l2_vxlan_tunnel_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj, 
+static void
+l2_vxlan_tunnel_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
                             struct rte_mbuf *mbuf) {
 
+    uint32_t vni;
+    dp_intf_t *nve;
+    pkt_mbuf_pvt_data_t *pvt_data;
+    pkt_mbuf_encap_meta_data_t *encap_data;
 
+    assert (fwd_obj->fwd_type == L2_FWD_VxLAN);
+
+    nve = DP_NVE_INTF(dp_ctx);
+    if (!nve) {
+        dp_ctx->pkt_dropped++;
+        return;
+    }
+
+    vni = fwd_obj->u.vxlan.l2vni;
+    if (!vni) {
+        ethernet_hdr_t *eth =
+            (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, NULL);
+        vlan_8021q_hdr_t *vlan_hdr = eth ? is_pkt_vlan_tagged(eth) : NULL;
+        if (vlan_hdr)
+            vni = vlan_vni_ht_vlan_to_vni_lookup(dp_ctx,
+                                                 (uint16_t)TCI_VID(vlan_hdr->tci));
+    }
+
+    if (!vni || !fwd_obj->u.vxlan.vtep_ip) {
+        dp_ctx->pkt_dropped++;
+        return;
+    }
+
+    encap_data = (pkt_mbuf_encap_meta_data_t *)XCALLOC2(0, 1, pkt_mbuf_encap_meta_data_t);
+    encap_data->u.vxlan.vni = vni;
+    encap_data->u.vxlan.remote_vtep_ip = fwd_obj->u.vxlan.vtep_ip;
+
+    pvt_data = pkt_mbuf_get_pvt_data(mbuf);
+    if (pvt_data->encap_data)
+        XFREE(pvt_data->encap_data);
+    pvt_data->encap_data = encap_data;
+
+    dp_send_pkt_out(dp_ctx, nve, mbuf, 0);
 }
 
-static void 
-l2_steer_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj, 
+static void
+l2_steer_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
                             struct rte_mbuf *mbuf) {
 
-    assert (fwd_obj->fwd_type == L2_FWD_STEERING);               
+    (void)dp_ctx;
+    (void)mbuf;
+    assert (fwd_obj->fwd_type == L2_FWD_STEERING);
 
     switch (fwd_obj->u.steering.steering_type) {
 
         case STEER_INTO_VRF:
-            assert (fwd_obj->u.steering.u_steer.steered_obj_ifindex );  
+            assert (fwd_obj->u.steering.u_steer.steered_obj_ifindex );
             break;
         case STEER_INTO_BD:
             assert (fwd_obj->u.steering.u_steer.steered_obj_ifindex );
@@ -107,85 +157,50 @@ l2_steer_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
         default:
             assert(0);
     }
-
-
 }
 
-static void 
+static void
 l2_port_forwarding (dp_ctx_t *dp_ctx,
-                    mac_fwd_object_t *fwd_obj, 
+                    mac_fwd_object_t *fwd_obj,
                     struct rte_mbuf *mbuf) {
 
-    /* This can branch out further depending on interface type */
+    dp_intf_t *oif;
+    dp_intf_t *ingress;
 
-    /* This function is valid only for L2 forwarding objects which can
-        be represented by single port alone */
     assert (fwd_obj->fwd_type == L2_FWD_PORT);
 
-    switch (fwd_obj->u.dp_intf->if_type) {
+    oif = l2_fwd_resolve_port(dp_ctx, fwd_obj->u.dp_intf);
+    if (!oif)
+        return;
 
-        case DP_INTF_TYPE_PHY:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;
-        case DP_INTF_TYPE_VLAN:
-            /* For legacy reasons, flooding in the vlan is done by a forwarding
-                object which is represented by single port alone. Unlike Vlans,
-                NEw Implementation of BD uses two Interfaces : vfif and bd_intf_t*/
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;
-        case DP_INTF_TYPE_GRE_TUNNEL:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;
-        case DP_INTF_TYPE_LOOPBACK:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;
-        case DP_INTF_TYPE_VIRTUAL_PORT:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;
-        case DP_INTF_TYPE_RMAC:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;        
-        case DP_INTF_TYPE_VLAN_FLOOD:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;                 
-        case DP_INTF_TYPE_NVE:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;               
-        case DP_INTF_TYPE_SRv6_DT4_STEER:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;               
-        case DP_INTF_TYPE_VPNV4_STEER:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;     
-        case DP_INTF_TYPE_AC:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;              
-        case DP_INTF_TYPE_BD:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;          
-        case DP_INTF_TYPE_BD_FLOOD:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;                 
-        case DP_INTF_TYPE_BD_RMAC:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;    
-        case DP_INTF_TYPE_L2VPN_EVPN_STEER:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;               
-        case DP_INTF_TYPE_HOST_PATH:
-            dp_send_pkt_out(dp_ctx, fwd_obj->u.dp_intf, mbuf, 0);
-            break;          
-        case DP_INTF_TYPE_UNKNOWN:
-        default:
-            break;
-    }
+    ingress = pkt_mbuf_get_ingress_intf(mbuf);
+    if (oif == ingress)
+        return;
 
+    dp_send_pkt_out(dp_ctx, oif, mbuf, 0);
+}
+
+static void
+l2_rmac_forwarding (dp_ctx_t *dp_ctx,
+                    mac_fwd_object_t *fwd_obj,
+                    struct rte_mbuf *mbuf) {
+
+    dp_intf_t *rmac;
+
+    assert (fwd_obj->fwd_type == L2_FWD_RMAC);
+
+    rmac = DP_RMAC_INTF(dp_ctx);
+    if (!rmac)
+        return;
+
+    dp_send_pkt_out(dp_ctx, rmac, mbuf, 0);
 }
 
 /* Maintained in the order of L2_FWD_TYPE_T enums */
-static l2_fwding_ptr l2_fwding[] = 
+static l2_fwding_ptr l2_fwding[] =
  {
     l2_port_forwarding,
+    l2_rmac_forwarding,
     l2_flood_forwarding,
     l2_mpls_tunnel_forwarding,
     l2_srv6_tunnel_forwarding,
@@ -194,17 +209,23 @@ static l2_fwding_ptr l2_fwding[] =
     0
  };
 
-void 
+void
 dp_l2fwd (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj, struct rte_mbuf *mbuf) {
+
+    if (!fwd_obj || fwd_obj->fwd_type >= L2_FWD_MAX)
+        return;
+
+    if (!l2_fwding[fwd_obj->fwd_type])
+        return;
 
     (l2_fwding[fwd_obj->fwd_type])(dp_ctx, fwd_obj, mbuf);
 }
 
 /* L2 Forwarding Object Mgmt */
 
-static int 
+static int
 L2_forward_object_comp_fb (
-        const avltree_node_t *node1, 
+        const avltree_node_t *node1,
         const avltree_node_t *node2) {
 
     int rc;
@@ -220,13 +241,16 @@ L2_forward_object_comp_fb (
     switch (o1->fwd_type) {
 
         case L2_FWD_PORT:
-            return l2_fwd_cmp_ptr(o1->u.dp_intf, o2->u.dp_intf);
+            return l2_fwd_cmp_u32(o1->u.dp_intf, o2->u.dp_intf);
+
+        case L2_FWD_RMAC:
+            return 0;
 
         case L2_FWD_FLOODING:
             rc = l2_fwd_cmp_ptr(o1->u.l2_flood.vfif, o2->u.l2_flood.vfif);
             if (rc)
                 return rc;
-            return l2_fwd_cmp_ptr(o1->u.l2_flood.vlan_bd_port,
+            return l2_fwd_cmp_u32(o1->u.l2_flood.vlan_bd_port,
                                   o2->u.l2_flood.vlan_bd_port);
 
         case L2_FWD_MPLS_TUNNEL:
@@ -248,10 +272,6 @@ L2_forward_object_comp_fb (
         case L2_FWD_STEERING:
             rc = l2_fwd_cmp_u32(o1->u.steering.steering_type,
                                 o2->u.steering.steering_type);
-            if (rc)
-                return rc;
-            rc = l2_fwd_cmp_ptr(o1->u.steering.u_steer.steered_obj_ifindex,
-                                o2->u.steering.u_steer.steered_obj_ifindex);
             if (rc)
                 return rc;
             return l2_fwd_cmp_u32(o1->u.steering.u_steer.steered_obj_ifindex,
@@ -319,6 +339,9 @@ mac_fwd_object_copy_union (mac_fwd_object_t *dst, mac_fwd_object_t *src)
             dst->u.dp_intf = src->u.dp_intf;
             break;
 
+        case L2_FWD_RMAC:
+            break;
+
         case L2_FWD_FLOODING:
             dst->u.l2_flood.vfif = src->u.l2_flood.vfif;
             dst->u.l2_flood.vlan_bd_port = src->u.l2_flood.vlan_bd_port;
@@ -349,8 +372,8 @@ mac_fwd_object_copy_union (mac_fwd_object_t *dst, mac_fwd_object_t *src)
 
         case L2_FWD_STEERING:
             dst->u.steering.steering_type = src->u.steering.steering_type;
-            dst->u.steering.u_steer.steered_obj_ifindex = src->u.steering.u_steer.steered_obj_ifindex;
-            dst->u.steering.u_steer.steered_obj_ifindex = src->u.steering.u_steer.steered_obj_ifindex;
+            dst->u.steering.u_steer.steered_obj_ifindex =
+                src->u.steering.u_steer.steered_obj_ifindex;
             break;
 
         case L2_FWD_MAX:
@@ -417,9 +440,79 @@ mac_fwd_object_dereference (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj)
     if (fwd_obj->ref_count)
         return;
 
-    
+
     assert(avltree_remove(&fwd_obj->glue, dp_ctx->l2_fwd_obj_tree[fwd_obj->fwd_type]));
     mac_fwd_object_free_owned(fwd_obj);
     XFREE(fwd_obj);
 }
 
+void
+dp_mac_fwd_object_init_from_oif (dp_ctx_t *dp_ctx,
+                                 mac_fwd_object_t *tmpl,
+                                 dp_intf_t *oif,
+                                 uint32_t remote_dst_ip,
+                                 uint16_t vlan_id)
+{
+    assert(tmpl && oif);
+    memset(tmpl, 0, sizeof(*tmpl));
+    avltree_node_init(&tmpl->glue);
+
+    if (oif->if_type == DP_INTF_TYPE_NVE && remote_dst_ip) {
+        tmpl->fwd_type = L2_FWD_VxLAN;
+        tmpl->u.vxlan.vtep_ip = remote_dst_ip;
+        if (vlan_id && vlan_id != DEFAULT_VLAN_ID)
+            tmpl->u.vxlan.l2vni = vlan_vni_ht_vlan_to_vni_lookup(dp_ctx, vlan_id);
+        return;
+    }
+
+    if (oif->if_type == DP_INTF_TYPE_VLAN_FLOOD ||
+        oif->if_type == DP_INTF_TYPE_BD_FLOOD) {
+        tmpl->fwd_type = L2_FWD_FLOODING;
+        tmpl->u.l2_flood.vfif = oif;
+        tmpl->u.l2_flood.vlan_bd_port = 0;
+        return;
+    }
+
+    if (oif->if_type == DP_INTF_TYPE_RMAC) {
+        tmpl->fwd_type = L2_FWD_RMAC;
+        return;
+    }
+
+    tmpl->fwd_type = L2_FWD_PORT;
+    tmpl->u.dp_intf = oif->port_id;
+}
+
+mac_fwd_object_t *
+dp_l2fwd_object_acquire (dp_ctx_t *dp_ctx, mac_fwd_object_t *tmplate)
+{
+    avltree_t *tree;
+    mac_fwd_object_t *found;
+    mac_fwd_object_t *obj;
+
+    if (!dp_ctx || !tmplate || tmplate->fwd_type >= L2_FWD_MAX)
+        return NULL;
+
+    tree = dp_ctx->l2_fwd_obj_tree[tmplate->fwd_type];
+    found = dp_ctx_lookup_mac_fwd_object(tree, tmplate);
+    if (found) {
+        mac_fwd_object_reference(found);
+        return found;
+    }
+
+    obj = mac_fwd_object_clone(tmplate, NULL);
+    if (!obj)
+        return NULL;
+
+    if (!dp_ctx_insert_fwd_object(tree, obj)) {
+        found = dp_ctx_lookup_mac_fwd_object(tree, tmplate);
+        mac_fwd_object_free_owned(obj);
+        XFREE(obj);
+        if (!found)
+            return NULL;
+        mac_fwd_object_reference(found);
+        return found;
+    }
+
+    mac_fwd_object_reference(obj);
+    return obj;
+}

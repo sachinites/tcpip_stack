@@ -109,8 +109,6 @@ typedef struct dp_intf_log_update_ {
 
 // code to bind steering vrf with dt4 interfaces, it has no
 //  structure, dp_intf_cp2dp_msg_hdr_t will contain all info required
-#define CP2DP_CODE_DT4_INTF_STEER_VRF_BIND 16
-#define CP2DP_CODE_VPNV4_INTF_STEER_VRF_BIND 17
 
 // use dp_intf_boolean_property_t
 #define CP2DP_CODE_INTF_ACCESS_MODE           18

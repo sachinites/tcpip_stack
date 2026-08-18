@@ -30,6 +30,7 @@
 #include "../../../libs/Tracer/tracer.h"
 #include "../../../libs/gluethread/glthread.h"
 #include "../../dp_uapi.h"
+#include "../MacNexthop/L2FwdObject.h"
 
 extern int cprintf(const char *format, ...);
 
@@ -49,7 +50,8 @@ static void
 mac_entry_gc_free_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
 {
     mac_table_entry_t *entry = (mac_table_entry_t *)arg;
-    mac_table_entry_clear_oifs(entry);
+    dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
+    mac_table_entry_clear_oifs(dp_ctx, entry);
     XFREE(entry);
 }
 
@@ -118,7 +120,7 @@ destroy_mac_table(dp_ctx_t *dp_ctx, mac_table_t *mac_table)
     void *data;
     while (rte_hash_iterate(mac_table->hash, &key, &data, &next) >= 0) {
         mac_table_entry_t *entry = (mac_table_entry_t *)data;
-        mac_table_entry_clear_oifs(entry);
+        mac_table_entry_clear_oifs(dp_ctx, entry);
         XFREE(entry);
     }
     rte_hash_free(mac_table->hash);
@@ -183,7 +185,7 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     if (existing) {
 
         /* Entry already present: just add the new OIF if absent. */
-        if (mac_table_entry_add_oif(existing, oif, remote_dst_ip)) {
+        if (mac_table_entry_add_oif(dp_ctx, existing, oif, remote_dst_ip, vlan_id)) {
             tracer(dp_ctx->dptr, DL2SW,
                    "MAC Table Entry [%d %02x:%02x:%02x:%02x:%02x:%02x]: OIF %s added\n",
                    vlan_id,
@@ -206,7 +208,7 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     memcpy(entry->mac.mac, mac_addr, sizeof(mac_addr_t));
     entry->flags = flags;
     init_glthread(&entry->oif_list);
-    mac_table_entry_add_oif(entry, oif, remote_dst_ip);
+    mac_table_entry_add_oif(dp_ctx, entry, oif, remote_dst_ip, vlan_id);
 
     /* No per-entry timer; GC is handled by the global scan timer. */
     mac_table_key_t key = { .vlan_id = vlan_id };
@@ -252,7 +254,7 @@ mac_table_entry_delete(dp_ctx_t *dp_ctx,
     mac_table_entry_t *entry = mac_table_lookup(mac_table, vlan_id, mac_addr);
     if (!entry) return;
 
-    mac_table_entry_remove_oif(entry, oif->port_id, remote_dst_ip);
+    mac_table_entry_remove_oif(dp_ctx, entry, oif, remote_dst_ip, vlan_id);
 
     if (!mac_table_entry_has_oifs(entry)) {
         mac_table_key_t key = { .vlan_id = vlan_id };
@@ -326,36 +328,66 @@ mac_table_delete_all_dynamic(dp_ctx_t *dp_ctx, mac_table_t *mac_table)
 
 
 static char *
-mac_table_entry_append_oifs(mac_table_entry_t *entry,
+mac_table_entry_append_oifs(dp_ctx_t *dp_ctx, mac_table_entry_t *entry,
                              char *buffer, uint16_t buff_size)
 {
     uint16_t len = 0;
     glthread_t *curr;
     mac_oif_entry_t *oif_entry;
+    mac_fwd_object_t *fwd_obj;
 
     memset(buffer, 0, buff_size);
 
     ITERATE_GLTHREAD_BEGIN(&entry->oif_list, curr) {
         oif_entry = mac_oif_glue_to_entry(curr);
-        if (!oif_entry->oif) continue;
+        fwd_obj = oif_entry->fwd_obj;
+        if (!fwd_obj) continue;
 
-        len += snprintf(buffer + len, buff_size - len, "%s", oif_entry->oif->if_name);
+        switch (fwd_obj->fwd_type) {
 
-        if (oif_entry->remote_dst_ip) {
-            len += snprintf(buffer + len, buff_size - len, "(%d.%d.%d.%d)",
-                            (oif_entry->remote_dst_ip >> 24) & 0xFF,
-                            (oif_entry->remote_dst_ip >> 16) & 0xFF,
-                            (oif_entry->remote_dst_ip >>  8) & 0xFF,
-                            (oif_entry->remote_dst_ip)       & 0xFF);
+            case L2_FWD_PORT: {
+                dp_intf_t *oif = (fwd_obj->u.dp_intf < DP_MAX_INTF) ?
+                    dp_ctx->intf_table[fwd_obj->u.dp_intf] : NULL;
+                if (oif)
+                    len += snprintf(buffer + len, buff_size - len, "%s ", oif->if_name);
+                else
+                    len += snprintf(buffer + len, buff_size - len, "if%u ",
+                                    fwd_obj->u.dp_intf);
+                break;
+            }
+
+            case L2_FWD_RMAC:
+                len += snprintf(buffer + len, buff_size - len, "rmac ");
+                break;
+
+            case L2_FWD_FLOODING:
+                if (fwd_obj->u.l2_flood.vfif)
+                    len += snprintf(buffer + len, buff_size - len, "%s ",
+                                    fwd_obj->u.l2_flood.vfif->if_name);
+                break;
+
+            case L2_FWD_VxLAN:
+                len += snprintf(buffer + len, buff_size - len,
+                                "nve(vni %u %d.%d.%d.%d) ",
+                                fwd_obj->u.vxlan.l2vni,
+                                (fwd_obj->u.vxlan.vtep_ip >> 24) & 0xFF,
+                                (fwd_obj->u.vxlan.vtep_ip >> 16) & 0xFF,
+                                (fwd_obj->u.vxlan.vtep_ip >>  8) & 0xFF,
+                                (fwd_obj->u.vxlan.vtep_ip)       & 0xFF);
+                break;
+
+            default:
+                len += snprintf(buffer + len, buff_size - len, "fwd-%u ",
+                                (unsigned)fwd_obj->fwd_type);
+                break;
         }
-        len += snprintf(buffer + len, buff_size - len, " ");
     } ITERATE_GLTHREAD_END(&entry->oif_list, curr);
 
     return buffer;
 }
 
 void
-show_mac_table(mac_table_t *mac_table, uint16_t vlan_id)
+show_mac_table(dp_ctx_t *dp_ctx, mac_table_t *mac_table, uint16_t vlan_id)
 {
     if (!mac_table || !mac_table->hash) return;
 
@@ -399,7 +431,7 @@ show_mac_table(mac_table_t *mac_table, uint16_t vlan_id)
                     idle_str);
         }
 
-        mac_table_entry_append_oifs(entry, buffer, sizeof(buffer));
+        mac_table_entry_append_oifs(dp_ctx, entry, buffer, sizeof(buffer));
         cprintf("       Ports: %s\n\n", buffer);
     }
 
@@ -411,49 +443,69 @@ show_mac_table(mac_table_t *mac_table, uint16_t vlan_id)
  * ---------------------------------------------------------------------- */
 
 mac_oif_entry_t *
-mac_oif_entry_create(dp_intf_t *oif, uint32_t remote_dst_ip)
+mac_oif_entry_create(mac_fwd_object_t *fwd_obj)
 {
     mac_oif_entry_t *e = (mac_oif_entry_t *)XCALLOC2(0, 1, mac_oif_entry_t);
-    e->oif = oif;
-    e->remote_dst_ip = remote_dst_ip;
+    e->fwd_obj = fwd_obj;
     init_glthread(&e->glue);
     return e;
 }
 
 void
-mac_oif_entry_destroy(mac_oif_entry_t *oif_entry)
+mac_oif_entry_destroy(dp_ctx_t *dp_ctx, mac_oif_entry_t *oif_entry)
 {
     if (oif_entry) {
+        if (oif_entry->fwd_obj)
+            mac_fwd_object_dereference(dp_ctx, oif_entry->fwd_obj);
         remove_glthread(&oif_entry->glue);
         XFREE(oif_entry);
     }
 }
 
 bool
-mac_table_entry_add_oif(mac_table_entry_t *mac_entry,
-                        dp_intf_t *oif, uint32_t remote_dst_ip)
+mac_table_entry_add_oif(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_entry,
+                        dp_intf_t *oif, uint32_t remote_dst_ip,
+                        uint16_t vlan_id)
 {
+    mac_fwd_object_t tmpl;
+    mac_fwd_object_t *fwd_obj;
+    mac_oif_entry_t *existing;
+    mac_oif_entry_t *e;
+
     if (!mac_entry || !oif) return false;
 
-    mac_oif_entry_t *existing =
-        mac_table_entry_find_oif(mac_entry, oif->port_id, remote_dst_ip);
+    dp_mac_fwd_object_init_from_oif(dp_ctx, &tmpl, oif, remote_dst_ip, vlan_id);
+
+    existing = mac_table_entry_find_oif(mac_entry,
+        dp_ctx_lookup_mac_fwd_object(dp_ctx->l2_fwd_obj_tree[tmpl.fwd_type], &tmpl));
     if (existing) return false;
 
-    mac_oif_entry_t *e = mac_oif_entry_create(oif, remote_dst_ip);
+    fwd_obj = dp_l2fwd_object_acquire(dp_ctx, &tmpl);
+    if (!fwd_obj) return false;
+
+    e = mac_oif_entry_create(fwd_obj);
     glthread_add_next(&mac_entry->oif_list, &e->glue);
     return true;
 }
 
 bool
-mac_table_entry_remove_oif(mac_table_entry_t *mac_entry,
-                           uint32_t ifindex, uint32_t remote_dst_ip)
+mac_table_entry_remove_oif(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_entry,
+                           dp_intf_t *oif, uint32_t remote_dst_ip,
+                           uint16_t vlan_id)
 {
-    if (!mac_entry) return false;
+    mac_fwd_object_t tmpl;
+    mac_fwd_object_t *fwd_obj;
+    mac_oif_entry_t *e;
 
-    mac_oif_entry_t *e =
-        mac_table_entry_find_oif(mac_entry, ifindex, remote_dst_ip);
+    if (!mac_entry || !oif) return false;
+
+    dp_mac_fwd_object_init_from_oif(dp_ctx, &tmpl, oif, remote_dst_ip, vlan_id);
+    fwd_obj = dp_ctx_lookup_mac_fwd_object(dp_ctx->l2_fwd_obj_tree[tmpl.fwd_type], &tmpl);
+    if (!fwd_obj) return false;
+
+    e = mac_table_entry_find_oif(mac_entry, fwd_obj);
     if (e) {
-        mac_oif_entry_destroy(e);
+        mac_oif_entry_destroy(dp_ctx, e);
         return true;
     }
     return false;
@@ -461,18 +513,16 @@ mac_table_entry_remove_oif(mac_table_entry_t *mac_entry,
 
 mac_oif_entry_t *
 mac_table_entry_find_oif(mac_table_entry_t *mac_entry,
-                         uint32_t ifindex, uint32_t remote_dst_ip)
+                         mac_fwd_object_t *fwd_obj)
 {
-    if (!mac_entry) return NULL;
+    if (!mac_entry || !fwd_obj) return NULL;
 
     glthread_t *curr;
     mac_oif_entry_t *e;
 
     ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
         e = mac_oif_glue_to_entry(curr);
-        if (e->oif &&
-            e->oif->port_id == ifindex &&
-            e->remote_dst_ip == remote_dst_ip)
+        if (e->fwd_obj == fwd_obj)
             return e;
     } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
 
@@ -487,7 +537,7 @@ mac_table_entry_has_oifs(mac_table_entry_t *mac_entry)
 }
 
 void
-mac_table_entry_clear_oifs(mac_table_entry_t *mac_entry)
+mac_table_entry_clear_oifs(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_entry)
 {
     if (!mac_entry) return;
 
@@ -496,6 +546,6 @@ mac_table_entry_clear_oifs(mac_table_entry_t *mac_entry)
 
     ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
         e = mac_oif_glue_to_entry(curr);
-        mac_oif_entry_destroy(e);
+        mac_oif_entry_destroy(dp_ctx, e);
     } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
 }

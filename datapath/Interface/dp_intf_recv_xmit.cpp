@@ -47,7 +47,7 @@
 
 typedef int (*SendPacketOut_fptr)(
             dp_ctx_t *, 
-            dp_intf_t *, struct rte_mbuf *, dp_intf_t *);
+            dp_intf_t *, struct rte_mbuf *, uint32_t);
 
 extern bool LinuxRtr;
 extern int cprintf (const char* format, ...);
@@ -348,7 +348,7 @@ dp_VlanPacketFlood (dp_intf_t *vlan_intf,
 }
 
 static int 
-PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
+PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
     if (intf->ac_intf) {
         /* Dont do any vlan checks if this is AC underlying interface */
@@ -366,14 +366,14 @@ PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mb
 }
 
 static int 
-VlanInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
+VlanInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
     dp_VlanPacketFlood (intf, mbuf, NULL);    
     return 0;
 }
 
 static int 
-GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
+GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
     pkt_size_t pkt_size;
     bool no_modify = false;
@@ -408,7 +408,7 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_m
 
 
 static int 
-VirtualPort_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
+VirtualPort_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
     pkt_size_t pkt_size;
 
@@ -433,7 +433,7 @@ VirtualPort_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mb
 
     intf->pkt_sent++;
 
-    dp_send_pkt_out(dp_ctx, intf->olay_tunnel_intf, mbuf, 0);
+    dp_send_pkt_out(dp_ctx, intf->olay_tunnel_intf, mbuf, (uint32_t)0);
     return 0;
 }
 
@@ -455,7 +455,7 @@ dp_xmit_ingress_bd_intf(struct rte_mbuf *mbuf)
 }
 
 static int
-BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf)
+BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx)
 {
     pkt_size_t pkt_size;
     ethernet_hdr_t *eth_hdr;
@@ -509,12 +509,12 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf
 }
 
 static int
-HostPathInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf)
+HostPathInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx)
 {
     (void)dp_ctx;
     (void)intf;
     (void)mbuf;
-    (void)pintf;
+    (void)ctx;
     return 0;
 }
 
@@ -550,7 +550,7 @@ dp_xmit_ingress_vlan_intf(dp_ctx_t *dp_ctx,
 }
 
 static int 
-RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
+RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
     pkt_size_t pkt_size;
     vlan_8021q_hdr_t *vlan_8021q_hdr = NULL;
@@ -605,14 +605,14 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
 }
 
 static int 
-LoopbackInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
+LoopbackInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
     
     /* black hole the pkt */
     return 0;
 }
 
 static int 
-NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf){
+NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
     pkt_size_t pkt_size;
     pkt_mbuf_pvt_data_t *pvt_data;
@@ -662,7 +662,7 @@ static int
 VlanFloodInterface_SendPacketOut(
     dp_ctx_t *dp_ctx,
     dp_intf_t *vfif_intf,
-    struct rte_mbuf *mbuf, dp_intf_t *pintf)
+    struct rte_mbuf *mbuf, uint32_t ctx)
 {
 
     dp_intf_t *exempt_intf = pkt_mbuf_get_ingress_intf(mbuf);
@@ -680,7 +680,7 @@ VlanFloodInterface_SendPacketOut(
     /* ToDo : Abhishek : Get rid of this look up in DP */
     dp_intf_t *vlan_intf  = exempt_intf->l2_mode == DP_LAN_ACCESS_MODE ?
                     exempt_intf->vlan_intf : \
-                    dp_look_up_interface_by_vlan_id (dp_ctx->dp_vlan_intf_ht, vlan_id);
+                    dp_look_up_interface_by_vlan_id (dp_ctx->dp_vlan_intf_ht, vlan_id); // This lookup forcing me to have an array of dp_intf_t indexed by vlan id
 
     if (!vlan_intf) return -1;
 
@@ -699,10 +699,10 @@ VlanFloodInterface_SendPacketOut(
     5. forward the pkt using fib entry.
 */
 static int 
-SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
+SRv6_Xconnect_VRF_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *intf, 
-        struct rte_mbuf *mbuf, dp_intf_t *pintf){
+        struct rte_mbuf *mbuf, uint32_t ctx){
 
     pkt_size_t pkt_size;
 
@@ -729,7 +729,7 @@ SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
     }
 
     /* Step 4: Resolve the VRF for the IPv4 FIB lookup */
-    dp_vrf_t *steered_vrf = intf->srv6_data.steered_dt4_vrf;
+    dp_vrf_t *steered_vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, ctx);
     if (!steered_vrf) {
         tracer(dp_ctx->dptr, DL3FWD | DERR,
             "SRv6 END.DT4: no steered VRF configured on interface %s, dropping\n",
@@ -756,22 +756,26 @@ SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut(
     Route the packet in Customer VRF (intf->steered_vpnv4_vrf)
 */
 static int 
-VPNv4_XConnect_SendPacketOut(
+MPLS_XConnect_VRF_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *intf, 
-        struct rte_mbuf *mbuf, dp_intf_t *pintf){
+        struct rte_mbuf *mbuf, uint32_t ctx){
 
     char ip_addr_str[IPV4_ADDR_LEN_STR];
 
     pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
-    assert (intf->if_type == DP_INTF_TYPE_VPNV4_STEER);
+    assert (intf->if_type == DP_INTF_TYPE_MPLS_TO_VRF_STEER);
     
+    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, ctx);
+
+    if (!vrf) return 0;
+
     tracer (dp_ctx->dptr, DL3FWD, 
         "VRF:%s: Dest : %s :  Pkt Context Switched from Def-vrf to VPN VRF\n",
-	    intf->steered_vpnv4_vrf->vrf_name,
+	    vrf->vrf_name,
         pkt_mbuf_ip(mbuf, ip_addr_str));
 
-    layer3_ip_route_pkt(dp_ctx, intf->steered_vpnv4_vrf, NULL, mbuf);
+    layer3_ip_route_pkt(dp_ctx, vrf, NULL, mbuf);
     return 0;
 }
 
@@ -779,19 +783,19 @@ extern int
 AC_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *intf, 
-        struct rte_mbuf *mbuf, dp_intf_t *pintf);
+        struct rte_mbuf *mbuf, uint32_t ctx);
 
 extern int 
 BD_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *bd_intf, 
-        struct rte_mbuf *mbuf, dp_intf_t *pintf);
+        struct rte_mbuf *mbuf, uint32_t ctx);
 
 extern int 
 BD_FloodPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *intf, 
-        struct rte_mbuf *mbuf, dp_intf_t *pintf);
+        struct rte_mbuf *mbuf, uint32_t ctx);
 
 
 /* This array is arranged in sequence of these enums : InterfaceType_t */
@@ -805,18 +809,20 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
         RmacInterface_SendPacketOut,
         VlanFloodInterface_SendPacketOut,
         NVEInterface_SendPacketOut,
-        SRv6EndPointEND_DT4InterfaceEgress_SendPacketOut,
-        VPNv4_XConnect_SendPacketOut,
         AC_SendPacketOut,
         BD_SendPacketOut,
         BD_FloodPacketOut,
         BDRmacInterface_SendPacketOut,
+        0,
+        MPLS_XConnect_VRF_SendPacketOut,
+        0,
+        SRv6_Xconnect_VRF_SendPacketOut,
         HostPathInterface_SendPacketOut,
         0,
     };
 
 void 
-dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf) {
+dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx) {
 
     if (intf->l3_acl_egress) {
 
@@ -836,7 +842,7 @@ dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_in
         "Sending out frame %s out of interface %s\n", 
         pkt_mbuf_str(mbuf), intf->if_name);
 
-    (intf_xmit_cbk[intf->if_type])(dp_ctx, intf, mbuf, pintf);
+    (intf_xmit_cbk[intf->if_type])(dp_ctx, intf, mbuf, ctx);
 }
 
 /* -------------------------------------------------- */
@@ -1016,7 +1022,7 @@ send_pkt_flood(dp_ctx_t *dp_ctx,
         if (intf == exempted_intf) {
             continue;
         }
-        dp_send_pkt_out(dp_ctx, intf, mbuf, 0);
+        dp_send_pkt_out(dp_ctx, intf, mbuf, (uint32_t)0);
 
     } DP_FOR_ALL_INTF_END;
     
@@ -1049,7 +1055,7 @@ void dp_pkt_xmit_intf_job_cbk(event_dispatcher_t *ev_dis,
             free(ev_dis_pkt_data);
             continue;
         }
-        dp_send_pkt_out(dp_ctx, dp_intf, mbuf, 0);
+        dp_send_pkt_out(dp_ctx, dp_intf, mbuf, (uint32_t)0);
         pkt_mbuf_dereference(mbuf);
         free(ev_dis_pkt_data);
     }

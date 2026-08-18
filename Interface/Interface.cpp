@@ -889,73 +889,6 @@ void VirtualInterface::PrintInterfaceDetails()
 }
 
 
-/**      Rmac Interface  */
-
-RmacInterface::RmacInterface() 
-    :VirtualInterface(std::string(RMAC_INTF_NAME), INTF_TYPE_RMAC) {}
-
-RmacInterface::~RmacInterface() {
-
-    InterfaceReleaseAllResources();
-}
-
-void RmacInterface::PrintInterfaceDetails () {}
-void RmacInterface::InterfaceReleaseAllResources() {}
-
-bool RmacInterface::IsCrossReferenced() {
-
-    return this->GetSharedPtr().use_count() > (RMAC_DEF_REFCOUNT + 1);
-}
-
-mac_addr_t *
-RmacInterface::GetMacAddr( ) {
-
-    return (NODE_RMAC(this->att_node));
-}
-
-/**      BDRmac Interface (stateless, shared across all bridge domains) */
-
-BDRmacInterface::BDRmacInterface()
-    :VirtualInterface(std::string(BDRMAC_INTF_NAME), INTF_TYPE_BD_RMAC) {}
-
-BDRmacInterface::~BDRmacInterface() {
-
-    InterfaceReleaseAllResources();
-}
-
-void BDRmacInterface::PrintInterfaceDetails () {}
-void BDRmacInterface::InterfaceReleaseAllResources() {}
-
-bool BDRmacInterface::IsCrossReferenced() {
-
-    return this->GetSharedPtr().use_count() > (BD_RMAC_DEF_REFCOUNT + 1);
-}
-
-mac_addr_t *
-BDRmacInterface::GetMacAddr( ) {
-
-    return (NODE_RMAC(this->att_node));
-}
-
-/* VlanFloodInterface */
-VlanFloodInterface::VlanFloodInterface()
-    : VirtualInterface(std::string(VLAN_FLOOD_INTF_NAME) , INTF_TYPE_VLAN_FLOOD) { }
-
-void
-VlanFloodInterface::InterfaceReleaseAllResources() {
-
-}
-
-VlanFloodInterface::~VlanFloodInterface() {
-
-    InterfaceReleaseAllResources();
-}
-
-bool VlanFloodInterface::IsCrossReferenced() {
-
-    return this->GetSharedPtr().use_count() > (VLAN_FLOOD_IF_DEF_REFCOUNT + 1);
-}
-
 /* ************ GRETunnelInterface ************ */
 GRETunnelInterface::GRETunnelInterface(uint32_t tunnel_id)
 
@@ -1929,62 +1862,6 @@ NVEInterface::IsCrossReferenced() {
 
     return this->GetSharedPtr().use_count() > (NVE_IF_DEF_REFCOUNT + 1);
 }
-
-
-/* SRv6 Interface Implementation */
-
-SRv6VirtualInterface::SRv6VirtualInterface(std::string ifname, InterfaceType_t iftype):
-    VirtualInterface(ifname, iftype)
-{
-
-}
-
-SRv6VirtualInterface::~SRv6VirtualInterface() {
-
-}
-
-/* SRv6 END.DT4 Interface Implementation */
-
-SRv6EndPointEND_DT4_Egress_Interface::SRv6EndPointEND_DT4_Egress_Interface(vrf_t *vrf):
-    SRv6VirtualInterface(
-            std::string("SRv6-DT4-") + std::string(vrf->vrf_name), 
-            INTF_TYPE_SRv6_DT4),
-    vrf(vrf),
-    ref_count(0)
-{
-    
-}
-
-SRv6EndPointEND_DT4_Egress_Interface::~SRv6EndPointEND_DT4_Egress_Interface() {
-
-    InterfaceReleaseAllResources();
-    assert(!ref_count);
-    assert(!vrf);
-}
-
-
-uint16_t 
-SRv6EndPointEND_DT4_Egress_Interface::inc_ref_count(int8_t val) {
-
-    ref_count += val;
-    return ref_count;
-}
-
-void 
-SRv6EndPointEND_DT4_Egress_Interface::InterfaceReleaseAllResources() {
-
-    vrf = NULL;
-}
-
-bool 
-SRv6EndPointEND_DT4_Egress_Interface::IsCrossReferenced() {
-
-    return (this->ref_count > 0);
-}
-
-
-
-
 
 
 HostPathInterface::HostPathInterface() : 

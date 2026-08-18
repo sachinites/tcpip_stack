@@ -95,7 +95,7 @@ dp_lookup_gre_tunnel_intf (dp_ctx_t *dp_ctx,
                            uint32_t tunnel_src, 
                            uint32_t tunnel_dst);
 
-void
-dp_create_vpnv4_steering_intf (dp_ctx_t *dp_ctx, dp_vrf_t *vrf);
+void 
+dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx);
 
 #endif /* __DP_INTF_STORE__ */

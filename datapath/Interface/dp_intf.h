@@ -34,18 +34,31 @@ typedef struct mac_table_ mac_table_t;
 
 #pragma pack(push, 8)
 
+#define DP_INTF_COMMON_FIELDS   \
+    /* Identifiers */           \
+    uint32_t port_id;           \
+    DP_InterfaceType_t if_type; \
+    char if_name[DP_INTF_NAME]; \
+                                \
+    /* Stats */                 \
+    uint32_t pkt_recv;          \
+    uint32_t pkt_sent;          \
+    uint32_t xmit_pkt_dropped;  \
+    uint32_t recvd_pkt_dropped;
+
+
+/* Warning : If you are changing any fields in these structure, 
+    pls do the same change in dp_intf_t structure aso. These fields*/
+typedef struct Fake_dp_intf_ {
+
+    DP_INTF_COMMON_FIELDS
+
+} Fake_dp_intf_t ;
+
+
 typedef struct dp_intf_ {
 
-    /* Identifiers */
-    uint32_t port_id;
-    DP_InterfaceType_t if_type;
-    char if_name[DP_INTF_NAME];
-
-    /* Stats */
-    uint32_t pkt_recv;
-    uint32_t pkt_sent;
-    uint32_t xmit_pkt_dropped;
-    uint32_t recvd_pkt_dropped;
+    DP_INTF_COMMON_FIELDS
 
     /* L3 properties */
     dp_vrf_t *vrf;
@@ -90,10 +103,6 @@ typedef struct dp_intf_ {
     /* If it is a BD interface, then array of AC member ports */
     struct dp_intf_ *mports[MAX_VLAN_MEMBER_PORTS];
 
-    /* if this is BD interface, then below interface is used to
-    steer traffic from Default VRF LFIB into this BD */
-    struct dp_intf_ *l2vpn_evpn_steering_intf;
-
     /* If it is a switchport operating in a trunk node, then
         bitmap of vlans of sizeof 4096 (512B) which it is a member of.
     */
@@ -110,24 +119,6 @@ typedef struct dp_intf_ {
 
     /* If this is Virtual port, then overlay tunnel interface */
     struct dp_intf_ *olay_tunnel_intf;
-
-    /* Id this is SRv6 interface, then this is SRv6 data.*/
-    union {
-
-        dp_vrf_t *steered_dt4_vrf; 
-
-    } srv6_data;
-
-    /* If this is vpnv4 steering interface */
-    dp_vrf_t *steered_vpnv4_vrf; 
-
-    /* If this is L3VPN EVPN Xconnect intf, then steer the 
-    traffic into Cust-VRF*/
-    dp_vrf_t *steered_l3vpn_evpn_vrf;
-    
-    /* If this is L2VPN EVPN Xconnect intf, then steer the 
-    traffic into BD */
-    uint32_t bd_intf_ifindex;
 
     /* If it is a BD interface, then it owns a mac table */
     mac_table_t *mac_table;
@@ -154,7 +145,8 @@ void
 dp_send_pkt_out(dp_ctx_t *dp_ctx, 
                 dp_intf_t *intf, 
                 struct rte_mbuf *mbuf, 
-                dp_intf_t *pintf); // Today represent as vlan intf/BD intf if 'intf' 
+                uint32_t ctx);     // Today represent as vlan intf/BD intf if 'intf' 
                                    // is vfif, in all other cases NULL
+				   // steer object in case of Steering forwarding objects
 
 #endif /* __DP_INTF__ */

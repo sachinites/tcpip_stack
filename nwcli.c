@@ -79,7 +79,7 @@ extern void ipv6_build_cli_tree (param_t *root);
 extern int isis_show_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int show_vrf_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern void dp_build_dp_show_cli_tree (param_t *node_name);
-extern void dp_build_dp_debug_cli_tree(param_t *node_name) ;
+extern void dp_build_dp_debug_cli_tree(param_t *node_name, param_t *show);
 extern int show_scheduler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int config_rtm_route_cli_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable) ;
 extern void ipv6_build_cli_run_tree (param_t *root) ;
@@ -933,7 +933,8 @@ nw_init_cli(){
                 libcli_register_param(&node_name, &show);
 
                 /* debug node <node-name> show mpool <numa-id> */
-                dp_build_dp_debug_cli_tree(&show);
+                /* debug node <node-name> l2-fwd-object database */
+                dp_build_dp_debug_cli_tree(&node_name, &show);
 
                 {
                     /* debug node <node-name> show cp-scheduler */

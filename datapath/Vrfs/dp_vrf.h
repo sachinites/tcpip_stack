@@ -41,8 +41,6 @@ typedef struct dp_vrf_ {
     fib_t *fib_mpls0;
     /* ARP table */
     arp_table_t *arp_table;
-    /* VPN v4 Steering interface */
-    dp_intf_t *vpnv4_steering_intf;
     
 } dp_vrf_t;
 

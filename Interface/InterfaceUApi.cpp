@@ -50,24 +50,20 @@ interface_loopback_canonical_name (const char *ifname, char *out, size_t out_len
 void
 interface_bd_install_router_mac(node_t *node, BDInterface *bd) {
 
-    uint32_t bd_rmac_ifindex;
-
     if (!node || !bd || !bd->IsIpConfigured())
         return;
-
-    bd_rmac_ifindex = NODE_BD_RMAC_INTF(node)->ifindex;
 
     cp2dp_bd_mac_table_entry_add(node,
                                  (uint8_t *)NODE_RMAC(node)->mac,
                                  bd->ifindex,
-                                 bd_rmac_ifindex,
+                                 BD_RMAC_INTF_INDEX,
                                  MAC_STATIC,
                                  true);
 
     cp2dp_bd_mac_table_entry_add(node,
                                  (uint8_t *)BROADCAST_MAC,
                                  bd->ifindex,
-                                 bd_rmac_ifindex,
+                                 BD_RMAC_INTF_INDEX,
                                  MAC_STATIC,
                                  true);
 }
@@ -75,23 +71,19 @@ interface_bd_install_router_mac(node_t *node, BDInterface *bd) {
 void
 interface_bd_uninstall_router_mac(node_t *node, BDInterface *bd) {
 
-    uint32_t bd_rmac_ifindex;
-
     if (!node || !bd)
         return;
-
-    bd_rmac_ifindex = NODE_BD_RMAC_INTF(node)->ifindex;
 
     cp2dp_bd_mac_table_entry_del(node,
                                  (uint8_t *)NODE_RMAC(node)->mac,
                                  bd->ifindex,
-                                 bd_rmac_ifindex,
+                                 BD_RMAC_INTF_INDEX,
                                  true);
 
     cp2dp_bd_mac_table_entry_del(node,
                                  (uint8_t *)BROADCAST_MAC,
                                  bd->ifindex,
-                                 bd_rmac_ifindex,
+                                 BD_RMAC_INTF_INDEX,
                                  true);
 }
 
@@ -126,7 +118,7 @@ interface_set_ip_addr(node_t *node,
             VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
             cp2dp_mac_table_entry_add(node, (uint8_t *)BROADCAST_MAC,
                        vlan_intf->GetVlanId(),
-                       NODE_RMAC_INTF(node)->ifindex, MAC_STATIC, true, 0);
+                       RMAC_INTF_INDEX, MAC_STATIC, true, 0);
         }
         else if (bd_intf && intf->IsIpConfigured()) {
             interface_bd_install_router_mac(node, bd_intf);
@@ -187,7 +179,7 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
     if (intf->iftype == INTF_TYPE_VLAN) {
         VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
          cp2dp_mac_table_entry_del (node, (uint8_t *)BROADCAST_MAC, vlan_intf->GetVlanId(), 
-                        NODE_RMAC_INTF(node)->ifindex, true, 0);
+                        RMAC_INTF_INDEX, true, 0);
     }
     else if (intf->iftype == INTF_TYPE_BD) {
         BDInterface *bd_intf = dynamic_cast<BDInterface *>(intf);
@@ -566,20 +558,8 @@ node_interface_lookup_by_name(node_t *node, const char *if_name){
 
     Interface *intf;
 
-    if (string_compare(if_name, NODE_RMAC_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
-        return NODE_RMAC_INTF(node).get();
-    }
-
-    else if (string_compare(if_name, NODE_BD_RMAC_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
-        return NODE_BD_RMAC_INTF(node).get();
-    }
-
-    else if (string_compare(if_name, NODE_VLAN_FLOOD_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
-        return NODE_VLAN_FLOOD_INTF(node).get();
-    }
-
-    else if (NODE_NVE_INTF(node) && 
-             string_compare(if_name, NODE_NVE_INTF(node)->if_name.c_str(), IF_NAME_SIZE) == 0) {
+    if (NODE_NVE_INTF(node) && 
+             string_compare(if_name, NVE_INTF_NAME , IF_NAME_SIZE) == 0) {
         return NODE_NVE_INTF(node).get();
     }
 
@@ -615,17 +595,7 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
 
     Interface *intf;
 
-    if (ifindex == NODE_RMAC_INTF(node)->ifindex) {
-        return NODE_RMAC_INTF(node).get();
-    }
-    else if (ifindex == NODE_BD_RMAC_INTF(node)->ifindex) {
-        return NODE_BD_RMAC_INTF(node).get();
-    }
-    else if (ifindex == NODE_VLAN_FLOOD_INTF(node)->ifindex) {
-        return NODE_VLAN_FLOOD_INTF(node).get();
-    }
-    else if (NODE_NVE_INTF(node) && 
-             ifindex == NODE_NVE_INTF(node)->ifindex) {
+    if (ifindex == NVE_IFINDEX) {
         return NODE_NVE_INTF(node).get();
     }
     
@@ -644,13 +614,6 @@ node_get_intf_by_ifindex(node_t *node, uint32_t ifindex) {
             
             if (it->second->ifindex == ifindex) return it->second.get();
         }
-    }
-
-    /* Check for SRv6 DT4 interface in def_vrf->dt4_intf_by_vrf table */
-    for (auto it = def_vrf->dt4_intf_by_vrf->begin(); 
-              it != def_vrf->dt4_intf_by_vrf->end(); it++) {
-
-        if (it->second->ifindex == ifindex) return (Interface *)it->second;
     }
 
     return NULL;
@@ -884,7 +847,7 @@ cp_get_intf_name_from_ifindex(void *ctx,
         return NULL;
     }
 
-    if (ifindex == VPNV4_INTF_STEER_IFINDEX) {
+    if (ifindex == MPLS_TO_VRF_INTF_STEER_IFINDEX) {
         snprintf(buffer, IF_NAME_SIZE, "vpnv4-xconn-if");
         return buffer;
     }

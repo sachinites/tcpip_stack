@@ -27,7 +27,9 @@ int
 AC_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *ac, 
-        struct rte_mbuf *mbuf, dp_intf_t *pintf) {
+        struct rte_mbuf *mbuf, uint32_t ctx) {
+
+    (void)ctx;
 
     assert (pkt_mbuf_get_starting_hdr(mbuf) == ETHERNET_HEADER);
     
@@ -41,7 +43,7 @@ AC_SendPacketOut(
             "Error : Egress AC %s recvd vlan tagged pkt %s, pkt dropped\n", 
             ac->if_name, pkt_mbuf_str(mbuf));
         ac->xmit_pkt_dropped++;
-        return;
+        return -1;
     }
 
     /* Add 802.1q tag to the pkt */
@@ -65,15 +67,11 @@ BD_FloodPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *bd_vfif, 
         struct rte_mbuf *mbuf,
-        dp_intf_t *bd_intf) {
+        uint32_t ctx) {
 
     dp_intf_t *ac ;
+    dp_intf_t *bd_intf;
     dp_intf_t *exempt_ac = pkt_mbuf_get_ingress_intf(mbuf);
-
-    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
-        "Flooding the pkt %s in BD %s, exempt intf %s\n", 
-        pkt_mbuf_str(mbuf), 
-        bd_intf->if_name, exempt_ac ? exempt_ac->if_name : "None");
 
     pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER);
 
@@ -83,12 +81,22 @@ BD_FloodPacketOut(
         return -1;
     }
 
+    if (ctx)
+        bd_intf = dp_ctx->intf_table[ctx];
+    else
+        bd_intf = exempt_ac->bd_intf;
+
     if (!bd_intf) {
         tracer(dp_ctx->dptr, DL2SW | DERR,
             "Error : BD flood: ingress AC %s has no parent BD, pkt %s dropped\n", 
             exempt_ac->if_name, pkt_mbuf_str(mbuf));
         return -1;
     }
+
+    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+        "Flooding the pkt %s in BD %s, exempt intf %s\n", 
+        pkt_mbuf_str(mbuf), 
+        bd_intf->if_name, exempt_ac->if_name);
 
     /* Iterate over all ACs of BD */
     struct rte_mbuf *dup_mbuf;
@@ -282,7 +290,7 @@ int
 BD_SendPacketOut(
         dp_ctx_t *dp_ctx, 
         dp_intf_t *bd_intf, 
-        struct rte_mbuf *mbuf, dp_intf_t *pintf) {
+        struct rte_mbuf *mbuf, uint32_t ctx) {
 
     dp_intf_t *ac = pkt_mbuf_get_ingress_intf(mbuf);
 

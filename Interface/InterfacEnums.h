@@ -1,6 +1,8 @@
 #ifndef __INTERFACE_TYPES__
 #define __INTERFACE_TYPES__
 
+#include "../tcpconst.h"
+
 enum IntfL2Mode
 {
     LAN_MODE_NONE,
@@ -18,13 +20,14 @@ enum InterfaceType_t {
     INTF_TYPE_RMAC,
     INTF_TYPE_VLAN_FLOOD,
     INTF_TYPE_NVE,
-    INTF_TYPE_SRv6_DT4,
-    INTF_TYPE_VPNV4_STEER,
     INTF_TYPE_AC,
     INTF_TYPE_BD,
     INTF_TYPE_BD_FLOOD,
     INTF_TYPE_BD_RMAC,
-    INTF_TYPE_L2VPN_EVPN_STEER,
+    INTF_TYPE_MPLS_TO_BD_STEER,
+    INTF_TYPE_MPLS_TO_VRF_STEER,
+    INTF_TYPE_SRV6_TO_BD_STEER,
+    INTF_TYPE_SRV6_TO_VRF_STEER,
     INTF_TYPE_HOST_PATH,
     INTF_TYPE_UNKNOWN
 };
@@ -33,25 +36,46 @@ enum InterfaceType_t {
 static inline const char *
 intf_type_str (InterfaceType_t iftype) {
     
-    switch (iftype) {
-        case INTF_TYPE_PHY: return "Physical";
-        case INTF_TYPE_VLAN: return "VLAN";
-        case INTF_TYPE_GRE_TUNNEL: return "GRE";
-        case INTF_TYPE_LOOPBACK: return "Loopback";
-        case INTF_TYPE_VIRTUAL_PORT: return "Virtual";
-        case INTF_TYPE_RMAC: return "RMAC";
-        case INTF_TYPE_VLAN_FLOOD: return "VLAN-Flood";
-        case INTF_TYPE_NVE: return "NVE";
-        case INTF_TYPE_SRv6_DT4: return "SRv6-DT4";
-        case INTF_TYPE_VPNV4_STEER: return "VPNv4-Steering-Intf";
-        case INTF_TYPE_HOST_PATH: return "HostPath";
-        case INTF_TYPE_AC: return "IntfAc";
-        case INTF_TYPE_BD: return "IntfBD";
-        case INTF_TYPE_BD_FLOOD: return "IntfBD-Flood";
-        case INTF_TYPE_BD_RMAC: return "IntfBD-RMAC";
-        case INTF_TYPE_L2VPN_EVPN_STEER: return "l2-epvn-xconnect-intf";
-        case INTF_TYPE_UNKNOWN: return "Unknown";
-        default: return "Invalid";
+    switch (iftype)
+    {
+    case INTF_TYPE_PHY:
+        return "Physical";
+    case INTF_TYPE_VLAN:
+        return "VLAN";
+    case INTF_TYPE_GRE_TUNNEL:
+        return "GRE";
+    case INTF_TYPE_LOOPBACK:
+        return "Loopback";
+    case INTF_TYPE_VIRTUAL_PORT:
+        return "Virtual";
+    case INTF_TYPE_RMAC:
+        return RMAC_INTF_NAME;
+    case INTF_TYPE_VLAN_FLOOD:
+        return VLAN_FLOOD_INTF_NAME;
+    case INTF_TYPE_NVE:
+        return NVE_INTF_NAME;
+    case INTF_TYPE_HOST_PATH:
+        return HOST_PATH_INTF_NAME;
+    case INTF_TYPE_AC:
+        return "AC";
+    case INTF_TYPE_BD:
+        return "BD";
+    case INTF_TYPE_BD_FLOOD:
+        return BD_FLOOD_INTF_NAME;
+    case INTF_TYPE_BD_RMAC:
+        return BDRMAC_INTF_NAME;
+    case INTF_TYPE_MPLS_TO_BD_STEER:
+        return MPLS_TO_BD_STEER_INTF_NAME;
+    case INTF_TYPE_MPLS_TO_VRF_STEER:
+        return MPLS_TO_VRF_STEER_INTF_NAME;
+    case INTF_TYPE_SRV6_TO_VRF_STEER:
+        return SRv6_TO_VRF_STEER_INTF_NAME;
+    case INTF_TYPE_SRV6_TO_BD_STEER:
+        return SRv6_TO_BD_STEER_INTF_NAME;
+    case INTF_TYPE_UNKNOWN:
+        return "Unknown";
+    default:
+        return "Invalid";
     }
 }
 

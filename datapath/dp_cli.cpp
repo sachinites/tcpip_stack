@@ -39,6 +39,9 @@
 #include "../libs/common/protoIds.h"
 #include "classifier/pkt_classifier.h"
 #include "Layer2/switching/mac_table.h"
+#include "Layer2/MacNexthop/L2FwdObject.h"
+#include "../libs/Tree/libtree.h"
+#include "../libs/common/mpls_lstack.h"
 
 extern graph_t *topo;
 
@@ -51,6 +54,7 @@ extern graph_t *topo;
 #define CMDCODE_DEBUG_DP_MEMPOOL         6
 #define CMDCODE_DEBUG_DP_CLASSIFIERS     7
 #define CMDCODE_SHOW_BD_MAC              8
+#define CMDCODE_DEBUG_DP_L2_FWD_OBJ_DB   9
 
 /* -----  Interface display helpers  ----- */
 
@@ -359,6 +363,149 @@ dp_show_intf_classifiers(dp_intf_t *intf)
         cprintf("  (no trap rules installed)\n");
 }
 
+/* -----  L2 forwarding object database dump  ----- */
+
+static const char *
+l2_fwd_type_str(L2_FWD_TYPE_T fwd_type)
+{
+    switch (fwd_type) {
+        case L2_FWD_PORT:        return "PORT";
+        case L2_FWD_RMAC:        return "RMAC";
+        case L2_FWD_FLOODING:    return "FLOODING";
+        case L2_FWD_MPLS_TUNNEL: return "MPLS_TUNNEL";
+        case L2_FWD_SRv6_TUNNEL: return "SRv6_TUNNEL";
+        case L2_FWD_VxLAN:       return "VxLAN";
+        case L2_FWD_STEERING:    return "STEERING";
+        case L2_FWD_MAX:
+        default:                 return "UNKNOWN";
+    }
+}
+
+static void
+dp_print_l2_fwd_object(dp_ctx_t *dp_ctx, mac_fwd_object_t *obj)
+{
+    cprintf("  obj=%p  idx=%u  ref=%u  ",
+            (void *)obj, obj->idx, obj->ref_count);
+
+    switch (obj->fwd_type) {
+
+        case L2_FWD_PORT: {
+            dp_intf_t *oif = (obj->u.dp_intf < DP_MAX_INTF) ?
+                dp_ctx->intf_table[obj->u.dp_intf] : NULL;
+            cprintf("ifindex=%u (%s)",
+                    obj->u.dp_intf,
+                    oif && oif->if_name[0] ? oif->if_name : "-");
+            break;
+        }
+
+        case L2_FWD_RMAC:
+            cprintf("rmac");
+            break;
+
+        case L2_FWD_FLOODING: {
+            dp_intf_t *vfif = obj->u.l2_flood.vfif;
+            dp_intf_t *vlan_bd = obj->u.l2_flood.vlan_bd_port ?
+                ((obj->u.l2_flood.vlan_bd_port < DP_MAX_INTF) ?
+                    dp_ctx->intf_table[obj->u.l2_flood.vlan_bd_port] : NULL) :
+                NULL;
+            cprintf("vfif=%s  vlan_bd_port=%u (%s)",
+                    vfif && vfif->if_name[0] ? vfif->if_name : "-",
+                    obj->u.l2_flood.vlan_bd_port,
+                    vlan_bd && vlan_bd->if_name[0] ? vlan_bd->if_name : "-");
+            break;
+        }
+
+        case L2_FWD_MPLS_TUNNEL: {
+            mpls_lstack_t *st = obj->u.lbl_stk;
+            cprintf("lbl_stk=%p", (void *)st);
+            if (st && st->curr_index >= 0) {
+                cprintf("  labels=");
+                for (int i = 0; i <= st->curr_index; i++) {
+                    cprintf("%s%u/%s",
+                            i ? "," : "",
+                            mpls_label_get_value(st->labels[i].label_val),
+                            mpls_op_tostring(st->labels[i].op));
+                }
+            }
+            break;
+        }
+
+        case L2_FWD_SRv6_TUNNEL: {
+            cprintf("seg_cnt=%u", obj->u.srv6.seg_lst_cnt);
+            if (obj->u.srv6.seg_lst) {
+                for (uint8_t i = 0; i < obj->u.srv6.seg_lst_cnt; i++) {
+                    char sid[INET6_ADDRSTRLEN];
+                    inet_ntop(AF_INET6, (*obj->u.srv6.seg_lst)[i],
+                              sid, sizeof(sid));
+                    cprintf("  sid[%u]=%s", i, sid);
+                }
+            }
+            break;
+        }
+
+        case L2_FWD_VxLAN: {
+            char vtep[IPV4_ADDR_LEN_STR];
+            tcp_ip_covert_ip_n_to_p(obj->u.vxlan.vtep_ip, (c_string)vtep);
+            cprintf("vni=%u  vtep=%s",
+                    obj->u.vxlan.l2vni, vtep);
+            break;
+        }
+
+        case L2_FWD_STEERING:
+            cprintf("steer=%s  obj_ifindex=%u",
+                    obj->u.steering.steering_type == STEER_INTO_VRF ? "vrf" :
+                    obj->u.steering.steering_type == STEER_INTO_BD  ? "bd"  :
+                    "unknown",
+                    obj->u.steering.u_steer.steered_obj_ifindex);
+            break;
+
+        default:
+            cprintf("type=%u", (unsigned)obj->fwd_type);
+            break;
+    }
+
+    cprintf("\n");
+}
+
+static void
+dp_show_l2_fwd_object_db(dp_ctx_t *dp_ctx, const char *node_name)
+{
+    uint32_t total = 0;
+    avltree_node_t *avl_node;
+
+    printw("\n");
+    cprintf("Node: %s - L2 Forwarding Object Database\n", node_name);
+    cprintf("================================================================================\n");
+
+    for (int t = 0; t < L2_FWD_MAX; t++) {
+        avltree_t *tree = dp_ctx->l2_fwd_obj_tree[t];
+        uint32_t count = 0;
+
+        cprintf("\nType: %-12s  tree=%p\n",
+                l2_fwd_type_str((L2_FWD_TYPE_T)t), (void *)tree);
+
+        if (!tree) {
+            cprintf("  (not initialized)\n");
+            continue;
+        }
+
+        ITERATE_AVL_TREE_BEGIN(tree, avl_node) {
+            mac_fwd_object_t *obj =
+                avltree_container_of(avl_node, mac_fwd_object_t, glue);
+            dp_print_l2_fwd_object(dp_ctx, obj);
+            count++;
+        } ITERATE_AVL_TREE_END;
+
+        if (!count)
+            cprintf("  (empty)\n");
+        cprintf("  objects: %u\n", count);
+        total += count;
+    }
+
+    cprintf("================================================================================\n");
+    cprintf("Total interned objects: %u\n", total);
+}
+
 /* -----  Show command handler  ----- */
 
 static int
@@ -587,9 +734,13 @@ dp_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
         }
 
         cprintf("Bridge-domain %u MAC Address Table\n", bd_id, bd_intf->if_name);
-        show_mac_table(bd_intf->mac_table, 0);
+        show_mac_table(dp_ctx, bd_intf->mac_table, 0);
         break;
     }
+
+    case CMDCODE_DEBUG_DP_L2_FWD_OBJ_DB:
+        dp_show_l2_fwd_object_db(dp_ctx, (const char *)node_name);
+        break;
 
     default:
         break;
@@ -695,7 +846,7 @@ dp_build_dp_show_cli_tree(param_t *node_name)
 }
 
 void
-dp_build_dp_debug_cli_tree(param_t *show) 
+dp_build_dp_debug_cli_tree(param_t *node_name, param_t *show) 
 {
     /* debug node <node-name> show mpools <numa-id>*/
     {
@@ -729,6 +880,22 @@ dp_build_dp_debug_cli_tree(param_t *show)
                 libcli_set_param_cmd_code(&intf_name, CMDCODE_DEBUG_DP_CLASSIFIERS);
                 libcli_set_user_flag(&intf_name, CLI_F_DATA_PLANE);
             }
+        }
+    }
+
+    /* debug node <node-name> l2-fwd-object database */
+    {
+        static param_t l2_fwd_object;
+        init_param(&l2_fwd_object, CMD, "l2-fwd-object", NULL, NULL, INVALID, NULL,
+                   "L2 forwarding objects");
+        libcli_register_param(node_name, &l2_fwd_object);
+        {
+            static param_t database;
+            init_param(&database, CMD, "database", dp_show_handler, NULL, INVALID, NULL,
+                       "Dump L2 forwarding object database");
+            libcli_register_param(&l2_fwd_object, &database);
+            libcli_set_param_cmd_code(&database, CMDCODE_DEBUG_DP_L2_FWD_OBJ_DB);
+            libcli_set_user_flag(&database, CLI_F_DATA_PLANE);
         }
     }
 

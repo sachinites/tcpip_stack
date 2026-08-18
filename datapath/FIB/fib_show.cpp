@@ -87,10 +87,10 @@ static void
 fib_format_nh_gateway(fib_nh_fwd_info_t *fi, char *buffer, size_t buf_size) {
 
     if (fi->oif &&
-        fi->oif->if_type == DP_INTF_TYPE_VPNV4_STEER &&
-        fi->oif->steered_vpnv4_vrf) {
-        snprintf(buffer, buf_size, "vrf:%s",
-                 fi->oif->steered_vpnv4_vrf->vrf_name);
+        (fi->oif->if_type == DP_INTF_TYPE_MPLS_TO_VRF_STEER ||
+         fi->oif->if_type == DP_INTF_TYPE_SRV6_TO_VRF_STEER)) {
+    
+        snprintf(buffer, buf_size, "vrf:%d", fi->xconnect_id);
         return;
     }
 

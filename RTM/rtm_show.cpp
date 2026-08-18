@@ -97,7 +97,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route);
 static void
 rtm_format_nh_gateway (rtm_t *rtm, rtm_nh *nh, char *buffer, size_t buflen) {
 
-    if (nh->oif && nh->oif == VPNV4_INTF_STEER_IFINDEX) {
+    if (nh->oif && nh->oif == MPLS_TO_VRF_INTF_STEER_IFINDEX) {
         uint8_t vrf_id = (uint8_t)nh->prefix.u.v4_addr;
         char *vrf_name = rtm_get_vrf_name(rtm->node, vrf_id);
         snprintf(buffer, buflen, "vrf:%s",

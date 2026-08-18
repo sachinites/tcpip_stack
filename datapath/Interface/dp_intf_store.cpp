@@ -14,6 +14,7 @@
 
 #include "../../libs/c-hashtable/hashtable.h"
 #include "../../libs/c-hashtable/hashtable_itr.h"
+#include "../../libs/LinuxMemoryManager/uapi_mm.h"
 
 #include "../classifier/pkt_classifier.h"
 #include "../dp_const.h"
@@ -64,7 +65,6 @@ dp_check_and_free_interface (dp_intf_t *intf) {
 
     assert(!intf->vrf);
     assert(!intf->vlan_intf);
-    assert (!intf->srv6_data.steered_dt4_vrf);
 
     for (i = 0; i < MAX_VLAN_MEMBER_PORTS; i++) {
         assert(!intf->mports[i]);
@@ -384,35 +384,135 @@ dp_lookup_gre_tunnel_intf (dp_ctx_t *dp_ctx,
     return NULL;
 }
 
+/* Create Fake Interfaces, Fake means these represent Algorithms which are
+    disguised as dp_intf_t . This is done so that varieity of custom forwarding 
+    behaviors can be represented using a unified API. For example, dp_intf_t can
+    represent an interface which flood the frame in vlan , it can also represent
+    an interface which perform Vxlan encap Or GRE encap Or Srv6 Or MPLS encap and
+    many more.
+    They are stateless and tied to customized forwarding 
+    behavior depending on if_type. Because they are stateless, we create just one
+    instance of them per device. Never put any field in them which tends to make
+    them statefull  */
 void 
-dp_create_vpnv4_steering_intf (dp_ctx_t *dp_ctx, dp_vrf_t *vrf) {
+dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
 
-    uint8_t mac_addr[6] = {0};
+    dp_intf_t *Fake_dp_intf;
+    
+    // Rmac Interface
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    dp_ctx->intf_table[RMAC_INTF_INDEX] = Fake_dp_intf;
+    Fake_dp_intf->port_id = RMAC_INTF_INDEX;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_RMAC;
+    strncpy (Fake_dp_intf->if_name, RMAC_INTF_NAME, strlen (RMAC_INTF_NAME) -1);
+    Fake_dp_intf->if_name[strlen (RMAC_INTF_NAME) -1] = '\0';
+    Fake_dp_intf->pkt_recv = 0;
+    Fake_dp_intf->pkt_sent = 0;          
+    Fake_dp_intf->xmit_pkt_dropped = 0;
+    Fake_dp_intf->recvd_pkt_dropped = 0;
 
-    dp_intf_t *intf = dp_create_interface 
-                        ( VPNV4_INTF_STEER_IFINDEX,
-                          DP_INTF_TYPE_VPNV4_STEER,
-                          &mac_addr, 0 );
+    // BD RMAC Interface
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    dp_ctx->intf_table[BD_RMAC_INTF_INDEX] = Fake_dp_intf;
+    Fake_dp_intf->port_id = BD_RMAC_INTF_INDEX;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_BD_RMAC;
+    strncpy (Fake_dp_intf->if_name, BDRMAC_INTF_NAME, strlen (BDRMAC_INTF_NAME) -1);
+    Fake_dp_intf->if_name[strlen (BDRMAC_INTF_NAME) -1] = '\0';
+    Fake_dp_intf->pkt_recv = 0;
+    Fake_dp_intf->pkt_sent = 0;          
+    Fake_dp_intf->xmit_pkt_dropped = 0;
+    Fake_dp_intf->recvd_pkt_dropped = 0;
 
-    intf->vrf = NULL;
-    intf->is_up = true;
-    intf->steered_vpnv4_vrf = vrf;
-    vrf->vpnv4_steering_intf = intf;
-    strncpy (intf->if_name, "vpnv4-xconn-if", 18);
-}
+    // Vlan Flood Interface
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    dp_ctx->intf_table[VLAN_FLOOD_INDEX] = Fake_dp_intf;
+    Fake_dp_intf->port_id = VLAN_FLOOD_INDEX;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_VLAN_FLOOD;
+    strncpy (Fake_dp_intf->if_name, VLAN_FLOOD_INTF_NAME, strlen (VLAN_FLOOD_INTF_NAME) -1);
+    Fake_dp_intf->if_name[strlen (VLAN_FLOOD_INTF_NAME) -1] = '\0';
+    Fake_dp_intf->pkt_recv = 0;
+    Fake_dp_intf->pkt_sent = 0;          
+    Fake_dp_intf->xmit_pkt_dropped = 0;
+    Fake_dp_intf->recvd_pkt_dropped = 0;
 
-dp_intf_t *
-bd_flood_intf_create () {
+    // BD Flood Interface
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    dp_ctx->intf_table[BD_FLOOD_IFINDEX] = Fake_dp_intf;
+    Fake_dp_intf->port_id = BD_FLOOD_IFINDEX;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_BD_FLOOD;
+    strncpy (Fake_dp_intf->if_name, BD_FLOOD_INTF_NAME, strlen (BD_FLOOD_INTF_NAME) -1);
+    Fake_dp_intf->if_name[strlen (BD_FLOOD_INTF_NAME) -1] = '\0';
+    Fake_dp_intf->pkt_recv = 0;
+    Fake_dp_intf->pkt_sent = 0;          
+    Fake_dp_intf->xmit_pkt_dropped = 0;
+    Fake_dp_intf->recvd_pkt_dropped = 0;
 
-    uint8_t mac_addr[6] = {0};
+    // NVE Interface
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    dp_ctx->intf_table[NVE_IFINDEX] = Fake_dp_intf;
+    Fake_dp_intf->port_id = NVE_IFINDEX;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_NVE;
+    strncpy (Fake_dp_intf->if_name, NVE_INTF_NAME, strlen (NVE_INTF_NAME) -1);
+    Fake_dp_intf->if_name[strlen (NVE_INTF_NAME) -1] = '\0';
+    Fake_dp_intf->pkt_recv = 0;
+    Fake_dp_intf->pkt_sent = 0;          
+    Fake_dp_intf->xmit_pkt_dropped = 0;
+    Fake_dp_intf->recvd_pkt_dropped = 0;
 
-    dp_intf_t *intf = dp_create_interface 
-                        ( BD_FLOOD_IFINDEX,
-                          DP_INTF_TYPE_BD_FLOOD,
-                          &mac_addr, 0 );
+    // Host Path Interface
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    dp_ctx->intf_table[HOST_PATH_IFINDEX] = Fake_dp_intf;
+    Fake_dp_intf->port_id = HOST_PATH_IFINDEX;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_HOST_PATH;
+    strncpy (Fake_dp_intf->if_name, HOST_PATH_INTF_NAME, strlen (HOST_PATH_INTF_NAME) -1);
+    Fake_dp_intf->if_name[strlen (HOST_PATH_INTF_NAME) -1] = '\0';
+    Fake_dp_intf->pkt_recv = 0;
+    Fake_dp_intf->pkt_sent = 0;          
+    Fake_dp_intf->xmit_pkt_dropped = 0;
+    Fake_dp_intf->recvd_pkt_dropped = 0;
 
-    intf->vrf = NULL;
-    intf->is_up = true;
-    strncpy (intf->if_name, "bd-vfif", 8);
-    return intf;
+    // MPLS to BD Steering Interface
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    dp_ctx->intf_table[MPLS_TO_BD_INTF_STEER_IFINDEX] = Fake_dp_intf;
+    Fake_dp_intf->port_id = MPLS_TO_BD_INTF_STEER_IFINDEX;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_MPLS_TO_BD_STEER;
+    strncpy (Fake_dp_intf->if_name, MPLS_TO_BD_STEER_INTF_NAME, strlen (MPLS_TO_BD_STEER_INTF_NAME) -1);
+    Fake_dp_intf->if_name[strlen (MPLS_TO_BD_STEER_INTF_NAME) -1] = '\0';
+    Fake_dp_intf->pkt_recv = 0;
+    Fake_dp_intf->pkt_sent = 0;          
+
+    // MPLS to VRF Steering Interface
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    dp_ctx->intf_table[MPLS_TO_VRF_INTF_STEER_IFINDEX] = Fake_dp_intf;
+    Fake_dp_intf->port_id = MPLS_TO_VRF_INTF_STEER_IFINDEX;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_MPLS_TO_VRF_STEER;
+    strncpy (Fake_dp_intf->if_name, MPLS_TO_VRF_STEER_INTF_NAME, strlen (MPLS_TO_VRF_STEER_INTF_NAME) -1);
+    Fake_dp_intf->if_name[strlen (MPLS_TO_VRF_STEER_INTF_NAME) -1] = '\0';
+    Fake_dp_intf->pkt_recv = 0;
+    Fake_dp_intf->pkt_sent = 0;          
+    Fake_dp_intf->xmit_pkt_dropped = 0;
+    Fake_dp_intf->recvd_pkt_dropped = 0;
+
+    // SRv6 to BD Steering Interface
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    dp_ctx->intf_table[SRv6_TO_BD_STEER_IFINDEX] = Fake_dp_intf;
+    Fake_dp_intf->port_id = SRv6_TO_BD_STEER_IFINDEX;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_MPLS_TO_BD_STEER;
+    strncpy (Fake_dp_intf->if_name, SRv6_TO_BD_STEER_INTF_NAME, strlen (SRv6_TO_BD_STEER_INTF_NAME) -1);
+    Fake_dp_intf->if_name[strlen (SRv6_TO_BD_STEER_INTF_NAME) -1] = '\0';
+    Fake_dp_intf->pkt_recv = 0;
+    Fake_dp_intf->pkt_sent = 0;          
+
+    // SRv6 to VRF Steering Interface
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    dp_ctx->intf_table[SRv6_TO_VRF_INTF_STEER_IFINDEX] = Fake_dp_intf;
+    Fake_dp_intf->port_id = SRv6_TO_VRF_INTF_STEER_IFINDEX;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_MPLS_TO_VRF_STEER;
+    strncpy (Fake_dp_intf->if_name, SRv6_TO_VRF_STEER_INTF_NAME, strlen (SRv6_TO_VRF_STEER_INTF_NAME) -1);
+    Fake_dp_intf->if_name[strlen (SRv6_TO_VRF_STEER_INTF_NAME) -1] = '\0';
+    Fake_dp_intf->pkt_recv = 0;
+    Fake_dp_intf->pkt_sent = 0;          
+    Fake_dp_intf->xmit_pkt_dropped = 0;
+    Fake_dp_intf->recvd_pkt_dropped = 0;
+
 }

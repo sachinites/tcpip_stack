@@ -199,8 +199,8 @@ dp_mpls_fwd_pkt(dp_ctx_t *dp_ctx,
     switch (nh->fwd_info->oif->if_type)
     {
         /* Handle Special Interfaces */
-        case DP_INTF_TYPE_VPNV4_STEER:
-            dp_send_pkt_out(dp_ctx, nh->fwd_info->oif, mbuf, 0);
+        case DP_INTF_TYPE_MPLS_TO_VRF_STEER:
+            dp_send_pkt_out(dp_ctx, nh->fwd_info->oif, mbuf, nh->fwd_info->xconnect_id);
             return;
         default:
             break;

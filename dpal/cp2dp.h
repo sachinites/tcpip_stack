@@ -175,9 +175,6 @@ cp2dp_bd_ac_set_encap_8021q (node_t *node,
                              uint32_t ac_ifindex,
                              uint16_t encap_8021q_tag);
 
-void
-cp2dp_srv6_dt4_intf_steered_vrf (node_t *node, Interface *intf, bool add);
-
 void 
 cp2dp_ping_request(node_t *node, ping_ctx_t *pctx);
 

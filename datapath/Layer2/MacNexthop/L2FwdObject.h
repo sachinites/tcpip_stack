@@ -12,6 +12,7 @@ typedef struct dp_vrf_ dp_vrf_t;
 typedef enum L2_FWD_TYPE_ {
 
     L2_FWD_PORT,
+    L2_FWD_RMAC,
     L2_FWD_FLOODING,
     L2_FWD_MPLS_TUNNEL,
     L2_FWD_SRv6_TUNNEL,
@@ -38,14 +39,14 @@ typedef struct MacFwdObject_ {
     union {
 
         /* Only port */
-        dp_intf_t *dp_intf;
+        uint32_t dp_intf;
 
         /* Flooding required two ports - one is vfif and other is vlan/bd port,
            3rd port is recv_intf port which is hidden in packet pvt data */
         struct {
 
             dp_intf_t *vfif;
-            dp_intf_t *vlan_bd_port;
+            uint32_t  vlan_bd_port;
 
         }l2_flood;
 
@@ -83,6 +84,11 @@ typedef struct MacFwdObject_ {
 
         } steering;
 
+        struct {
+
+            // rmac can be provided bt dp_ctx 
+        }rmac;
+
     } u;
 
 } mac_fwd_object_t;
@@ -113,5 +119,17 @@ mac_fwd_object_dereference (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj);
 
 void
 dp_l2fwd_objects_init (dp_ctx_t *dp_ctx);
+
+/* Build a lookup/insert template from a MAC-table OIF + overlay context. */
+void
+dp_mac_fwd_object_init_from_oif (dp_ctx_t *dp_ctx,
+                                 mac_fwd_object_t *tmpl,
+                                 dp_intf_t *oif,
+                                 uint32_t remote_dst_ip,
+                                 uint16_t vlan_id);
+
+/* Lookup interned object in l2_fwd_obj_tree[]; insert+clone on miss. Takes a ref. */
+mac_fwd_object_t *
+dp_l2fwd_object_acquire (dp_ctx_t *dp_ctx, mac_fwd_object_t *tmplate);
 
 #endif /* __L2_FWD_OBJECT__ */

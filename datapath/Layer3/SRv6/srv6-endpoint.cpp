@@ -69,7 +69,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 					struct rte_mbuf *mbuf);
 
 extern void 
-dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, dp_intf_t *pintf) ;
+dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf,  uint32_t ctx) ;
 
 
 /* ============================================================================

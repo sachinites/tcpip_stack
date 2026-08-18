@@ -46,9 +46,6 @@ ifm_internal_process_acl_change_notification (
     }
 
     /* Special interfaces — accessed directly through node_nw_prop */
-    notify_intf(NODE_RMAC_INTF(node).get());
-    notify_intf(NODE_VLAN_FLOOD_INTF(node).get());
-    notify_intf(node->node_nw_prop.host_path_interface.get());
     notify_intf(NODE_NVE_INTF(node).get());
 
     //access_list_dereference(node, access_list);

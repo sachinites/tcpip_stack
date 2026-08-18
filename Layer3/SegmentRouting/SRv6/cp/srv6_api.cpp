@@ -180,7 +180,7 @@ srv6_delete_all_adj_sids (vrf_t *vrf) {
                             adjsid->prefix_len,
                             adjsid->flags,
                             &adjsid->gw,
-                            node_get_intf_by_ifindex (vrf->node, adjsid->ifindex),
+                            adjsid->ifindex,
                             NULL, 0,
                             adjsid->endP,
                             RTM_PROTO_STATIC, false);

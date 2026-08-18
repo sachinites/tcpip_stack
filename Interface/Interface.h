@@ -42,12 +42,6 @@ class TransportService;
 
 /* Default Reference Count of the interfaces of various types*/
 
-/* node->node_nw_prop.rmac_interface */
-#define RMAC_DEF_REFCOUNT  1
-
-/* node->node_nw_prop.vlan_flood_interface */
-#define VLAN_FLOOD_IF_DEF_REFCOUNT   1
-
 /* Physical Ethernet interface
   link->Intf1 
   node->intf_by_name
@@ -63,6 +57,7 @@ class TransportService;
 
 /* node->node_nw_prop.nve */
 #define NVE_IF_DEF_REFCOUNT 1
+
 
 /*
   node->intf_by_name
@@ -85,12 +80,6 @@ class TransportService;
 #define LOOPBACK_IF_REFCOUNT  2
 
 /*
-    fib_nh_fwd_info_->oif
-*/
-#define SRv6_IF_COUNT   0
-
-
-/*
   node->intf_by_name
   node->intf_by_ifindex    
 */
@@ -102,10 +91,6 @@ class TransportService;
 */
 #define BD_IF_REFCOUNT  2
 
-/*
-  node->node_nw_prop.bdrmac_interface
-*/
-#define BD_RMAC_DEF_REFCOUNT  1
 
 class Interface {
 
@@ -312,52 +297,6 @@ class VlanInterface : public VirtualInterface {
 } __attribute__((aligned(8)));;
 
 
-class RmacInterface : public VirtualInterface {
-
-    private:
-        void InterfaceReleaseAllResources() ;
-    protected:
-    public:
-
-        RmacInterface();
-        virtual ~RmacInterface();
-        virtual void PrintInterfaceDetails ();
-        virtual bool IsCrossReferenced() final;
-        virtual mac_addr_t *GetMacAddr( ) final;
-
-} __attribute__((aligned(8)));;
-
-
-class BDRmacInterface : public VirtualInterface {
-
-    private:
-        void InterfaceReleaseAllResources() ;
-    protected:
-    public:
-
-        BDRmacInterface();
-        virtual ~BDRmacInterface();
-        virtual void PrintInterfaceDetails ();
-        virtual bool IsCrossReferenced() final;
-        virtual mac_addr_t *GetMacAddr( ) final;
-
-} __attribute__((aligned(8)));;
-
-
-class VlanFloodInterface : public VirtualInterface {
-
-    private:
-        void InterfaceReleaseAllResources();
-    protected:
-    public:
-
-        VlanFloodInterface();
-        virtual ~VlanFloodInterface();
-        bool IsCrossReferenced() final;
-
-} __attribute__((aligned(8)));;
-
-
 /* VxLAN interface*/
 class NVEInterface : public VirtualInterface {
 
@@ -378,7 +317,6 @@ class NVEInterface : public VirtualInterface {
         virtual bool IsCrossReferenced() final;
         
 } __attribute__((aligned(8)));
-
 
 
 enum GreTunnelConfigEnum
@@ -480,111 +418,6 @@ class LoopbackInterface : public VirtualInterface {
         virtual bool IsCrossReferenced() final;
 
 } __attribute__((aligned(8)));
-
-
-/* ------SRv6 Virtual Interfaces ----------- */
-class SRv6VirtualInterface : public VirtualInterface {
-
-    private:
-    protected:
-    public:
-
-        SRv6VirtualInterface(std::string ifname, InterfaceType_t iftype);
-        virtual ~SRv6VirtualInterface();
-
-}__attribute__((aligned(8)));
-
-/* This interface do not have any state, so we can use same
-    instance for all END points 
-    1. Verify SRH exists
-    2. Decrement SRH.SegmentsLeft
-    3. Set IPv6 DST = SRH.SegmentList[SegmentsLeft]
-    4. Continue IPv6 forwarding    
-*/
-
-#if 0
-class SRv6EndPointENDInterface : public SRv6VirtualInterface {
-
-    private:
-    protected:
-    public:
-        SRv6EndPointENDInterface();
-        virtual ~SRv6EndPointENDInterface();
-
-} __attribute__((aligned(8)));
-
-/*
-    1. Verify SRH exists
-    2. Decrement SegmentsLeft
-    3. Set IPv6 DST = next SID
-    4. Forward packet using:
-        - configured next-hop
-        - configured output interface
-*/
-
-class SRv6EndPointEND_XInterface : public SRv6VirtualInterface {
-
-    private:
-        PhysicalInterfaceP intfP;
-        void InterfaceReleaseAllResources();
-    protected:
-    public:
-        SRv6EndPointEND_XInterface(PhysicalInterface *phy_intf);
-        virtual ~SRv6EndPointEND_XInterface();
-        
-
-}__attribute__((aligned(8)));
-
-
-/*
-    1. Verify SRH exists
-    2. Remove SRH
-    3. Remove outer IPv6 header
-    4. Expose inner IPv4 packet
-    5. Select configured IPv4 VRF
-    6. Perform IPv4 FIB lookup
-    7. Forward IPv4 packet
-*/
-class SRv6EndPointEND_DX4Interface : public SRv6VirtualInterface {
-
-    private:
-        vrf_t *vrf;
-        void InterfaceReleaseAllResources();
-    protected:
-    public:
-        SRv6EndPointEND_DX4Interface(vrf_t *vrf);
-        virtual ~SRv6EndPointEND_DX4Interface();
-        
-        
-}__attribute__((aligned(8)));
-
-/* ------SRv6 Virtual Interfaces ----------- */
-
-#endif 
-/*
-    1. Verify SRH exists
-    2. Remove SRH
-    3. Remove outer IPv6 header
-    4. Expose IPv4 packet
-    5. Select routing table (table-id)
-    6. Perform IPv4 FIB lookup
-    7. Forward packet
-*/
-class SRv6EndPointEND_DT4_Egress_Interface : public SRv6VirtualInterface {
-
-    private:
-        uint16_t ref_count;
-        void InterfaceReleaseAllResources();
-    protected:
-    public:
-        vrf_t *vrf;
-        SRv6EndPointEND_DT4_Egress_Interface(vrf_t *vrf);
-        virtual ~SRv6EndPointEND_DT4_Egress_Interface();
-        uint16_t inc_ref_count(int8_t val);
-        bool IsCrossReferenced() final;
-
-} __attribute__((aligned(8)));
-
 
 
 class HostPathInterface : public VirtualInterface {
