@@ -86,6 +86,7 @@ typedef enum label_mgr_client_type_ {
     LABEL_CLIENT_BGP_LU,
     LABEL_CLIENT_SR_MPLS,
     LABEL_CLIENT_L3VPN,
+    LABEL_CLIENT_L2VPN,
     LABEL_CLIENT_ISIS,
     LABEL_CLIENT_OSPF,
     LABEL_CLIENT_OAM,

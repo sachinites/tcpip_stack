@@ -208,6 +208,11 @@ Router_Create(graph_t *graph, const c_string node_name){
             VPNV4_START_LABEL, VPNV4_LABEL_RANGE,
             &node->l3vpn_lbl_block) == LABEL_MGR_OK);
 
+    (label_mgr_reserve_block_at(node->lbl_mgr,
+            label_mgr_make_client(LABEL_CLIENT_L2VPN, 0),
+            L2VPN_START_LABEL, L2VPN_LABEL_RANGE,
+            &node->l2vpn_lbl_block) == LABEL_MGR_OK);
+
     /* Initialize global interface maps */
     node->intf_by_name = NULL;
     node->intf_by_ifindex = NULL;

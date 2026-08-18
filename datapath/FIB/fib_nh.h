@@ -61,8 +61,8 @@ typedef struct fib_nh_fwd_info_ {
     /*  At the time of forwarding, this information will be passed as
         argument to steering interface, therefore we would have to create one
         steering  virtual interface in DP per device */
-#define STEER_INTO_VRF 1
-#define STEER_INTO_BD 2
+#define FIB_STEER_INTO_VRF 1
+#define FIB_STEER_INTO_BD 2
     
     union {
         

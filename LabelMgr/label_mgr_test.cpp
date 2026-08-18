@@ -45,6 +45,7 @@ main(void)
     label_mgr_client_t rsvp0   = label_mgr_make_client(LABEL_CLIENT_RSVP_TE, 0);
     label_mgr_client_t oam0    = label_mgr_make_client(LABEL_CLIENT_OAM, 0);
     label_mgr_client_t l3vpn0  = label_mgr_make_client(LABEL_CLIENT_L3VPN, 0);
+    label_mgr_client_t l2vpn0  = label_mgr_make_client(LABEL_CLIENT_L2VPN, 0);
     label_mgr_client_t ospf0   = label_mgr_make_client(LABEL_CLIENT_OSPF, 0);
     label_mgr_client_t ospf1   = label_mgr_make_client(LABEL_CLIENT_OSPF, 1);
 

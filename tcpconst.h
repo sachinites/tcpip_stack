@@ -96,8 +96,9 @@ tcpip_protocol_classification(uint16_t proto) {
 #define DEFAULT_VRF             0
 #define DEF_VRF_NAME            "0"
 #define MAX_INTF_IFINDEX        1023 
+#define MAX_EVPN_INDEX          8
 
-#define MAX_PREFIX_LIST_CLIE
+
 /* Special interface ifindices */
 #define RMAC_INTF_INDEX    (MAX_INTF_IFINDEX)   /* Only one instance exist, you may lookup in array */
 #define VLAN_FLOOD_INDEX   (MAX_INTF_IFINDEX - 1)/* Only one instance exist, you may lookup in array */
@@ -106,11 +107,17 @@ tcpip_protocol_classification(uint16_t proto) {
 #define BD_FLOOD_IFINDEX          (MAX_INTF_IFINDEX - 4)/* Only one instance exist, you may lookup in array */
 #define BD_RMAC_INTF_INDEX        (MAX_INTF_IFINDEX - 5)/* Only one instance exist, you may lookup in array */
 #define NVE_IFINDEX               (MAX_INTF_IFINDEX - 6)/* Only one instance exist, you may lookup in array */
+#define EVPN_MPLS_TO_BD_STEER_IFINDEX (MAX_INTF_IFINDEX - 7)/* Only one instance exist, you may lookup in array */
+#define EVPN_MPLS_TO_VRF_STEER_IFINDEX (MAX_INTF_IFINDEX - 8)/* Only one instance exist, you may lookup in array */
+
 
 #define BDRMAC_INTF_NAME          "bdrmacif"
 
 /* VPNV4 LABEL SPACE */
 #define VPNV4_START_LABEL 16
 #define VPNV4_LABEL_RANGE 48 /* Must be Same as MAX_VRF_PER_NODE */
+
+#define L2VPN_START_LABEL (VPNV4_LABEL_RANGE + 1)
+#define L2VPN_LABEL_RANGE 48
 
 #endif /* __TCPCONST__ */

@@ -83,6 +83,7 @@ typedef struct def_vrf_ {
 
 } def_vrf_t;
 
+
 #pragma pack(pop)
 
 /* Default VRF functions */

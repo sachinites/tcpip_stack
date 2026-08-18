@@ -73,6 +73,7 @@ typedef struct ifm_ ifm_t;
 typedef struct rdbms_instance_ rdbms_t;
 typedef struct label_mgr_ label_mgr_t;
 typedef struct label_mgr_block_ label_mgr_block_t;
+typedef struct evpn_inst_ evpn_inst_t;
 
 struct node_ {
 
@@ -124,6 +125,8 @@ struct node_ {
     label_mgr_t *lbl_mgr;
     /* L3VPN pre-reserved label Block*/
     label_mgr_block_t *l3vpn_lbl_block;
+    /* L2VPN pre-reserved label Block*/
+    label_mgr_block_t *l2vpn_lbl_block;
     /* SQL DB*/
     BPlusTree_t *sql_db;
     /* Data Path */
@@ -152,6 +155,8 @@ struct node_ {
     std::vector<acl_client_t *> acl_clients;
     /* CP SQL Database*/
     rdbms_t *cp_rdbms;
+    /* EVPN Instances */
+    evpn_inst_t *evpn[MAX_EVPN_INDEX];
 
     glthread_t graph_glue;
     /* Random Number Generator*/

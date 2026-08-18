@@ -52,6 +52,9 @@ lfa_show_cli_tree(param_t *param);
 int
 lfa_config_cli_tree(param_t *param) ;
 
+int
+evpn_config_cli_tree(param_t *param);
+
 param_t *
 vrf_build_config_tree (param_t *node_name);
 

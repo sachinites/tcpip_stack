@@ -76,8 +76,8 @@ typedef struct MacFwdObject_ {
 
             union {
 
-                dp_vrf_t *steered_vrf;
-                uint32_t steered_bd_ifindex;
+                // Can be VRF or BD 
+                uint32_t steered_obj_ifindex;
 
             } u_steer;
 

@@ -2,11 +2,11 @@
 #define __EVPN__
 
 #include <stdint.h>
-#include "../../../libs/common/cmn_prefix.h"
-#include "../../../libs/Tree/libtree.h"
 #include "../../vrf/vrf.h"
 
 typedef struct rtm_ rtm_t;
+typedef struct node_ node_t;
+
 
 #if 0
 /* CLI to install static EVPN routes directly in Datapath */
@@ -40,67 +40,49 @@ EVPN L2RIBs
     └── IP VRFs
             ├── MAC-IP
             └── Type-5
+
 */
 
-/* This structure is populated using below configuration 
+typedef struct evpn_inst_ {
 
-evpn
-  vni 5010 l2
-    rd auto
-    route-target import 65501:10
-    route-target export 65501:10
-  vni 5020 l2
-    rd auto
-    route-target import 65501:20
-    route-target export 65501:20
-*/
-typedef struct mac_vrf_ {
+    /*EVPN Instance identifier */
+    uint8_t evi;
 
-    uint32_t l2vni;  /* Key */
+    /* EVPN is a control plane wrapper over BD Mgmt */
+    uint32_t bd_index; 
 
-    rd_t rd;  /* Route Distinguisher */
-    rt_t import_rt;  /* Import Route Target */
-    rt_t export_rt;  /* Export Route Target */
+    /* Underlying mac vrf */
+    uint8_t mac_vrf_id;
 
-    /* MAC VRF RIB ( All MAC-only/MAC-IP routes will go here ) */
-    avltree_t mac_vrf_rib;
+    /* Owning router */
+    node_t *node;
 
-    /* All Type 3 routes will do here to build BUM 
-        replication list, route will be dtored using 
-        evpn_rt_t->avl_glue_imet_rib */
-    avltree_t imet_rib;
-    
-} mac_vrf_t;
-
-typedef struct ip_vrf_ {
-
-    uint32_t l3vni;  /* Key */  
-    uint8_t vrf_id;  /* VRF ID */
-
-    rd_t rd;  /* Route Distinguisher */
-    rt_t import_rt;  /* Import Route Target */
-    rt_t export_rt;  /* Export Route Target */
-
-    /* MAC VRF RIB (All Type 5 and MAC_IP routes will go here ) */
-    avltree_t ip_vrf_rib;
-    
-} ip_vrf_t;
+} evpn_inst_t;
 
 
-typedef struct evpn_ {
+evpn_inst_t *
+evpn_instance_init (node_t *node, uint8_t evpn_id) ;
 
-    /* All EVPN Routes, imported from BGP/LOCAL Learned or static */
-    avltree_t imported_routes;    /* Keyed by VTEP IP, Route_type, NLRI */
+void
+evpn_instance_deinit (evpn_inst_t **evpn_inst);
 
-    /* All EVPN routes to be advertised to BGP */
-    avltree_t exported_routes;    /* Keyed by VTEP IP, Route_type, NLRI */
-    
-    avltree_node_t mac_vrf_tree;  /* Keyed by l2vni */
-    avltree_node_t ip_vrf_tree;   /* Keyed by l3vni */
+bool 
+evpn_config_rd (evpn_inst_t *evpn_inst, rd_t rd);
 
-} evpn_t;
+bool 
+evpn_unconfig_rd (evpn_inst_t *evpn_inst, rd_t rd);
 
+bool 
+evpn_config_rt (evpn_inst_t *evpn_inst, rt_t rt, bool import);
 
+bool 
+evpn_unconfig_rt (evpn_inst_t *evpn_inst, rt_t rt, bool import);
+
+void
+evpn_connect_bd (evpn_inst_t *evpn_inst, uint32_t bd_index);
+
+bool 
+evpn_disconnect_bd (evpn_inst_t *evpn_inst, uint32_t bd_index);
 
 
 #endif 

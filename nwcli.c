@@ -148,6 +148,7 @@ static cli_register_cb
         isis_config_cli_tree,
         srv6_build_global_config_cli_tree,
         lfa_config_cli_tree,
+        evpn_config_cli_tree,
 
         /*  Add more CB here */
         

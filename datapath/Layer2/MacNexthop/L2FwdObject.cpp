@@ -99,10 +99,10 @@ l2_steer_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
     switch (fwd_obj->u.steering.steering_type) {
 
         case STEER_INTO_VRF:
-            assert (fwd_obj->u.steering.u_steer.steered_vrf );  
+            assert (fwd_obj->u.steering.u_steer.steered_obj_ifindex );  
             break;
         case STEER_INTO_BD:
-            assert (fwd_obj->u.steering.u_steer.steered_bd_ifindex );
+            assert (fwd_obj->u.steering.u_steer.steered_obj_ifindex );
             break;
         default:
             assert(0);
@@ -250,12 +250,12 @@ L2_forward_object_comp_fb (
                                 o2->u.steering.steering_type);
             if (rc)
                 return rc;
-            rc = l2_fwd_cmp_ptr(o1->u.steering.u_steer.steered_vrf,
-                                o2->u.steering.u_steer.steered_vrf);
+            rc = l2_fwd_cmp_ptr(o1->u.steering.u_steer.steered_obj_ifindex,
+                                o2->u.steering.u_steer.steered_obj_ifindex);
             if (rc)
                 return rc;
-            return l2_fwd_cmp_u32(o1->u.steering.u_steer.steered_bd_ifindex,
-                                  o2->u.steering.u_steer.steered_bd_ifindex);
+            return l2_fwd_cmp_u32(o1->u.steering.u_steer.steered_obj_ifindex,
+                                  o2->u.steering.u_steer.steered_obj_ifindex);
 
         case L2_FWD_MAX:
         default:
@@ -349,8 +349,8 @@ mac_fwd_object_copy_union (mac_fwd_object_t *dst, mac_fwd_object_t *src)
 
         case L2_FWD_STEERING:
             dst->u.steering.steering_type = src->u.steering.steering_type;
-            dst->u.steering.u_steer.steered_vrf = src->u.steering.u_steer.steered_vrf;
-            dst->u.steering.u_steer.steered_bd_ifindex = src->u.steering.u_steer.steered_bd_ifindex;
+            dst->u.steering.u_steer.steered_obj_ifindex = src->u.steering.u_steer.steered_obj_ifindex;
+            dst->u.steering.u_steer.steered_obj_ifindex = src->u.steering.u_steer.steered_obj_ifindex;
             break;
 
         case L2_FWD_MAX:

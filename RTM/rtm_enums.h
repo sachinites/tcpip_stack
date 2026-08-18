@@ -15,6 +15,7 @@ typedef enum protocols_ {
     RTM_PROTO_ISIS, 
     RTM_PROTO_OSPF,
     RTM_PROTO_LDP,
+    RTM_PROTO_L2VPN,
     RTM_PROTO_MAX
 
 } RTM_PROTO_T;
@@ -38,6 +39,7 @@ typedef enum sub_protocols_ {
     RTM_PROTO_BGP_EXT,
     RTM_PROTO_BGP_VPN,
     RTM_PROTO_BGP_EVPN,
+    RTM_PROTO_L2VPN_EVPN,
 
     RTM_SUB_PROTO_OSPF_EXT,
     RTM_SUB_PROTO_OSPF_INTER,

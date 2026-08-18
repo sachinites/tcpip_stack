@@ -893,6 +893,7 @@ label_mgr_client_type_to_string(label_mgr_client_type_t type)
         case LABEL_CLIENT_BGP_LU:  return "bgp-lu";
         case LABEL_CLIENT_SR_MPLS: return "sr-mpls";
         case LABEL_CLIENT_L3VPN:   return "l3vpn";
+        case LABEL_CLIENT_L2VPN:   return "l2vpn";
         case LABEL_CLIENT_ISIS:    return "isis";
         case LABEL_CLIENT_OSPF:    return "ospf";
         case LABEL_CLIENT_OAM:     return "oam";
