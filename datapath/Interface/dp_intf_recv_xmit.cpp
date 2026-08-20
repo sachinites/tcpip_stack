@@ -61,8 +61,34 @@ dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                       dp_intf_t *interface, 
                       struct rte_mbuf *mbuf);
 
+extern int 
+AC_SendPacketOut(
+        dp_ctx_t *dp_ctx, 
+        dp_intf_t *intf, 
+        struct rte_mbuf *mbuf, uint32_t ctx);
+
+extern int 
+BD_SendPacketOut(
+        dp_ctx_t *dp_ctx, 
+        dp_intf_t *bd_intf, 
+        struct rte_mbuf *mbuf, uint32_t ctx);
+
+extern int 
+BD_FloodPacketOut(
+        dp_ctx_t *dp_ctx, 
+        dp_intf_t *intf, 
+        struct rte_mbuf *mbuf, uint32_t ctx);
+
 extern void 
 bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf);
+
+extern void
+l2_switch_forward_frame(
+                        dp_ctx_t *dp_ctx,
+                        mac_table_t *mac_table,
+                        dp_intf_t *vlan_bd_intf,
+                        dp_intf_t *recv_intf,
+                        struct rte_mbuf *mbuf);
 
 static int
 linux_send_xmit_out (dp_intf_t *dp_intf, struct rte_mbuf *mbuf) {
@@ -331,9 +357,6 @@ dp_VlanPacketFlood (dp_intf_t *vlan_intf,
                     struct rte_mbuf *mbuf, 
                     dp_intf_t *exempt_intf) {
 
-    int i;
-    dp_intf_t *member_port;
-
     ethernet_hdr_t *eth_hdr = pkt_mbuf_get_ethernet_hdr(mbuf);
 
     if (is_pkt_vlan_tagged (eth_hdr)) {
@@ -374,10 +397,13 @@ PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mb
 static int 
 VlanInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
-    tracer(dp_ctx->dptr, DL2FWD,
-        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
+    (void)ctx;
 
-    dp_VlanPacketFlood (intf, mbuf, NULL);    
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);
+
+    l2_switch_forward_frame(dp_ctx, dp_ctx->mac_table, NULL, intf, mbuf);
+    intf->pkt_sent++;
     return 0;
 }
 
@@ -453,9 +479,9 @@ VirtualPort_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mb
 }
 
 static dp_intf_t *
-dp_xmit_ingress_bd_intf(struct rte_mbuf *mbuf)
+dp_xmit_ingress_bd_intf(dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf)
 {
-    dp_intf_t *ingress = pkt_mbuf_get_ingress_intf(mbuf);
+    dp_intf_t *ingress = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
 
     if (!ingress)
         return NULL;
@@ -515,7 +541,7 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf
         return 0;
     }
 
-    bd_intf = dp_xmit_ingress_bd_intf(mbuf);
+    bd_intf = dp_xmit_ingress_bd_intf(dp_ctx, mbuf);
     vrf = (bd_intf && bd_intf->vrf) ? bd_intf->vrf : dp_ctx->default_vrf;
 
     pkt_mbuf_slide(mbuf, -1, 1, sizeof(ethernet_hdr_t));
@@ -545,7 +571,7 @@ dp_xmit_ingress_vlan_intf(dp_ctx_t *dp_ctx,
     vlan_8021q_hdr_t *vlan_8021q_hdr;
     uint16_t vlan_id;
 
-    ingress = pkt_mbuf_get_ingress_intf(mbuf);
+    ingress = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
     eth_hdr = pkt_mbuf_get_ethernet_hdr(mbuf);
     vlan_8021q_hdr = is_pkt_vlan_tagged(eth_hdr);
 
@@ -569,10 +595,10 @@ dp_xmit_ingress_vlan_intf(dp_ctx_t *dp_ctx,
 static int 
 RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
-    pkt_size_t pkt_size;
-    vlan_8021q_hdr_t *vlan_8021q_hdr = NULL;
-    dp_intf_t *vlan_intf;
     dp_vrf_t *vrf;
+    pkt_size_t pkt_size;
+    dp_intf_t *vlan_intf;
+    vlan_8021q_hdr_t *vlan_8021q_hdr = NULL;
 
     assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
 
@@ -657,6 +683,10 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
         return -1;
     }
 
+    /* We may come here from L2 land, clear the ingress cache interface before
+        going to L3 Layer*/
+    pkt_mbuf_clear_ingress_intf(mbuf);
+
     tracer(dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
@@ -693,9 +723,12 @@ VlanFloodInterface_SendPacketOut(
     tracer(dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), vfif_intf->if_name); 
 
-    dp_intf_t *exempt_intf = pkt_mbuf_get_ingress_intf(mbuf);
+    dp_intf_t *exempt_intf = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
 
-    assert (exempt_intf);
+    // Exempt interface can be NULL here, reason : Consider LEAF reacvs 
+    // VxLAN encapsulated pkt
+    // L2 --> (clear ingress ) L3 --> VxLAN DECAP --> L2 --> (this fn)
+    //assert (exempt_intf);
 
     assert (pkt_mbuf_get_starting_hdr(mbuf) == ETHERNET_HEADER);
 
@@ -706,9 +739,8 @@ VlanFloodInterface_SendPacketOut(
     uint16_t vlan_id = (uint16_t)TCI_VID(vlan_8021q_hdr->tci);
 
     /* ToDo : Abhishek : Get rid of this look up in DP */
-    dp_intf_t *vlan_intf  = exempt_intf->l2_mode == DP_LAN_ACCESS_MODE ?
-                    exempt_intf->vlan_intf : \
-                    dp_look_up_interface_by_vlan_id (dp_ctx->dp_vlan_intf_ht, vlan_id); // This lookup forcing me to have an array of dp_intf_t indexed by vlan id
+    dp_intf_t *vlan_intf  = dp_look_up_interface_by_vlan_id (
+                            dp_ctx->dp_vlan_intf_ht, vlan_id); // This lookup forcing me to have an array of dp_intf_t indexed by vlan id
 
     if (!vlan_intf) return -1;
 
@@ -813,47 +845,29 @@ MPLS_XConnect_VRF_SendPacketOut(
     return 0;
 }
 
-extern int 
-AC_SendPacketOut(
-        dp_ctx_t *dp_ctx, 
-        dp_intf_t *intf, 
-        struct rte_mbuf *mbuf, uint32_t ctx);
-
-extern int 
-BD_SendPacketOut(
-        dp_ctx_t *dp_ctx, 
-        dp_intf_t *bd_intf, 
-        struct rte_mbuf *mbuf, uint32_t ctx);
-
-extern int 
-BD_FloodPacketOut(
-        dp_ctx_t *dp_ctx, 
-        dp_intf_t *intf, 
-        struct rte_mbuf *mbuf, uint32_t ctx);
-
-
 /* This array is arranged in sequence of these enums : InterfaceType_t */
 static SendPacketOut_fptr intf_xmit_cbk[] = 
-    {
-        PhysicalInterface_SendPacketOut, 
-        VlanInterface_SendPacketOut,
-        GRETunnelInterface_SendPacketOut,
-        LoopbackInterface_SendPacketOut,
-        VirtualPort_SendPacketOut,
-        RmacInterface_SendPacketOut,
-        VlanFloodInterface_SendPacketOut,
-        NVEInterface_SendPacketOut,
-        AC_SendPacketOut,
-        BD_SendPacketOut,
-        BD_FloodPacketOut,
-        BDRmacInterface_SendPacketOut,
-        0,
-        MPLS_XConnect_VRF_SendPacketOut,
-        0,
-        SRv6_Xconnect_VRF_SendPacketOut,
-        HostPathInterface_SendPacketOut,
-        0,
-    };
+{
+    PhysicalInterface_SendPacketOut, 
+    VlanInterface_SendPacketOut,
+    GRETunnelInterface_SendPacketOut,
+    LoopbackInterface_SendPacketOut,
+    VirtualPort_SendPacketOut,
+    RmacInterface_SendPacketOut,
+    VlanFloodInterface_SendPacketOut,
+    NVEInterface_SendPacketOut,
+    AC_SendPacketOut,
+    BD_SendPacketOut,
+    BD_FloodPacketOut,
+    BDRmacInterface_SendPacketOut,
+    0,
+    MPLS_XConnect_VRF_SendPacketOut,
+    0,
+    SRv6_Xconnect_VRF_SendPacketOut,
+    HostPathInterface_SendPacketOut,
+    0,
+};
+
 
 void 
 dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx) {
@@ -1769,3 +1783,4 @@ DPDK_ConfigureInterfaces(dp_ctx_t *dp_ctx) {
             dp_ctx->mbuf_pools[port_numa_node]);
     }
 }
+

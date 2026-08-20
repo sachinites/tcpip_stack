@@ -60,6 +60,16 @@ dp_intf_get_dpdk_port_id (dp_intf_t *dp_intf) {
     return dp_intf->port_id - 1;
 }
 
+bool 
+dp_is_eligble_l2_port (DP_InterfaceType_t iftype);
+
+/* Resolve / store ingress interface as ifindex on the mbuf. */
+dp_intf_t *
+pkt_mbuf_get_ingress_intf(dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf);
+
+void
+pkt_mbuf_set_ingress_intf(struct rte_mbuf *mbuf, dp_intf_t *intf);
+
 /* Wrapper Function for Data path to allocate memory buffers for packets */
 struct rte_mbuf *
 dp_pkt_mbuf_copy_and_wrap_raw_pkt_copy (dp_ctx_t *dp_ctx, uint8_t *pkt, uint16_t pkt_size);

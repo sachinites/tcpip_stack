@@ -15,7 +15,6 @@
 typedef struct ip_hdr_ ip_hdr_t;
 typedef struct arp_hdr_ arp_hdr_t;
 typedef struct ethernet_hdr_ ethernet_hdr_t;
-typedef struct dp_intf_ dp_intf_t;
 
 typedef struct rte_mbuf pkt_mbuf_t;
 
@@ -41,7 +40,7 @@ typedef struct pkt_mbuf_encap_meta_data_
 
 typedef struct pkt_mbuf_pvt_data_ {
 
-    uintptr_t                   ingress_intf;
+    uint32_t                    ingress_ifindex;
     pkt_mbuf_encap_meta_data_t  *encap_data;
     gen_proto_id_t              hdr_type;
     bool                        no_modify;
@@ -100,7 +99,7 @@ pkt_mbuf_update_new_hdr_type(struct rte_mbuf *mbuf, gen_proto_id_t hdr_type);
 bool
 pkt_mbuf_verify_pkt(struct rte_mbuf *mbuf, gen_proto_id_t hdr_type);
 
-void
+char *
 pkt_mbuf_debug(struct rte_mbuf *mbuf);
 
 char *
@@ -186,10 +185,13 @@ pkt_mbuf_set_no_modify_value(struct rte_mbuf *mbuf, bool value);
 void
 pkt_mbuf_set_no_modify(struct rte_mbuf *mbuf, bool modify);
 
-dp_intf_t *
-pkt_mbuf_get_ingress_intf(struct rte_mbuf *mbuf);
+uint32_t
+pkt_mbuf_get_ingress_ifindex(struct rte_mbuf *mbuf);
 
 void
-pkt_mbuf_set_ingress_intf(struct rte_mbuf *mbuf, dp_intf_t *intf);
+pkt_mbuf_set_ingress_ifindex(struct rte_mbuf *mbuf, uint32_t ifindex);
+
+void
+pkt_mbuf_clear_ingress_intf(struct rte_mbuf *mbuf);
 
 #endif /* __PKT_MBUF__ */

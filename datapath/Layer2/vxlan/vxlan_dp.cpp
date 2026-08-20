@@ -63,7 +63,7 @@ vxlan_encapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf) {
     vxlan_hdr->reserved2 = 0;
 
     tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
-        "VxLAN Encapsulation : VNI %u \n", encap_data->u.vxlan.vni);    
+        "VxLAN Encapsulation : VNI %u for pkt:%s\n", encap_data->u.vxlan.vni, pkt_mbuf_str(mbuf));    
 }
 
 void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vtep_ip) 
@@ -74,7 +74,8 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vt
     if (!nve_intf) {
 
         tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR,
-              "VxLAN Decapsulation : Error : NVE Interface not found, Vxlan pkt dropped\n");
+            "VxLAN Decapsulation : Error : NVE Interface not found, Vxlan pkt:%s dropped\n",
+            pkt_mbuf_str(mbuf));
         return;
     }
 
@@ -95,7 +96,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vt
      vni = ntohl (vni);
 
      tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
-        "VxLAN Decapsulation : VNI %u \n", vni);
+        "VxLAN Decapsulation : VNI %u for pkt:%s\n", vni, pkt_mbuf_str(mbuf));
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(vxlan_hdr + 1); 
     uint16_t strip = (uint16_t)((char *)eth_hdr - (char *)udp_hdr);
@@ -109,13 +110,14 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vt
     if (!vlan_id) {
 
         tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR,
-              "VxLAN Decapsulation : Error : VNI %u not found in vlan_vni_ht, Vxlan pkt dropped\n", vni);
+              "VxLAN Decapsulation : Error : VNI %u not found in vlan_vni_ht, Vxlan pkt:%s dropped\n", 
+              vni, pkt_mbuf_str(mbuf));
               nve_intf->recvd_pkt_dropped++;
 
         return;
     }
 
-    tag_pkt_with_vlan_id  (mbuf, vlan_id);
+    tag_pkt_with_vlan_id (mbuf, vlan_id);
 
     l2_switch_perform_mac_learning (dp_ctx, vlan_id,
                             eth_hdr->src_mac.mac,
@@ -123,8 +125,11 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vt
                             src_vtep_ip) ;
 
     tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
-        "VxLAN Decapsulation : Forwarding pkt to L2 Switching\n");
-        
+        "VxLAN Decapsulation : Forwarding pkt:%s to L2 Switching\n", pkt_mbuf_str(mbuf));
+    
+    /* Set to prevent Split-Horizon*/
+    pkt_mbuf_set_ingress_ifindex(mbuf, nve_intf->port_id);
+
     l2_switch_forward_frame (dp_ctx, dp_ctx->mac_table, NULL, nve_intf,  mbuf);
     nve_intf->pkt_recv++;
 }

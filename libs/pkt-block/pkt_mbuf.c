@@ -141,7 +141,7 @@ pkt_mbuf_dereference(struct rte_mbuf *mbuf)
                 free(priv->encap_data);
                 priv->encap_data = NULL;
             }
-            priv->ingress_intf = 0;
+            priv->ingress_ifindex = 0;
         }
         rte_pktmbuf_free(mbuf);
         return 0;
@@ -426,48 +426,36 @@ pkt_mbuf_set_no_modify(struct rte_mbuf *mbuf, bool modify)
     pkt_mbuf_set_no_modify_value(mbuf, modify);
 }
 
-dp_intf_t *
-pkt_mbuf_get_ingress_intf(struct rte_mbuf *mbuf)
+uint32_t
+pkt_mbuf_get_ingress_ifindex(struct rte_mbuf *mbuf)
 {
     pkt_mbuf_pvt_data_t *priv = pkt_mbuf_get_pvt_data(mbuf);
-    if (priv == NULL) return NULL;
-    return (dp_intf_t *)priv->ingress_intf;
+    if (priv == NULL) return 0;
+    return priv->ingress_ifindex;
 }
 
 void
-pkt_mbuf_set_ingress_intf(struct rte_mbuf *mbuf, dp_intf_t *intf)
+pkt_mbuf_set_ingress_ifindex(struct rte_mbuf *mbuf, uint32_t ifindex)
 {
     pkt_mbuf_pvt_data_t *priv = pkt_mbuf_get_pvt_data(mbuf);
-    if (priv) priv->ingress_intf = (uintptr_t)intf;
+    if (priv) priv->ingress_ifindex = ifindex;
+}
+
+void
+pkt_mbuf_clear_ingress_intf(struct rte_mbuf *mbuf)
+{
+    pkt_mbuf_set_ingress_ifindex(mbuf, 0);
 }
 
 /* ------------------------------------------------------------------------- */
 /* Debug / pretty-print                                                        */
 /* ------------------------------------------------------------------------- */
 
-void
+char *
 pkt_mbuf_debug(struct rte_mbuf *mbuf)
 {
-    if (mbuf == NULL) {
-        printf("pkt_mbuf_debug: (null)\n");
-        return;
-    }
-
-    pkt_mbuf_pvt_data_t *priv = pkt_mbuf_priv(mbuf);
-
-    printf("rte_mbuf %p: pkt_len=%u data_len=%u nb_segs=%u data_off=%u refcnt=%u\n",
-           (void *)mbuf,
-           mbuf->pkt_len, mbuf->data_len, mbuf->nb_segs, mbuf->data_off,
-           rte_mbuf_refcnt_read(mbuf));
-
-    if (priv) {
-        printf("  hdr_type=%u (%s)  no_modify=%d  ingress_intf=0x%lx\n",
-               priv->hdr_type,
-               proto_id_str(priv->hdr_type),
-               (int)priv->no_modify,
-               (unsigned long)priv->ingress_intf);
-    }
-    rte_pktmbuf_dump(stdout, mbuf, 64);
+    char *pkt = pkt_mbuf_get_pkt(mbuf, 0);
+    return pkt; 
 }
 
 char *

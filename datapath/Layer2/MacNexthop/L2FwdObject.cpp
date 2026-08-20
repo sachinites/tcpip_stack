@@ -6,6 +6,7 @@
 #include "../../Interface/dp_intf.h"
 #include "../../Interface/dp_intf_store.h"
 #include "../../dp_ctx.h"
+#include "../../dp_utils.h"
 #include "../../../libs/common/mpls_lstack.h"
 #include "../../../libs/common/l2_hdrs.h"
 #include "../../../libs/Tracer/tracer.h"
@@ -13,6 +14,9 @@
 #include "../../../libs/pkt-block/pkt_mbuf.h"
 #include "../vxlan/vlan_vni_ht.h"
 #include "../../../tcpconst.h"
+#include "../../FIB/fib_nh.h"
+#include "../../Vrfs/dp_vrf.h"
+#include "../../dp-program/dp-prog-struct.h"
 
 static int
 l2_fwd_cmp_u32 (uint32_t a, uint32_t b)
@@ -107,8 +111,17 @@ l2_vxlan_tunnel_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
     assert (fwd_obj->fwd_type == L2_FWD_VxLAN);
 
     nve = DP_NVE_INTF(dp_ctx);
-    if (!nve) {
-        dp_ctx->pkt_dropped++;
+
+    /* Prevent Split horizon, if the pkt is recvd from the same NVE 
+        interface, do not pump back it again to VxLAN Overlay again */
+    uint32_t recv_intf_index =  pkt_mbuf_get_ingress_ifindex(mbuf);
+
+    if (recv_intf_index == NVE_IFINDEX) {
+
+        tracer (dp_ctx->dptr, DTUNNEL_DET,
+            "Pkt:%s Split Horizon Prevented, Pkt is dropped\n", 
+            pkt_mbuf_str(mbuf));
+
         return;
     }
 
@@ -171,7 +184,7 @@ l2_port_forwarding (dp_ctx_t *dp_ctx,
     assert (fwd_obj->fwd_type == L2_FWD_PORT);
     oif = l2_fwd_resolve_port(dp_ctx, fwd_obj->u.dp_intf);
     if (!oif) return;
-    ingress = pkt_mbuf_get_ingress_intf(mbuf);
+    ingress = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
     if (oif == ingress) return;
     dp_send_pkt_out(dp_ctx, oif->ac_intf ? oif->ac_intf : oif, mbuf, 0);
 }
@@ -561,4 +574,65 @@ dp_l2fwd_object_acquire (dp_ctx_t *dp_ctx, mac_fwd_object_t *tmplate)
 
     mac_fwd_object_reference(obj);
     return obj;
+}
+
+bool 
+dp_mac_table_is_invalid_l2_fwding (dp_ctx_t *dp_ctx, 
+                                   uint8_t VLAN_OR_BD,
+                                   uint32_t bd_vlan_ifindex,
+                                   mac_fwd_object_t *tmplate) {
+
+    switch (tmplate->fwd_type) 
+    {
+        case L2_FWD_VxLAN:
+        {
+            /* Do not install VxLAN Tunnels to self */
+
+            fib_nh_t *nh;
+
+            uint32_t vtep_ip = tmplate->u.vxlan.vtep_ip;
+
+            /* This IP should not be 0.inet FIB as local route*/
+            cmn_prefix_t prefix; 
+            cmn_prefix_initialize_v4 (&prefix, vtep_ip, 32);
+
+            switch ((DP_COMPONENT_TYPE_T)VLAN_OR_BD) 
+            {
+                case MAC_TABLE:
+                    {
+                        dp_vrf_t *def_vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, DEFAULT_VRF);
+                        nh = fib_get_forwarding_nh(def_vrf->fib_inet0, &prefix);
+
+                        if (nh &&
+                            ((nh->fwd_info->fwd_flags & FIB_NH_FWD_F_CONNECTED) || 
+                            (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_LOCAL))) {
+
+                            return true;   
+                        }
+                    }
+                    break;
+
+                case BD_MAC_TABLE:
+                {
+                    dp_vrf_t *vrf;
+                    dp_intf_t *bd_intf = dp_ctx->intf_table[bd_vlan_ifindex];
+                    assert (bd_intf);
+                    if (!bd_intf->vrf) vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, DEFAULT_VRF);
+                    else vrf = bd_intf->vrf;
+                    nh = fib_get_forwarding_nh(vrf->fib_inet0, &prefix);
+
+                    if (nh &&
+                        ((nh->fwd_info->fwd_flags & FIB_NH_FWD_F_CONNECTED) ||
+                        (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_LOCAL))) {
+
+                        return true;
+                    }
+                }
+                break;
+            }
+        }
+        break;        
+    }
+
+    return false;
 }

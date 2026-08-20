@@ -137,13 +137,16 @@ dp_print_interface_brief(dp_intf_t *intf)
         l2l3_str = "L2";
     }
 
-    cprintf("%-10s  %-12s  %-20s  %-32s  %-6s  %s\n",
+    /* Width+precision keeps columns aligned even if a field is long. */
+    cprintf("%-16.16s %-12.12s %-18.18s %-22.22s %-4.4s %-14.14s %10u %10u\n",
             intf->if_name[0] ? intf->if_name : "N/A",
             intf->vrf ? intf->vrf->vrf_name : "N/A",
             ipv4_str,
             ipv6_str,
             l2l3_str,
-            dp_intf_type_str(intf->if_type));
+            dp_intf_type_str(intf->if_type),
+            intf->pkt_recv,
+            intf->pkt_sent);
 }
 
 static void
@@ -610,9 +613,9 @@ dp_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
     case CMDCODE_SHOW_DP_INTF_TABLE_BRIEF: {
         printw("\n");
         cprintf("Node: %s - Datapath Interface Table (brief)\n", node_name);
-        cprintf("%-10s  %-12s  %-20s  %-32s  %-6s  %s\n",
-                "IfName", "VRF", "IPv4", "IPv6", "Mode", "Type");
-        cprintf("-----------------------------------------------------------------------------------------------------\n");
+        cprintf("%-16s %-12s %-18s %-22s %-4s %-14s %10s %10s\n",
+                "IfName", "VRF", "IPv4", "IPv6", "Mode", "Type", "RX", "TX");
+        cprintf("---------------------------------------------------------------------------------------------------------------\n");
 
         for (int _i = 0; _i < DP_MAX_INTF; _i++) {
             dp_intf_t *intf = node->dp_ctx->intf_table[_i];

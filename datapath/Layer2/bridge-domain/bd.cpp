@@ -11,6 +11,7 @@
 
 #include "../../dp_ctx.h"
 #include "../../dp_uapi.h"
+#include "../../dp_utils.h"
 #include "../../Interface/dp_intf.h"
 #include "../../Interface/dp_intf_store.h"
 #include "../../Interface/intf_cons.h"
@@ -74,53 +75,44 @@ BD_FloodPacketOut(
 
     dp_intf_t *ac ;
     dp_intf_t *bd_intf;
-    dp_intf_t *exempt_ac = pkt_mbuf_get_ingress_intf(mbuf);
+
+    /* Can be NULL*/
+    dp_intf_t *exempt_ac = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
 
     pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER);
 
     tracer(dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), bd_vfif->if_name); 
 
-    if (!exempt_ac) {
-        tracer(dp_ctx->dptr, DL2SW | DERR,
-            "Error : BD flood: ingress AC not set on mbuf, pkt %s dropped\n", pkt_mbuf_str(mbuf));
-        return -1;
-    }
-
-    if (ctx)
-        bd_intf = dp_ctx->intf_table[ctx];
-    else
-        bd_intf = exempt_ac->bd_intf;
+    bd_intf = dp_ctx->intf_table[ctx];
 
     if (!bd_intf) {
         tracer(dp_ctx->dptr, DL2SW | DERR,
-            "Error : BD flood: ingress AC %s has no parent BD, pkt %s dropped\n", 
-            exempt_ac->if_name, pkt_mbuf_str(mbuf));
+            "Error : BD flood: Pkt:%s : BD intf not found, pkt is dropped\n", 
+            pkt_mbuf_str(mbuf));
         return -1;
     }
 
     tracer(dp_ctx->dptr, DL2FWD | DFLOW,
-        "Flooding the pkt %s in BD %s, exempt intf %s\n", 
+        "Flooding the Pkt:%s in BD %s, exempt intf %s\n", 
         pkt_mbuf_str(mbuf), 
-        bd_intf->if_name, exempt_ac->if_name);
+        bd_intf->if_name, exempt_ac ? exempt_ac->if_name: "Nil");
 
     /* Iterate over all ACs of BD */
     struct rte_mbuf *dup_mbuf;
     int count = 0;
 
-    for (int i = 0; i < MAX_BD_MEMBER_PORTS; i++) { 
-
+    for (int i = 0; i < MAX_BD_MEMBER_PORTS; i++)
+    {
         ac = bd_intf->mports[i];
 
-        if (!ac || 
-            ac == exempt_ac || 
-            ac == dp_ctx->intf_table[BD_RMAC_INTF_INDEX] ||
-            ac == dp_ctx->intf_table[BD_FLOOD_IFINDEX]) continue;
+        if (!ac || ac == exempt_ac) {
 
-        dup_mbuf = PKT_MBUF_DUP(mbuf);
-        dp_send_pkt_out(dp_ctx, ac, dup_mbuf, 0);
-        pkt_mbuf_dereference(dup_mbuf);
-        count++;
+            dup_mbuf = PKT_MBUF_DUP(mbuf);
+            dp_send_pkt_out(dp_ctx, ac, dup_mbuf, 0);
+            pkt_mbuf_dereference(dup_mbuf);
+            count++;
+        }
     }
 
     tracer(dp_ctx->dptr, DL2FWD | DFLOW,
@@ -298,7 +290,7 @@ BD_SendPacketOut(
         dp_intf_t *bd_intf, 
         struct rte_mbuf *mbuf, uint32_t ctx) {
 
-    dp_intf_t *ac = pkt_mbuf_get_ingress_intf(mbuf);
+    dp_intf_t *ac = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
 
     tracer(dp_ctx->dptr, DL2FWD | DFLOW,
         "pkt %s Recvd on AC %s BD %s\n", 

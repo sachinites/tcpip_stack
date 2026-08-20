@@ -8,6 +8,9 @@ typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct mpls_lstack_ mpls_lstack_t;
 typedef struct dp_vrf_ dp_vrf_t;
+typedef struct MacFwdObject_ mac_fwd_object_t;
+typedef struct mac_fwd_object_spec_ mac_fwd_object_spec_t;
+
 
 typedef enum L2_FWD_TYPE_ {
 
@@ -25,7 +28,7 @@ typedef enum L2_FWD_TYPE_ {
 
 #pragma pack(push, 8)
 
-typedef struct MacFwdObject_ {
+struct MacFwdObject_ {
 
     L2_FWD_TYPE_T fwd_type;
 
@@ -93,7 +96,7 @@ typedef struct MacFwdObject_ {
 
     } u;
 
-} mac_fwd_object_t;
+};
 
 #pragma pack(pop)
 
@@ -123,7 +126,7 @@ void
 dp_l2fwd_objects_init (dp_ctx_t *dp_ctx);
 
 /* CP/DP wire format — no pointers; resolved on dp_ev_dis. */
-typedef struct mac_fwd_object_spec_ {
+struct mac_fwd_object_spec_ {
 
     uint8_t fwd_type;
     uint8_t padding[3];
@@ -158,7 +161,7 @@ typedef struct mac_fwd_object_spec_ {
 
     } u;
 
-} mac_fwd_object_spec_t;
+};
 
 void
 mac_fwd_object_spec_init (mac_fwd_object_spec_t *spec);
@@ -180,5 +183,11 @@ dp_mac_fwd_object_init_from_spec (dp_ctx_t *dp_ctx,
 /* Lookup interned object in l2_fwd_obj_tree[]; insert+clone on miss. Takes a ref. */
 mac_fwd_object_t *
 dp_l2fwd_object_acquire (dp_ctx_t *dp_ctx, mac_fwd_object_t *tmplate);
+
+bool 
+dp_mac_table_is_invalid_l2_fwding (dp_ctx_t *dp_ctx, 
+                                   uint8_t VLAN_OR_BD,
+                                   uint32_t bd_vlan_ifindex,
+                                   mac_fwd_object_t *tmplate);
 
 #endif /* __L2_FWD_OBJECT__ */

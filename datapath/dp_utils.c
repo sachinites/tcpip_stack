@@ -17,6 +17,7 @@
 #include "FIB/fib_nh.h"
 #include "dp_ctx.h"
 #include "dp_uapi.h"
+#include "../libs/pkt-block/pkt_mbuf.h"
 
 struct rte_mempool;
 
@@ -67,4 +68,32 @@ dp_pkt_mbuf_get_new (dp_ctx_t *dp_ctx, uint16_t pkt_size) {
     /* Get the mempool on this socket*/
     struct rte_mempool *mpool = dp_uapi_get_current_socket_mpool(dp_ctx);
     return  PKT_MBUF_GET_NEW(mpool, (pkt_size_t)pkt_size);
+}
+
+bool 
+dp_is_eligble_l2_port (DP_InterfaceType_t iftype) {
+
+    if (iftype == DP_INTF_TYPE_PHY || 
+        iftype == DP_INTF_TYPE_AC) {
+
+        return true;
+    }
+
+    return false;
+}
+
+dp_intf_t *
+pkt_mbuf_get_ingress_intf(dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf)
+{
+    uint32_t ifindex = pkt_mbuf_get_ingress_ifindex(mbuf);
+
+    if (!dp_ctx || !ifindex || ifindex >= DP_MAX_INTF)
+        return NULL;
+    return dp_ctx->intf_table[ifindex];
+}
+
+void
+pkt_mbuf_set_ingress_intf(struct rte_mbuf *mbuf, dp_intf_t *intf)
+{
+    pkt_mbuf_set_ingress_ifindex(mbuf, intf ? intf->port_id : 0);
 }

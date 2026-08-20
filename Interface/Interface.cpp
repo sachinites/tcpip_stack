@@ -122,9 +122,12 @@ Interface::~Interface()
 
     cprintf ("CP : Intf %s deleted\n", this->if_name.c_str());
 
-    /* AC are deleted in DP when they are dettached from BD */
-    if (if_index || iftype != INTF_TYPE_AC)
+    
+    if (iftype != INTF_TYPE_AC && /* AC are deleted in DP when they are dettached from BD */
+        iftype != INTF_TYPE_NVE) {  /* NVE is persistent interface in DP */
+        
         cp2dp_interface_delete (this->att_node, if_index);
+    }
 }
 
 InterfaceP 

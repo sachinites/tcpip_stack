@@ -73,6 +73,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     /* We are in L3 IP land, so starting hdr type must be IP_PROTO_IP_IN_IP */
     assert (pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_IP_IN_IP);
+    assert (pkt_mbuf_get_ingress_ifindex(mbuf) == 0);
 
     ip_hdr = (ip_hdr_t *)pkt_mbuf_get_ip_hdr(mbuf);
 

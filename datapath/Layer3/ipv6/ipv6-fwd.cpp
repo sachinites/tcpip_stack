@@ -83,18 +83,7 @@ void layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
     char route_addr_str[48];
     cmn_prefix_t prefix_key;
 
-    #if 0
-    /* L3VPN case, on Ingress router mbuf can be IPv4 
-        pkt with SRv6 Nexthop */
-    if (pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_IP_IN_IP && 
-            (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_SRv6_FORWARD)) &&
-             nh->fwd_info->u.v6_fwd.endfn == END_DT4) {
-
-        assert (nh->fwd_info->oif->if_type == DP_INTF_TYPE_SRV6_TO_VRF_STEER_STEER);
-        dp_send_pkt_out(dp_ctx, nh->fwd_info->oif, mbuf, 0);
-        return;
-    }
-    #endif
+    assert (pkt_mbuf_get_ingress_ifindex(mbuf) == 0);
 
     unsigned char *pkt = pkt_mbuf_get_pkt(mbuf, &pkt_size);
 

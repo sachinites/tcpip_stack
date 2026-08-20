@@ -95,6 +95,13 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
                                      &mac_update_msg->fwd,
                                      overlay_vlan);
 
+    if (dp_mac_table_is_invalid_l2_fwding (dp_ctx, 
+                (uint8_t)dp_msg->component_type, 
+                overlay_vlan, &tmpl)) {
+
+        assert (0);
+    }
+
     switch (dp_msg->opr_type) {
         
         case DP_CREATE:
@@ -609,6 +616,10 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                     /* Look up the VLAN interface */
                     dp_intf_t *vlan_intf = dp_ctx->intf_table[vlan_bind->vlan_port_id];
                 
+                    if (!dp_is_eligble_l2_port(intf->if_type)) {
+                        assert (0);
+                    }
+
                     if (vlan_bind->add) {
                         dp_vlan_bind_port (vlan_intf, intf, (DP_IntfL2Mode)vlan_bind->l2_mode);
                     }
@@ -793,6 +804,10 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
 
                     /* This AC must not exist in BD already */
                     if (bd_has_ac_member(bd_intf, phy_intf->port_id)) {
+                        assert (0);
+                    }
+
+                    if (!dp_is_eligble_l2_port(phy_intf->if_type)) {
                         assert (0);
                     }
 

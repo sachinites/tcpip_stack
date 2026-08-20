@@ -66,6 +66,9 @@ void dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
                               dp_intf_t *interface, /*ingress interface*/
                               struct rte_mbuf *mbuf)
 { 
-
+    /* If the pkt is promoted to L3, then clear the L2 interface if cached
+        in the pkt. L3 routing never push the pkt out of same interface
+        in the same context */
+    pkt_mbuf_clear_ingress_intf(mbuf);
     _layer3_pkt_recv_from_layer2(dp_ctx, vrf, interface, mbuf);
 }

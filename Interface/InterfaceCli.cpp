@@ -804,27 +804,24 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
             case CONFIG_ENABLE:
             {
                 // Check if NVE interface already exists
-                NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, (const char *)if_name);
-                if (nve_intf) {
-                    return 0;
-                }
-
-                // Create new NVE interface
-                NVEInterfaceP nve_intfP = std::make_shared<NVEInterface>(std::string((const char *)if_name));
+                NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, NVE_INTF_NAME);
+                if (nve_intf) return 0;
+                NVEInterfaceP nve_intfP = std::make_shared<NVEInterface>(std::string((NVE_INTF_NAME)));
                 nve_intfP->SetSharedPtr(nve_intfP);
                 nve_intfP->att_node = node;
                 nve_intfP->ifindex = NVE_IFINDEX;
                 interface_reserve_ifindex(node, NVE_IFINDEX);
-                nve_intfP->is_up = true;  // NVE interfaces are up by default
+                nve_intfP->is_up = true;
                 node->node_nw_prop.nve = nve_intfP;
-                node->node_nw_prop.nve->vrf = NODE_DEF_VRF(node);
-                cp2dp_interface_create(node, nve_intfP.get());
+                vrf_add_interface(NODE_DEF_VRF(node), nve_intfP.get());
                 cp2dp_send_intf_admin_status_update(node, nve_intfP->ifindex, false);
             }
             break;
+
             case CONFIG_DISABLE:
             {
-                NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, (const char *)if_name);
+                NVEInterface *nve_intf = NVEInterface::NVEInterfaceLookUp(node, NVE_INTF_NAME);
+
                 if (!nve_intf) {
                     return 0;
                 }
@@ -832,6 +829,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 // Check if interface is in use (has member VNIs)
                 std::vector<uint32_t> vni_list;
                 nve_intf->GetMemberVnis(vni_list);
+
                 if (!vni_list.empty()) {
                     cprintf("Error: NVE interface %s has member VNIs, remove them first\n", if_name);
                     return -1;
@@ -843,7 +841,6 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 }
 
                 if (node->node_nw_prop.nve) {
-                    cp2dp_interface_delete(node, node->node_nw_prop.nve->ifindex);
                     node->node_nw_prop.nve = nullptr;
                 }
             }
@@ -1226,28 +1223,23 @@ Interface_config_cli_tree (param_t *root) {
             {
                 /*config node <node-name> interface nve <nve-name> */
                 static param_t nve;
-                init_param(&nve, CMD, "network-virtualization-edge", 0, 0, INVALID, 0, "nve keyword");
+                init_param(&nve, CMD, "network-virtualization-edge", intf_config_handler, 0, INVALID, 0, "nve keyword");
                 libcli_register_param(&interface, &nve);
-                {
-                    /*config node <node-name> interface nve <nve-name> */
-                    static param_t nve_name;
-                    init_param(&nve_name, LEAF, 0, intf_config_handler, 0, STRING, "if-name", "NVE Interface Name");
-                    libcli_register_param(&nve, &nve_name);
-                    libcli_set_param_cmd_code(&nve_name, CMDCODE_INTF_CONFIG_NVE_CREATE);
-                    libcli_param_list(&nve_name);
-                    
+                libcli_set_param_cmd_code(&nve, CMDCODE_INTF_CONFIG_NVE_CREATE);
+                libcli_param_list(&nve);
+                {   
                     {
-                        /*config node <node-name> interface nve <nve-name> member*/
+                        /*config node <node-name> interface network-virtualization-edge member*/
                         static param_t member;
                         init_param(&member, CMD, "member", 0, 0, INVALID, 0, "member keyword");
-                        libcli_register_param(&nve_name, &member);
+                        libcli_register_param(&nve, &member);
                         {
-                            /*config node <node-name> interface nve <nve-name> member l2vni*/
+                            /*config node <node-name> interface network-virtualization-edge member l2vni*/
                             static param_t l2vni;
                             init_param(&l2vni, CMD, "l2vni", 0, 0, INVALID, 0, "l2vni keyword");
                             libcli_register_param(&member, &l2vni);
                             {
-                                /*config node <node-name> interface nve <nve-name> member l2vni <vni-id>*/
+                                /*config node <node-name> interface network-virtualization-edge member l2vni <vni-id>*/
                                 static param_t vni_id;
                                 init_param(&vni_id, LEAF, 0, intf_config_handler, 0, INT, "vni-id", "VNI ID");
                                 libcli_register_param(&l2vni, &vni_id);
@@ -1257,7 +1249,7 @@ Interface_config_cli_tree (param_t *root) {
                         }
                     }
                     
-                    libcli_support_cmd_negation(&nve_name);
+                    libcli_support_cmd_negation(&nve);
                 }
             }
 

@@ -148,8 +148,7 @@ dp_mpls_fwd_pkt(dp_ctx_t *dp_ctx,
     
     assert(pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_MPLS_IN_IP);
 
-    /* MPLS forwarding happens only in default vrf */
-    //assert (vrf->vrf_id == DEFAULT_VRF);
+    pkt_mbuf_clear_ingress_intf(mbuf);
 
     pkt_label = (mpls_label_wire_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
     if (!pkt_label || pkt_size < sizeof(mpls_label_wire_t)) {

@@ -648,7 +648,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     pkt_size_t pkt_size;
     
     vlan_ethernet_hdr_t *vlan_eth_hdr;
-    dp_intf_t *interface = pkt_mbuf_get_ingress_intf(mbuf);
+    dp_intf_t *interface = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
     
     assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
 
@@ -754,9 +754,9 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
 }
 
 static dp_intf_t *
-dp_ingress_bd_intf(struct rte_mbuf *mbuf)
+dp_ingress_bd_intf(dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf)
 {
-    dp_intf_t *ingress = pkt_mbuf_get_ingress_intf(mbuf);
+    dp_intf_t *ingress = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
 
     if (!ingress)
         return NULL;
@@ -779,8 +779,6 @@ is_arp_pkt_for_bd_svi_interface (dp_ctx_t *dp_ctx,
     arp_hdr_t *arp_hdr;
     dp_intf_t *bd_intf;
 
-    (void)dp_ctx;
-
     ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     if (ntohs(ethernet_hdr->type) != ETH_TYPE_ARP)
@@ -792,7 +790,7 @@ is_arp_pkt_for_bd_svi_interface (dp_ctx_t *dp_ctx,
         ntohs(arp_hdr->op_code) != ARP_REPLY)
         return false;
 
-    bd_intf = dp_ingress_bd_intf(mbuf);
+    bd_intf = dp_ingress_bd_intf(dp_ctx, mbuf);
 
     if (!bd_intf || !bd_intf->ip_addr)
         return false;
@@ -813,8 +811,8 @@ bd_svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     uint32_t svi_ip_addr;
     char ip_addr_str[IPV4_ADDR_LEN_STR];
 
-    ingress_ac = pkt_mbuf_get_ingress_intf(mbuf);
-    bd_intf = dp_ingress_bd_intf(mbuf);
+    ingress_ac = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
+    bd_intf = dp_ingress_bd_intf(dp_ctx, mbuf);
 
     if (!ingress_ac || ingress_ac->if_type != DP_INTF_TYPE_AC || !bd_intf)
         return false;

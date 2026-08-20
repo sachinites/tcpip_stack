@@ -1064,21 +1064,21 @@ config node R2_re rtm-route prefix 122.1.1.1/32 0 0 0 2 1 gateway 30.1.1.2 inter
 
 config node R0_re interface vlan 20 ip-address 192.168.0.1 24
 config node R0_re interface vlan 20 vni 5020
-config node R0_re interface network-virtualization-edge nve1 member l2vni 5010
-config node R0_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
-config node R0_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.2
+config node R0_re interface network-virtualization-edge nve member l2vni 5010
+config node R0_re mac-table install 20 ff:ff:ff:ff:ff:ff nve 122.1.1.1
+config node R0_re mac-table install 20 ff:ff:ff:ff:ff:ff nve 122.1.1.2
 
 config node R1_re interface vlan 20 ip-address 192.168.0.1 24
 config node R1_re interface vlan 20 vni 5020
-config node R1_re interface network-virtualization-edge nve1 member l2vni 5010
-config node R1_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.0
-config node R1_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.2
+config node R1_re interface network-virtualization-edge nve member l2vni 5010
+config node R1_re mac-table install 20 ff:ff:ff:ff:ff:ff nve 122.1.1.0
+config node R1_re mac-table install 20 ff:ff:ff:ff:ff:ff nve 122.1.1.2
 
 config node R2_re interface vlan 20 ip-address 192.168.0.1 24
 config node R2_re interface vlan 20 vni 5020
-config node R2_re interface network-virtualization-edge nve1 member l2vni 5010
-config node R2_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.0
-config node R2_re mac-table install 20 ff:ff:ff:ff:ff:ff nve1 122.1.1.1
+config node R2_re interface network-virtualization-edge nve member l2vni 5010
+config node R2_re mac-table install 20 ff:ff:ff:ff:ff:ff nve 122.1.1.0
+config node R2_re mac-table install 20 ff:ff:ff:ff:ff:ff nve 122.1.1.1
 
 config node H1 rtm-route prefix 0.0.0.0/0 0 0 0 2 1 gateway 192.168.0.1 interface eth1
 config node H2 rtm-route prefix 0.0.0.0/0 0 0 0 2 1 gateway 192.168.0.1 interface eth1
@@ -1254,30 +1254,26 @@ config node Leaf2 interface vlan 10 vni 5010
 config node Leaf3 interface vlan 10 vni 5010
 config node Leaf4 interface vlan 10 vni 5010
 
-config node Leaf1 interface network-virtualization-edge nve1 member l2vni 5010
-config node Leaf2 interface network-virtualization-edge nve1 member l2vni 5010
-config node Leaf3 interface network-virtualization-edge nve1 member l2vni 5010
-config node Leaf4 interface network-virtualization-edge nve1 member l2vni 5010
+config node Leaf1 interface network-virtualization-edge member l2vni 5010
+config node Leaf2 interface network-virtualization-edge member l2vni 5010
+config node Leaf3 interface network-virtualization-edge member l2vni 5010
+config node Leaf4 interface network-virtualization-edge member l2vni 5010
 
-config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.11
-config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.12
-config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.13
-config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.14
+config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.12
+config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.13
+config node Leaf1 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.14
 
-config node Leaf2 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.11
-config node Leaf2 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.12
-config node Leaf2 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.13
-config node Leaf2 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.14
+config node Leaf2 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.11
+config node Leaf2 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.13
+config node Leaf2 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.14
 
-config node Leaf3 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.11
-config node Leaf3 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.12
-config node Leaf3 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.13
-config node Leaf3 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.14
+config node Leaf3 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.11
+config node Leaf3 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.12
+config node Leaf3 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.14
 
-config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.11
-config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.12
-config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.13
-config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve1 10.0.0.14
+config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.11
+config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.12
+config node Leaf4 mac-table install 10 ff:ff:ff:ff:ff:ff nve 10.0.0.13
 
 Test : 
 run node Host1 ping 192.168.10.40
