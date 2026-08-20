@@ -87,11 +87,11 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
         {
             mac_update_msg_t *m = (mac_update_msg_t *)dp_msg->data;
             tracer(dp_ctx->dptr, DCONF,
-                "  mac_msg: mac=%02x:%02x:%02x:%02x:%02x:%02x vlan_id=%u ifindex=%u flags=0x%x remote_dst_ip=0x%x\n",
+                "  mac_msg: mac=%02x:%02x:%02x:%02x:%02x:%02x table_vlan=%u bd_ifindex=%u flags=0x%x fwd_type=%u\n",
                 m->mac_addr[0], m->mac_addr[1], m->mac_addr[2],
                 m->mac_addr[3], m->mac_addr[4], m->mac_addr[5],
-                (unsigned)m->vlan_id, m->ifindex, (unsigned)m->flags,
-                (unsigned)m->remote_dst_ip);
+                (unsigned)m->table_vlan_id, m->bd_ifindex,
+                (unsigned)m->flags, (unsigned)m->fwd.fwd_type);
         }
         break;
 

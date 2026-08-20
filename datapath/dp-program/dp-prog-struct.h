@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "../../libs/common/mpls_lstack.h"
 #include "../../libs/common/cmn_prefix.h"
+#include "../Layer2/MacNexthop/L2FwdObject.h"
 
 /* FIX ME : DP including control plane file ... */
 #include "../../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
@@ -16,11 +17,10 @@
 typedef struct mac_update_msg_ {
 
     uint8_t mac_addr[6];
-    uint16_t vlan_id;
-    uint32_t ifindex;
     uint16_t flags;
-    uint32_t remote_dst_ip;
-    char padding[2];
+    uint16_t table_vlan_id;     /* MAC hash key vlan (DEFAULT_VLAN for BD tables) */
+    uint32_t bd_ifindex;      /* BD intf port_id — selects per-BD mac table */
+    mac_fwd_object_spec_t fwd;
 
 } mac_update_msg_t;
 

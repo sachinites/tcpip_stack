@@ -93,7 +93,6 @@ interface_set_ip_addr(node_t *node,
                     c_string intf_ip_addr, uint8_t mask) {
 
     uint32_t ip_addr_int;
-    BDInterface *bd_intf = NULL;
 
     if (intf->GetSwitchport ()) {
         cprintf("Error : Remove L2 config from interface first\n");
@@ -104,9 +103,6 @@ interface_set_ip_addr(node_t *node,
 
     ip_addr_int = tcp_ip_convert_ip_p_to_n(intf_ip_addr);
 
-    if (intf->iftype == INTF_TYPE_BD)
-        bd_intf = dynamic_cast<BDInterface *>(intf);
-
     /* new config */
     if (!intf->IsIpConfigured()) {
 
@@ -114,14 +110,22 @@ interface_set_ip_addr(node_t *node,
         cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, ip_addr_int, mask);
         interface_install_local_v4_routes(node, intf);
 
-        if (intf->iftype == INTF_TYPE_VLAN) {
-            VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
-            cp2dp_mac_table_entry_add(node, (uint8_t *)BROADCAST_MAC,
+        switch (intf->iftype) {
+
+            case INTF_TYPE_VLAN:
+            {
+                VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
+                cp2dp_mac_table_entry_add(node, (uint8_t *)BROADCAST_MAC,
                        vlan_intf->GetVlanId(),
                        RMAC_INTF_INDEX, MAC_STATIC, true, 0);
-        }
-        else if (bd_intf && intf->IsIpConfigured()) {
-            interface_bd_install_router_mac(node, bd_intf);
+            }
+            break;
+            case INTF_TYPE_BD:
+            {
+                BDInterface *bd_intf = dynamic_cast<BDInterface *>(intf);
+                interface_bd_install_router_mac(node, bd_intf);   
+            }
+            break;
         }
         return;
     }
@@ -140,9 +144,6 @@ interface_set_ip_addr(node_t *node,
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
         cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, ip_addr_int, mask);
         interface_install_local_v4_routes  (node, intf);
-
-        if (bd_intf && intf->IsIpConfigured())
-            interface_bd_install_router_mac(node, bd_intf);
     }
 }
 
@@ -559,7 +560,7 @@ node_interface_lookup_by_name(node_t *node, const char *if_name){
     Interface *intf;
 
     if (NODE_NVE_INTF(node) && 
-             string_compare(if_name, NVE_INTF_NAME , IF_NAME_SIZE) == 0) {
+        string_compare(if_name, NVE_INTF_NAME , IF_NAME_SIZE) == 0) {
         return NODE_NVE_INTF(node).get();
     }
 

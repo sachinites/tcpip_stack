@@ -400,7 +400,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     dp_intf_t *Fake_dp_intf;
     
     // Rmac Interface
-    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[RMAC_INTF_INDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = RMAC_INTF_INDEX;
     Fake_dp_intf->if_type = DP_INTF_TYPE_RMAC;
@@ -412,7 +412,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->recvd_pkt_dropped = 0;
 
     // BD RMAC Interface
-    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[BD_RMAC_INTF_INDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = BD_RMAC_INTF_INDEX;
     Fake_dp_intf->if_type = DP_INTF_TYPE_BD_RMAC;
@@ -424,7 +424,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->recvd_pkt_dropped = 0;
 
     // Vlan Flood Interface
-    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[VLAN_FLOOD_INDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = VLAN_FLOOD_INDEX;
     Fake_dp_intf->if_type = DP_INTF_TYPE_VLAN_FLOOD;
@@ -436,7 +436,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->recvd_pkt_dropped = 0;
 
     // BD Flood Interface
-    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[BD_FLOOD_IFINDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = BD_FLOOD_IFINDEX;
     Fake_dp_intf->if_type = DP_INTF_TYPE_BD_FLOOD;
@@ -448,7 +448,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->recvd_pkt_dropped = 0;
 
     // NVE Interface
-    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[NVE_IFINDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = NVE_IFINDEX;
     Fake_dp_intf->if_type = DP_INTF_TYPE_NVE;
@@ -460,7 +460,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->recvd_pkt_dropped = 0;
 
     // Host Path Interface
-    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[HOST_PATH_IFINDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = HOST_PATH_IFINDEX;
     Fake_dp_intf->if_type = DP_INTF_TYPE_HOST_PATH;
@@ -472,7 +472,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->recvd_pkt_dropped = 0;
 
     // MPLS to BD Steering Interface
-    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[MPLS_TO_BD_INTF_STEER_IFINDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = MPLS_TO_BD_INTF_STEER_IFINDEX;
     Fake_dp_intf->if_type = DP_INTF_TYPE_MPLS_TO_BD_STEER;
@@ -482,7 +482,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->pkt_sent = 0;          
 
     // MPLS to VRF Steering Interface
-    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[MPLS_TO_VRF_INTF_STEER_IFINDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = MPLS_TO_VRF_INTF_STEER_IFINDEX;
     Fake_dp_intf->if_type = DP_INTF_TYPE_MPLS_TO_VRF_STEER;
@@ -494,7 +494,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->recvd_pkt_dropped = 0;
 
     // SRv6 to BD Steering Interface
-    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[SRv6_TO_BD_STEER_IFINDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = SRv6_TO_BD_STEER_IFINDEX;
     Fake_dp_intf->if_type = DP_INTF_TYPE_MPLS_TO_BD_STEER;
@@ -504,7 +504,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->pkt_sent = 0;          
 
     // SRv6 to VRF Steering Interface
-    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, Fake_dp_intf_t);
+    Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[SRv6_TO_VRF_INTF_STEER_IFINDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = SRv6_TO_VRF_INTF_STEER_IFINDEX;
     Fake_dp_intf->if_type = DP_INTF_TYPE_MPLS_TO_VRF_STEER;

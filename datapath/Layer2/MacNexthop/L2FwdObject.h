@@ -86,7 +86,9 @@ typedef struct MacFwdObject_ {
 
         struct {
 
-            // rmac can be provided bt dp_ctx 
+            /* BD or VLAN RMAC If*/
+            dp_intf_t *rmacif;
+
         }rmac;
 
     } u;
@@ -120,13 +122,60 @@ mac_fwd_object_dereference (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj);
 void
 dp_l2fwd_objects_init (dp_ctx_t *dp_ctx);
 
-/* Build a lookup/insert template from a MAC-table OIF + overlay context. */
+/* CP/DP wire format — no pointers; resolved on dp_ev_dis. */
+typedef struct mac_fwd_object_spec_ {
+
+    uint8_t fwd_type;
+    uint8_t padding[3];
+
+    union {
+
+        uint32_t dp_intf;
+
+        struct {
+            uint32_t vfif_ifindex;
+            uint32_t vlan_bd_port;
+        } flood;
+
+        struct {
+            uint16_t l2vni;
+            uint16_t _pad;
+            uint32_t vtep_ip;
+        } vxlan;
+
+        struct {
+            uint8_t steering_type;
+            uint8_t _pad[3];
+            uint32_t steered_obj_ifindex;
+        } steering;
+
+        struct {
+
+            /* BD or VLAN RMAC If*/
+            uint32_t rmacif;
+
+        }rmac;        
+
+    } u;
+
+} mac_fwd_object_spec_t;
+
 void
-dp_mac_fwd_object_init_from_oif (dp_ctx_t *dp_ctx,
-                                 mac_fwd_object_t *tmpl,
-                                 dp_intf_t *oif,
-                                 uint32_t remote_dst_ip,
-                                 uint16_t vlan_id);
+mac_fwd_object_spec_init (mac_fwd_object_spec_t *spec);
+
+void
+mac_fwd_object_spec_from_ifindex (mac_fwd_object_spec_t *spec,
+                                  uint32_t ifindex,
+                                  uint32_t remote_dst_ip,
+                                  uint32_t vlan_bd_port);
+
+/* Build a lookup/insert template from a wire spec. overlay_vlan is used
+ * for VxLAN VNI lookup when spec does not carry l2vni. */
+void
+dp_mac_fwd_object_init_from_spec (dp_ctx_t *dp_ctx,
+                                  mac_fwd_object_t *tmpl,
+                                  const mac_fwd_object_spec_t *spec,
+                                  uint32_t overlay_vlan);
 
 /* Lookup interned object in l2_fwd_obj_tree[]; insert+clone on miss. Takes a ref. */
 mac_fwd_object_t *

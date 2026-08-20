@@ -166,10 +166,10 @@ dp_post_mac_learn_job(dp_ctx_t *dp_ctx,
 
     mac_update_msg_t *m = (mac_update_msg_t *)dp_msg->data;
     memcpy(m->mac_addr, mac_addr, 6);
-    m->vlan_id       = vlan_id;
-    m->ifindex       = oif_ifindex;
+    m->table_vlan_id = vlan_id;
+    m->bd_ifindex = 0;
     m->flags         = MAC_DYNAMIC;
-    m->remote_dst_ip = src_ip;
+    mac_fwd_object_spec_from_ifindex(&m->fwd, oif_ifindex, src_ip, vlan_id);
 
     task_create_new_job(EV_DP(dp_ctx), (void *)dp_msg,
                         cp2dp_task_handler,
@@ -190,10 +190,10 @@ dp_post_bd_mac_learn_job(dp_ctx_t *dp_ctx,
 
     mac_update_msg_t *m = (mac_update_msg_t *)dp_msg->data;
     memcpy(m->mac_addr, mac_addr, 6);
-    m->vlan_id       = bd_ifindex;
-    m->ifindex       = oif_ifindex;
+    m->table_vlan_id = DEFAULT_VLAN_ID;
+    m->bd_ifindex    = bd_ifindex;
     m->flags         = MAC_DYNAMIC;
-    m->remote_dst_ip = 0;
+    mac_fwd_object_spec_from_ifindex(&m->fwd, oif_ifindex, 0, bd_ifindex);
 
     task_create_new_job(EV_DP(dp_ctx), (void *)dp_msg,
                         cp2dp_task_handler,

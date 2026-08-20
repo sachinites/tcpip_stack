@@ -71,8 +71,11 @@ cp2dp_msg_free (dp_msg_t *dp_msg){
 void
 dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
     
-    dp_intf_t *intf;
     mac_update_msg_t *mac_update_msg;
+    mac_fwd_object_t tmpl;
+    uint16_t table_vlan;
+    uint32_t overlay_vlan;
+
     mac_update_msg = (mac_update_msg_t *)dp_msg->data;
 
     assert(dp_msg->component_type == MAC_TABLE || 
@@ -80,15 +83,17 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
 
     mac_table_t *mac_table = dp_msg->component_type == MAC_TABLE ?
                              dp_ctx->mac_table :
-                             dp_ctx->intf_table[mac_update_msg->vlan_id]->mac_table;
+                             dp_ctx->intf_table[mac_update_msg->bd_ifindex]->mac_table;
 
-    /* Get egress interface for the MAC entry */
-    intf = dp_ctx->intf_table[mac_update_msg->ifindex];
+    table_vlan = (dp_msg->component_type == BD_MAC_TABLE) ?
+                 DEFAULT_VLAN_ID : mac_update_msg->table_vlan_id;
 
-    /* BD MAC learn uses AC; router MAC uses rmac (or other) OIF directly */
-    if (dp_msg->component_type == BD_MAC_TABLE && intf && intf->ac_intf)
-        intf = intf->ac_intf;
-    uint16_t vlan_id = (dp_msg->component_type == BD_MAC_TABLE) ? DEFAULT_VLAN_ID : mac_update_msg->vlan_id;
+    overlay_vlan = (dp_msg->component_type == BD_MAC_TABLE) ?
+                   mac_update_msg->bd_ifindex : mac_update_msg->table_vlan_id;
+
+    dp_mac_fwd_object_init_from_spec(dp_ctx, &tmpl,
+                                     &mac_update_msg->fwd,
+                                     overlay_vlan);
 
     switch (dp_msg->opr_type) {
         
@@ -96,19 +101,17 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
             
             mac_table_entry_add(dp_ctx, mac_table,
                                 mac_update_msg->mac_addr,
-                                vlan_id,
-                                intf,
+                                table_vlan,
                                 mac_update_msg->flags,
-                                mac_update_msg->remote_dst_ip);
+                                &tmpl);
             break;
             
         case DP_DEL:
             
             mac_table_entry_delete(dp_ctx, mac_table,
                                    mac_update_msg->mac_addr,
-                                   vlan_id,
-                                   intf,
-                                   mac_update_msg->remote_dst_ip);
+                                   table_vlan,
+                                   &tmpl);
             break;
 
         case DP_UPDATE:
@@ -461,17 +464,39 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                 {
                     init_mac_table(&(intf->mac_table), dp_ctx->ctx_name,
                                    intf->if_name);
+
                     mac_addr_t mac_addr;
+                    mac_fwd_object_t tmpl;
+                    mac_fwd_object_spec_t spec;
+
                     layer2_fill_with_broadcast_mac (mac_addr.mac);
+                    mac_fwd_object_spec_from_ifindex(&spec, BD_FLOOD_IFINDEX, 0,
+                                                       intf->port_id);
+                    dp_mac_fwd_object_init_from_spec(dp_ctx, &tmpl, &spec,
+                                                     intf->port_id);
 
                     mac_table_entry_add(
                             dp_ctx,
                             intf->mac_table, 
                             mac_addr.mac,
                             DEFAULT_VLAN_ID,
-                            dp_ctx->intf_table[BD_FLOOD_IFINDEX],
                             MAC_STATIC,
-                            0);
+                            &tmpl);
+
+                    memset (&spec, 0, sizeof (spec));
+                    layer2_fill_with_broadcast_mac (mac_addr.mac);
+                    mac_fwd_object_spec_from_ifindex(&spec, BD_RMAC_INTF_INDEX, 0,
+                                                     intf->port_id);
+                    memset (&tmpl, 0, sizeof (tmpl));
+                    dp_mac_fwd_object_init_from_spec(dp_ctx, &tmpl, &spec,
+                                                     intf->port_id);
+                    mac_table_entry_add(
+                            dp_ctx,
+                            intf->mac_table, 
+                            mac_addr.mac,
+                            DEFAULT_VLAN_ID,
+                            MAC_STATIC,
+                            &tmpl);
                 }
                 break;
             }
@@ -893,13 +918,19 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             {
                 case DP_GENERIC_RMAC:
                     memcpy(dp_ctx->rmac.mac, gen_msg->u.mac_addr, 6);
-                    mac_table_entry_add(dp_ctx, 
-                            dp_ctx->mac_table, 
-                            dp_ctx->rmac.mac, 
-                            DEFAULT_VLAN_ID,
-                            DP_RMAC_INTF(dp_ctx),
-                            MAC_STATIC, 
-                            0);
+                    {
+                        mac_fwd_object_t tmpl;
+                        mac_fwd_object_spec_t spec;
+
+                        mac_fwd_object_spec_from_ifindex(&spec, RMAC_INTF_INDEX, 0, 0);
+                        dp_mac_fwd_object_init_from_spec(dp_ctx, &tmpl, &spec, 0);
+                        mac_table_entry_add(dp_ctx,
+                                dp_ctx->mac_table,
+                                dp_ctx->rmac.mac,
+                                DEFAULT_VLAN_ID,
+                                MAC_STATIC,
+                                &tmpl);
+                    }
                 break;
 
 
@@ -934,13 +965,19 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             {
                 case DP_GENERIC_RMAC:
                     memcpy(dp_ctx->rmac.mac, gen_msg->u.mac_addr, 6);
-                    mac_table_entry_add(dp_ctx, 
-                            dp_ctx->mac_table, 
-                            dp_ctx->rmac.mac, 
-                            DEFAULT_VLAN_ID,
-                            DP_RMAC_INTF(dp_ctx), 
-                            MAC_STATIC, 
-                            0);
+                    {
+                        mac_fwd_object_t tmpl;
+                        mac_fwd_object_spec_t spec;
+
+                        mac_fwd_object_spec_from_ifindex(&spec, RMAC_INTF_INDEX, 0, 0);
+                        dp_mac_fwd_object_init_from_spec(dp_ctx, &tmpl, &spec, 0);
+                        mac_table_entry_add(dp_ctx,
+                                dp_ctx->mac_table,
+                                dp_ctx->rmac.mac,
+                                DEFAULT_VLAN_ID,
+                                MAC_STATIC,
+                                &tmpl);
+                    }
                     break;
 
 

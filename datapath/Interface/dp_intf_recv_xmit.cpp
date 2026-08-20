@@ -136,7 +136,7 @@ send_xmit_out (dp_intf_t *intf, struct rte_mbuf *mbuf)
     ev_dis_pkt_data_t *ev_dis_pkt_data;
 
     dp_ctx_t *local_dp_ctx = intf->dp_ctx;
-    
+
     if (!(intf->is_up))
     {
         cprintf("Error : DCTX : %s, Interface %s is not up\n", 
@@ -205,6 +205,9 @@ SendPacketOutSwitchport(dp_ctx_t *dp_ctx, dp_intf_t *Intf, struct rte_mbuf *mbuf
     {
         return 0;
     }
+
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), Intf->if_name);    
 
     ethernet_hdr_t *ethernet_hdr =
         (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
@@ -350,6 +353,9 @@ dp_VlanPacketFlood (dp_intf_t *vlan_intf,
 static int 
 PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
+        
     if (intf->ac_intf) {
         /* Dont do any vlan checks if this is AC underlying interface */
         return send_xmit_out(intf, mbuf);
@@ -368,6 +374,9 @@ PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mb
 static int 
 VlanInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
+
     dp_VlanPacketFlood (intf, mbuf, NULL);    
     return 0;
 }
@@ -379,6 +388,9 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_m
     bool no_modify = false;
     struct rte_mbuf *mbuf_copy;
     cmn_prefix_t src_ip, dst_ip;
+
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
     if (!intf->is_up) { return 0; }
     
@@ -411,6 +423,9 @@ static int
 VirtualPort_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
     pkt_size_t pkt_size;
+
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
     if (!intf->olay_tunnel_intf || !intf->is_up) {
         intf->xmit_pkt_dropped++;
@@ -464,6 +479,9 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf
 
     assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
 
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);  
+
     eth_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     if (is_pkt_vlan_tagged(eth_hdr)) {
@@ -511,10 +529,9 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf
 static int
 HostPathInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx)
 {
-    (void)dp_ctx;
-    (void)intf;
-    (void)mbuf;
     (void)ctx;
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);  
     return 0;
 }
 
@@ -558,6 +575,9 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
     dp_vrf_t *vrf;
 
     assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
+
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);  
 
     ethernet_hdr_t *eth_hdr = 
         ( ethernet_hdr_t  *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
@@ -608,6 +628,8 @@ static int
 LoopbackInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
     
     /* black hole the pkt */
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);     
     return 0;
 }
 
@@ -634,6 +656,9 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
         intf->xmit_pkt_dropped++;
         return -1;
     }
+
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
     vxlan_encapsulate (dp_ctx, mbuf);
 
@@ -664,6 +689,9 @@ VlanFloodInterface_SendPacketOut(
     dp_intf_t *vfif_intf,
     struct rte_mbuf *mbuf, uint32_t ctx)
 {
+
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), vfif_intf->if_name); 
 
     dp_intf_t *exempt_intf = pkt_mbuf_get_ingress_intf(mbuf);
 
@@ -705,6 +733,9 @@ SRv6_Xconnect_VRF_SendPacketOut(
         struct rte_mbuf *mbuf, uint32_t ctx){
 
     pkt_size_t pkt_size;
+
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
     /* Step 1: Strip outer ethernet header if the data layer included it */
     if (pkt_mbuf_get_starting_hdr(mbuf) == ETHERNET_HEADER) {
@@ -762,6 +793,9 @@ MPLS_XConnect_VRF_SendPacketOut(
         struct rte_mbuf *mbuf, uint32_t ctx){
 
     char ip_addr_str[IPV4_ADDR_LEN_STR];
+    
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
     pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
     assert (intf->if_type == DP_INTF_TYPE_MPLS_TO_VRF_STEER);

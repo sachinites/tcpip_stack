@@ -9,6 +9,7 @@
 #include "../../../libs/common/cmn_struct.h"
 #include "../../../utils.h"
 #include "../../enums/l2_enums.h"
+#include "../MacNexthop/L2FwdObject.h"
 
 /*
  * MAC table design — rte_hash + single-writer dp_ev_dis model
@@ -21,14 +22,13 @@
  *    timer callback on dp_ev_dis (DP_TABLE_GC_DELAY_MS) so that any
  *    reader that fetched the pointer just before deletion can finish safely.
  *  - All functions that mutate the table assert that they run on dp_ev_dis.
+ *  - Each MAC entry stores interned mac_fwd_object_t pointers directly.
  */
 
 /* Forward declarations */
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct rte_mbuf pkt_mbuf_t;
-typedef struct MacFwdObject_ mac_fwd_object_t;
-
 
 /* rte_hash is forward-declared; callers need only mac_table.h, not rte_hash.h */
 struct rte_hash;
@@ -41,19 +41,10 @@ typedef struct mac_table_key_ {
     uint8_t  mac[6];
 } mac_table_key_t;
 
-/* Per-OIF entry stored in mac_table_entry_t::oif_list.
- * Forwarding context lives in the interned mac_fwd_object_t. */
-typedef struct mac_oif_entry_ {
-
-    mac_fwd_object_t *fwd_obj;
-    glthread_t glue;
-
-} mac_oif_entry_t;
-
-GLTHREAD_TO_STRUCT(mac_oif_glue_to_entry, mac_oif_entry_t, glue);
-
 typedef struct mac_table_entry_ {
-    glthread_t oif_list;                /* list of mac_oif_entry_t */
+    mac_fwd_object_t **oifs;            /* interned forwarding objects */
+    uint16_t oif_count;
+    uint16_t oif_cap;
     mac_addr_t mac;
     uint16_t flags;
     uint16_t vlan_id;
@@ -101,12 +92,12 @@ mac_table_entry_touch(mac_table_entry_t *entry) {
  * ---------------------------------------------------------------------- */
 void mac_table_entry_add(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                          uint8_t *mac_addr, uint16_t vlan_id,
-                         dp_intf_t *oif, uint16_t flags,
-                         uint32_t remote_dst_ip);
+                         uint16_t flags,
+                         mac_fwd_object_t *fwd_tmpl);
 
 void mac_table_entry_delete(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                             uint8_t *mac_addr, uint16_t vlan_id,
-                            dp_intf_t *intf, uint32_t remote_dst_ip);
+                            mac_fwd_object_t *fwd_tmpl);
 
 void mac_table_entry_delete2(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                              uint16_t vlan_id, uint8_t *mac_addr);
@@ -135,16 +126,12 @@ void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
 /* -------------------------------------------------------------------------
  * OIF list helpers (called only from dp_ev_dis write path)
  * ---------------------------------------------------------------------- */
-mac_oif_entry_t *mac_oif_entry_create(mac_fwd_object_t *fwd_obj);
-void mac_oif_entry_destroy(dp_ctx_t *dp_ctx, mac_oif_entry_t *oif_entry);
-bool mac_table_entry_add_oif(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_entry,
-                             dp_intf_t *oif, uint32_t remote_dst_ip,
-                             uint16_t vlan_id);
-bool mac_table_entry_remove_oif(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_entry,
-                                dp_intf_t *oif, uint32_t remote_dst_ip,
-                                uint16_t vlan_id);
-mac_oif_entry_t *mac_table_entry_find_oif(mac_table_entry_t *mac_entry,
-                                          mac_fwd_object_t *fwd_obj);
+bool mac_table_entry_attach_fwd(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_entry,
+                                mac_fwd_object_t *fwd_tmpl);
+bool mac_table_entry_detach_fwd(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_entry,
+                                mac_fwd_object_t *fwd_obj);
+mac_fwd_object_t *mac_table_entry_find_fwd(mac_table_entry_t *mac_entry,
+                                           mac_fwd_object_t *fwd_obj);
 bool mac_table_entry_has_oifs(mac_table_entry_t *mac_entry);
 void mac_table_entry_clear_oifs(dp_ctx_t *dp_ctx, mac_table_entry_t *mac_entry);
 

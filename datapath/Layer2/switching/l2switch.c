@@ -95,26 +95,23 @@ mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
                             struct rte_mbuf *mbuf, 
                             dp_intf_t *recv_intf) 
 {
-    glthread_t *curr;
     struct rte_mbuf *mbuf2;
     mac_fwd_object_t *fwd_obj;
-    mac_oif_entry_t *oif_entry;
+    uint16_t i;
 
     (void)vlan_bd_intf;
     (void)recv_intf;
 
-    ITERATE_GLTHREAD_BEGIN(&mac_entry->oif_list, curr) {
-        
-        oif_entry = mac_oif_glue_to_entry(curr);
-        fwd_obj = oif_entry->fwd_obj;
+    for (i = 0; i < mac_entry->oif_count; i++) {
+
+        fwd_obj = mac_entry->oifs[i];
         if (!fwd_obj)
             continue;
 
         mbuf2 = PKT_MBUF_DUP(mbuf);
         dp_l2fwd(dp_ctx, fwd_obj, mbuf2);
         pkt_mbuf_dereference(mbuf2);
-
-    } ITERATE_GLTHREAD_END(&mac_entry->oif_list, curr);
+    }
 
 }
 

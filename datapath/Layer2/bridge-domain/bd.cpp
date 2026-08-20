@@ -31,8 +31,11 @@ AC_SendPacketOut(
 
     (void)ctx;
 
-    assert (pkt_mbuf_get_starting_hdr(mbuf) == ETHERNET_HEADER);
+    pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER);
     
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), ac->if_name); 
+
     ethernet_hdr_t *eth_hdr = pkt_mbuf_get_ethernet_hdr(mbuf);
 
     vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(eth_hdr);
@@ -74,6 +77,9 @@ BD_FloodPacketOut(
     dp_intf_t *exempt_ac = pkt_mbuf_get_ingress_intf(mbuf);
 
     pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER);
+
+    tracer(dp_ctx->dptr, DL2FWD,
+        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), bd_vfif->if_name); 
 
     if (!exempt_ac) {
         tracer(dp_ctx->dptr, DL2SW | DERR,

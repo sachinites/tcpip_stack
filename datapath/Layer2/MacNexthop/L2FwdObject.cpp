@@ -8,6 +8,7 @@
 #include "../../dp_ctx.h"
 #include "../../../libs/common/mpls_lstack.h"
 #include "../../../libs/common/l2_hdrs.h"
+#include "../../../libs/Tracer/tracer.h"
 #include "../../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../../libs/pkt-block/pkt_mbuf.h"
 #include "../vxlan/vlan_vni_ht.h"
@@ -168,16 +169,11 @@ l2_port_forwarding (dp_ctx_t *dp_ctx,
     dp_intf_t *ingress;
 
     assert (fwd_obj->fwd_type == L2_FWD_PORT);
-
     oif = l2_fwd_resolve_port(dp_ctx, fwd_obj->u.dp_intf);
-    if (!oif)
-        return;
-
+    if (!oif) return;
     ingress = pkt_mbuf_get_ingress_intf(mbuf);
-    if (oif == ingress)
-        return;
-
-    dp_send_pkt_out(dp_ctx, oif, mbuf, 0);
+    if (oif == ingress) return;
+    dp_send_pkt_out(dp_ctx, oif->ac_intf ? oif->ac_intf : oif, mbuf, 0);
 }
 
 static void
@@ -185,15 +181,9 @@ l2_rmac_forwarding (dp_ctx_t *dp_ctx,
                     mac_fwd_object_t *fwd_obj,
                     struct rte_mbuf *mbuf) {
 
-    dp_intf_t *rmac;
-
     assert (fwd_obj->fwd_type == L2_FWD_RMAC);
 
-    rmac = DP_RMAC_INTF(dp_ctx);
-    if (!rmac)
-        return;
-
-    dp_send_pkt_out(dp_ctx, rmac, mbuf, 0);
+    dp_send_pkt_out(dp_ctx, fwd_obj->u.rmac.rmacif, mbuf, 0);
 }
 
 /* Maintained in the order of L2_FWD_TYPE_T enums */
@@ -244,7 +234,7 @@ L2_forward_object_comp_fb (
             return l2_fwd_cmp_u32(o1->u.dp_intf, o2->u.dp_intf);
 
         case L2_FWD_RMAC:
-            return 0;
+            return l2_fwd_cmp_ptr(o1->u.rmac.rmacif, o2->u.rmac.rmacif);
 
         case L2_FWD_FLOODING:
             rc = l2_fwd_cmp_ptr(o1->u.l2_flood.vfif, o2->u.l2_flood.vfif);
@@ -340,6 +330,7 @@ mac_fwd_object_copy_union (mac_fwd_object_t *dst, mac_fwd_object_t *src)
             break;
 
         case L2_FWD_RMAC:
+            dst->u.rmac.rmacif = src->u.rmac.rmacif;
             break;
 
         case L2_FWD_FLOODING:
@@ -447,39 +438,94 @@ mac_fwd_object_dereference (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj)
 }
 
 void
-dp_mac_fwd_object_init_from_oif (dp_ctx_t *dp_ctx,
-                                 mac_fwd_object_t *tmpl,
-                                 dp_intf_t *oif,
-                                 uint32_t remote_dst_ip,
-                                 uint16_t vlan_id)
+mac_fwd_object_spec_init (mac_fwd_object_spec_t *spec)
 {
-    assert(tmpl && oif);
+    memset(spec, 0, sizeof(*spec));
+}
+
+void
+mac_fwd_object_spec_from_ifindex (mac_fwd_object_spec_t *spec,
+                                  uint32_t ifindex,
+                                  uint32_t remote_dst_ip,
+                                  uint32_t vlan_bd_port)
+{
+    mac_fwd_object_spec_init(spec);
+
+    if (ifindex == NVE_IFINDEX && remote_dst_ip) {
+        spec->fwd_type = L2_FWD_VxLAN;
+        spec->u.vxlan.vtep_ip = remote_dst_ip;
+        return;
+    }
+
+    if (ifindex == VLAN_FLOOD_INDEX || ifindex == BD_FLOOD_IFINDEX) {
+        spec->fwd_type = L2_FWD_FLOODING;
+        spec->u.flood.vfif_ifindex = ifindex;
+        spec->u.flood.vlan_bd_port = vlan_bd_port;
+        return;
+    }
+
+    if (ifindex == RMAC_INTF_INDEX || ifindex == BD_RMAC_INTF_INDEX) {
+        spec->fwd_type = L2_FWD_RMAC;
+        spec->u.rmac.rmacif = ifindex;
+        return;
+    }
+
+    spec->fwd_type = L2_FWD_PORT;
+    spec->u.dp_intf = ifindex;
+}
+
+void
+dp_mac_fwd_object_init_from_spec (dp_ctx_t *dp_ctx,
+                                  mac_fwd_object_t *tmpl,
+                                  const mac_fwd_object_spec_t *spec,
+                                  uint32_t overlay_vlan)
+{
+    dp_intf_t *intf;
+
+    assert(tmpl && spec);
     memset(tmpl, 0, sizeof(*tmpl));
     avltree_node_init(&tmpl->glue);
 
-    if (oif->if_type == DP_INTF_TYPE_NVE && remote_dst_ip) {
-        tmpl->fwd_type = L2_FWD_VxLAN;
-        tmpl->u.vxlan.vtep_ip = remote_dst_ip;
-        if (vlan_id && vlan_id != DEFAULT_VLAN_ID)
-            tmpl->u.vxlan.l2vni = vlan_vni_ht_vlan_to_vni_lookup(dp_ctx, vlan_id);
-        return;
-    }
+    tmpl->fwd_type = (L2_FWD_TYPE_T)spec->fwd_type;
 
-    if (oif->if_type == DP_INTF_TYPE_VLAN_FLOOD ||
-        oif->if_type == DP_INTF_TYPE_BD_FLOOD) {
-        tmpl->fwd_type = L2_FWD_FLOODING;
-        tmpl->u.l2_flood.vfif = oif;
-        tmpl->u.l2_flood.vlan_bd_port = 0;
-        return;
-    }
+    switch (tmpl->fwd_type) {
 
-    if (oif->if_type == DP_INTF_TYPE_RMAC) {
-        tmpl->fwd_type = L2_FWD_RMAC;
-        return;
-    }
+        case L2_FWD_PORT:
+            tmpl->u.dp_intf = spec->u.dp_intf;
+            break;
 
-    tmpl->fwd_type = L2_FWD_PORT;
-    tmpl->u.dp_intf = oif->port_id;
+        case L2_FWD_RMAC:
+            tmpl->u.rmac.rmacif = dp_ctx->intf_table[spec->u.rmac.rmacif];
+            break;
+
+        case L2_FWD_FLOODING:
+            if (spec->u.flood.vfif_ifindex < DP_MAX_INTF)
+                tmpl->u.l2_flood.vfif =
+                    dp_ctx->intf_table[spec->u.flood.vfif_ifindex];
+            tmpl->u.l2_flood.vlan_bd_port = spec->u.flood.vlan_bd_port;
+            break;
+
+        case L2_FWD_VxLAN:
+            tmpl->u.vxlan.vtep_ip = spec->u.vxlan.vtep_ip;
+            tmpl->u.vxlan.l2vni = spec->u.vxlan.l2vni;
+            if (!tmpl->u.vxlan.l2vni && overlay_vlan &&
+                overlay_vlan != DEFAULT_VLAN_ID)
+                tmpl->u.vxlan.l2vni =
+                    vlan_vni_ht_vlan_to_vni_lookup(dp_ctx, (uint16_t)overlay_vlan);
+            break;
+
+        case L2_FWD_STEERING:
+            tmpl->u.steering.steering_type = spec->u.steering.steering_type;
+            tmpl->u.steering.u_steer.steered_obj_ifindex =
+                spec->u.steering.steered_obj_ifindex;
+            break;
+
+        case L2_FWD_MPLS_TUNNEL:
+        case L2_FWD_SRv6_TUNNEL:
+        case L2_FWD_MAX:
+        default:
+            break;
+    }
 }
 
 mac_fwd_object_t *

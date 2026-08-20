@@ -113,11 +113,9 @@ node_set_intf_vlan_membership(node_t *node,
         cp2dp_interface_create(node, vlan_intf);
         cp2dp_vrf_add_interface (node, vlan_intf->vrf->vrf_id,  vlan_intf->ifindex);
         cp2dp_send_intf_admin_status_update(node, vlan_intf->ifindex, false);
-        #if 0
         cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, 
                         vlan_id, 
-                        VLAN_FLOOD_INDEX, MAC_STATIC, true, 0);        
-        #endif
+                        VLAN_FLOOD_INDEX, MAC_STATIC, true, 0);
     }
 
     if (Trunk) {
