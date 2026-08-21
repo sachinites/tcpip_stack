@@ -144,7 +144,7 @@ np_recv_cp_pkt_block(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
     dp_raw_pkt_info_t *pkt_info;
     uint8_t vrf_id = dp_msg->vrf_id;
 
-    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, vrf_id);
+    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx, vrf_id);
 
     pkt_info = *(dp_raw_pkt_info_t **)dp_msg->data;
 
@@ -340,7 +340,7 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
         case DP_CREATE:
         {
             dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
-            dp_vrf_t *vrf = dp_create_vrf(dp_ctx->dp_vrf_ht, dp_ctx->ctx_name, vrf_msg->vrf_name, vrf_msg->vrf_id);
+            dp_vrf_t *vrf = dp_create_vrf(dp_ctx, dp_ctx->ctx_name, vrf_msg->vrf_name, vrf_msg->vrf_id);
             if (vrf_msg->vrf_id == DEFAULT_VRF) dp_ctx->default_vrf = vrf;
             break;
         }
@@ -348,7 +348,7 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
         case DP_DEL:
         {
             dp_vrf_create_msg_t *vrf_msg = (dp_vrf_create_msg_t *)dp_msg->data;
-            dp_delete_vrf(dp_ctx, dp_ctx->dp_vrf_ht, vrf_msg->vrf_id);
+            dp_delete_vrf(dp_ctx, vrf_msg->vrf_id);
             if (vrf_msg->vrf_id == DEFAULT_VRF) dp_ctx->default_vrf = NULL;
             break;
         }
@@ -360,7 +360,7 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
 
                 case DP_VRF_INTF_OP_ADD:
                 {
-                    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, msg->vrf_id);
+                    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx, msg->vrf_id);
                     dp_intf_t *intf = dp_ctx->intf_table[msg->ifindex];
                     assert (intf && vrf);
                     assert (!intf->vrf);
@@ -371,7 +371,7 @@ dp_vrf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                 break;
                 case DP_VRF_INTF_OP_DEL:
                 {
-                    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, msg->vrf_id);
+                    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx, msg->vrf_id);
                     dp_intf_t *intf = dp_ctx->intf_table[msg->ifindex];
                     assert(intf && vrf);
                     assert(intf->vrf && (intf->vrf == vrf));
@@ -1050,7 +1050,7 @@ dp_arp_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
     assert(dp_msg->component_type == ARP_TABLE);
 
     arp_update_msg_t *am = (arp_update_msg_t *)dp_msg->data;
-    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, (int16_t)am->vrf_id);
+    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx, (int16_t)am->vrf_id);
     if (!vrf) {
         cp2dp_msg_free(dp_msg);
         return;

@@ -7,7 +7,7 @@
  * Design:
  *   - Each network node has one dp_ctx_t instance.
  *   - Holds packet queues, timer wheel, tracer, MAC table, interface/VRF
- *     hashtables, netfilter hooks, and references to reserved virtual interfaces
+ *     tables, netfilter hooks, and references to reserved virtual interfaces
  *     via intf_table[] (see RMAC_INTF_INDEX, VLAN_FLOOD_INDEX, etc. in tcpconst.h).
  *   - Used by both control-plane (CP) and data-plane (DP) code; CP configures
  *     it, DP uses it for forwarding and packet I/O.
@@ -15,7 +15,7 @@
  * Key members:
  *   - dp_ev_dis / dp_purger_ev_dis : Event dispatchers (DP thread, purger).
  *   - dp_recvr_pkt_q / cp_to_dp_xmit_intf_pkt_q / dp_ipc_q : Packet queues.
- *   - dp_vrf_ht / dp_vlan_intf_ht : Lookup tables.
+ *   - dp_vrf_table / dp_vlan_intf_ht : Lookup tables.
  *   - vlan_vni_ht : VLAN–VNI mapping (atomic for lock-free access).
  * =============================================================================
  */
@@ -76,8 +76,8 @@ typedef struct dp_ctx_ {
     /* Interface table indexed by port_id / ifindex */
     dp_intf_t *intf_table[DP_MAX_INTF];
 
-    /* VRF table */
-    hashtable_t *dp_vrf_ht;
+    /* VRF table indexed by vrf_id */
+    dp_vrf_t *dp_vrf_table[DP_MAX_VRF];
     /* VLAN interface table (key: vlan-id) */
     hashtable_t *dp_vlan_intf_ht;
     /* VLAN–VNI mapping (VXLAN); atomic for lock-free updates */

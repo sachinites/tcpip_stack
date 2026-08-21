@@ -6,7 +6,7 @@
  *
  * Design:
  *   - Each VRF has vrf_id, name, and FIBs (IPv4, IPv6, MPLS) plus ARP table.
- *   - VRF table: keyed by vrf_id; init, lookup, insert, delete, create.
+ *   - VRF table: fixed array indexed by vrf_id (see DP_MAX_VRF).
  *   - dp_vrf_fib_get: return the appropriate FIB for an AFI (IPv4/IPv6/label).
  *   - Message structs for VRF create and interface add/delete to VRF.
  * =============================================================================
@@ -18,9 +18,9 @@
 #include <stdint.h>
 #include <cstddef>
 #include "../../libs/common/cmn_prefix.h"
+#include "../Interface/intf_cons.h"
 
 typedef struct fib_ fib_t;
-typedef struct hashtable hashtable_t;
 typedef struct arp_table_ arp_table_t;
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct dp_intf_ dp_intf_t;
@@ -46,23 +46,22 @@ typedef struct dp_vrf_ {
 
 #pragma pack(pop)
 
-void 
-dp_init_vrf_hashtable (hashtable_t **ht);
+void
+dp_init_vrf_table (dp_ctx_t *dp_ctx);
 
 dp_vrf_t *
-dp_look_up_vrf (hashtable_t *ht, int16_t vrf_id);
+dp_look_up_vrf (dp_ctx_t *dp_ctx, int16_t vrf_id);
 
 void
-dp_insert_vrf (hashtable_t *ht, dp_vrf_t *vrf);
+dp_insert_vrf (dp_ctx_t *dp_ctx, dp_vrf_t *vrf);
 
 void
-dp_delete_vrf (dp_ctx_t *dp_ctx, hashtable_t *ht, uint8_t vrf_id) ;
+dp_delete_vrf (dp_ctx_t *dp_ctx, uint8_t vrf_id);
 
 dp_vrf_t *
-dp_create_vrf (
-               hashtable_t *ht,
+dp_create_vrf (dp_ctx_t *dp_ctx,
                const char *ctx_name,
-               char *vrf_name, uint8_t vrf_id) ;
+               char *vrf_name, uint8_t vrf_id);
 
 fib_t *
 dp_look_up_fib_by_name (dp_ctx_t *dp_ctx, char *vrf_name, char *fib_name);

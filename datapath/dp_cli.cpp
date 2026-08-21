@@ -545,12 +545,7 @@ dp_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
     switch (cmdcode) {
 
     case CMDCODE_SHOW_DP_VRF_TABLE: {
-        hashtable_t *vrf_ht = node->dp_ctx->dp_vrf_ht;
-
-        if (!vrf_ht) {
-            cprintf("Node %s: Datapath VRF table not initialized\n", node_name);
-            return 0;
-        }
+        int count = 0;
 
         printw("\n");
         cprintf("====================================\n");
@@ -560,24 +555,21 @@ dp_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
                 "VRF ID", "VRF Name", "IPv4 FIB", "IPv6 FIB");
         cprintf("------------------------------------------------------------\n");
 
-        struct hashtable_itr *itr = hashtable_iterator(vrf_ht);
-
-        if (hashtable_count(vrf_ht) > 0) {
-            do {
-                dp_vrf_t *vrf = (dp_vrf_t *)hashtable_iterator_value(itr);
-                if (vrf) {
-                    cprintf("%-10u %-20s %-15s %-15s\n",
-                            vrf->vrf_id,
-                            vrf->vrf_name[0] ? vrf->vrf_name : "<unnamed>",
-                            vrf->fib_inet0 ? "Initialized" : "Not Init",
-                            vrf->fib_inet6 ? "Initialized" : "Not Init");
-                }
-            } while (hashtable_iterator_advance(itr));
-        } else {
-            cprintf("No VRFs configured\n");
+        for (int i = 0; i < DP_MAX_VRF; i++) {
+            dp_vrf_t *vrf = node->dp_ctx->dp_vrf_table[i];
+            if (!vrf)
+                continue;
+            count++;
+            cprintf("%-10u %-20s %-15s %-15s\n",
+                    vrf->vrf_id,
+                    vrf->vrf_name[0] ? vrf->vrf_name : "<unnamed>",
+                    vrf->fib_inet0 ? "Initialized" : "Not Init",
+                    vrf->fib_inet6 ? "Initialized" : "Not Init");
         }
 
-        free(itr);
+        if (!count)
+            cprintf("No VRFs configured\n");
+
         printw("\n");
         break;
     }

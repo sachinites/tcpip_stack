@@ -34,7 +34,7 @@ typedef struct nf_hook_db_ nf_hook_db_t;
 
 extern int cprintf (const char* format, ...);
 
-extern void dp_init_vrf_hashtable(hashtable_t **ht);
+extern void dp_init_vrf_table(dp_ctx_t *dp_ctx);
 extern void dp_init_vlan_intf_hashtable(hashtable_t **ht);
 extern int debug_infra_tracer_bits_to_str(char *buffer, uint64_t bits);
 extern void dp_pkt_recvr_job_cbk(event_dispatcher_t *ev_dis,
@@ -165,7 +165,7 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     /* Initialize MAC table and hashtables */
     init_mac_table(&(dp_ctx->mac_table), dp_ctx->ctx_name, NULL);
     memset(dp_ctx->intf_table, 0, sizeof(dp_ctx->intf_table));
-    dp_init_vrf_hashtable(&dp_ctx->dp_vrf_ht);
+    dp_init_vrf_table(dp_ctx);
     dp_init_vlan_intf_hashtable(&dp_ctx->dp_vlan_intf_ht);
     dp_ctx->vlan_vni_ht.store(nullptr);
 

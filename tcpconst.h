@@ -42,7 +42,7 @@
 
 #define NODE_NAME_SIZE   32
 #define IF_NAME_SIZE     64
-#define MAX_INTF_PER_NODE   10
+#define MAX_INTF_PER_NODE   64
 
  /* Should be less than or equal to UT_PARSER_BUFF_MAX_SIZE */
 #define NODE_PRINT_BUFF_LEN (1024 * 1024)
@@ -91,8 +91,14 @@ tcpip_protocol_classification(uint16_t proto) {
 #define MAC_ENTRY_EXP_TIME      1800 /*Seconds*/
 #define DEFAULT_VRF             0
 #define DEF_VRF_NAME            "0"
-#define MAX_INTF_IFINDEX        1023 
+#define MAX_INTF_IFINDEX        8191
 #define MAX_EVPN_INDEX          8
+#define MAX_VRF_SUPPORTED       256 /* have to widen uint8_t to support more */
+#define MAX_BD_SUPPORT          64
+#define MAX_VLAN_MEMBERPORTS    16
+#define MAX_BD_MEMBERPORTS      16
+#define MAX_VLAN_SUPPORTED      4096
+
 
 /* Special interface ifindices */
 #define RMAC_INTF_INDEX               (MAX_INTF_IFINDEX)   /* Only one instance exist, you may lookup in array */

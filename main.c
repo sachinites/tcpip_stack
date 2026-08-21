@@ -97,7 +97,7 @@ main(int argc, char **argv){
     tcp_ip_stack_pre_topology_create_initializations();
 
     topo = LinuxRtr ? Linux_Router_topology() : \
-                      bridge_domain_topo();
+                      cross_link_topology();
                       
     init_tcp_ip_stack();
     libcli_init_done ();

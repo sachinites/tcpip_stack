@@ -792,7 +792,7 @@ SRv6_Xconnect_VRF_SendPacketOut(
     }
 
     /* Step 4: Resolve the VRF for the IPv4 FIB lookup */
-    dp_vrf_t *steered_vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, ctx);
+    dp_vrf_t *steered_vrf = dp_look_up_vrf(dp_ctx, ctx);
     if (!steered_vrf) {
         tracer(dp_ctx->dptr, DL3FWD | DERR,
             "SRv6 END.DT4: no steered VRF configured on interface %s, dropping\n",
@@ -825,21 +825,25 @@ MPLS_XConnect_VRF_SendPacketOut(
         struct rte_mbuf *mbuf, uint32_t ctx){
 
     char ip_addr_str[IPV4_ADDR_LEN_STR];
-    
-    tracer(dp_ctx->dptr, DL2FWD,
+
+    /* Since we are going to lookup next in vrf.inet.0 table by virtue
+    of mpls route, it is guaranteed that next hdr in the pkt has to
+    be IP Hdr.*/
+    pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
+
+    tracer(dp_ctx->dptr, DMPLS_DET | DL3FWD_DET,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
-    pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
     assert (intf->if_type == DP_INTF_TYPE_MPLS_TO_VRF_STEER);
     
-    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, ctx);
+    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx, ctx);
 
     if (!vrf) return 0;
 
-    tracer (dp_ctx->dptr, DL3FWD, 
-        "VRF:%s: Dest : %s :  Pkt Context Switched from Def-vrf to VPN VRF\n",
-	    vrf->vrf_name,
-        pkt_mbuf_ip(mbuf, ip_addr_str));
+    tracer (dp_ctx->dptr, DMPLS_DET | DL3FWD_DET, 
+        "Pkt:%s Context Switched from Def-vrf to VPN VRF %s\n",
+        pkt_mbuf_ip(mbuf, ip_addr_str),
+	    vrf->vrf_name);
 
     layer3_ip_route_pkt(dp_ctx, vrf, NULL, mbuf);
     return 0;

@@ -51,6 +51,10 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
 
         layer2_fill_with_broadcast_mac (ethernet_hdr->dst_mac.mac);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
+        if (oif->if_type == DP_INTF_TYPE_VLAN) 
+            tag_pkt_with_vlan_id(mbuf, oif->vlan_id);      
+        ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+        ethernet_payload_size = pkt_size - sizeof(vlan_ethernet_hdr_t) - ETH_FCS_SIZE;              
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         dp_send_pkt_out(dp_ctx, oif, mbuf, 0);
         return;
@@ -142,6 +146,10 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
     l2_frame_prepare:
         memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
+        if (oif->if_type == DP_INTF_TYPE_VLAN) 
+            tag_pkt_with_vlan_id(mbuf, oif->vlan_id);      
+        ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+        ethernet_payload_size = pkt_size - sizeof(vlan_ethernet_hdr_t) - ETH_FCS_SIZE;
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         dp_send_pkt_out(dp_ctx, oif, mbuf, 0);
         arp_entry_touch(arp_entry);  /* cheap timestamp store; timer checks this */

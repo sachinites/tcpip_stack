@@ -512,7 +512,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
     tracer (dp_ctx->dptr, DL3FWD, "Dest : %s :  Pkt Arrived in L3-land from Top\n", 
         tcp_ip_covert_ip_n_to_p(dest_ip_address, dst_ip_addr_str));
 
-    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, vrf_id);
+    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx, vrf_id);
 
     if (!vrf) {
         tracer (dp_ctx->dptr, DL3FWD | DERR, "Error : Invalid Vrf for packet Dest %s\n",

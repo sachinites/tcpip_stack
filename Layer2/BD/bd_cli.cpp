@@ -7,6 +7,7 @@
 #include "../../dpal/cp2dp.h"
 #include "../../libs/BitOp/bitsop.h"
 #include "../../cmdcodes.h"
+#include "../../cp_limits.h"
 
 extern graph_t *topo;
 
@@ -61,6 +62,12 @@ bd_config_handler(int64_t cmdcode,
 
                     if (intf) {
                         return 0;
+                    }
+
+                    if (cp_node_count_bridge_domains(node) >= MAX_BD_SUPPORT) {
+                        cprintf("Error : Maximum bridge-domains (%u) reached\n",
+                                MAX_BD_SUPPORT);
+                        return -1;
                     }
 
                     std::shared_ptr<BDInterface> bdP =
@@ -212,6 +219,12 @@ bd_config_handler(int64_t cmdcode,
                         return 0;
                     }
 
+                    if (bd->member_ac.size() >= MAX_BD_MEMBERPORTS) {
+                        cprintf("Error : Maximum BD member ports (%u) reached on %s\n",
+                                MAX_BD_MEMBERPORTS, bd->if_name.c_str());
+                        return -1;
+                    }
+
                     std::string ac_name = std::string("ac-") + phy->if_name;
                     ACInterfaceP acP =
                         std::make_shared<ACInterface>(ac_name, INTF_TYPE_AC);
@@ -314,8 +327,9 @@ bd_config_handler(int64_t cmdcode,
 
                 case CONFIG_ENABLE:
                 {
-                    if (vlan_id == 0 || vlan_id > 4094) {
-                        cprintf("Error : Invalid VLAN ID %u (1-4094)\n", vlan_id);
+                    if (!CP_VLAN_ID_VALID(vlan_id)) {
+                        cprintf("Error : Invalid VLAN ID %u (1-%u)\n",
+                                vlan_id, MAX_VLAN_SUPPORTED - 1);
                         return -1;
                     }
 

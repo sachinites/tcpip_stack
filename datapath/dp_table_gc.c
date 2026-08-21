@@ -12,8 +12,6 @@
 
 #include "../libs/libtimer/WheelTimer.h"
 #include "../libs/EventDispatcher/event_dispatcher.h"
-#include "../libs/c-hashtable/hashtable.h"
-#include "../libs/c-hashtable/hashtable_itr.h"
 #include "../libs/Tracer/tracer.h"
 #include "../tcp_ip_trace.h"
 
@@ -22,6 +20,7 @@
 #include "Layer2/arp/arp.h"
 #include "Layer2/switching/mac_table.h"
 #include "Vrfs/dp_vrf.h"
+#include "Interface/intf_cons.h"
 
 /* Forward declaration of the callback so start/stop can reference it. */
 static void dp_table_gc_scan_cbk(event_dispatcher_t *ev_dis,
@@ -67,19 +66,13 @@ dp_arp_table_gc_scan(dp_ctx_t *dp_ctx, arp_table_t *arp_table, time_t now)
 static void
 dp_all_arp_tables_gc_scan(dp_ctx_t *dp_ctx, time_t now)
 {
-    if (!dp_ctx->dp_vrf_ht || hashtable_count(dp_ctx->dp_vrf_ht) == 0)
-        return;
+    int i;
 
-    struct hashtable_itr *itr = hashtable_iterator(dp_ctx->dp_vrf_ht);
-    if (!itr) return;
-
-    do {
-        dp_vrf_t *vrf = (dp_vrf_t *)hashtable_iterator_value(itr);
+    for (i = 0; i < DP_MAX_VRF; i++) {
+        dp_vrf_t *vrf = dp_ctx->dp_vrf_table[i];
         if (vrf && vrf->arp_table)
             dp_arp_table_gc_scan(dp_ctx, vrf->arp_table, now);
-    } while (hashtable_iterator_advance(itr));
-
-    free(itr);
+    }
 }
 
 /* -------------------------------------------------------------------------

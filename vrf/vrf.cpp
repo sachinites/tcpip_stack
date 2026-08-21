@@ -32,6 +32,9 @@ def_vrf_t* vrf_def_init(node_t *node) {
 /* Initialize a VRF instance */
 vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name, vrf_t *vrf) {
 
+    if (vrf_id >= MAX_VRF_PER_NODE)
+        return NULL;
+
     /* Initialize VRF fields */
     vrf->vrf_id = vrf_id;
     strncpy(vrf->vrf_name, vrf_name, sizeof(vrf->vrf_name) - 1);
@@ -189,6 +192,9 @@ vrf_t* vrf_get_by_id (node_t *node, uint8_t vrf_id) {
 bool
 node_register_vrf(node_t *node, vrf_t *vrf) {
 
+    if (!node || !vrf || vrf->vrf_id >= MAX_VRF_PER_NODE)
+        return false;
+
     assert (!node->vrf[vrf->vrf_id]);
     node->vrf[vrf->vrf_id] = vrf;
     vrf->node = node;
@@ -236,7 +242,6 @@ vrf_alloc_new_vrf_id (node_t *node) {
         if (!node->vrf[i]) return i;
     }
 
-    assert (0);
     return -1;
 }
 

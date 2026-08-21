@@ -242,7 +242,7 @@ validate_vlan_id(Stack_t *tlv_stack, c_string vlan_value){
     if(!vlan){
         return LEAF_VALIDATION_FAILED;
     }
-    if(vlan >= 1 && vlan <= 4095)
+    if(vlan >= 1 && vlan < MAX_VLAN_SUPPORTED)
         return LEAF_VALIDATION_SUCCESS;
 
     return LEAF_VALIDATION_FAILED;
@@ -258,7 +258,7 @@ static int
 validate_vrf_id(Stack_t *tlv_stack, c_string vrf_value){
 
     int vrf = atoi((const char *)vrf_value);
-    if(vrf >= 0 && vrf <= 255)
+    if(vrf >= 0 && vrf < MAX_VRF_SUPPORTED)
         return LEAF_VALIDATION_SUCCESS;
     return LEAF_VALIDATION_FAILED;
 }

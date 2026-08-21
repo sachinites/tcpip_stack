@@ -121,6 +121,8 @@ fib_nh_create(fib_t *fib, fib_nh_t *nh_template) {
                sizeof(nh_template->fwd_info->u.gre_fwd));
     }
 
+    new_nh->fwd_info->xconnect_id = nh_template->fwd_info->xconnect_id;
+
     /* Initialize AVL tree node */
     avltree_node_init(&new_nh->idx_glue);
     

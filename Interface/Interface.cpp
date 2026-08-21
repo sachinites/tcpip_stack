@@ -721,7 +721,13 @@ PhysicalInterface::IntfConfigVlan(vlan_id_t vlan_id, bool add)
         {
             cprintf("Error : Node %s : Vlan Interface not found", this->att_node->node_name);
             return false;
-        }        
+        }
+
+        if (vlan_intf->access_member_intf_lst.size() >= MAX_VLAN_MEMBERPORTS) {
+            cprintf("Error : Maximum VLAN member ports (%u) reached on vlan %u\n",
+                    MAX_VLAN_MEMBERPORTS, vlan_id);
+            return false;
+        }
 
         this->access_vlan_intf = std::dynamic_pointer_cast<VlanInterface>
                 (VlanInterface::VlanInterfaceLookUp(this->att_node, vlan_id)->GetSharedPtr());
@@ -2106,6 +2112,8 @@ BDInterface::AddMemberAC(ACInterfaceP ac) {
 
     if (!ac) return false;
     if (FindMemberAC(ac->GetUnderlyingInterface().get()))
+        return false;
+    if (member_ac.size() >= MAX_BD_MEMBERPORTS)
         return false;
     member_ac.push_back(ac);
     return true;

@@ -94,6 +94,14 @@ fib_format_nh_gateway(fib_nh_fwd_info_t *fi, char *buffer, size_t buf_size) {
         return;
     }
 
+    if (fi->oif &&
+        (fi->oif->if_type == DP_INTF_TYPE_MPLS_TO_BD_STEER ||
+         fi->oif->if_type == DP_INTF_TYPE_SRV6_TO_BD_STEER)) {
+    
+        snprintf(buffer, buf_size, "BD:%d", fi->xconnect_id);
+        return;
+    }
+
     fib_format_nh_addr(&fi->nh_addr, buffer, buf_size);
 }
 

@@ -44,7 +44,7 @@ ping_send4 (void *_pctx)
     /* Use the process ID as the ICMP identifier for all probes in this session */
     pctx->identifier = (uint16_t)getpid();
 
-    dp_vrf_t *vrf = dp_look_up_vrf (dp_ctx->dp_vrf_ht, pctx->vrf_id);
+    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx, pctx->vrf_id);
 
     for (i = 0; i < pctx->count; i++) {
 

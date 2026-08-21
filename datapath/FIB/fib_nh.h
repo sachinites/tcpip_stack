@@ -58,11 +58,9 @@ typedef struct fib_nh_fwd_info_ {
             which is GRE */
     }u;                             /* offset 48, now 8-byte aligned */
 
-    uint32_t xconnect_id;
+    uint32_t xconnect_id;           /* VRF or BD ID*/
 
     uint32_t _pad2;                 /* padding to align union to 8 bytes */
-
-    uint8_t xonnect_type;   
 
 }  fib_nh_fwd_info_t;
 

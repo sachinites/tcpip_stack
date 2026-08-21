@@ -170,7 +170,7 @@ typedef struct rtm_nh_ {
 typedef struct rtm_nh_fwd_info_ {
 
     uint32_t oif;
-    cmn_prefix_t nh_addr;
+    cmn_prefix_t nh_addr; /* Will also connect xconnect_id if oif is steering interface*/
     uint16_t fwd_flags;
 
     union {

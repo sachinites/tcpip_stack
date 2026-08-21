@@ -600,7 +600,7 @@ dp_mac_table_is_invalid_l2_fwding (dp_ctx_t *dp_ctx,
             {
                 case MAC_TABLE:
                     {
-                        dp_vrf_t *def_vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, DEFAULT_VRF);
+                        dp_vrf_t *def_vrf = dp_look_up_vrf(dp_ctx, DEFAULT_VRF);
                         nh = fib_get_forwarding_nh(def_vrf->fib_inet0, &prefix);
 
                         if (nh &&
@@ -617,7 +617,7 @@ dp_mac_table_is_invalid_l2_fwding (dp_ctx_t *dp_ctx,
                     dp_vrf_t *vrf;
                     dp_intf_t *bd_intf = dp_ctx->intf_table[bd_vlan_ifindex];
                     assert (bd_intf);
-                    if (!bd_intf->vrf) vrf = dp_look_up_vrf(dp_ctx->dp_vrf_ht, DEFAULT_VRF);
+                    if (!bd_intf->vrf) vrf = dp_look_up_vrf(dp_ctx, DEFAULT_VRF);
                     else vrf = bd_intf->vrf;
                     nh = fib_get_forwarding_nh(vrf->fib_inet0, &prefix);
 

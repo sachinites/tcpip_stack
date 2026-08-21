@@ -81,7 +81,9 @@ intf_type_str (InterfaceType_t iftype) {
 
 
 
-#define INTF_MAX_VLAN_MEMBERSHIP 10
+#include "../tcpconst.h"
+
+#define INTF_MAX_VLAN_MEMBERSHIP MAX_VLAN_MEMBERPORTS
 
 /* Interface Change Flags, used for Notification to 
  * Applications*/

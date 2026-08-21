@@ -11,6 +11,7 @@
 #include "../libs/common/ipv6_hdrs.h"
 #include "../libs/common/mpls_lstack.h"
 #include "../Interface/InterfaceFwd.h"
+#include "../tcpconst.h"
 
 typedef struct rtm_ rtm_t;
 typedef struct fib_ fib_t;
@@ -20,7 +21,7 @@ typedef struct srv6_node_info_ srv6_node_info_t ;
 typedef struct srv6_sid_pools_ srv6_sid_pools_t;
 class SRv6EndPointEND_DT4_Egress_Interface;
 
-#define MAX_VRF_PER_NODE    32
+#define MAX_VRF_PER_NODE    MAX_VRF_SUPPORTED
 
 #pragma pack(push, 8)
 

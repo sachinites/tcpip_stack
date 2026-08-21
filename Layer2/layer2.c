@@ -45,6 +45,8 @@
 #include "../libs/Tracer/tracer.h"
 #include "../dpal/cp2dp.h"
 #include "../datapath/enums/l2_enums.h"
+#include "../tcpconst.h"
+#include "../cp_limits.h"
 
 /*APIs to be used to create topologies*/
 void
@@ -89,6 +91,12 @@ node_set_intf_vlan_membership(node_t *node,
 
     if (interface->GetSwitchport() == false) {
          cprintf ("Error : Interface %s is not switchport enabled\n", intf_name);
+        return;
+    }
+
+    if (!CP_VLAN_ID_VALID(vlan_id)) {
+        cprintf("Error : Invalid VLAN ID %u (1-%u)\n",
+                vlan_id, MAX_VLAN_SUPPORTED - 1);
         return;
     }
 

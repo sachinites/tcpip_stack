@@ -122,7 +122,7 @@ fib_get (dp_ctx_t *dp_ctx, AFI_T afi, uint8_t vrf_id) {
 
     fib_t *fib;
 
-    dp_vrf_t *vrf = dp_look_up_vrf (dp_ctx->dp_vrf_ht, vrf_id);
+    dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx, vrf_id);
 
     switch (afi)
     {

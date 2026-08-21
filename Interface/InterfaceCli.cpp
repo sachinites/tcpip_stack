@@ -39,7 +39,7 @@ validate_vlan_id(Stack_t *tlv_stack, c_string vlan_value){
         cprintf("Error : Invalid Vlan Value\n");
         return LEAF_VALIDATION_FAILED;
     }
-    if(vlan >= 1 && vlan <= 4095)
+    if(vlan >= 1 && vlan < MAX_VLAN_SUPPORTED)
         return LEAF_VALIDATION_SUCCESS;
 
     return LEAF_VALIDATION_FAILED;

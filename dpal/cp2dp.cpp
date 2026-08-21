@@ -302,6 +302,7 @@ cp2dp_fib_update (
              dst->u.gre_fwd.gre_tunnel_src = src->u.gre_fwd.gre_tunnel_src;
              dst->u.gre_fwd.gre_tunnel_dst = src->u.gre_fwd.gre_tunnel_dst;
          }
+         
     }
 
     /* Submit to data plane */
