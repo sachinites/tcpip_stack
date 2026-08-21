@@ -158,7 +158,7 @@ vpnv4_ingress_pe_encap_mpls (dp_ctx_t *dp_ctx,
                             "%s%u%s", i ? " -> " : "", val, bos ? "(S)" : "");
         }
 
-        tracer (dp_ctx->dptr, DL3FWD,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD,
             "VRF %s: VPNv4 MPLS encap: %d label(s) outer→inner: [%s]\n",
             vrf->vrf_name, n_labels, lbl_buf);
     }

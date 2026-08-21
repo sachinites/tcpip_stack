@@ -34,7 +34,7 @@ AC_SendPacketOut(
 
     pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER);
     
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), ac->if_name); 
 
     ethernet_hdr_t *eth_hdr = pkt_mbuf_get_ethernet_hdr(mbuf);
@@ -43,7 +43,7 @@ AC_SendPacketOut(
 
     if (vlan_8021q_hdr) {
 
-        tracer(dp_ctx->dptr, DL2SW | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2SW | DERR,
             "Error : Egress AC %s recvd vlan tagged pkt %s, pkt dropped\n", 
             ac->if_name, pkt_mbuf_str(mbuf));
         ac->xmit_pkt_dropped++;
@@ -81,19 +81,19 @@ BD_FloodPacketOut(
 
     pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER);
 
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), bd_vfif->if_name); 
 
     bd_intf = dp_ctx->intf_table[ctx];
 
     if (!bd_intf) {
-        tracer(dp_ctx->dptr, DL2SW | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2SW | DERR,
             "Error : BD flood: Pkt:%s : BD intf not found, pkt is dropped\n", 
             pkt_mbuf_str(mbuf));
         return -1;
     }
 
-    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW,
         "Flooding the Pkt:%s in BD %s, exempt intf %s\n", 
         pkt_mbuf_str(mbuf), 
         bd_intf->if_name, exempt_ac ? exempt_ac->if_name: "Nil");
@@ -115,7 +115,7 @@ BD_FloodPacketOut(
         }
     }
 
-    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW,
         "pkt %s flooded in BD %s in %u ACs\n", pkt_mbuf_str(mbuf), bd_intf->if_name, count);
 
     bd_intf->pkt_sent++;
@@ -292,7 +292,7 @@ BD_SendPacketOut(
 
     dp_intf_t *ac = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
 
-    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW,
         "pkt %s Recvd on AC %s BD %s\n", 
         pkt_mbuf_str(mbuf), ac->if_name, bd_intf->if_name);
 
@@ -313,13 +313,13 @@ bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
     mac_addr_t src_mac;
     mac_addr_t dst_mac;
 
-    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW,
         "Bridge-Domain : pkt %s Recvd on AC %s \n", 
         pkt_mbuf_str(mbuf), ac->if_name);
 
     if (pkt_mbuf_get_starting_hdr (mbuf) != ETHERNET_HEADER) {
 
-        tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR,
             "Error : Non-Ethernet pkt %s Recvd on AC %s, dropped\n", 
             pkt_mbuf_str(mbuf), ac->if_name);
 
@@ -333,7 +333,7 @@ bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
     /* Drop the untagged packet */
     if (!vlan_8021q_hdr) {
 
-        tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR,
             "Error : Untagged pkt %s Recvd on AC %s is dropped\n", 
             pkt_mbuf_str(mbuf), ac->if_name);
 
@@ -346,7 +346,7 @@ bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
     /* If vlan id do not match AC's dot1q tag, drop the packet */
     if (vlan_id != ac->encap_8021q_tag) {
 
-        tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR,
             "Error : Vlan id %d does not match AC's dot1q tag %d\n", 
             vlan_id, ac->encap_8021q_tag);
             

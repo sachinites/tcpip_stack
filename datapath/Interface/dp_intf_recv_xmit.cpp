@@ -178,7 +178,7 @@ send_xmit_out (dp_intf_t *intf, struct rte_mbuf *mbuf)
         return -1;
     }    
 
-    tracer (local_dp_ctx->dptr, DFLOW_DET, 
+    pkt_tracer(mbuf, local_dp_ctx->dptr, DFLOW_DET, 
         "Pkt : %s Wired out of interface %s\n", 
         pkt_mbuf_str (mbuf), intf->if_name);
 
@@ -232,7 +232,7 @@ SendPacketOutSwitchport(dp_ctx_t *dp_ctx, dp_intf_t *Intf, struct rte_mbuf *mbuf
         return 0;
     }
 
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), Intf->if_name);    
 
     ethernet_hdr_t *ethernet_hdr =
@@ -260,7 +260,7 @@ SendPacketOutSwitchport(dp_ctx_t *dp_ctx, dp_intf_t *Intf, struct rte_mbuf *mbuf
          behavior*/
         if (intf_vlan_id && !vlan_8021q_hdr)
         {
-            tracer(dp_ctx->dptr, DL2SW_DET | DERR, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2SW_DET | DERR, 
                 "Pkt %s Dropped : Reason : Access port %s dropped outgoing untagged packet\n", 
                 pkt_mbuf_str(mbuf), Intf->if_name);
             return 0;
@@ -281,7 +281,7 @@ SendPacketOutSwitchport(dp_ctx_t *dp_ctx, dp_intf_t *Intf, struct rte_mbuf *mbuf
         if (vlan_8021q_hdr &&
             (intf_vlan_id != GET_802_1Q_VLAN_ID(vlan_8021q_hdr)))
         {
-            tracer(dp_ctx->dptr, DL2SW_DET | DERR, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2SW_DET | DERR, 
                 "Pkt %s Dropped : Reason : Access port dropped %s outgoing tagged packet with mismatched vlan id\n", 
                 pkt_mbuf_str(mbuf), Intf->if_name);
             return 0;
@@ -291,7 +291,7 @@ SendPacketOutSwitchport(dp_ctx_t *dp_ctx, dp_intf_t *Intf, struct rte_mbuf *mbuf
          simply drop the packet.*/
         if (!intf_vlan_id && vlan_8021q_hdr)
         {
-            tracer(dp_ctx->dptr, DL2SW_DET | DERR, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2SW_DET | DERR, 
                 "Pkt %s Dropped : Reason : Vlan unaware Access port %s dropped outgoing tagged packet\n", 
                 pkt_mbuf_str(mbuf), Intf->if_name);
             return 0;
@@ -313,7 +313,7 @@ SendPacketOutSwitchport(dp_ctx_t *dp_ctx, dp_intf_t *Intf, struct rte_mbuf *mbuf
             return send_xmit_out(Intf, mbuf);
         }
 
-        tracer(dp_ctx->dptr, DL2SW_DET | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2SW_DET | DERR, 
             "Pkt %s Dropped : Reason : Trunk port %s dropped outgoing packet\n", 
             pkt_mbuf_str(mbuf), Intf->if_name);
 
@@ -376,7 +376,7 @@ dp_VlanPacketFlood (dp_intf_t *vlan_intf,
 static int 
 PhysicalInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
 
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
         
     if (intf->ac_intf) {
@@ -399,7 +399,7 @@ VlanInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
 
     (void)ctx;
 
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);
 
     l2_switch_forward_frame(dp_ctx, dp_ctx->mac_table, NULL, intf, mbuf);
@@ -415,7 +415,7 @@ GRETunnelInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_m
     struct rte_mbuf *mbuf_copy;
     cmn_prefix_t src_ip, dst_ip;
 
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
     if (!intf->is_up) { return 0; }
@@ -450,7 +450,7 @@ VirtualPort_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mb
 
     pkt_size_t pkt_size;
 
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
     if (!intf->olay_tunnel_intf || !intf->is_up) {
@@ -505,7 +505,7 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf
 
     assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
 
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);  
 
     eth_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
@@ -515,7 +515,7 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf
         return 0;
     }
 
-    tracer(dp_ctx->dptr, DL2FWD | DERR,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DERR,
         "BDRmac Interface %s : Recvd untagged pkt %s\n",
         intf->if_name, pkt_mbuf_str(mbuf));    
 
@@ -527,7 +527,7 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf
     if (!mac_address_compare((unsigned char *)dp_ctx->rmac.mac,
                             (unsigned char *)eth_hdr->dst_mac.mac)) {
         intf->recvd_pkt_dropped++;
-        tracer(dp_ctx->dptr, DL2FWD | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DERR,
             "Error : BDRmac Interface %s : Recvd pkt %s with mis-matched dst mac %s\n",
             intf->if_name, pkt_mbuf_str(mbuf), eth_hdr->dst_mac.mac);
         return 0;
@@ -535,7 +535,7 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf
 
     if (ntohs(eth_hdr->type) != ETH_TYPE_IPv4) {
         intf->recvd_pkt_dropped++;
-        tracer(dp_ctx->dptr, DL2FWD | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DERR,
             "Error : BDRmac Interface %s : Recvd pkt %s with non-IPv4 type %x\n",
             intf->if_name, pkt_mbuf_str(mbuf), ntohs(eth_hdr->type));
         return 0;
@@ -556,7 +556,7 @@ static int
 HostPathInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx)
 {
     (void)ctx;
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);  
     return 0;
 }
@@ -602,7 +602,7 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
 
     assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
 
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);  
 
     ethernet_hdr_t *eth_hdr = 
@@ -617,13 +617,13 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
     /* Case 1 : If this is ARP Broadcast pkt requesting IP for Rmac interface*/
     /* Case 2 : If this is ARP reply packet recvd by Rmac Interface */
 
-    tracer (dp_ctx->dptr, DL2FWD , 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD , 
         "Rmac Interface %s : Recvd pkt %s with vlan tag : %d\n", 
         intf->if_name, pkt_mbuf_str(mbuf), TCI_VID(vlan_8021q_hdr->tci));
     
     if ( is_arp_pkt_for_svi_interface (dp_ctx, mbuf) ) {
 
-        tracer (dp_ctx->dptr, DL2FWD , 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD , 
                 "Rmac Interface %s : ARP pkt %s Intercepted by SVI interface\n", 
                 intf->if_name, pkt_mbuf_str(mbuf));
 
@@ -654,7 +654,7 @@ static int
 LoopbackInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx){
     
     /* black hole the pkt */
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);     
     return 0;
 }
@@ -668,7 +668,7 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
     unsigned char ipv4_addr_str2[IPV4_ADDR_LEN_STR] = {0};
     
     if (!intf->is_up) {
-        tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "VxLAN Encapsulation : Error : NVE Interface %s is down\n", intf->if_name);
         intf->xmit_pkt_dropped++;
         return -1;
@@ -677,7 +677,7 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
     pvt_data = pkt_mbuf_get_pvt_data(mbuf);
 
     if (!pvt_data->encap_data) {
-        tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "VxLAN Encapsulation : Error : Pkt Block has no encap data\n");
         intf->xmit_pkt_dropped++;
         return -1;
@@ -687,7 +687,7 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
         going to L3 Layer*/
     pkt_mbuf_clear_ingress_intf(mbuf);
 
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
     vxlan_encapsulate (dp_ctx, mbuf);
@@ -702,7 +702,7 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
     ip_hdr->protocol = IP_PROTO_UDP;
     ip_hdr->total_length = htons(IP_HDR_DEFAULT_SIZE + pkt_size);
 
-    tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Encapsulation : Outer IP Hdr Header Attached with Src : %s, Dst %s, Proto = %x\n",
         tcp_ip_covert_ip_n_to_p ( ntohl(ip_hdr->src_ip), ipv4_addr_str1),
         tcp_ip_covert_ip_n_to_p ( ntohl(ip_hdr->dst_ip), ipv4_addr_str2),
@@ -720,7 +720,7 @@ VlanFloodInterface_SendPacketOut(
     struct rte_mbuf *mbuf, uint32_t ctx)
 {
 
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), vfif_intf->if_name); 
 
     dp_intf_t *exempt_intf = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
@@ -766,7 +766,7 @@ SRv6_Xconnect_VRF_SendPacketOut(
 
     pkt_size_t pkt_size;
 
-    tracer(dp_ctx->dptr, DL2FWD,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
     /* Step 1: Strip outer ethernet header if the data layer included it */
@@ -786,7 +786,7 @@ SRv6_Xconnect_VRF_SendPacketOut(
 
     /* Step 3: Inner payload must be IPv4; drop anything else */
     if (pkt_mbuf_get_starting_hdr(mbuf) != IP_PROTO_IP_IN_IP) {
-        tracer(dp_ctx->dptr, DL3FWD | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DERR,
             "Pkt:%s SRv6 END.DT4: inner packet is not IPv4, dropping\n", pkt_mbuf_str(mbuf));
         return 0;
     }
@@ -795,19 +795,19 @@ SRv6_Xconnect_VRF_SendPacketOut(
     dp_vrf_t *steered_vrf = dp_look_up_vrf(dp_ctx, ctx);
 
     if (!steered_vrf) {
-        tracer(dp_ctx->dptr, DL3FWD | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DERR,
             "Pkt:%s SRv6 END.DT4: no steered VRF configured on interface %s, dropping\n",
             pkt_mbuf_str(mbuf), intf->if_name);
         return 0;
     }
 
-    tracer(dp_ctx->dptr, DL3FWD | DERR,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DERR,
         "SRv6 END.DT4: Pkt:%s VRF Context Switched from Default-VRF to VRF:%s\n",
         pkt_mbuf_str(mbuf), steered_vrf->vrf_name);
 
     if (steered_vrf == dp_ctx->dp_vrf_table[0]) {
 
-        tracer(dp_ctx->dptr, DL3FWD | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DERR,
             "SRv6 END.DT4: Pkt:%s Destination VRF:%s cannot be default vrf for VPNv4oSRv6 traffic, pkt dropped\n",
             pkt_mbuf_str(mbuf), steered_vrf->vrf_name);
         return;
@@ -844,7 +844,7 @@ MPLS_XConnect_VRF_SendPacketOut(
     be IP Hdr.*/
     pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
 
-    tracer(dp_ctx->dptr, DMPLS_DET | DL3FWD_DET,
+    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET | DL3FWD_DET,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name); 
 
     assert (intf->if_type == DP_INTF_TYPE_MPLS_TO_VRF_STEER);
@@ -853,7 +853,7 @@ MPLS_XConnect_VRF_SendPacketOut(
 
     if (!vrf) return 0;
 
-    tracer (dp_ctx->dptr, DMPLS_DET | DL3FWD_DET, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET | DL3FWD_DET, 
         "Pkt:%s Context Switched from Def-vrf to VPN VRF %s\n",
         pkt_mbuf_ip(mbuf, ip_addr_str),
 	    vrf->vrf_name);
@@ -889,12 +889,15 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
 void 
 dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx) {
 
+    /* Locally generated pkts (ARP/ICMP/etc) may never hit dp_pkt_entry_point. */
+    pkt_mbuf_assign_pkt_id(mbuf);
+
     if (intf->l3_acl_egress) {
 
         if (access_list_evaluate_mbuf (
             intf->l3_acl_egress.load(std::memory_order_acquire), mbuf) != ACL_PERMIT) 
         {
-            tracer(dp_ctx->dptr, DL3FWD_DET,
+            pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD_DET,
                 "Egress L3 ACL Denied on intf %s, Pkt %s Dropped\n", 
                 intf->if_name, pkt_mbuf_str(mbuf));
 
@@ -903,7 +906,7 @@ dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint3
 
     }
 
-    tracer(dp_ctx->dptr, DL3FWD_DET | DL2FWD_DET | DL2SW_DET,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD_DET | DL2FWD_DET | DL2SW_DET,
         "Sending out frame %s out of interface %s\n", 
         pkt_mbuf_str(mbuf), intf->if_name);
 
@@ -922,6 +925,9 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
 {
 
     vlan_id_t vlan_id_to_tag = 0;
+
+    /* Assign unique pkt_id once per datapath insertion (kept on re-entry/clone). */
+    pkt_mbuf_assign_pkt_id(mbuf);
   
     if (!interface->is_up){
         return;
@@ -932,7 +938,7 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
         if (access_list_evaluate_mbuf (
             interface->l3_acl_ingress.load(std::memory_order_acquire), mbuf) != ACL_PERMIT) 
         {
-            tracer(dp_ctx->dptr, DL3FWD_DET,
+            pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD_DET,
                 "Ingress L3 ACL Denied on intf %s, Pkt %s Dropped\n", 
                 interface->if_name, pkt_mbuf_str(mbuf));
 
@@ -953,7 +959,7 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
         cprintf("Error : L2 Frame Rejected on node %s(%s)\n", 
             dp_ctx->ctx_name, interface->if_name);
             
-        tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s : L2 Frame Rejected in Interface %s, qualification Test Failed\n", 
             pkt_mbuf_str(mbuf), interface->if_name);
 
@@ -975,7 +981,7 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
         if (vlan_id_to_tag) {
            
             tag_pkt_with_vlan_id (mbuf, vlan_id_to_tag);
-            tracer (dp_ctx->dptr, DL2FWD | DFLOW, "Pkt : %s : Tagged with VLAN ID %d\n", 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW, "Pkt : %s : Tagged with VLAN ID %d\n", 
                 pkt_mbuf_str(mbuf), vlan_id_to_tag);
         }
 
@@ -1002,7 +1008,7 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
                 pkt_mbuf_verify_pkt (mbuf, ETHERNET_HEADER) &&
                 is_pkt_vlan_tagged (pkt_mbuf_get_ethernet_hdr(mbuf))) {
 
-        tracer (dp_ctx->dptr, DL2FWD | DFLOW, "Pkt : %s : Being recieved on GRE Interface %s\n", 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW, "Pkt : %s : Being recieved on GRE Interface %s\n", 
             pkt_mbuf_str(mbuf), interface->if_name);  
 
         dp_pkt_entry_point (dp_ctx, interface->virtual_port->vrf,
@@ -1012,7 +1018,7 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
 
     else if (interface->ip_addr){
 
-        tracer (dp_ctx->dptr, DL2FWD | DFLOW, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW, 
             "Pkt : %s : Recvd on L3 Interface %s, being protmoted to L3Fwding\n", 
             pkt_mbuf_str(mbuf), interface->if_name);
             
@@ -1021,7 +1027,7 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
 
     else {
         /* We dont know what to do with the pkt*/
-        tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s : pkt dropped, Unknown pkt recvd on Interface %s\n", 
             pkt_mbuf_str(mbuf), interface->if_name);
         interface->recvd_pkt_dropped++;
@@ -1584,6 +1590,9 @@ dpdk_dp_pkt_entry_thread_function(void *arg){
                     ethernet pkt */
                     pkt_mbuf_slide (mbuf, 1, 1, ETH_FCS_SIZE);
                     pkt_mbuf_update_new_hdr_type (mbuf, ETHERNET_HEADER);
+                    /* Fresh ingress: drop any stale priv from a recycled mbuf. */
+                    pkt_mbuf_set_pkt_id(mbuf, 0);
+                    pkt_mbuf_clear_ingress_intf(mbuf);
                     dp_pkt_entry_point (dp_intf->dp_ctx, dp_intf->vrf, dp_intf, mbuf);
                     pkt_mbuf_dereference(mbuf);
                 }

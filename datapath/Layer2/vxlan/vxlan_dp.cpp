@@ -62,7 +62,7 @@ vxlan_encapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf) {
     vxlan_hdr->vni[2] = (temp_vni >> 8) & 0xFF;   /* LSB */
     vxlan_hdr->reserved2 = 0;
 
-    tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Encapsulation : VNI %u for pkt:%s\n", encap_data->u.vxlan.vni, pkt_mbuf_str(mbuf));    
 }
 
@@ -73,7 +73,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vt
 
     if (!nve_intf) {
 
-        tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW | DERR,
             "VxLAN Decapsulation : Error : NVE Interface not found, Vxlan pkt:%s dropped\n",
             pkt_mbuf_str(mbuf));
         return;
@@ -95,7 +95,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vt
 
      vni = ntohl (vni);
 
-     tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
+     pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Decapsulation : VNI %u for pkt:%s\n", vni, pkt_mbuf_str(mbuf));
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)(vxlan_hdr + 1); 
@@ -109,7 +109,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vt
 
     if (!vlan_id) {
 
-        tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW | DERR,
               "VxLAN Decapsulation : Error : VNI %u not found in vlan_vni_ht, Vxlan pkt:%s dropped\n", 
               vni, pkt_mbuf_str(mbuf));
               nve_intf->recvd_pkt_dropped++;
@@ -124,7 +124,7 @@ void vxlan_decapsulate (dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf, uint32_t src_vt
                             nve_intf,
                             src_vtep_ip) ;
 
-    tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Decapsulation : Forwarding pkt:%s to L2 Switching\n", pkt_mbuf_str(mbuf));
     
     /* Set to prevent Split-Horizon*/

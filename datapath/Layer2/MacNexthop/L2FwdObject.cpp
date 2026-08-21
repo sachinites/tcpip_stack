@@ -118,7 +118,7 @@ l2_vxlan_tunnel_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
 
     if (recv_intf_index == NVE_IFINDEX) {
 
-        tracer (dp_ctx->dptr, DTUNNEL_DET,
+        pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL_DET,
             "Pkt:%s Split Horizon Prevented, Pkt is dropped\n", 
             pkt_mbuf_str(mbuf));
 

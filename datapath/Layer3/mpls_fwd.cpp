@@ -152,7 +152,7 @@ dp_mpls_fwd_pkt(dp_ctx_t *dp_ctx,
 
     pkt_label = (mpls_label_wire_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
     if (!pkt_label || pkt_size < sizeof(mpls_label_wire_t)) {
-        tracer(dp_ctx->dptr, DMPLS | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DERR,
             "VRF %s: MPLS pkt too short, dropping\n", vrf->vrf_name);
         return;
     }
@@ -166,14 +166,14 @@ dp_mpls_fwd_pkt(dp_ctx_t *dp_ctx,
 
     nh = fib_get_forwarding_nh(vrf->fib_mpls0, &prefix);
     if (!nh) {
-        tracer(dp_ctx->dptr, DMPLS | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DERR,
             "VRF %s: MPLS in-label %u: no LFIB route, dropping\n",
             vrf->vrf_name, in_label);
         return;
     }
 
     if (!mpls_decrement_top_ttl(mbuf)) {
-        tracer(dp_ctx->dptr, DMPLS | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DERR,
             "VRF %s: MPLS in-label %u: TTL expired, dropping\n",
             vrf->vrf_name, in_label);
         return;
@@ -181,7 +181,7 @@ dp_mpls_fwd_pkt(dp_ctx_t *dp_ctx,
 
     tcp_ip_covert_ip_n_to_p(nh->fwd_info->nh_addr.u.v4_addr, (c_string)gw_str);
 
-    tracer(dp_ctx->dptr, DMPLS,
+    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS,
         "VRF %s: MPLS in-label %u: OIF %s Gw %s\n",
         vrf->vrf_name, in_label,
         nh->fwd_info->oif ? nh->fwd_info->oif->if_name : "-",
@@ -190,7 +190,7 @@ dp_mpls_fwd_pkt(dp_ctx_t *dp_ctx,
     top_hdr_is_mpls = mpls_apply_nh_label_stack(mbuf,
             &nh->fwd_info->u.mpls_fwd.label_stack);
 
-    tracer(dp_ctx->dptr, DMPLS,
+    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS,
         "VRF %s: MPLS in-label %u: Top header is %s, Demoting pkt to Layer 2\n",
         vrf->vrf_name, in_label, 
         top_hdr_is_mpls ? "still MPLS" : "non-MPLS anymore");

@@ -36,7 +36,7 @@ _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
         
         case IP_PROTO_IP_IN_IP:
 
-            tracer (dp_ctx->dptr, DL3FWD, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
                 "VRF:%s: Dest : %s :  Pkt Arrived in L3-land from Layer 2\n",
 	            vrf->vrf_name,
                 pkt_mbuf_ip(mbuf, ip_addr_str));
@@ -47,7 +47,7 @@ _layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
 
         case IP_PROTO_IPv6:
 
-            tracer (dp_ctx->dptr, DL3FWD, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
                 "VRF:%s: Dest : %s :  V6Pkt Arrived in L3-land from Layer 2\n",
 	            vrf->vrf_name, pkt_mbuf_str(mbuf));
             layer3_ipv6_route_pkt(dp_ctx, vrf, interface, mbuf, NULL);            

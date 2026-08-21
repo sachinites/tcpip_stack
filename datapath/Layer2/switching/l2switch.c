@@ -130,7 +130,7 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
                          BROADCAST_MAC);
 
     if (!mac_flood_entry) {
-         tracer (dp_ctx->dptr, DL2SW, "Mac Table : Flooding Disabled ");
+         pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Mac Table : Flooding Disabled ");
         return;
     }
 
@@ -139,12 +139,12 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
         assert ((vlan_8021q_hdr = 
             is_pkt_vlan_tagged ((ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, NULL))));
 
-        tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in vlan %d\n",  
             pkt_mbuf_str (mbuf), 
             TCI_VID(vlan_8021q_hdr->tci));
     }
     else {
-        tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in BD %d\n",  
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in BD %d\n",  
             pkt_mbuf_str (mbuf), 
             vlan_bd_intf->if_name);
     }
@@ -180,13 +180,13 @@ l2_switch_forward_frame(
 
         assert ((vlan_8021q_hdr = is_pkt_vlan_tagged (ethernet_hdr))) ;  
 
-        tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in vlan %d\n",  
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in vlan %d\n",  
             pkt_mbuf_str (mbuf), 
             GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
     }
     else {
 
-        tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in BD %s\n",  
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Forwarding in BD %s\n",  
             pkt_mbuf_str (mbuf), vlan_bd_intf->if_name);
     }
 
@@ -223,7 +223,7 @@ l2_switch_forward_frame(
                                         BROADCAST_MAC);
 
             if (!mac_table_entry) {
-                tracer (dp_ctx->dptr, DL2SW, "Mac Table : Flooding Disabled for Broadcast MAC");
+                pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Mac Table : Flooding Disabled for Broadcast MAC");
                 return;
             }
        
@@ -240,7 +240,7 @@ l2_switch_forward_frame(
                                       ethernet_hdr->dst_mac.mac);    
 
         if (!mac_table_entry) {
-            tracer (dp_ctx->dptr, DL2SW, "Mac Table : Router MAC not programmed, Dropping the frame\n");
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Mac Table : Router MAC not programmed, Dropping the frame\n");
             return;
         }
 
@@ -249,7 +249,7 @@ l2_switch_forward_frame(
     }
 
     /* Handle Unknown Unicast */
-    tracer (dp_ctx->dptr, DL2SW, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, 
             "Mac Table Lookup Failed for vlan = %d, "
             "Mac = %02x:%02x:%02x:%02x:%02x:%02x\n",
             (!bd_processing) ? GET_802_1Q_VLAN_ID(vlan_8021q_hdr) : DEFAULT_VLAN_ID,
@@ -281,7 +281,7 @@ void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
 
     c_string src_mac = (c_string)vlan_ethernet_hdr->src_mac.mac;
 
-    tracer (dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Frame Received on Interface %s in vlan %d\n", 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Frame Received on Interface %s in vlan %d\n", 
         pkt_mbuf_str (mbuf), interface->if_name, vlan_id);
 
     l2_switch_perform_mac_learning(dp_ctx, vlan_id, src_mac, interface, 0);

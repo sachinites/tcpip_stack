@@ -67,7 +67,10 @@ dp_pkt_mbuf_get_new (dp_ctx_t *dp_ctx, uint16_t pkt_size) {
 
     /* Get the mempool on this socket*/
     struct rte_mempool *mpool = dp_uapi_get_current_socket_mpool(dp_ctx);
-    return  PKT_MBUF_GET_NEW(mpool, (pkt_size_t)pkt_size);
+    struct rte_mbuf *mbuf = PKT_MBUF_GET_NEW(mpool, (pkt_size_t)pkt_size);
+    if (mbuf)
+        pkt_mbuf_assign_pkt_id(mbuf);
+    return mbuf;
 }
 
 bool 

@@ -79,7 +79,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     tcp_ip_covert_ip_n_to_p(ntohl(ip_hdr->dst_ip), (c_string)dest_ip_addr);
 
-    tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s : Trying to route ... \n", 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s : Trying to route ... \n", 
         vrf->vrf_name, dest_ip_addr);
 
         nf_result = nf_invoke_netfilter_hook(
@@ -98,7 +98,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         return;
     }
 
-    tracer (dp_ctx->dptr, DL3FWD_DET, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD_DET, 
         "VRF %s: Dest : %s : Pkt Qualified L3 ACL Test\n", vrf->vrf_name, dest_ip_addr);
 
     /* Re-fetch ip_hdr: the NF hook above may have expanded/reallocated the
@@ -111,7 +111,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     fib_nh_t *nh = fib_get_forwarding_nh(vrf->fib_inet0, &prefix);
 
     if(!nh){
-        tracer (dp_ctx->dptr, DL3FWD | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DERR, 
             "VRF %s: Pkt : %s :  Pkt Dropped :  No L3 Route\n", 
             vrf->vrf_name, dest_ip_addr);
         return;
@@ -119,7 +119,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     nh_vrf = nh->fwd_info->oif->vrf;
 
-    tracer (dp_ctx->dptr, DL3FWD, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
             "VRF %s: Pkt : %s : L3 Route Found\n", 
             vrf->vrf_name, dest_ip_addr);
 
@@ -127,7 +127,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     if (IS_BIT_SET (nh->fwd_info->fwd_flags, FIB_NH_FWD_F_REJECT) ||
         IS_BIT_SET (nh->fwd_info->fwd_flags, FIB_NH_FWD_F_DISCARD)) {
 
-        tracer (dp_ctx->dptr, DL3FWD, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
             "VRF %s: Pkt : %s : L3 Route found is Reject/Discard route\n",
             vrf->vrf_name, dest_ip_addr);
 
@@ -135,7 +135,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
            Instead, we drop the pkt after optionally sending ICMP unreachable
            message back to sender in case of Reject route. */
 
-        tracer (dp_ctx->dptr, DL3FWD, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
             "VRF %s: Pkt : %s : Dropping pkt as this is a Discard/Reject route\n",
             vrf->vrf_name, dest_ip_addr);
         return;
@@ -154,12 +154,12 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         /* case 1 : local delivery:  dst ip address in pkt must exact match with
          * ip of any local interface of the router, including loopback*/
 
-        tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s : L3 Route found is local route\n",
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s : L3 Route found is local route\n",
             vrf->vrf_name, dest_ip_addr);
 
         if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_LOCAL) {
 
-            tracer (dp_ctx->dptr, DL3FWD, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
                 "VRF %s: Pkt : %s : Pkt is for Local Delivery, IP protocol = %s\n",   
                 vrf->vrf_name, dest_ip_addr, proto_id_str(ip_hdr->protocol));
 
@@ -245,7 +245,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
                     pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_IP_IN_IP);
                      
-                    tracer (dp_ctx->dptr, DL3FWD, 
+                    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
                         "VRF %s: Pkt : %s : Pkt is being subjected to L3 Routing again a per Inner Header\n",
                         vrf->vrf_name, dest_ip_addr);
 
@@ -267,7 +267,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                     tcp_ip_covert_ip_n_to_p ( ntohl (ip_hdr->dst_ip), (c_string)gre_t_src_addr);
                     tcp_ip_covert_ip_n_to_p ( ntohl (ip_hdr->src_ip), (c_string)gre_t_dst_addr);
 
-                    tracer (dp_ctx->dptr, DL3FWD, 
+                    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
                            "VRF %s: Pkt : %s : Pkt is being subjected to GRE Decapsulation, Tunnel key : [%s, %s]\n", 
                            vrf->vrf_name, dest_ip_addr, gre_t_src_addr, gre_t_dst_addr);
 
@@ -282,7 +282,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
                     if (!gre_intf) {
 
-                        tracer (dp_ctx->dptr, DL3FWD | DTUNNEL | DERR, 
+                        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DTUNNEL | DERR, 
                             "Error : VRF %s: Pkt : %s : GRE tunnel do not exist for Tunnel key : [%s, %s], Pkt Dropped\n",
                             vrf->vrf_name, dest_ip_addr, gre_t_src_addr, gre_t_dst_addr );
                             dp_ctx->pkt_dropped++;
@@ -291,7 +291,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
                     if (!gre_intf->is_tunnel_up) {
 
-                        tracer (dp_ctx->dptr, DL3FWD | DTUNNEL | DERR, 
+                        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DTUNNEL | DERR, 
                             "Error : VRF %s: Pkt : %s : GRE tunnel for Tunnel key : [%s, %s] is not Active, Pkt Dropped\n",
                             vrf->vrf_name, dest_ip_addr, gre_t_src_addr, gre_t_dst_addr);
                             gre_intf->recvd_pkt_dropped++;
@@ -303,7 +303,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                         case ETH_TYPE_IPv4:
                         {
                             pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_IP_IN_IP);
-                            tracer(dp_ctx->dptr, DTUNNEL_DET | DFLOW,
+                            pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL_DET | DFLOW,
                                    "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_mbuf_str(mbuf));
                             gre_intf->pkt_recv++;
                             layer3_ip_route_pkt(dp_ctx, vrf, gre_intf, mbuf); // Pass an overlay tunnel interface here 
@@ -313,7 +313,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                         case ETH_TYPE_GRE:
                         {
                             pkt_mbuf_update_new_hdr_type (mbuf, ETHERNET_HEADER);
-                            tracer(dp_ctx->dptr, DTUNNEL_DET | DFLOW,
+                            pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL_DET | DFLOW,
                                    "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_mbuf_str(mbuf));
                             dp_pkt_entry_point(dp_ctx, vrf, gre_intf,  mbuf);
                         }
@@ -325,7 +325,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                 default: ;
             }
 
-            tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s : Pkt is being subjected to Layer 5\n",
+            pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s : Pkt is being subjected to Layer 5\n",
                 vrf->vrf_name, pkt_mbuf_str (mbuf));
 
             /* TODO: dp2cp_punt_pkt_to_layer5 needs old Interface type */
@@ -345,12 +345,12 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     ip_hdr->ttl--;
 
     if (ip_hdr->ttl == 0) {
-        tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Pkt Dropped : TTL Expired\n",
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Pkt Dropped : TTL Expired\n",
             vrf->vrf_name, dest_ip_addr);
         return;
     }
 
-    tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s :  Nexthop found OIF %s, Gw : %s\n", 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s :  Nexthop found OIF %s, Gw : %s\n", 
         vrf->vrf_name, pkt_mbuf_str (mbuf), 
         nh->fwd_info->oif->if_name, 
         cmn_prefix_to_string(&nh->fwd_info->nh_addr, &nh_str));
@@ -360,7 +360,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         
         char ip_addr_str[IPV4_ADDR_LEN_STR];
         ip_hdr->src_ip = htonl(nh->fwd_info->oif->ip_addr);
-        tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt: %s : Using OIF IP as Src IP : %s\n", 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Pkt: %s : Using OIF IP as Src IP : %s\n", 
             vrf->vrf_name, pkt_mbuf_str (mbuf), 
             tcp_ip_covert_ip_n_to_p(htonl(ip_hdr->src_ip), (c_string)ip_addr_str)); 
 
@@ -372,7 +372,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     ip_hdr->checksum = 0;
     ip_hdr->checksum = ip_checksum(ip_hdr);
 
-    tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n",
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Pkt : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n",
         vrf->vrf_name, pkt_mbuf_str (mbuf));
 
     dp_demote_pkt_to_layer2 (
@@ -392,7 +392,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     if (ip_hdr->ttl == 0) {
 
-        tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Pkt Dropped : TTL Expired\n",
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Pkt Dropped : TTL Expired\n",
             vrf->vrf_name, dest_ip_addr);
         return;
     }
@@ -400,12 +400,12 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     ip_hdr->checksum = 0;
     ip_hdr->checksum = ip_checksum(ip_hdr);
 
-    tracer (dp_ctx->dptr, DL3FWD_DET, "VRF %s: Dest : %s :  TTL Reduced to %d\n",
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD_DET, "VRF %s: Dest : %s :  TTL Reduced to %d\n",
         vrf->vrf_name, dest_ip_addr, ip_hdr->ttl);
 
     /* If route is non direct, then ask LAyer 2 to send the pkt
      * out of all ecmp nexthops of the route*/
-    tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Nexthop found OIF %s, Gw : %s\n", 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Nexthop found OIF %s, Gw : %s\n", 
             vrf->vrf_name, dest_ip_addr, 
             nh->fwd_info->oif->if_name, 
             cmn_prefix_to_string(&nh->fwd_info->nh_addr, &nh_str));
@@ -448,7 +448,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         break;
     }
 
-    tracer (dp_ctx->dptr, DL3FWD, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
         "VRF %s: Dest : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", vrf->vrf_name, dest_ip_addr);
 
     /* Check if GRE encapsulation is required */
@@ -458,7 +458,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                       &nh->fwd_info->u.gre_fwd.gre_tunnel_src, 
                       &nh->fwd_info->u.gre_fwd.gre_tunnel_dst);
 
-        tracer (dp_ctx->dptr, DL3FWD, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
             "VRF %s: Pkt is GRE encapsulated to Tunnel end point %s\n",
             vrf->vrf_name,
             tcp_ip_covert_ip_n_to_p(nh->fwd_info->u.gre_fwd.gre_tunnel_dst.u.v4_addr, (c_string)dest_ip_addr),
@@ -468,7 +468,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     else if (IS_BIT_SET (nh->fwd_info->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK)) {
 
-        tracer (dp_ctx->dptr, DL3FWD, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
             "VRF %s: Pkt : %s : L3 forwarding switched from v4 to mpls "
             "for VPNv4 case where nexthop is SR-MPLS\n", 
             vrf->vrf_name, dest_ip_addr);
@@ -487,7 +487,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
     
     else if (IS_BIT_SET (nh->fwd_info->fwd_flags, FIB_NH_FWD_F_SRv6_FORWARD)) {
 
-        tracer (dp_ctx->dptr, DL3FWD, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
             "VRF %s: Pkt : %s : L3 forwarding switched from IPv4 to srv6 "
             "for VPNv4 case where nexthop is SRv6\n", 
             vrf->vrf_name, dest_ip_addr);
@@ -528,13 +528,13 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
     byte dst_ip_addr_str[IPV4_ADDR_LEN_STR];
     pkt_size_t pkt_size;
 
-    tracer (dp_ctx->dptr, DL3FWD, "Dest : %s :  Pkt Arrived in L3-land from Top\n", 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "Dest : %s :  Pkt Arrived in L3-land from Top\n", 
         tcp_ip_covert_ip_n_to_p(dest_ip_address, dst_ip_addr_str));
 
     dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx, vrf_id);
 
     if (!vrf) {
-        tracer (dp_ctx->dptr, DL3FWD | DERR, "Error : Invalid Vrf for packet Dest %s\n",
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DERR, "Error : Invalid Vrf for packet Dest %s\n",
             pkt_mbuf_str(mbuf));
         return;
     }
@@ -570,7 +570,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
     fib_nh_t *nh = fib_get_forwarding_nh(vrf->fib_inet0, &prefix);
 
     if(!nh){
-        tracer (dp_ctx->dptr, DL3FWD | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DERR, 
             "VRF %s: Pkt : %s :  Pkt Dropped :  No L3 Route\n", 
             vrf->vrf_name, pkt_mbuf_str(mbuf));
         return;
@@ -597,7 +597,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
                 return;
         }
 
-        tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Direct Route found, Pkt is being demoted to L2 Layer\n", 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Direct Route found, Pkt is being demoted to L2 Layer\n", 
             vrf->vrf_name, dst_ip_addr_str);
 
         dp_demote_pkt_to_layer2(dp_ctx, 
@@ -614,12 +614,12 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
     uint32_t next_hop_ip;
     
     if(!nh){
-        tracer (dp_ctx->dptr, DL3FWD | DERR, "VRF %s: Dest : %s :  Pkt Dropped : No nexthop found\n", 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DERR, "VRF %s: Dest : %s :  Pkt Dropped : No nexthop found\n", 
             vrf->vrf_name, dst_ip_addr_str);
         return;
     }
 
-    tracer (dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Nexthop found OIF %s, Gw : %s\n", 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s :  Nexthop found OIF %s, Gw : %s\n", 
             vrf->vrf_name, dst_ip_addr_str, 
             nh->fwd_info->oif->if_name, 
             cmn_prefix_to_string(&nh->fwd_info->nh_addr, &nh_str));
@@ -659,7 +659,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
             return;
     }
 
-    tracer (dp_ctx->dptr, DL3FWD, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
         "VRF %s: Dest : %s :  Pkt is being demoted to L2 Layer\n",
         vrf->vrf_name, dst_ip_addr_str);
         
@@ -690,7 +690,7 @@ dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *mbuf) {
 
     if (!ip_hdr->dst_ip) {
 
-        tracer (dp_ctx->dptr, DL3FWD | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DERR, 
             "Error : Dst IP address could not be determined, cannot send the pkt\n");
 
         cprintf ("Error : %s : Dst IP address could not be determined, cannot send the pkt\n", 
@@ -701,7 +701,7 @@ dp_send_ip_data (dp_ctx_t *dp_ctx, dp_vrf_t *vrf, struct rte_mbuf *mbuf) {
 
     assert (ip_hdr->total_length);
 
-    tracer (dp_ctx->dptr, DL3FWD, "VRF:%s Dest:%s  NP Recvd Routing Request\n",
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF:%s Dest:%s  NP Recvd Routing Request\n",
             vrf->vrf_name, pkt_mbuf_ip(mbuf, ip_addr_str));
 
     layer3_ip_route_pkt (dp_ctx, vrf, (dp_intf_t *)NULL, mbuf); 

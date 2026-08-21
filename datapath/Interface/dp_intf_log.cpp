@@ -50,7 +50,8 @@ tcp_dump_recv_logger(
         }
    
         rc = sprintf ((char *)dp_ctx->recv_log_buffer, 
-                        "\n%s(%s) <-- \n", 
+                        "\npkt_id=%u %s(%s) <-- \n", 
+                        pkt_mbuf_get_pkt_id(mbuf),
                         dp_ctx->ctx_name, intf->if_name);
 
         tcp_dump(sock_fd,          /*Write the log to the FD*/
@@ -144,7 +145,8 @@ tcp_dump_send_logger(dp_ctx_t *dp_ctx,
         dp_ctx->send_log_buffer[0] = '\0';
         
         rc = sprintf((char *)dp_ctx->send_log_buffer,
-                "\n%s(%s) --> \n", 
+                "\npkt_id=%u %s(%s) --> \n", 
+                pkt_mbuf_get_pkt_id(mbuf),
                 dp_ctx->ctx_name, intf->if_name);
 
         tcp_dump(sock_fd,                  /*Write the log to the FD*/

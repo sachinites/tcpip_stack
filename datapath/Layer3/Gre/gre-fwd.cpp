@@ -70,7 +70,7 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
     assert (pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_GRE);
 
     if (!gre_intf) {
-         tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
+         pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "VRF %s: Error : Pkt %s : Arrived on non-existant GRE Tunnel Interface\n", 
                 vrf->vrf_name, pkt_mbuf_str (mbuf));
         return;
@@ -81,7 +81,7 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
     gre_intf->pkt_recv++;
 
     if (!gre_intf->is_tunnel_up || !gre_intf->is_up) {
-        tracer (dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW | DERR, 
             "VRF %s: Error : Pkt : %s : Dropped, GRE Tunnel %s is not Active/Up\n", 
                 vrf->vrf_name, pkt_mbuf_str (mbuf), gre_intf->if_name);
         return;
@@ -96,7 +96,7 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
         case IP_PROTO_IP_IN_IP:
         {
             pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_IP_IN_IP);
-            tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_mbuf_str (mbuf));    
             layer3_ip_route_pkt (dp_ctx, vrf, gre_intf, mbuf);
         }
@@ -105,7 +105,7 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
         case ETH_TYPE_GRE:
         {
             pkt_mbuf_update_new_hdr_type (mbuf, ETHERNET_HEADER);
-            tracer (dp_ctx->dptr, DTUNNEL | DFLOW, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_mbuf_str (mbuf));
              dp_pkt_entry_point(dp_ctx, gre_intf->vrf, gre_intf, mbuf);
         }

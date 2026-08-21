@@ -92,7 +92,7 @@ add_arp_pending_entry(dp_ctx_t *dp_ctx,
 
     char ip_str[IPV4_ADDR_LEN_STR];
     tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_str);
-    tracer(dp_ctx->dptr, DARP_DET, "ARP-entry %s: pending entry added\n", ip_str);
+    pkt_tracer(mbuf, dp_ctx->dptr, DARP_DET, "ARP-entry %s: pending entry added\n", ip_str);
 }
 
 /* -------------------------------------------------------------------------
@@ -128,14 +128,14 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     if (!oif) {
         oif = dp_intf_get_matching_subnet_interface(dp_ctx, vrf, ip_addr);
         if (!oif) {
-            tracer(dp_ctx->dptr, DARP | DERR,
+            pkt_tracer(mbuf, dp_ctx->dptr, DARP | DERR,
                    "VRF:%s: No eligible subnet for ARP resolution for %s\n",
                    vrf->vrf_name, ip_str);
             pkt_mbuf_dereference(mbuf);
             return;
         }
         if (oif->ip_addr == ip_addr) {
-            tracer(dp_ctx->dptr, DARP | DERR,
+            pkt_tracer(mbuf, dp_ctx->dptr, DARP | DERR,
                    "VRF:%s: Attempt to resolve ARP for local IP %s\n",
                    vrf->vrf_name, ip_str);
             pkt_mbuf_dereference(mbuf);
@@ -161,7 +161,7 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     if (src_intf) {
 
         pkt_mbuf_set_ingress_intf(mbuf, src_intf);
-        tracer(dp_ctx->dptr, DARP,
+        pkt_tracer(mbuf, dp_ctx->dptr, DARP,
            "VRF:%s: ARP Broadcast Request for %s out of %s, src intf set %s\n",
            vrf->vrf_name, ip_str, oif->if_name, src_intf->if_name);
     }
@@ -183,7 +183,7 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     SET_COMMON_ETH_FCS(eth, sizeof(arp_hdr_t), 0);
 
     pkt_mbuf_update_new_hdr_type(mbuf, ETHERNET_HEADER);
-    tracer(dp_ctx->dptr, DARP,
+    pkt_tracer(mbuf, dp_ctx->dptr, DARP,
            "VRF:%s: Sending ARP Broadcast Request for %s out of %s\n",
            vrf->vrf_name, ip_str, oif->if_name);
     dp_send_pkt_out(dp_ctx, oif, mbuf, 0);
@@ -229,7 +229,7 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *eth_in, dp_intf_t *oif)
         &oif->mac_add, oif->ip_addr);
 
     arp_hdr_t *arp_reply = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_reply);
-    tracer(dp_ctx->dptr, DARP,
+    pkt_tracer(mbuf, dp_ctx->dptr, DARP,
            "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of %s\n",
            tcp_ip_covert_ip_n_to_p(htonl(arp_reply->dst_ip), (unsigned char *)ip_str),
            arp_reply->dst_mac.mac[0], arp_reply->dst_mac.mac[1],
@@ -266,11 +266,12 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *eth_in, dp_intf_t *oif)
 void
 process_arp_reply_msg(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf, dp_intf_t *iif,
+                      struct rte_mbuf *mbuf,
                       ethernet_hdr_t *ethernet_hdr)
 {
     arp_hdr_t *arp = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
 
-    tracer(dp_ctx->dptr, DARP,
+    pkt_tracer(mbuf, dp_ctx->dptr, DARP,
            "VRF:%s: Recvd ARP Reply on %s — posting ARP_UPDATE job\n",
            vrf->vrf_name, iif->if_name);
 
@@ -283,12 +284,13 @@ void
 process_arp_broadcast_request(dp_ctx_t *dp_ctx,
                                dp_vrf_t *vrf,
                                dp_intf_t *iif,
+                               struct rte_mbuf *mbuf,
                                ethernet_hdr_t *ethernet_hdr)
 {
     byte ip_str[IPV4_ADDR_LEN_STR];
     arp_hdr_t *arp = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
 
-    tracer(dp_ctx->dptr, DARP,
+    pkt_tracer(mbuf, dp_ctx->dptr, DARP,
            "VRF:%s: ARP-Broadcast Req from %02x:%02x:%02x:%02x:%02x:%02x "
            "for %s on %s\n",
            vrf->vrf_name,
@@ -675,7 +677,7 @@ create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
 
     char ip_str[IPV4_ADDR_LEN_STR];
     tcp_ip_covert_ip_n_to_p(ip_addr, ip_str);
-    tracer(dp_ctx->dptr, DARP, "VRF:%s: creating ARP sane entry for %s\n",
+    pkt_tracer(mbuf, dp_ctx->dptr, DARP, "VRF:%s: creating ARP sane entry for %s\n",
            vrf->vrf_name, ip_str);
 
     entry = (arp_entry_t *)XCALLOC2(0, 1, arp_entry_t);

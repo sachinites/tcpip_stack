@@ -41,6 +41,7 @@ typedef struct pkt_mbuf_encap_meta_data_
 typedef struct pkt_mbuf_pvt_data_ {
 
     uint32_t                    ingress_ifindex;
+    uint32_t                    pkt_id;   /* unique datapath log correlation id */
     pkt_mbuf_encap_meta_data_t  *encap_data;
     gen_proto_id_t              hdr_type;
     bool                        no_modify;
@@ -193,5 +194,32 @@ pkt_mbuf_set_ingress_ifindex(struct rte_mbuf *mbuf, uint32_t ifindex);
 
 void
 pkt_mbuf_clear_ingress_intf(struct rte_mbuf *mbuf);
+
+/* Datapath packet ID (assigned at dp_pkt_entry_point; copied on PKT_MBUF_DUP). */
+static inline uint32_t
+pkt_mbuf_get_pkt_id(struct rte_mbuf *mbuf)
+{
+    if (mbuf == NULL || mbuf->pool == NULL) return 0;
+    if (rte_pktmbuf_priv_size(mbuf->pool) < sizeof(pkt_mbuf_pvt_data_t)) return 0;
+    return ((pkt_mbuf_pvt_data_t *)rte_mbuf_to_priv(mbuf))->pkt_id;
+}
+
+void
+pkt_mbuf_set_pkt_id(struct rte_mbuf *mbuf, uint32_t pkt_id);
+
+/* Thread-safe strictly increasing ID; no-op if already assigned (re-entry / clone). */
+void
+pkt_mbuf_assign_pkt_id(struct rte_mbuf *mbuf);
+
+/*
+ * Packet-path tracer: prepends pkt_id=<n> to the log line.
+ * Requires libs/Tracer/tracer.h to be included by the translation unit.
+ */
+#define pkt_tracer(mbuf, tr_ptr, bitn, fmt, ...) \
+    do { \
+        if (tracer_is_active((tr_ptr), (bitn))) \
+            trace_internal((tr_ptr), (bitn), __FUNCTION__, __LINE__, \
+                "pkt_id=%u " fmt, pkt_mbuf_get_pkt_id(mbuf), ##__VA_ARGS__); \
+    } while (0)
 
 #endif /* __PKT_MBUF__ */

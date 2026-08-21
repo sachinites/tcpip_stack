@@ -17,6 +17,9 @@
 #include "../common/l2_hdrs.h"
 #include "../common/l3_hdrs.h"
 
+/* Global strictly-increasing pkt ID; 0 is reserved as "unassigned". */
+static uint32_t g_pkt_id_seq = 1;
+
 static inline pkt_mbuf_pvt_data_t *
 pkt_mbuf_priv(struct rte_mbuf *mbuf)
 {
@@ -142,6 +145,7 @@ pkt_mbuf_dereference(struct rte_mbuf *mbuf)
                 priv->encap_data = NULL;
             }
             priv->ingress_ifindex = 0;
+            priv->pkt_id = 0;
         }
         rte_pktmbuf_free(mbuf);
         return 0;
@@ -445,6 +449,31 @@ void
 pkt_mbuf_clear_ingress_intf(struct rte_mbuf *mbuf)
 {
     pkt_mbuf_set_ingress_ifindex(mbuf, 0);
+}
+
+void
+pkt_mbuf_set_pkt_id(struct rte_mbuf *mbuf, uint32_t pkt_id)
+{
+    pkt_mbuf_pvt_data_t *priv = pkt_mbuf_get_pvt_data(mbuf);
+    if (priv) priv->pkt_id = pkt_id;
+}
+
+void
+pkt_mbuf_assign_pkt_id(struct rte_mbuf *mbuf)
+{
+    pkt_mbuf_pvt_data_t *priv = pkt_mbuf_get_pvt_data(mbuf);
+    uint32_t id;
+
+    if (priv == NULL) return;
+    /* Preserve ID across GRE/virtual-port re-entry and PKT_MBUF_DUP clones. */
+    if (priv->pkt_id != 0) return;
+
+    /* Strictly increasing, multi-thread safe. Skip 0 (unassigned sentinel). */
+    do {
+        id = __atomic_fetch_add(&g_pkt_id_seq, 1u, __ATOMIC_RELAXED);
+    } while (id == 0);
+
+    priv->pkt_id = id;
 }
 
 /* ------------------------------------------------------------------------- */

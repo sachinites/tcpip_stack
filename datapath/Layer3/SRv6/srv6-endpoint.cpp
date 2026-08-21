@@ -751,7 +751,7 @@ Srv6_apply_penultimate_processing(
 
     if (!nexthop) {
         /* No route found - drop the packet */
-        tracer(dp_ctx->dptr, DL3FWD, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
                "Pkt : %s : No SRV6 route found, packet dropped\n",  
                pkt_mbuf_str(mbuf));
         return;
@@ -1285,7 +1285,7 @@ Srv6_apply_endpoint_fn(
     Srv6_endpcode_t endfn = srv6_split_endpcode(CompositeEndfn, &flavor);
 
     /* Log endpoint function application for debugging/tracing */
-    tracer(dp_ctx->dptr, DL3FWD, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
            "Pkt : %s : Applying SRv6 endpoint function : %s\n", 
            pkt_mbuf_str(mbuf), 
            srv6_end_fn_str(CompositeEndfn));

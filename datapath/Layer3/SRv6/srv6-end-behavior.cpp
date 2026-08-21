@@ -76,7 +76,7 @@ srv6_ipv6_forward (dp_ctx_t *dp_ctx,
     fib_nh_t *nh = fib_get_forwarding_nh(vrf->fib_inet6, &prefix);
 
     if(!nh){
-        tracer(dp_ctx->dptr, DL3FWD | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DERR, 
             "VRF:%s: Pkt : %s :  Pkt Dropped : No forwarding nexthop\n",
 	   vrf->vrf_name, pkt_mbuf_str(mbuf));
         return false;

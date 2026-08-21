@@ -198,11 +198,13 @@ void send_arp_broadcast_request(dp_ctx_t *dp_ctx,
 void process_arp_broadcast_request(dp_ctx_t *dp_ctx,
                                    dp_vrf_t *vrf,
                                    dp_intf_t *iif,
+                                   struct rte_mbuf *mbuf,
                                    ethernet_hdr_t *ethernet_hdr);
 
 void process_arp_reply_msg(dp_ctx_t *dp_ctx,
                            dp_vrf_t *vrf,
                            dp_intf_t *iif,
+                           struct rte_mbuf *mbuf,
                            ethernet_hdr_t *ethernet_hdr);
 
 void l2_prepare_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_reply,

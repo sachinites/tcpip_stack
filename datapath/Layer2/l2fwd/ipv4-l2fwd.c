@@ -74,7 +74,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
 
         if (!arp_entry || arp_entry_sane(arp_entry)) {
 
-            tracer(dp_ctx->dptr, DL2FWD, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD, 
                 "VRF %s: Nexthop : %s : ARP not yet resolved, posting ARP_RESOLVE job\n",
                 vrf->vrf_name, next_hop_ip_str);
             /*
@@ -106,7 +106,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
      * is it a self loopback address*/
     if(!oif && (next_hop_ip != dp_ctx->rtr_id)) {
 
-        tracer(dp_ctx->dptr, DL2FWD | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DERR,
             "Error : Local matching subnet for IP:%s could not be found\n",
                     next_hop_ip_str);
         return;
@@ -342,10 +342,10 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                 switch(htons(arp_hdr->op_code))
                 {
                     case ARP_BROAD_REQ:
-                        process_arp_broadcast_request(dp_ctx, vrf, iif, ethernet_hdr);
+                        process_arp_broadcast_request(dp_ctx, vrf, iif, mbuf, ethernet_hdr);
                         return;
                     case ARP_REPLY:
-                        process_arp_reply_msg(dp_ctx, vrf, iif, ethernet_hdr);
+                        process_arp_reply_msg(dp_ctx, vrf, iif, mbuf, ethernet_hdr);
                         return;
                     default:
                         assert(0);
@@ -418,14 +418,14 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
     /* case 10 : If receiving interface is neither working in L3 mode
      * nor in L2 mode, then reject the packet*/
 
-    tracer (dp_ctx->dptr, DL2FWD | DFLOW, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW, 
         "Pkt : %s received on interface %s being tested for "
         "RECV-Qualification test\n", pkt_mbuf_str(mbuf), interface->if_name);
 
     if (!interface->ip_addr &&
         !interface->switchport) {
 
-        tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR, "Pkt : %s received on interface %s "
             "failed RECV-Qualification test : Interface is neither L3 interface or L2 switchport\n",
             pkt_mbuf_str(mbuf), interface->if_name);
 
@@ -435,7 +435,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
     if (!interface->is_up) {
 
         interface->recvd_pkt_dropped++;
-        tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR,
             "Error : Pkt : %s dropped. Reciepient AC %s is not admin up.\n",
             pkt_mbuf_str(mbuf), interface->if_name);        
         return false;
@@ -449,7 +449,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
         if (!ac->bd_intf ) {
 
             ac->recvd_pkt_dropped++;
-            tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR,
                 "Error : Pkt : %s dropped. Reciepient AC %s is not BD member.\n",
                 pkt_mbuf_str(mbuf), ac->if_name);            
             return false;
@@ -458,7 +458,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
         if (!ac->bd_intf->is_up) {
 
             ac->bd_intf->recvd_pkt_dropped++;
-            tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR,
                 "Error : Pkt : %s dropped. Reciepient BD %s is not admin up.\n",
                 pkt_mbuf_str(mbuf), ac->bd_intf->if_name);
             return false;
@@ -466,7 +466,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
 
         if (!ac->encap_8021q_tag)
         {
-            tracer(dp_ctx->dptr, DL2FWD | DFLOW | DERR,
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR,
                    "Error : Pkt : %s dropped. Reciepient AC %s is not dot1q enabled.\n",
                    pkt_mbuf_str(mbuf), ac->if_name);
         }
@@ -486,7 +486,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
             return true;    /*case 3*/
         
         else {
-            tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
                 "Pkt : %s received on interface %s "
                 "failed RECV-Qualification test : Tagged pkt "
                 "recvd on Access interface not operating in any vlan\n",
@@ -523,7 +523,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
             return true;    /*case 5*/
         }
         else{
-            tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
                 "Pkt : %s received on interface %s "
                 "failed RECV-Qualification test : Vlan Mismatch, "
                 "802.1Q vlan  %d != Interface vlan %d\n", 
@@ -540,7 +540,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
        
         if(!vlan_8021q_hdr){
             /*case 7 & 8*/
-            tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
                 "Pkt : %s received on interface %s "
                 "failed RECV-Qualification test : Untagged "
                 "pkt recvd on Trunk Interface\n", 
@@ -561,7 +561,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
             return true;    /*case 9*/
         }
         else{
-            tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
                 "Pkt : %s received on interface %s "
                 "failed RECV-Qualification test : Trunk Interface is "
                 "not configured with Pkt vlan %d\n", 
@@ -583,7 +583,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
     /*If the interface is operating in L3 mode, and recv vlan tagged frame, drop it*/
     if(interface->ip_addr && vlan_8021q_hdr){
         /*case 2*/
-        tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s received on interface %s "
             "failed RECV-Qualification test : Vlan tagged pkt recvd on L3 interface\n", 
             pkt_mbuf_str(mbuf), interface->if_name);
@@ -608,7 +608,7 @@ l2_frame_recv_qualify_on_interface( dp_ctx_t *dp_ctx,
         return true;
     }
 
-    tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
         "Pkt : %s received on interface %s "
         "failed RECV-Qualification test : Unknown Reason\n", 
         pkt_mbuf_str(mbuf), interface->if_name);    
@@ -687,7 +687,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
                     dp_ctx->dp_vlan_intf_ht, pkt_vlan_id);
     }
     else {
-        tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s recvd on switchport %s which is neither "
             "in Access nor in Trunk mode, Pkt Dropped\n",
             pkt_mbuf_str(mbuf), interface->if_name);
@@ -697,7 +697,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     if (!vlan_intf) {
         /* It means, the pkt is recvd on switchport interface but
          * the interface is not operating in any vlan*/
-        tracer (dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW | DERR, 
             "Pkt : %s recvd on switchport %s which is not bound to any vlan, pkt Dropped\n",
             pkt_mbuf_str(mbuf), interface->if_name);
         return true;
@@ -721,7 +721,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
 
     svi_ip_addr = vlan_intf->ip_addr;
 
-    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW,
            "Pkt : %s recvd on SVI interface %s is ARP Broadcast "
            "request for SVI IP, Sending ARP reply\n",
            pkt_mbuf_str(mbuf), vlan_intf->if_name);
@@ -754,7 +754,7 @@ svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(
         (ethernet_hdr_t *)vlan_ethernet_hdr_reply));
 
-    tracer(dp_ctx->dptr, DARP,
+    pkt_tracer(mbuf, dp_ctx->dptr, DARP,
         "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of interface %s\n",
            tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, (c_string)ip_addr_str),
            arp_hdr_reply->dst_mac.mac[0],
@@ -852,7 +852,7 @@ bd_svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
 
     svi_ip_addr = bd_intf->ip_addr;
 
-    tracer(dp_ctx->dptr, DL2FWD | DFLOW,
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW,
            "Pkt : %s recvd on BD %s is ARP Broadcast request for SVI IP\n",
            pkt_mbuf_str(mbuf), bd_intf->if_name);
 
@@ -875,7 +875,7 @@ bd_svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
     arp_hdr_t *arp_hdr_reply =
         (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(eth_reply));
 
-    tracer(dp_ctx->dptr, DARP,
+    pkt_tracer(mbuf, dp_ctx->dptr, DARP,
         "Sending BD ARP Reply [%s] out of AC %s\n",
         tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, (c_string)ip_addr_str),
         ingress_ac->if_name);
