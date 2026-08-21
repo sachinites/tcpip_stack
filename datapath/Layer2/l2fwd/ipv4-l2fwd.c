@@ -33,7 +33,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
                      dp_intf_t *oif,
                      struct rte_mbuf *mbuf)
 {
-
+    bool is_tagged = false;
     pkt_size_t pkt_size;
     ethernet_hdr_t *ethernet_hdr;
     arp_entry_t * arp_entry = NULL;
@@ -51,10 +51,15 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
 
         layer2_fill_with_broadcast_mac (ethernet_hdr->dst_mac.mac);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
-        if (oif->if_type == DP_INTF_TYPE_VLAN) 
+
+        if (oif->if_type == DP_INTF_TYPE_VLAN) {
+            is_tagged = true;
             tag_pkt_with_vlan_id(mbuf, oif->vlan_id);      
+        }
+
         ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
-        ethernet_payload_size = pkt_size - sizeof(vlan_ethernet_hdr_t) - ETH_FCS_SIZE;              
+        ethernet_payload_size = pkt_size -  \
+            (is_tagged ? sizeof(vlan_ethernet_hdr_t) : sizeof(ethernet_hdr_t)) - ETH_FCS_SIZE;
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         dp_send_pkt_out(dp_ctx, oif, mbuf, 0);
         return;
@@ -65,15 +70,13 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
     if(oif) {
 
         /* L3 has resolved the nexthop; L2-forward out of oif. */
-
         arp_entry = arp_table_lookup(vrf->arp_table, next_hop_ip);
 
         if (!arp_entry || arp_entry_sane(arp_entry)) {
 
             tracer(dp_ctx->dptr, DL2FWD, 
-                "VRF %s: Dest : %s : ARP not yet resolved, posting ARP_RESOLVE job\n",
+                "VRF %s: Nexthop : %s : ARP not yet resolved, posting ARP_RESOLVE job\n",
                 vrf->vrf_name, next_hop_ip_str);
-                
             /*
              * ARP not yet resolved (or pending).  Ref the mbuf and post an
              * ARP_RESOLVE job to dp_ev_dis.  dp_ev_dis will:
@@ -134,7 +137,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
 
     arp_entry = arp_table_lookup(vrf->arp_table, next_hop_ip);
 
-    if (!arp_entry || arp_entry_sane(arp_entry)) {
+    if ((!arp_entry || arp_entry_sane(arp_entry))) {
         /* ARP not yet resolved — post resolve job to dp_ev_dis. */
         pkt_mbuf_ref_inc(mbuf);
         dp_post_arp_resolve_job(dp_ctx, vrf,
@@ -146,14 +149,20 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
     l2_frame_prepare:
         memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
-        if (oif->if_type == DP_INTF_TYPE_VLAN) 
+
+        if (oif->if_type == DP_INTF_TYPE_VLAN) {
+            is_tagged = true;
             tag_pkt_with_vlan_id(mbuf, oif->vlan_id);      
+        }
+
         ethernet_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
-        ethernet_payload_size = pkt_size - sizeof(vlan_ethernet_hdr_t) - ETH_FCS_SIZE;
+        ethernet_payload_size = pkt_size -  \
+            (is_tagged ? sizeof(vlan_ethernet_hdr_t) : sizeof(ethernet_hdr_t)) - ETH_FCS_SIZE;
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
         dp_send_pkt_out(dp_ctx, oif, mbuf, 0);
         arp_entry_touch(arp_entry);  /* cheap timestamp store; timer checks this */
-    }
+        return;      
+}
 
 /* An API to be used by Layer 3 or higher to push the pkt
  * down the TCP IP Stack to L2. Note that, though most of the time

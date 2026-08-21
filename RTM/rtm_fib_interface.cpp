@@ -111,7 +111,7 @@ rtm_resolution_create_inh_fwd_info (rtm_t *rtm,
         }
     }
 
-    if (inh->fwd_flags & FIB_NH_FWD_F_TUNNEL) {
+    if (fib_nh_fwd_is_gre_encap(inh->fwd_flags)) {
         fwd_info_out->u.gre_fwd.gre_tunnel_src = inh->gre_tunnel_src;
         fwd_info_out->u.gre_fwd.gre_tunnel_dst = inh->gre_tunnel_dst;
     }
@@ -285,11 +285,6 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
                            presentation_data->nh,
                            &target_fib_vrf_out,
                            &target_fib_afi);
-
-        if (fib_found) {
-            presentation_data->nh->target_fib.vrf = target_fib_vrf_out;
-            presentation_data->nh->target_fib.afi = target_fib_afi;
-        }
     }
     else {
 

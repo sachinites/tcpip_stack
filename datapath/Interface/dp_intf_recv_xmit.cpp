@@ -787,17 +787,30 @@ SRv6_Xconnect_VRF_SendPacketOut(
     /* Step 3: Inner payload must be IPv4; drop anything else */
     if (pkt_mbuf_get_starting_hdr(mbuf) != IP_PROTO_IP_IN_IP) {
         tracer(dp_ctx->dptr, DL3FWD | DERR,
-            "SRv6 END.DT4: inner packet is not IPv4, dropping\n");
+            "Pkt:%s SRv6 END.DT4: inner packet is not IPv4, dropping\n", pkt_mbuf_str(mbuf));
         return 0;
     }
 
     /* Step 4: Resolve the VRF for the IPv4 FIB lookup */
     dp_vrf_t *steered_vrf = dp_look_up_vrf(dp_ctx, ctx);
+
     if (!steered_vrf) {
         tracer(dp_ctx->dptr, DL3FWD | DERR,
-            "SRv6 END.DT4: no steered VRF configured on interface %s, dropping\n",
-            intf->if_name);
+            "Pkt:%s SRv6 END.DT4: no steered VRF configured on interface %s, dropping\n",
+            pkt_mbuf_str(mbuf), intf->if_name);
         return 0;
+    }
+
+    tracer(dp_ctx->dptr, DL3FWD | DERR,
+        "SRv6 END.DT4: Pkt:%s VRF Context Switched from Default-VRF to VRF:%s\n",
+        pkt_mbuf_str(mbuf), steered_vrf->vrf_name);
+
+    if (steered_vrf == dp_ctx->dp_vrf_table[0]) {
+
+        tracer(dp_ctx->dptr, DL3FWD | DERR,
+            "SRv6 END.DT4: Pkt:%s Destination VRF:%s cannot be default vrf for VPNv4oSRv6 traffic, pkt dropped\n",
+            pkt_mbuf_str(mbuf), steered_vrf->vrf_name);
+        return;
     }
 
     /* Step 5: Forward the inner IPv4 packet using the steered VRF FIB */

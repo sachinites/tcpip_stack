@@ -1326,7 +1326,7 @@ Srv6_apply_endpoint_fn(
         case END_DT4:
             /* L3VPN case, Egress PE router processing */
             //srv6_END_DT4(dp_ctx, vrf, mbuf, ipv6_hdr, srh, nexthop);
-            dp_send_pkt_out(dp_ctx, nexthop->fwd_info->oif, mbuf, 0);
+            dp_send_pkt_out(dp_ctx, nexthop->fwd_info->oif, mbuf, nexthop->fwd_info->xconnect_id);
             break;
 
         default:

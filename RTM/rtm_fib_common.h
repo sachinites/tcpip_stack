@@ -25,6 +25,15 @@ typedef struct dp_fib_nh_fwd_info_ dp_fib_nh_fwd_info_t;
 
 #define FIB_MAX_ECMP_NH 8
 
+/* GRE encap uses FIB_NH_FWD_F_TUNNEL; SRv6 reuses RTM_NH_ACTION_TUNNEL but must
+ * not be treated as GRE (union holds v6_fwd, not gre_fwd). */
+static inline bool
+fib_nh_fwd_is_gre_encap(uint16_t fwd_flags)
+{
+    return (fwd_flags & FIB_NH_FWD_F_TUNNEL) &&
+           !(fwd_flags & FIB_NH_FWD_F_SRv6_FORWARD);
+}
+
 
 typedef enum FIB_OPN_ {
 

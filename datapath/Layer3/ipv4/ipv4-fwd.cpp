@@ -452,7 +452,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         "VRF %s: Dest : %s :  Demoting Pkt to Layer 2 for L2 Forwarding\n", vrf->vrf_name, dest_ip_addr);
 
     /* Check if GRE encapsulation is required */
-    if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_TUNNEL) {
+    if (fib_nh_fwd_is_gre_encap(nh->fwd_info->fwd_flags)) {
 
         uint16_t encap_proto = gre_encasulate(mbuf, 
                       &nh->fwd_info->u.gre_fwd.gre_tunnel_src, 
@@ -485,6 +485,25 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         return;
     }    
     
+    else if (IS_BIT_SET (nh->fwd_info->fwd_flags, FIB_NH_FWD_F_SRv6_FORWARD)) {
+
+        tracer (dp_ctx->dptr, DL3FWD, 
+            "VRF %s: Pkt : %s : L3 forwarding switched from IPv4 to srv6 "
+            "for VPNv4 case where nexthop is SRv6\n", 
+            vrf->vrf_name, dest_ip_addr);
+
+        int n = vpnv4_ingress_pe_encap_srv6 (dp_ctx, vrf, mbuf, nh);
+
+        dp_demote_pkt_to_layer2(dp_ctx, 
+            nh_vrf ? nh_vrf : vrf, 
+            next_hop_ip,
+            nh->fwd_info->oif,
+            mbuf,
+            n ? IP_PROTO_IPv6 : IP_PROTO_IP_IN_IP);
+            
+        return;
+    }    
+
     dp_demote_pkt_to_layer2(dp_ctx, 
             nh_vrf ? nh_vrf : vrf, 
             next_hop_ip,

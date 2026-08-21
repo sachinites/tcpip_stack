@@ -234,8 +234,8 @@ srv6_rtm_route_install_vpnv4 (node_t *node,
     nh_template.u.srv6_stack.v6segment_lst = NULL;
 
     nh_template.fwd_flags |= FIB_NH_FWD_F_IPV6_STCK;// This NH has a seg lst
-    nh_template.fwd_flags |= FIB_NH_FWD_F_TUNNEL;   // Impose the seg lst on the pkt
-    // Subject the pkt to SRv6 forwarding instead of normal forwarding in DP
+    /* SRv6 forwarding is signaled by FIB_NH_FWD_F_SRv6_FORWARD, not TUNNEL
+     * (TUNNEL is for GRE and shares the fwd_info union with v6_fwd). */
     nh_template.fwd_flags |= FIB_NH_FWD_F_SRv6_FORWARD; 
     
     nh_template.action = RTM_NH_ACTION_TUNNEL;

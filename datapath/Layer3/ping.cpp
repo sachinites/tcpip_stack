@@ -95,7 +95,7 @@ ping_send4 (void *_pctx)
 
                 ip_hdr->src_ip = htonl (nh->fwd_info->oif->ip_addr);
             }           
-            else if (nh->fwd_info->fwd_flags & (FIB_NH_FWD_F_TUNNEL)) {
+            else if (fib_nh_fwd_is_gre_encap(nh->fwd_info->fwd_flags)) {
 
                 ip_hdr->src_ip = htonl (nh->fwd_info->u.gre_fwd.gre_tunnel_src.u.v4_addr);
             }

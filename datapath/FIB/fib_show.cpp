@@ -246,7 +246,7 @@ fib_show_nh_extra_encap(fib_nh_fwd_info_t *fi, const char *indent) {
         cprintf("\n");
     }
 
-    if (fi->fwd_flags & FIB_NH_FWD_F_TUNNEL) {
+    if (fib_nh_fwd_is_gre_encap(fi->fwd_flags)) {
         char src_str[48];
         char dst_str[48];
         cprintf("%sGre-Encap: S:%s D:%s\n", indent,
@@ -348,7 +348,7 @@ fib_show_routes(fib_t *fib) {
                                             nh->fwd_info->u.v6_fwd.n_segment_list);
                 }
                 
-                if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_TUNNEL) {
+                if (fib_nh_fwd_is_gre_encap(nh->fwd_info->fwd_flags)) {
                     cprintf("      GRE Tunnel Encap: S:%s D:%s\n", 
                         cmn_prefix_to_string(&nh->fwd_info->u.gre_fwd.gre_tunnel_src, &ip_addr_str1),
                         cmn_prefix_to_string(&nh->fwd_info->u.gre_fwd.gre_tunnel_dst, &ip_addr_str2));

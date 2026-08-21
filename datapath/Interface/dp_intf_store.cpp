@@ -497,7 +497,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[SRv6_TO_BD_STEER_IFINDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = SRv6_TO_BD_STEER_IFINDEX;
-    Fake_dp_intf->if_type = DP_INTF_TYPE_MPLS_TO_BD_STEER;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_SRV6_TO_BD_STEER;
     strncpy (Fake_dp_intf->if_name, SRv6_TO_BD_STEER_INTF_NAME, strlen (SRv6_TO_BD_STEER_INTF_NAME) -1);
     Fake_dp_intf->if_name[strlen (SRv6_TO_BD_STEER_INTF_NAME) -1] = '\0';
     Fake_dp_intf->pkt_recv = 0;
@@ -507,7 +507,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
     dp_ctx->intf_table[SRv6_TO_VRF_INTF_STEER_IFINDEX] = Fake_dp_intf;
     Fake_dp_intf->port_id = SRv6_TO_VRF_INTF_STEER_IFINDEX;
-    Fake_dp_intf->if_type = DP_INTF_TYPE_MPLS_TO_VRF_STEER;
+    Fake_dp_intf->if_type = DP_INTF_TYPE_SRV6_TO_VRF_STEER;
     strncpy (Fake_dp_intf->if_name, SRv6_TO_VRF_STEER_INTF_NAME, strlen (SRv6_TO_VRF_STEER_INTF_NAME) -1);
     Fake_dp_intf->if_name[strlen (SRv6_TO_VRF_STEER_INTF_NAME) -1] = '\0';
     Fake_dp_intf->pkt_recv = 0;

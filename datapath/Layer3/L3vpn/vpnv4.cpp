@@ -61,7 +61,7 @@ There is no BGP control plane signalling support yet. VPNv4 routes over SRv6 SID
     After this fn, the pk_block structure would be 
     <ipv6 hdr> <srh hdr> <original pkt payload>    
 */
-void 
+int 
 vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx, 
                              dp_vrf_t *vrf, 
                              struct rte_mbuf *mbuf, 
@@ -92,6 +92,8 @@ vpnv4_ingress_pe_encap_srv6 (dp_ctx_t *dp_ctx,
 
     /* Have to do forwarding in Default VRF */
     ipv6_layer3_forward_nexthop(dp_ctx, dp_ctx->default_vrf, srv6_nh, mbuf);
+
+    return 1;
 }
 
 int

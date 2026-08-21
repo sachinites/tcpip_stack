@@ -711,6 +711,14 @@ config node R3 vrf red rtm-route prefix 10.0.0.2/32 0 0 0 2 10 gateway 192.168.0
 config node CE1 rtm-route prefix 10.0.0.2/32 0 0 0 2 10 gateway 192.168.0.2 interface eth0
 config node CE2 rtm-route prefix 10.0.0.1/32 0 0 0 2 10 gateway 192.168.0.2 interface eth0
 
+config node CE1 interface loopback lo0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+config node CE1 interface loopback lo0 ip-address 10.0.0.1 32                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+config node CE1 interface loopback lo0 up            
+              
+config node CE2 interface loopback lo0
+config node CE2 interface loopback lo0 ip-address 10.0.0.2 32                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+config node CE2 interface loopback lo0 up                         
+
 /* 
 VPNv4 using SR-MPLS Transport in ISP core
 ======================================= 

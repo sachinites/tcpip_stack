@@ -115,7 +115,7 @@ fib_nh_create(fib_t *fib, fib_nh_t *nh_template) {
     }
 
     /* Deep copy GRE tunnel information if present */
-    if (nh_template->fwd_info->fwd_flags & FIB_NH_FWD_F_TUNNEL) {
+    if (fib_nh_fwd_is_gre_encap(nh_template->fwd_info->fwd_flags)) {
         memcpy(&new_nh->fwd_info->u.gre_fwd,
                &nh_template->fwd_info->u.gre_fwd,
                sizeof(nh_template->fwd_info->u.gre_fwd));

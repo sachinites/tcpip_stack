@@ -139,12 +139,6 @@ typedef struct rtm_nh_ {
 
         bool is_active;
 
-        /* Target fib this route is installed */
-        struct {
-            uint8_t vrf;
-            AFI_T afi;
-        } target_fib;
-
         /* L3 VPN properties */
         mpls_label_val_t l3_vpn_label;
         rt_t import_rt;

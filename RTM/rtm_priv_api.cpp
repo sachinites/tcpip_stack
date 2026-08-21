@@ -1279,7 +1279,7 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
         }
     }
 
-    if (IS_BIT_SET (nh_template->fwd_flags, FIB_NH_FWD_F_TUNNEL)) {
+    if (fib_nh_fwd_is_gre_encap(nh_template->fwd_flags)) {
         nh->gre_tunnel_src = nh_template->u.gre_tunnel.gre_tunnel_src;
         nh->gre_tunnel_dst = nh_template->u.gre_tunnel.gre_tunnel_dst;
     }

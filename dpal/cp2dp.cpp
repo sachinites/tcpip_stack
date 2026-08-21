@@ -297,7 +297,7 @@ cp2dp_fib_update (
             }
          }
 
-         if (src->fwd_flags & FIB_NH_FWD_F_TUNNEL)
+         if (fib_nh_fwd_is_gre_encap(src->fwd_flags))
          {
              dst->u.gre_fwd.gre_tunnel_src = src->u.gre_fwd.gre_tunnel_src;
              dst->u.gre_fwd.gre_tunnel_dst = src->u.gre_fwd.gre_tunnel_dst;

@@ -435,13 +435,15 @@ rtm_ppt_db_clone_route (
  * 
  * Diff Algorithm:
  * ┌─────────────────────────────────────────────────────────┐
- * │ 1. Sort both lists by nexthop ID                        │
- * │ 2. Use two-pointer technique to find differences        │
- * │ 3. Identify:                                            │
+ * │ 1. Build current snapshot: active, resolved NHs only    │
+ * │    (inactive NHs are absent → treated as deleted)       │
+ * │ 2. Sort both lists by nexthop ID                        │
+ * │ 3. Use two-pointer technique to find differences        │
+ * │ 4. Identify:                                            │
  * │    - Added nexthops (in route, not in ppt_route)         │
  * │    - Deleted nexthops (in ppt_route, not in route)      │
  * │    - Modified nexthops (same ID, different DNHs)        │
- * │ 4. For indirect nexthops, also diff direct NH lists     │
+ * │ 5. For indirect nexthops, also diff direct NH lists     │
  * └─────────────────────────────────────────────────────────┘
  * 
  * Output:
@@ -476,10 +478,11 @@ rtm_ppt_route_diff (
     
     ITERATE_GLTHREAD_BEGIN(&route->path_list, nh_glue) {
         nh = route_glue_to_rtm_nh(nh_glue);
-        if (!nh->is_active) break;
+        if (!nh->is_active) continue;
+        if (!rtm_nh_is_resolved(nh)) continue;
         active_nh_count++;
         
-        if (nh->is_indirect && rtm_nh_is_resolved(nh)) {
+        if (nh->is_indirect) {
             ITERATE_GLTHREAD_BEGIN(&nh->direct_nh_list.head, dnh_glue) {
                 total_dnh_count++;
             } ITERATE_GLTHREAD_END(&nh->direct_nh_list.head, dnh_glue);
@@ -512,13 +515,14 @@ rtm_ppt_route_diff (
     
     ITERATE_GLTHREAD_BEGIN(&route->path_list, nh_glue) {
         nh = route_glue_to_rtm_nh(nh_glue);
-        if (!nh->is_active) break;
+        if (!nh->is_active) continue;
+        if (!rtm_nh_is_resolved(nh)) continue;
         
         temp_build[current_count].nh_pidx = nh->idx;
         temp_build[current_count].nh_pidx_rtm = nh->rtm;
         temp_build[current_count].dnh_count = 0;
         
-        if (nh->is_indirect && rtm_nh_is_resolved(nh)) {
+        if (nh->is_indirect) {
             ITERATE_GLTHREAD_BEGIN(&nh->direct_nh_list.head, dnh_glue) {
                 data_node = glue_to_glthread_data_node(dnh_glue);
                 dnh = (rtm_nh *)data_node->data;
@@ -1068,8 +1072,15 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                     presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
                     presentation_data->rtm_nh_proto = dnh ? dnh->rtm_nh_proto : dnh_gc->rtm_nh_proto;
                     rtm_nh_proto_reference(presentation_data->rtm_nh_proto);
-                    presentation_data->target_fib.vrf = dnh ? dnh->target_fib.vrf : dnh_gc->target_fib.vrf;
-                    presentation_data->target_fib.afi = dnh ? dnh->target_fib.afi : dnh_gc->target_fib.afi;
+                    /* The FIB to withdraw from is the one THIS route programmed, i.e.
+                     * the advertising RIB's fib {rtm->vrf, route->afi}. Do NOT read
+                     * target_fib from the (shared) rtm_nh: a direct NH can be
+                     * installed into multiple FIBs (its own IGP RIB and, as a
+                     * resolving DNH, a BGP-VPN customer RIB), and nh->target_fib gets
+                     * clobbered by the last ADD writer, which would misdirect the
+                     * delete to the wrong FIB and leave stale entries behind. */
+                    presentation_data->target_fib.vrf = rtm->vrf;
+                    presentation_data->target_fib.afi = route->prefix.afi;
                     presentation_data->operation = RTM_PPT_OP_DELETE; /* This is a DELETE */
                     /* Determine protocol: use dnh->proto if available, else use src_proto as fallback */
                     RTM_PROTO_T nh_proto = dnh ? dnh->proto : dnh_gc->proto;
@@ -1097,8 +1108,12 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
                 presentation_data->nh_addr = dnh ? dnh->prefix : dnh_gc->prefix;
                 presentation_data->rtm_nh_proto = dnh ? dnh->rtm_nh_proto : dnh_gc->rtm_nh_proto;
                 rtm_nh_proto_reference(presentation_data->rtm_nh_proto);
-                presentation_data->target_fib.vrf = dnh ? dnh->target_fib.vrf : dnh_gc->target_fib.vrf;
-                presentation_data->target_fib.afi = dnh ? dnh->target_fib.afi : dnh_gc->target_fib.afi;
+                /* Withdraw from the FIB this route programmed = advertising RIB's fib.
+                 * See detailed note in the indirect-NH delete branch above: never
+                 * read target_fib from the shared rtm_nh (it is clobbered when the
+                 * same NH is programmed into more than one FIB). */
+                presentation_data->target_fib.vrf = rtm->vrf;
+                presentation_data->target_fib.afi = route->prefix.afi;
                 presentation_data->operation = RTM_PPT_OP_DELETE; /* This is a DELETE */
                 /* Determine protocol: use nh->proto if available, else use src_proto as fallback */
                 RTM_PROTO_T nh_proto = dnh ? dnh->proto : dnh_gc->proto;
