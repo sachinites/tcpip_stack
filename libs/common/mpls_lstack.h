@@ -2,6 +2,9 @@
 #define __MPLS_LSTACK__
 
 #include <stdint.h>
+#include <stdio.h>
+#include <stddef.h>
+#include <stdbool.h>
 #include <memory.h>
 #include <assert.h>
 
@@ -237,6 +240,59 @@ static inline bool
 mpls_label_is_null(mpls_label_t label) {
 
     return label.label_val == 0 && label.op == MPLS_OP_STACK_OPS_UNKNOWN;
+}
+
+/* Format NH label-stack ops for debug (index 0 = BoS / innermost). */
+static inline int
+mpls_format_lstack (const mpls_lstack_t *lstack, char *buf, size_t buflen)
+{
+    int off = 0;
+    int i;
+
+    if (!buf || buflen == 0)
+        return 0;
+    buf[0] = '\0';
+    if (!lstack || lstack->curr_index < 0)
+        return 0;
+
+    for (i = 0; i <= lstack->curr_index && off < (int)buflen - 1; i++) {
+        if (lstack->labels[i].op == MPLS_OP_STACK_OPS_UNKNOWN)
+            continue;
+        off += snprintf(buf + off, buflen - (size_t)off, "%s%s:%u",
+                        off ? "," : "",
+                        mpls_op_tostring(lstack->labels[i].op),
+                        mpls_label_get_value(lstack->labels[i].label_val));
+    }
+    return off;
+}
+
+/* Format labels on the wire (outer→inner) until BoS or nbytes exhausted. */
+static inline int
+mpls_format_wire_stack (const mpls_label_wire_t *labels, size_t nbytes,
+                        char *buf, size_t buflen)
+{
+    int off = 0;
+    int i;
+
+    if (!buf || buflen == 0)
+        return 0;
+    buf[0] = '\0';
+    if (!labels || nbytes < sizeof(mpls_label_wire_t))
+        return 0;
+
+    for (i = 0;
+         i < MAX_LBL_DEPTH &&
+         ((size_t)(i + 1) * sizeof(mpls_label_wire_t)) <= nbytes &&
+         off < (int)buflen - 1;
+         i++) {
+        uint32_t val = mpls_wire_get_value(&labels[i]);
+        bool bos = mpls_wire_is_stack_bottom(&labels[i]);
+        off += snprintf(buf + off, buflen - (size_t)off,
+                        "%s%u%s", i ? "," : "", val, bos ? "(S)" : "");
+        if (bos)
+            break;
+    }
+    return off;
 }
 
 #endif 

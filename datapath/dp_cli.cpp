@@ -378,7 +378,7 @@ l2_fwd_type_str(L2_FWD_TYPE_T fwd_type)
         case L2_FWD_MPLS_TUNNEL: return "MPLS_TUNNEL";
         case L2_FWD_SRv6_TUNNEL: return "SRv6_TUNNEL";
         case L2_FWD_VxLAN:       return "VxLAN";
-        case L2_FWD_STEERING:    return "STEERING";
+        case MPLS_L2_FWD_STEERING:    return "STEERING";
         case L2_FWD_MAX:
         default:                 return "UNKNOWN";
     }
@@ -454,7 +454,7 @@ dp_print_l2_fwd_object(dp_ctx_t *dp_ctx, mac_fwd_object_t *obj)
             break;
         }
 
-        case L2_FWD_STEERING:
+        case MPLS_L2_FWD_STEERING:
             cprintf("steer=%s  obj_ifindex=%u",
                     obj->u.steering.steering_type == STEER_INTO_VRF ? "vrf" :
                     obj->u.steering.steering_type == STEER_INTO_BD  ? "bd"  :

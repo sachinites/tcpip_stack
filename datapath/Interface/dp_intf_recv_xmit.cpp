@@ -810,7 +810,7 @@ SRv6_Xconnect_VRF_SendPacketOut(
         pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DERR,
             "SRv6 END.DT4: Pkt:%s Destination VRF:%s cannot be default vrf for VPNv4oSRv6 traffic, pkt dropped\n",
             pkt_mbuf_str(mbuf), steered_vrf->vrf_name);
-        return;
+        return 0;
     }
 
     /* Step 5: Forward the inner IPv4 packet using the steered VRF FIB */
@@ -862,6 +862,81 @@ MPLS_XConnect_VRF_SendPacketOut(
     return 0;
 }
 
+static int 
+MPLS_XConnect_BD_SendPacketOut(
+        dp_ctx_t *dp_ctx, 
+        dp_intf_t *intf, 
+        struct rte_mbuf *mbuf, uint32_t ctx){
+
+    pkt_size_t pkt_size;
+
+    /* POP-from-MPLS into BD exposes an Ethernet payload (mirror VRF xconnect). */
+    pkt_mbuf_update_new_hdr_type(mbuf, ETHERNET_HEADER);
+
+    assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
+
+    /* BDs are not vlan aware, pkt must not be vlan tagged*/
+    ethernet_hdr_t *ethernet_hdr =
+        (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+
+    vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(ethernet_hdr);
+    assert (!vlan_8021q_hdr);
+
+    /* GEt BD */
+    dp_intf_t *bd_intf = dp_ctx->intf_table[ctx];
+
+    if (!bd_intf) {
+
+        pkt_tracer(mbuf, dp_ctx->dptr, DERR | DL2FWD,
+            "Pkt:%s, No BD exist against ifindex %u, pkt dropped\n", pkt_mbuf_str(mbuf), ctx);
+        dp_ctx->pkt_dropped++;
+        return 0;
+    }
+
+    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD,
+        "MPLS→BD steer: intf %s → BD %s (ctx=%u) size=%u\n",
+        intf->if_name, bd_intf->if_name, ctx, (unsigned)pkt_size);
+
+    // prevent Split-Horizon, SH is the problem if BUM traffic at L2.
+    pkt_mbuf_set_ingress_ifindex(mbuf, intf->port_id);
+    BD_SendPacketOut(dp_ctx, bd_intf, mbuf, 0);
+    return 0;
+}
+
+static int 
+SRv6_Xconnect_BD_SendPacketOut(
+        dp_ctx_t *dp_ctx, 
+        dp_intf_t *intf, 
+        struct rte_mbuf *mbuf, uint32_t ctx){
+
+    pkt_size_t pkt_size;
+
+    assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
+
+    /* BDs are not vlan aware, pkt must not be vlan tagged*/
+    ethernet_hdr_t *ethernet_hdr =
+        (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+
+    vlan_8021q_hdr_t *vlan_8021q_hdr = is_pkt_vlan_tagged(ethernet_hdr);
+    assert (!vlan_8021q_hdr);
+
+    /* GEt BD */
+    dp_intf_t *bd_intf = dp_ctx->intf_table[ctx];
+
+    if (!bd_intf) {
+
+        pkt_tracer(mbuf, dp_ctx->dptr, DERR | DL2FWD,
+            "Pkt:%s, No BD exist, pkt dropped\n", pkt_mbuf_str(mbuf));
+        dp_ctx->pkt_dropped++;
+        return 0;
+    }
+
+    // prevent Split-Horizon, SH is the problem if BUM traffic at L2.
+    pkt_mbuf_set_ingress_ifindex(mbuf, intf->port_id); 
+    BD_SendPacketOut(dp_ctx, bd_intf, mbuf, 0);
+    return 0;
+}
+
 /* This array is arranged in sequence of these enums : InterfaceType_t */
 static SendPacketOut_fptr intf_xmit_cbk[] = 
 {
@@ -877,10 +952,15 @@ static SendPacketOut_fptr intf_xmit_cbk[] =
     BD_SendPacketOut,
     BD_FloodPacketOut,
     BDRmacInterface_SendPacketOut,
-    0,
+    MPLS_XConnect_BD_SendPacketOut,
     MPLS_XConnect_VRF_SendPacketOut,
-    0,
-    SRv6_Xconnect_VRF_SendPacketOut,
+    /* SRv6 xconnect interfaces are not required since xxonnect interfaces
+        represent mere alogorithms, and for SRv6 same is repsresented by
+        end point function alone. How ever, we maintain ifindex for these
+        interface for unified implementation across control plane / RTM.
+    */
+    0, /*SRv6_Xconnect_BD_SendPacketOut*/ 
+    0, /*SRv6_Xconnect_VRF_SendPacketOut*/
     HostPathInterface_SendPacketOut,
     0,
 };
@@ -1005,7 +1085,6 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
     /* If packet is Recvd on GRE interface and pkt is vlan tagged, 
         it means GRE is being used for VLAN extension */
     else if (interface->if_type == DP_INTF_TYPE_GRE_TUNNEL &&
-                pkt_mbuf_verify_pkt (mbuf, ETHERNET_HEADER) &&
                 is_pkt_vlan_tagged (pkt_mbuf_get_ethernet_hdr(mbuf))) {
 
         pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW, "Pkt : %s : Being recieved on GRE Interface %s\n", 

@@ -22,7 +22,9 @@
 #include "../../../libs/libtimer/WheelTimer.h"
 
 extern bool
-mpls_apply_nh_label_stack(struct rte_mbuf *mbuf, mpls_lstack_t *lstack);
+mpls_apply_nh_label_stack(dp_ctx_t *dp_ctx,
+                          struct rte_mbuf *mbuf,
+                          mpls_lstack_t *lstack);
 
 int 
 AC_SendPacketOut(
@@ -32,7 +34,7 @@ AC_SendPacketOut(
 
     (void)ctx;
 
-    pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER);
+    assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
     
     pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), ac->if_name); 
@@ -77,9 +79,10 @@ BD_FloodPacketOut(
     dp_intf_t *bd_intf;
 
     /* Can be NULL*/
-    dp_intf_t *exempt_ac = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
+    dp_intf_t *recv_phy_intf = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
+    dp_intf_t *exempt_ac = recv_phy_intf ? recv_phy_intf->ac_intf : 0;
 
-    pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER);
+    assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
 
     pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), bd_vfif->if_name); 
@@ -106,13 +109,12 @@ BD_FloodPacketOut(
     {
         ac = bd_intf->mports[i];
 
-        if (!ac || ac == exempt_ac) {
+        if (!ac || ac == exempt_ac) continue;
 
-            dup_mbuf = PKT_MBUF_DUP(mbuf);
-            dp_send_pkt_out(dp_ctx, ac, dup_mbuf, 0);
-            pkt_mbuf_dereference(dup_mbuf);
-            count++;
-        }
+        dup_mbuf = PKT_MBUF_DUP(mbuf);
+        dp_send_pkt_out(dp_ctx, ac, dup_mbuf, 0);
+        pkt_mbuf_dereference(dup_mbuf);
+        count++;
     }
 
     pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW,

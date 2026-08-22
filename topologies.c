@@ -784,6 +784,126 @@ config node H2 protocol isis interface eth1
 run node H1 ping 100.0.0.2 -c 10
 
 
+L2VPN EVPN using Mac-only routes communication (BD--BD)
+=========================================================
+
+run ut Layer3/isis/ut/isis_config_sample_cross_link_topology.ut 0
+
+config node R0 no protocol isis interface eth1
+config node R0 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R0 no interface ethernet eth1 vrf 0
+config node R0 vrf red route-distinguisher 1:1
+config node R0 interface ethernet eth1 vrf red
+config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
+config node R0 vrf red protocol isis
+config node R0 vrf red protocol isis interface eth1
+config node R0 vrf red protocol isis redistribute bgp
+
+config node R0 rtm-route prefix 10.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3 l3vpn 16
+config node R0 rtm-route prefix 100.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3 l3vpn 16
+
+config node R3 no protocol isis interface eth1
+config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R3 no interface ethernet eth1 vrf 0
+config node R3 vrf red route-distinguisher 1:1
+config node R3 interface ethernet eth1 vrf red
+config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
+config node R3 vrf red protocol isis
+config node R3 vrf red protocol isis interface eth1
+config node R3 vrf red protocol isis redistribute bgp
+
+config node R3 rtm-route prefix 10.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0 l3vpn 16
+config node R3 rtm-route prefix 100.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0 l3vpn 16
+
+config node CE1 interface loopback 0
+config node CE1 interface loopback 0 up
+config node CE1 interface loopback 0 ip-address 10.0.0.1 32
+config node CE1 protocol isis
+config node CE1 protocol isis interface lo0
+config node CE1 protocol isis interface eth1
+config node CE1 protocol isis interface eth0
+
+config node CE2 interface loopback 0
+config node CE2 interface loopback 0 up
+config node CE2 interface loopback 0 ip-address 10.0.0.2 32
+config node CE2 protocol isis
+config node CE2 protocol isis interface lo0
+config node CE2 protocol isis interface eth1
+config node CE2 protocol isis interface eth0
+
+config node H1 interface loopback 0
+config node H1 interface loopback 0 up
+config node H1 interface loopback 0 ip-address 100.0.0.1 32
+config node H1 protocol isis
+config node H1 protocol isis interface lo0
+config node H1 protocol isis interface eth1
+
+config node H2 interface loopback 0
+config node H2 interface loopback 0 up
+config node H2 interface loopback 0 ip-address 100.0.0.2 32
+config node H2 protocol isis
+config node H2 protocol isis interface lo0
+config node H2 protocol isis interface eth1
+
+================== BD Configuration ==============
+
+config node H1 no protocol isis
+config node H1 no interface ethernet eth1 ip-address 172.168.0.2 24
+config node H1 interface ethernet eth1 ip-address 172.168.0.1 24
+
+config node CE1 no protocol isis
+config node CE1 no interface ethernet eth1 ip-address 172.168.0.1 24
+config node CE1 no interface ethernet eth1 vrf 0
+config node CE1 interface ethernet eth1 switchport
+config node CE1 interface vlan 10
+config node CE1 interface ethernet eth1 vlan 10
+config node CE1 no interface ethernet eth0 ip-address 192.168.0.1 24
+config node CE1 no interface ethernet eth0 vrf 0
+config node CE1 interface ethernet eth0 switchport
+config node CE1 transport-service-profile tsp10
+config node CE1 transport-service-profile tsp10 vlan 10
+config node CE1 interface ethernet eth0 transport-service-profile tsp10
+
+config node R0 no protocol isis interface eth1
+config node R0 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R0 no interface ethernet eth1 vrf red
+config node R0 bridge-domain 10
+config node R0 interface ethernet eth1 switchport
+config node R0 bridge-domain 10 member eth1 encapsulation dot1q 10
+
+config node H2 no protocol isis
+
+config node CE2 no protocol isis
+config node CE2 no interface ethernet eth1 ip-address 172.168.0.1 24
+config node CE2 no interface ethernet eth1 vrf 0
+config node CE2 interface ethernet eth1 switchport
+config node CE2 interface vlan 10
+config node CE2 interface ethernet eth1 vlan 10
+config node CE2 no interface ethernet eth0 ip-address 192.168.0.1 24
+config node CE2 no interface ethernet eth0 vrf 0
+config node CE2 interface ethernet eth0 switchport
+config node CE2 transport-service-profile tsp10
+config node CE2 transport-service-profile tsp10 vlan 10
+config node CE2 interface ethernet eth0 transport-service-profile tsp10
+
+config node R3 no protocol isis interface eth1
+config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R3 no interface ethernet eth1 vrf red
+config node R3 bridge-domain 10
+config node R3 interface ethernet eth1 switchport
+config node R3 bridge-domain 10 member eth1 encapsulation dot1q 10
+
+debug node R0 protocol evpn install bridge-domain 10 route 92:04:d8:4e:91:6c mpls-label 272 17003
+debug node R0 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17003
+debug node R3 protocol evpn install bridge-domain 10 route d0:a0:cb:69:65:e9 mpls-label 272 17001
+debug node R3 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17001
+
+Test :
+run node H1 ping 172.168.0.2
+
+
+
+
                                                                                 +--------+-+
                                                 +---------+                    | R2       |
                                             eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      

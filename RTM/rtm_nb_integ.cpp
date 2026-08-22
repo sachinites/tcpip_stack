@@ -1592,7 +1592,7 @@ cp_rtm_get_route_target_rtm(
 }
 
 void
-rtm_install_xconnect_vpnv4_route (vrf_t *vrf) {
+rtm_install_xconnect_vpnv4_route (vrf_t *vrf, bool install) {
 
     assert (vrf->vrf_id != DEFAULT_VRF);
     assert (vrf->l3_vpn_label);
@@ -1606,7 +1606,10 @@ rtm_install_xconnect_vpnv4_route (vrf_t *vrf) {
         RTM and FIB level */
     cmn_prefix_initialize_v4(&gateway, vrf->vrf_id, 32);
 
-    rtm_error_t rc = cp_rtm_install_route_advanced (
+    rtm_error_t rc = RTM_SUCCESS;
+    
+    if (install) {
+        rc = cp_rtm_install_route_advanced (
                     ((def_vrf_t *)vrf->node->vrf[0])->mpls0,
                     &mpls_in_label,
                     RTM_PROTO_STATIC,
@@ -1622,4 +1625,86 @@ rtm_install_xconnect_vpnv4_route (vrf_t *vrf) {
                     0, 
                     MPLS_OP_POP);
 
+        assert (rc == RTM_SUCCESS);
+    }
+    else {
+
+        rc = cp_rtm_uninstall_route_advanced (
+                    ((def_vrf_t *)vrf->node->vrf[0])->mpls0,
+                    &mpls_in_label,
+                    RTM_PROTO_STATIC,
+                    RTM_PROTO_BGP_VPN,
+                    0,
+                    RTM_NH_ACTION_FORWARD,
+                    0,
+                    &gateway,
+                    MPLS_TO_VRF_INTF_STEER_IFINDEX, 
+                    INTF_TYPE_MPLS_TO_VRF_STEER, 
+                    NULL,
+                    0,
+                    0, 
+                    MPLS_OP_POP);
+    }
 }
+
+void
+rtm_install_mpls_xconnect_bd_evpn_local_route (Interface *intf, bool install) {
+
+    node_t *node = intf->att_node;
+
+    BDInterface *bd_intf = dynamic_cast<BDInterface *>(intf);
+
+    if (!bd_intf) return;
+    
+    assert (bd_intf->vpn_svc_label);
+
+    cmn_prefix_t gateway;
+    cmn_prefix_t mpls_in_label;
+
+    cmn_prefix_initialize_label(&mpls_in_label, bd_intf->vpn_svc_label);
+
+    /* Encode BD ifindex in the gateway for display BD as nexthop at 
+        RTM and FIB level */
+    cmn_prefix_initialize_v4(&gateway, intf->ifindex, 32);
+
+    rtm_error_t rc = RTM_SUCCESS;
+    
+    if (install) {
+
+        rc = cp_rtm_install_route_advanced (
+                        ((def_vrf_t *)node->vrf[0])->mpls0,
+                        &mpls_in_label,
+                        RTM_PROTO_STATIC,
+                        RTM_PROTO_L2VPN_EVPN,
+                        0,
+                        RTM_NH_ACTION_FORWARD,
+                        0,
+                        &gateway,
+                        MPLS_TO_BD_INTF_STEER_IFINDEX, 
+                        INTF_TYPE_MPLS_TO_BD_STEER, 
+                        NULL,
+                        0,
+                        0, 
+                        MPLS_OP_POP);
+    }
+    else {
+
+        rc = cp_rtm_uninstall_route_advanced (
+                        ((def_vrf_t *)node->vrf[0])->mpls0,
+                        &mpls_in_label,
+                        RTM_PROTO_STATIC,
+                        RTM_PROTO_L2VPN_EVPN,
+                        0,
+                        RTM_NH_ACTION_FORWARD,
+                        0,
+                        &gateway,
+                        MPLS_TO_BD_INTF_STEER_IFINDEX, 
+                        INTF_TYPE_MPLS_TO_BD_STEER, 
+                        NULL,
+                        0,
+                        0, 
+                        MPLS_OP_POP);
+    }
+
+}
+

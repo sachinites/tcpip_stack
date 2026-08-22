@@ -339,6 +339,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_UP); 
                      update_data->up_status = false;
                      cp2dp_send_intf_admin_status_update(node, interface->ifindex, false);
+                     rtm_install_mpls_xconnect_bd_evpn_local_route(interface, true);
                 }
                 interface->is_up = true;
             }
@@ -352,6 +353,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                      update_data->up_status = true;
                      update_data->intf = interface->GetSharedPtr();
                      cp2dp_send_intf_admin_status_update(node, interface->ifindex, true);
+                     rtm_install_mpls_xconnect_bd_evpn_local_route(interface, false);
                 }
                 interface->is_up = false;
             }
@@ -373,6 +375,8 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     interface_uninstall_local_v6_routes  (node, interface);
                 }
             }
+
+            
 
             if (minor_code) {
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 
@@ -450,7 +454,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
 
         case CMDCODE_INTF_CONFIG_VLAN:
         {
-            interface = node_lookup_interface (node, if_name, vlan_id ) ;
+            interface = node_lookup_interface (node, if_name, 0 ) ;
             
             if (!interface) {
                 cprintf ("Error : Interface do not exist\n");
@@ -464,15 +468,11 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
 
                 case CONFIG_ENABLE:
                     if (!interface->IntfConfigVlan(vlan_id, true) ) return -1;
-                    cp2dp_send_intf_vlan_bind_update(node, interface->ifindex,
-                        interface->GetAccessVlanIntf()->ifindex, LAN_ACCESS_MODE, true);
                     break;
                 case CONFIG_DISABLE:
                     vlan_intf_ifindex = interface->GetAccessVlanIntf() ? \
                         interface->GetAccessVlanIntf()->ifindex : 0;
                     if (!interface->IntfConfigVlan(vlan_id, false) ) return -1;
-                    cp2dp_send_intf_vlan_bind_update(node, interface->ifindex,
-                        vlan_intf_ifindex, LAN_ACCESS_MODE, false);
                     break;
                 default:
                     ;

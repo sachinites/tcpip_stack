@@ -204,7 +204,7 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
 
     mac_table_key_t key = { .vlan_id = vlan_id };
     memcpy(key.mac, mac_addr, 6);
-    rte_hash_add_key_data(mac_table->hash, &key, entry);
+    assert (!rte_hash_add_key_data(mac_table->hash, &key, entry));
     mac_table->entry_count++;
 
     tracer(dp_ctx->dptr, DL2SW,
@@ -320,69 +320,110 @@ mac_table_delete_all_dynamic(dp_ctx_t *dp_ctx, mac_table_t *mac_table)
  * ---------------------------------------------------------------------- */
 
 
-static char *
-mac_table_entry_append_oifs(dp_ctx_t *dp_ctx, mac_table_entry_t *entry,
-                             char *buffer, uint16_t buff_size)
+static int
+mac_table_fmt_one_oif(dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
+                      char *buffer, uint16_t buff_size)
 {
-    uint16_t len = 0;
-    mac_fwd_object_t *fwd_obj;
+    int len = 0;
 
-    memset(buffer, 0, buff_size);
+    if (!fwd_obj || buff_size == 0)
+        return 0;
+
+    switch (fwd_obj->fwd_type) {
+
+        case L2_FWD_PORT:
+        {
+            dp_intf_t *oif = (fwd_obj->u.dp_intf < DP_MAX_INTF) ?
+                dp_ctx->intf_table[fwd_obj->u.dp_intf] : NULL;
+            if (oif)
+                len = snprintf(buffer, buff_size, "%s", oif->if_name);
+            else
+                len = snprintf(buffer, buff_size, "if%u", fwd_obj->u.dp_intf);
+            break;
+        }
+
+        case L2_FWD_RMAC:
+        {
+            if (!fwd_obj->u.rmac.rmacif ||
+                !fwd_obj->u.rmac.rmacif->port_id ||
+                (fwd_obj->u.rmac.rmacif->port_id > DP_MAX_INTF)) {
+                break;
+            }
+            len = snprintf(buffer, buff_size, "%s",
+                           fwd_obj->u.rmac.rmacif->if_name);
+            break;
+        }
+
+        case L2_FWD_FLOODING:
+            if (fwd_obj->u.l2_flood.vfif)
+                len = snprintf(buffer, buff_size, "%s",
+                               fwd_obj->u.l2_flood.vfif->if_name);
+            break;
+
+        case L2_FWD_VxLAN:
+            len = snprintf(buffer, buff_size,
+                           "nve(vni %u %d.%d.%d.%d)",
+                           fwd_obj->u.vxlan.l2vni,
+                           (fwd_obj->u.vxlan.vtep_ip >> 24) & 0xFF,
+                           (fwd_obj->u.vxlan.vtep_ip >> 16) & 0xFF,
+                           (fwd_obj->u.vxlan.vtep_ip >>  8) & 0xFF,
+                           (fwd_obj->u.vxlan.vtep_ip)       & 0xFF);
+            break;
+
+        case L2_FWD_MPLS_TUNNEL:
+        {
+            mpls_lstack_t *st = fwd_obj->u.lbl_stk;
+            int off = 0;
+
+            if (!st || st->curr_index < 0) {
+                len = snprintf(buffer, buff_size, "mpls()");
+                break;
+            }
+
+            for (int i = 0; i <= st->curr_index; i++) {
+                off += snprintf(buffer + off, buff_size - off, "%s%u",
+                                i ? "," : "",
+                                mpls_label_get_value(st->labels[i].label_val));
+                if (off >= buff_size)
+                    break;
+            }
+            len = off;
+            break;
+        }
+
+        default:
+            len = snprintf(buffer, buff_size, "fwd-%u",
+                           (unsigned)fwd_obj->fwd_type);
+            break;
+    }
+
+    return len;
+}
+
+static void
+mac_table_entry_print_oifs(dp_ctx_t *dp_ctx, mac_table_entry_t *entry)
+{
+    char buffer[256];
+    bool first = true;
 
     for (uint16_t i = 0; i < entry->oif_count; i++) {
-        fwd_obj = entry->oifs[i];
-        if (!fwd_obj) continue;
+        mac_fwd_object_t *fwd_obj = entry->oifs[i];
+        if (!fwd_obj)
+            continue;
 
-        switch (fwd_obj->fwd_type) {
+        if (mac_table_fmt_one_oif(dp_ctx, fwd_obj, buffer, sizeof(buffer)) <= 0)
+            continue;
 
-            case L2_FWD_PORT: 
-            {
-                dp_intf_t *oif = (fwd_obj->u.dp_intf < DP_MAX_INTF) ?
-                    dp_ctx->intf_table[fwd_obj->u.dp_intf] : NULL;
-                if (oif)
-                    len += snprintf(buffer + len, buff_size - len, "%s ", oif->if_name);
-                else
-                    len += snprintf(buffer + len, buff_size - len, "if%u ",
-                                    fwd_obj->u.dp_intf);
-                break;
-            }
-
-            case L2_FWD_RMAC:
-            {
-                if (!fwd_obj->u.rmac.rmacif->port_id || 
-                    (fwd_obj->u.rmac.rmacif->port_id > DP_MAX_INTF)) {
-                    break;
-                }
-
-                len += snprintf(buffer + len, buff_size - len, "%s ", 
-                        fwd_obj->u.rmac.rmacif->if_name);
-                break;
-            }
-
-            case L2_FWD_FLOODING:
-                if (fwd_obj->u.l2_flood.vfif)
-                    len += snprintf(buffer + len, buff_size - len, "%s ",
-                                    fwd_obj->u.l2_flood.vfif->if_name);
-                break;
-
-            case L2_FWD_VxLAN:
-                len += snprintf(buffer + len, buff_size - len,
-                                "nve(vni %u %d.%d.%d.%d) ",
-                                fwd_obj->u.vxlan.l2vni,
-                                (fwd_obj->u.vxlan.vtep_ip >> 24) & 0xFF,
-                                (fwd_obj->u.vxlan.vtep_ip >> 16) & 0xFF,
-                                (fwd_obj->u.vxlan.vtep_ip >>  8) & 0xFF,
-                                (fwd_obj->u.vxlan.vtep_ip)       & 0xFF);
-                break;
-
-            default:
-                len += snprintf(buffer + len, buff_size - len, "fwd-%u ",
-                                (unsigned)fwd_obj->fwd_type);
-                break;
+        if (first) {
+            cprintf("       Ports: %s\n", buffer);
+            first = false;
+        } else {
+            cprintf("              %s\n", buffer);
         }
     }
 
-    return buffer;
+    if (first)
+        cprintf("       Ports:\n");
 }
 
 void
@@ -391,7 +432,6 @@ show_mac_table(dp_ctx_t *dp_ctx, mac_table_t *mac_table, uint16_t vlan_id)
     if (!mac_table || !mac_table->hash) return;
 
     int count = 0;
-    char buffer[1024];
     uint32_t next = 0;
     const void *key;
     void *data;
@@ -430,8 +470,8 @@ show_mac_table(dp_ctx_t *dp_ctx, mac_table_t *mac_table, uint16_t vlan_id)
                     idle_str);
         }
 
-        mac_table_entry_append_oifs(dp_ctx, entry, buffer, sizeof(buffer));
-        cprintf("       Ports: %s\n\n", buffer);
+        mac_table_entry_print_oifs(dp_ctx, entry);
+        cprintf("\n");
     }
 
     if (!count) cprintf("(empty)\n");

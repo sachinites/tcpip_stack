@@ -8,6 +8,9 @@
 #include "../../tcpconst.h"
 #include "../../utils.h"
 #include "../../Interface/InterfaceUApi.h"
+#include "../../datapath/enums/l2_enums.h"
+#include "../../dpal/cp2dp.h"
+#include "../../libs/common/mpls_lstack.h"
 #include "evpn.h"
 
 /* config node <node-name> protocol l2vpn evpn instance <id> */
@@ -24,6 +27,9 @@
 
 /* config node <node-name> protocol l2vpn evpn instance <id> bridge-domain <bd-id> */
 #define CMDCODE_CONFIG_EVPN_CONNECT_BD 5
+
+/* debug node <node-name> install bridge-domain <bd-id> route <MAC-ADDRESS> mpls-label <label1> <label2> ... */
+#define CMDCODE_CONFIG_BD_MAC_ONLY_RT_INSTALL 6
 
 extern graph_t *topo;
 
@@ -150,6 +156,116 @@ evpn_cli_lookup_bd (node_t *node, uint32_t bd_id)
     }
 
     return intf;
+}
+
+static bool
+evpn_cli_build_mpls_stack (mpls_lstack_t *lstack,
+                             uint32_t *labels,
+                             uint8_t label_count)
+{
+    uint8_t i;
+    mpls_label_t lbl;
+
+    mpls_lstack_init(lstack);
+
+    for (i = 0; i < label_count; i++) {
+        mpls_label_init(&lbl);
+        mpls_label_set_value(&lbl.label_val, labels[i]);
+        lbl.op = MPLS_OP_PUSH;
+        mpls_lstack_push(lstack, lbl);
+    }
+
+    if (lstack->curr_index >= 0)
+        mpls_label_set_stack_bottom(&lstack->labels[0].label_val);
+
+    return true;
+}
+
+static int
+evpn_debug_handler (int64_t cmdcode,
+                    Stack_t *tlv_stack,
+                    op_mode enable_or_disable)
+{
+    node_t *node = NULL;
+    tlv_struct_t *tlv;
+    c_string node_name = NULL;
+    c_string mac_address = NULL;
+    uint32_t bd_id = 0;
+    uint32_t labels[MAX_LBL_DEPTH];
+    uint8_t label_count = 0;
+    Interface *bd_intf;
+    mac_addr_t mac_addr;
+    mpls_lstack_t lstack;
+
+    TLV_LOOP_STACK_BEGIN (tlv_stack, tlv) {
+
+        if (parser_match_leaf_id (tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if (parser_match_leaf_id (tlv->leaf_id, "bd-id"))
+            bd_id = (uint32_t)atoi ((const char *)tlv->value);
+        else if (parser_match_leaf_id (tlv->leaf_id, "mac-addr"))
+            mac_address = tlv->value;
+        else if (parser_match_leaf_id (tlv->leaf_id, "mpls-label-val")) {
+            if (label_count < MAX_LBL_DEPTH) {
+                unsigned long plain_label = strtoul ((const char *)tlv->value, NULL, 10);
+                labels[label_count++] = (uint32_t)plain_label;
+            }
+        }
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name (topo, node_name);
+    if (!node) {
+        cprintf ("Error : Node not found\n");
+        return -1;
+    }
+
+    if (cmdcode != CMDCODE_CONFIG_BD_MAC_ONLY_RT_INSTALL)
+        return 0;
+
+    if (!mac_address) {
+        cprintf ("Error : MAC address required\n");
+        return -1;
+    }
+
+    if (sscanf ((const char *)mac_address,
+                "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                &mac_addr.mac[0], &mac_addr.mac[1], &mac_addr.mac[2],
+                &mac_addr.mac[3], &mac_addr.mac[4], &mac_addr.mac[5]) != 6) {
+        cprintf ("Error : Failed to parse MAC address %s\n", mac_address);
+        return -1;
+    }
+
+    bd_intf = evpn_cli_lookup_bd (node, bd_id);
+    if (!bd_intf)
+        return -1;
+
+    if (!label_count) {
+        cprintf ("Error : At least one MPLS label required\n");
+        return -1;
+    }
+
+    evpn_cli_build_mpls_stack (&lstack, labels, label_count);
+
+    switch (enable_or_disable) {
+
+        case CONFIG_ENABLE:
+        case OPERATIONAL:
+            cp2dp_bd_mac_table_entry_add_mpls (node, (uint8_t *)mac_addr.mac,
+                                               bd_intf->ifindex, &lstack,
+                                               MAC_STATIC, true);
+            break;
+
+        case CONFIG_DISABLE:
+            cp2dp_bd_mac_table_entry_del_mpls (node, (uint8_t *)mac_addr.mac,
+                                               bd_intf->ifindex, &lstack, true);
+            break;
+
+        default:
+            break;
+    }
+
+    return 0;
 }
 
 static int
@@ -353,6 +469,64 @@ evpn_config_handler (int64_t cmdcode,
 
         default:
             break;
+    }
+
+    return 0;
+}
+
+int
+evpn_debug_cli_tree (param_t *param)
+{
+    static param_t evpn;
+    init_param (&evpn, CMD, "evpn", 0, 0, INVALID, 0,
+                "Debug Evpn");
+    libcli_register_param (param, &evpn);
+
+    static param_t install;
+    init_param (&install, CMD, "install", 0, 0, INVALID, 0,
+                "Install debug datapath state");
+    libcli_register_param (&evpn, &install);
+    {
+        static param_t bridge_domain;
+        init_param (&bridge_domain, CMD, "bridge-domain", 0, 0, INVALID, 0,
+                    "Bridge-domain");
+        libcli_register_param (&install, &bridge_domain);
+        {
+            static param_t bd_id;
+            init_param (&bd_id, LEAF, NULL, 0,
+                        0, INT, "bd-id", "Bridge-domain id");
+            libcli_register_param (&bridge_domain, &bd_id);
+            {
+                static param_t route;
+                init_param (&route, CMD, "route", 0, 0, INVALID, 0,
+                            "MAC route");
+                libcli_register_param (&bd_id, &route);
+                {
+                    static param_t mac_addr;
+                    init_param (&mac_addr, LEAF, NULL, 0,
+                                0, MAC, "mac-addr", "MAC address");
+                    libcli_register_param (&route, &mac_addr);
+                    {
+                        static param_t mpls_label;
+                        init_param (&mpls_label, CMD, "mpls-label", 0, 0,
+                                    INVALID, 0, "MPLS label stack");
+                        libcli_register_param (&mac_addr, &mpls_label);
+                        {
+                            static param_t mpls_label_val;
+                            init_param (&mpls_label_val, LEAF, NULL,
+                                        evpn_debug_handler, 0, INT,
+                                        "mpls-label-val",
+                                        "L2VPN MPLS label value");
+                            libcli_register_param (&mpls_label, &mpls_label_val);
+                            libcli_param_recursive (&mpls_label_val);
+                            libcli_set_param_cmd_code (&mpls_label_val,
+                                                       CMDCODE_CONFIG_BD_MAC_ONLY_RT_INSTALL);
+                            libcli_disable_batch_processing (&mpls_label_val);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     return 0;

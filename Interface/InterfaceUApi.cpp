@@ -849,7 +849,12 @@ cp_get_intf_name_from_ifindex(void *ctx,
     }
 
     if (ifindex == MPLS_TO_VRF_INTF_STEER_IFINDEX) {
-        snprintf(buffer, IF_NAME_SIZE, "vpnv4-xconn-if");
+        snprintf(buffer, IF_NAME_SIZE, MPLS_TO_VRF_STEER_INTF_NAME);
+        return buffer;
+    }
+
+    if (ifindex == MPLS_TO_BD_INTF_STEER_IFINDEX) {
+        snprintf(buffer, IF_NAME_SIZE, MPLS_TO_BD_STEER_INTF_NAME);
         return buffer;
     }
 

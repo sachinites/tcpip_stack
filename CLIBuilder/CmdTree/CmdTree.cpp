@@ -803,6 +803,10 @@ libcli_augment_cmd_tree_with_filters (param_t *param) {
     if (param == &pipe) return;
 
     for (i = CHILDREN_START_INDEX ; i <= CHILDREN_END_INDEX; i++) {
+        /* libcli_param_recursive() registers a leaf as its own child.
+         * Skip that self-edge so debug/show filter walks do not recurse forever. */
+        if (param->options[i] == param)
+            continue;
         libcli_augment_cmd_tree_with_filters (param->options[i]);
     }
 

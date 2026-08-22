@@ -7,6 +7,7 @@
 #include "../../../libs/common/l3_hdrs.h"
 #include "../../../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../../../libs/Tracer/tracer.h"
+#include "../../../tcp_ip_trace.h"
 
 #include "../../../tcpconst.h"
 #include "l3vpn.h"
@@ -124,7 +125,7 @@ vpnv4_ingress_pe_encap_mpls (dp_ctx_t *dp_ctx,
         packet is still bare IP here, so mpls_apply_nh_label_stack() detects
         that and gives the first imposed label the S-bit and TTL 255, then
         keeps stacking outward for every subsequent PUSH/SWAP entry. */
-    top_hdr_is_mpls = mpls_apply_nh_label_stack(mbuf, lstack);
+    top_hdr_is_mpls = mpls_apply_nh_label_stack(dp_ctx, mbuf, lstack);
 
     for (i = 0; i <= lstack->curr_index; i++) {
         if (lstack->labels[i].op == MPLS_OP_STACK_OPS_UNKNOWN ||
@@ -161,6 +162,10 @@ vpnv4_ingress_pe_encap_mpls (dp_ctx_t *dp_ctx,
         pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD,
             "VRF %s: VPNv4 MPLS encap: %d label(s) outer→inner: [%s]\n",
             vrf->vrf_name, n_labels, lbl_buf);
+
+        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET | DL3FWD_DET,
+            "VRF %s: VPNv4 MPLS encap done, top_hdr=%s\n",
+            vrf->vrf_name, top_hdr_is_mpls ? "MPLS" : "non-MPLS");
     }
 
     return n_labels;

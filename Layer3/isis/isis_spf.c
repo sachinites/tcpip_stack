@@ -780,6 +780,25 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
     nexthop_t *nexthop = NULL;
     isis_spf_result_t *spf_result;
     vrf_t *vrf = node_info->vrf;
+    rtm_error_t rc;
+
+    /* SR-MPLS not enabled — leave any existing SR RIB state untouched. */
+    if (!isis_sr_mpls_is_enabled(node_info))
+        return 0;
+
+    /* Prefer locally configured SRGB on self TED so install does not depend on
+     * self-LSP TLV(242) having been parsed into TED yet. */
+    isis_sr_mpls_sync_self_ted_srgb(node_info);
+
+    /* SR-MPLS needs a valid SRGB on this router to compute the local
+        ( incoming ) label for any FEC */
+    if (!ted_spf_root->has_srgb) {
+        tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS,
+            "%s : Self TED node has no SRGB, skipping SR-MPLS route install "
+            "(existing inet.3/mpls.0 SR routes left intact)\n",
+            ISIS_SR_MPLS);
+        return 0;
+    }
 
     /* Full replace: flush then reinstall current SPF SR reachability */
     isis_sr_mpls_flush_rtm_routes(node_info);
@@ -787,9 +806,17 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
     rtm_inet3 = cp_rtm_get_route_target_rtm (vrf, AF_IPV4, RTM_PROTO_ISIS, RTM_SUB_PROTO_SR);
     rtm_mpls0 = cp_rtm_get_route_target_rtm (vrf, AF_LABEL, RTM_PROTO_ISIS, RTM_SUB_PROTO_SR);
 
-    /* SR-MPLS needs a valid, self-advertised SRGB on this router to compute
-        the local ( incoming ) label for any FEC */
-    if (!ted_spf_root->has_srgb) return 0;
+    if (!rtm_inet3) {
+        tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS | DERR,
+            "%s : inet.3 RTM not found, SR-MPLS ingress routes skipped\n",
+            ISIS_SR_MPLS);
+    }
+
+    if (!rtm_mpls0) {
+        tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS | DERR,
+            "%s : mpls.0 RTM not found, SR-MPLS transit routes skipped\n",
+            ISIS_SR_MPLS);
+    }
 
     isis_spf_data_t *spf_data = (isis_spf_data_t *)(ISIS_NODE_SPF_DATA(ted_spf_root));
 
@@ -876,7 +903,7 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
                             nexthop->oif ? nexthop->oif->if_name.c_str() : "-",
                             php ? "( PHP - No Label )" : "( Push Label )");
 
-                    cp_rtm_install_route_advanced (
+                    rc = cp_rtm_install_route_advanced (
                         rtm_inet3, &rtm_prefix,
                         RTM_PROTO_ISIS, RTM_SUB_PROTO_SR, 0,
                         RTM_NH_ACTION_FORWARD,
@@ -887,7 +914,14 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
                         label_stack_count ? label_stack : NULL, label_stack_count, 0,
                         MPLS_OP_STACK_OPS_UNKNOWN);
 
-                    count++;
+                    if (rc != RTM_SUCCESS) {
+                        tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS | DERR,
+                            "%s : Dest %s  : inet.3 Route Add %s/%d failed (%s)\n",
+                            ISIS_SR_MPLS, spf_result->node->node_name,
+                            ip_addr, ted_prefix->mask, rtm_error_to_string(rc));
+                    } else {
+                        count++;
+                    }
                 }
 
                 /* Install the transit swap/pop route in 0.mpls.0, keyed by
@@ -895,10 +929,7 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
                 if (rtm_mpls0) {
 
                     cmn_prefix_t rtm_label_prefix;
-                    memset (&rtm_label_prefix, 0, sizeof(rtm_label_prefix));
-                    rtm_label_prefix.afi = AF_LABEL;
-                    mpls_label_set_value (&rtm_label_prefix.u.mpls_label, local_in_label);
-                    rtm_label_prefix.prefix_len = 20;
+                    cmn_prefix_initialize_label (&rtm_label_prefix, local_in_label);
 
                     tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS,
                         "%s : Dest %s  : mpls.0 Route Add In-Label %u  OIF %s  %s\n",
@@ -907,7 +938,7 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
                             nexthop->oif ? nexthop->oif->if_name.c_str() : "-",
                             php ? "( Pop )" : "( Swap )");
 
-                    cp_rtm_install_route_advanced (
+                    rc = cp_rtm_install_route_advanced (
                         rtm_mpls0, &rtm_label_prefix,
                         RTM_PROTO_ISIS, RTM_SUB_PROTO_SR, 0,
                         RTM_NH_ACTION_FORWARD,
@@ -918,7 +949,14 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
                         label_stack_count ? label_stack : NULL, label_stack_count, 0,
                         php ? MPLS_OP_POP : MPLS_OP_STACK_OPS_UNKNOWN);
 
-                    count++;
+                    if (rc != RTM_SUCCESS) {
+                        tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS | DERR,
+                            "%s : Dest %s  : mpls.0 Route Add In-Label %u failed (%s)\n",
+                            ISIS_SR_MPLS, spf_result->node->node_name,
+                            local_in_label, rtm_error_to_string(rc));
+                    } else {
+                        count++;
+                    }
                 }
             }
 

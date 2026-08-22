@@ -254,6 +254,9 @@ rtm_build_distribution_policy_cli_tree(
                 RTM_PROTO_T exempt_proto);
 
 void
-rtm_install_xconnect_vpnv4_route (vrf_t *vrf);
+rtm_install_xconnect_vpnv4_route (vrf_t *vrf, bool install);
+
+void
+rtm_install_mpls_xconnect_bd_evpn_local_route (Interface *intf, bool install) ;
 
 #endif 

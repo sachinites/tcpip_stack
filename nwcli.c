@@ -195,6 +195,7 @@ static cli_register_cb
 	cli_register_cb_arr_debug_node_node_name_protocol_level[] =
 	{
 		isis_debug_cli_tree,
+        evpn_debug_cli_tree,
 		0
 		/* Add more CB here */
 	};
@@ -1004,7 +1005,7 @@ nw_init_cli(){
 				/* debug node <node-name> protocol ...*/
 				cli_register_application_cli_trees(&protocol, 
 							 cli_register_cb_arr_debug_node_node_name_protocol_level);
-			}            
+			}
         }
     }
 

@@ -8,6 +8,8 @@
 #include "../../libs/BitOp/bitsop.h"
 #include "../../cmdcodes.h"
 #include "../../cp_limits.h"
+#include "../../LabelMgr/label_mgr.h"
+#include "../../RTM/rtm_nb_integ.h"
 
 extern graph_t *topo;
 
@@ -91,6 +93,12 @@ bd_config_handler(int64_t cmdcode,
                         return -1;
                     }
                     cp2dp_send_intf_admin_status_update(node, bdP->ifindex, false);
+                    /* Assign Service L2 VPN label to BD */
+                    assert (label_mgr_block_alloc_label(
+                        node->l2vpn_lbl_block, &bdP->vpn_svc_label) == LABEL_MGR_OK);
+                    /* Install the Service VPN label in 0.mpls.0 with Xconnect to BD*/
+                    rtm_install_mpls_xconnect_bd_evpn_local_route (bdP.get(), true);
+                    
                 }
                 break;
 

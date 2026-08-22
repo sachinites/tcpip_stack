@@ -17,6 +17,7 @@ class TransportService;
 #include <semaphore.h>
 #include "../libs/pkt-block/cp_pkt_block.h"
 #include "../libs/common/cmn_prefix.h"
+#include "../libs/common/mpls_lstack.h"
 #include "../Interface/InterfaceFwd.h"
 #include "../libs/common/ipv6_hdrs.h"
 #include "../Layer3/mpls_enums.h"
@@ -77,6 +78,21 @@ cp2dp_bd_mac_table_entry_del(node_t *node,
                              uint32_t bd_ifindex,
                              uint32_t oif_ifindex,
                              bool async);
+
+void
+cp2dp_bd_mac_table_entry_add_mpls(node_t *node,
+                                  uint8_t *mac_addr,
+                                  uint32_t bd_ifindex,
+                                  const mpls_lstack_t *label_stack,
+                                  uint16_t flags,
+                                  bool async);
+
+void
+cp2dp_bd_mac_table_entry_del_mpls(node_t *node,
+                                  uint8_t *mac_addr,
+                                  uint32_t bd_ifindex,
+                                  const mpls_lstack_t *label_stack,
+                                  bool async);
 
 void
 cp2dp_fib_update (

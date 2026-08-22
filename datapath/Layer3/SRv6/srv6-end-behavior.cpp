@@ -320,17 +320,11 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
 fn_template(srv6_END_DT4) {
 
-    assert(0);
-
     assert (!srh || (srh->segments_left == 0));
-
     Srv6_decapsulate(mbuf);
-    
     assert (pkt_mbuf_get_starting_hdr(mbuf) == IP_PROTO_IP_IN_IP);
-
     dp_vrf_t *x_connect_vrf = dp_look_up_vrf(dp_ctx, nexthop->fwd_info->xconnect_id);
-    if (!vrf) return;
-
+    if (!x_connect_vrf) return;
     layer3_ip_route_pkt(dp_ctx, x_connect_vrf, NULL, mbuf);
 }
 
@@ -348,6 +342,11 @@ fn_template(srv6_END_DX2V) {
 
 fn_template(srv6_END_DT2U) {
 
+    assert (!srh || (srh->segments_left == 0));
+    
+    /* Prevent Split horizon, if the pkt is recvd from the same MPLS
+    Overlay, do not pump back it again to MPLS Overlay again */
+    pkt_mbuf_set_ingress_ifindex(mbuf, SRv6_TO_BD_STEER_IFINDEX);
 }
 
 fn_template(srv6_END_DT2M) {

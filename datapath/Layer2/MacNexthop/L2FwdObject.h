@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "../../../libs/Tree/libtree.h"
+#include "../../../libs/common/mpls_lstack.h"
 
 typedef struct dp_intf_ dp_intf_t;
 typedef struct dp_ctx_ dp_ctx_t;
@@ -20,7 +21,8 @@ typedef enum L2_FWD_TYPE_ {
     L2_FWD_MPLS_TUNNEL,
     L2_FWD_SRv6_TUNNEL,
     L2_FWD_VxLAN,
-    L2_FWD_STEERING,
+    MPLS_L2_FWD_STEERING,
+    SRV6_L2_FWD_STEERING,
     L2_FWD_MAX
 
 } L2_FWD_TYPE_T;
@@ -157,7 +159,11 @@ struct mac_fwd_object_spec_ {
             /* BD or VLAN RMAC If*/
             uint32_t rmacif;
 
-        }rmac;        
+        }rmac;
+
+        struct {
+            mpls_lstack_t label_stack;
+        } mpls_tunnel;
 
     } u;
 
@@ -171,6 +177,10 @@ mac_fwd_object_spec_from_ifindex (mac_fwd_object_spec_t *spec,
                                   uint32_t ifindex,
                                   uint32_t remote_dst_ip,
                                   uint32_t vlan_bd_port);
+
+void
+mac_fwd_object_spec_from_mpls_stack (mac_fwd_object_spec_t *spec,
+                                     const mpls_lstack_t *label_stack);
 
 /* Build a lookup/insert template from a wire spec. overlay_vlan is used
  * for VxLAN VNI lookup when spec does not carry l2vni. */

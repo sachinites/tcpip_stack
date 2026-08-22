@@ -223,7 +223,7 @@ vrf_config_handler (int64_t cmdcode,
                         return -1;
                     }
                     cp2dp_vrf_create(node, (char *)vrf_name, vrf->vrf_id);
-                    rtm_install_xconnect_vpnv4_route (vrf);
+                    rtm_install_xconnect_vpnv4_route (vrf, true);
                     rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
                     rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
                 }

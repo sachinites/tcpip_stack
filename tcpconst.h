@@ -129,9 +129,9 @@ tcpip_protocol_classification(uint16_t proto) {
 
 /* VPNV4 LABEL SPACE */
 #define VPNV4_START_LABEL 16
-#define VPNV4_LABEL_RANGE 48   /* Must be Same as MAX_VRF_PER_NODE */
+#define VPNV4_LABEL_RANGE MAX_VRF_SUPPORTED   /* Must be Same as MAX_VRF_SUPPORTED */
 
-#define L2VPN_START_LABEL (VPNV4_LABEL_RANGE + 1)
-#define L2VPN_LABEL_RANGE 48   /* Must be Same as MAX_VRF_PER_NODE */
+#define L2VPN_START_LABEL (VPNV4_START_LABEL + VPNV4_LABEL_RANGE)
+#define L2VPN_LABEL_RANGE MAX_VRF_SUPPORTED   /* Must be Same as MAX_VRF_SUPPORTED */
 
 #endif /* __TCPCONST__ */

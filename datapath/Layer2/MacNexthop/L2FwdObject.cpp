@@ -14,9 +14,14 @@
 #include "../../../libs/pkt-block/pkt_mbuf.h"
 #include "../vxlan/vlan_vni_ht.h"
 #include "../../../tcpconst.h"
+#include "../../../libs/common/l3_hdrs.h"
 #include "../../FIB/fib_nh.h"
 #include "../../Vrfs/dp_vrf.h"
 #include "../../dp-program/dp-prog-struct.h"
+#include "../../Layer3/layer3.h"
+#include "../../Layer3/ipv6/ipv6-fwd.h"
+#include "../../Layer3/SRv6/srv6-endpoint.h"
+#include "../../../libs/common/ipv6_hdrs.h"
 
 static int
 l2_fwd_cmp_u32 (uint32_t a, uint32_t b)
@@ -65,38 +70,189 @@ l2_flood_forwarding (dp_ctx_t *dp_ctx,
 }
 
 static void
+l2_tunnel_strip_eth_fcs_if_needed(struct rte_mbuf *mbuf)
+{
+    if (pkt_mbuf_get_starting_hdr(mbuf) == ETHERNET_HEADER)
+        pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
+}
+
+static void
 l2_mpls_tunnel_forwarding (dp_ctx_t *dp_ctx,
                            mac_fwd_object_t *fwd_obj,
                            struct rte_mbuf *mbuf) {
 
-    (void)dp_ctx;
-    (void)mbuf;
-    assert (fwd_obj->fwd_type == L2_FWD_MPLS_TUNNEL);
+    mpls_lstack_t *lstack;
+    bool top_hdr_is_mpls;
+    gen_proto_id_t hdr_type;
+    pkt_size_t pkt_size = 0;
+    char ops_buf[128];
+    char wire_buf[128];
 
+    assert (fwd_obj->fwd_type == L2_FWD_MPLS_TUNNEL);
     assert (fwd_obj->u.lbl_stk);
 
-    /* ToDo :
-        Resolve top Label in Lbl Stack from MPLS FIB to know
-        Nexthop and egress physical interface
-        Merge the Label list in into pkt, and pass it down to L2 for forwarding
-    */
+    hdr_type = pkt_mbuf_get_starting_hdr(mbuf);
+    pkt_mbuf_get_pkt(mbuf, &pkt_size);
+
+    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD,
+        "L2 MPLS tunnel: enter start_hdr=%u size=%u\n",
+        (unsigned)hdr_type, (unsigned)pkt_size);
+
+    /* Prevent Split horizon, if the pkt is recvd from the same MPLS
+        Overlay, do not pump back it again to MPLS Overlay again */
+    uint32_t recv_intf_index =  pkt_mbuf_get_ingress_ifindex(mbuf);
+
+    if (recv_intf_index == MPLS_TO_BD_INTF_STEER_IFINDEX) {
+
+        pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL_DET,
+            "Pkt:%s Split Horizon Prevented, Pkt is dropped\n", 
+            pkt_mbuf_str(mbuf));
+
+        return;
+    }
+
+    pkt_mbuf_clear_ingress_intf(mbuf);
+
+    lstack = fwd_obj->u.lbl_stk;
+    if (mpls_lstack_is_empty(lstack)) {
+        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD | DERR,
+            "L2 MPLS tunnel: empty label stack, dropping\n");
+        dp_ctx->pkt_dropped++;
+        return;
+    }
+
+    mpls_format_lstack(lstack, ops_buf, sizeof(ops_buf));
+    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET | DL2FWD_DET,
+        "L2 MPLS tunnel: configured nh_ops=[%s] (index 0=BoS)\n", ops_buf);
+
+    /* Merge into existing MPLS header or impose a new stack on the L2 payload. */
+    top_hdr_is_mpls = mpls_apply_nh_label_stack(dp_ctx, mbuf, lstack);
+    if (!top_hdr_is_mpls) {
+        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DERR,
+            "L2 MPLS tunnel: label stack did not produce MPLS header, dropping\n");
+        dp_ctx->pkt_dropped++;
+        return;
+    }
+
+    /* Trace labels from the packet header (outer → inner), not from lstack. */
+    {
+        mpls_label_wire_t *pkt_label =
+            (mpls_label_wire_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+        mpls_format_wire_stack(pkt_label, (size_t)pkt_size, wire_buf, sizeof(wire_buf));
+        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD,
+            "L2 MPLS tunnel: imposed label stack [outer->inner]: [%s] size=%u\n",
+            wire_buf, (unsigned)pkt_size);
+    }
+    
+    pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_MPLS_IN_IP);
+
+    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD,
+        "L2 MPLS tunnel: handing to LFIB (dp_mpls_fwd_pkt) in default VRF\n");
+
+    dp_mpls_fwd_pkt(dp_ctx, dp_ctx->default_vrf, NULL, mbuf);
 }
 
 static void
 l2_srv6_tunnel_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
                            struct rte_mbuf *mbuf) {
 
-    (void)dp_ctx;
-    (void)mbuf;
+    gen_proto_id_t hdr_type;
+    srh_hdr_t *srh = NULL;
+    ipv6_addr_t *seg_lst = NULL;
+    uint8_t seg_cnt;
+    dp_vrf_t *vrf;
+
     assert (fwd_obj->fwd_type == L2_FWD_SRv6_TUNNEL);
-
     assert (fwd_obj->u.srv6.seg_lst_cnt);
+    assert (fwd_obj->u.srv6.seg_lst);
 
-    /* ToDo :
-        Resolve top Segment in Segment List from ipv6 FIB to know
-        Nexthop and egress physical interface
-        Merge the Segment list into pkt, and pass it down to L2 for forwarding
-    */
+    seg_cnt = fwd_obj->u.srv6.seg_lst_cnt;
+
+    if (!seg_cnt) {
+        dp_ctx->pkt_dropped++;
+        return;
+    }
+
+    /* Prevent Split horizon, if the pkt is recvd from the same SRv6 
+        Overlay, do not pump back it again to SRv6 Overlay again */
+    uint32_t recv_intf_index =  pkt_mbuf_get_ingress_ifindex(mbuf);
+
+    if (recv_intf_index == SRv6_TO_BD_STEER_IFINDEX) {
+
+        pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL_DET,
+            "Pkt:%s Split Horizon Prevented, Pkt is dropped\n", 
+            pkt_mbuf_str(mbuf));
+
+        return;
+    }
+
+    pkt_mbuf_clear_ingress_intf(mbuf);
+
+    vrf = dp_ctx->default_vrf;
+    
+    hdr_type = pkt_mbuf_get_starting_hdr(mbuf);
+
+    if (hdr_type == IP_PROTO_IPv6) {
+
+        pkt_size_t pkt_size;
+        byte *pkt = pkt_mbuf_get_pkt(mbuf, &pkt_size);
+        ipv6_hdr_t *ipv6_hdr = (ipv6_hdr_t *)pkt;
+
+        if (ipv6_hdr->next_header == IP_PROTO_SRH &&
+            pkt_size >= sizeof(ipv6_hdr_t) + sizeof(srh_hdr_t)) {
+
+            /* Merge fwd_obj segment list ahead of the remaining SRH segments. */
+            srh_hdr_t *old_srh = (srh_hdr_t *)(ipv6_hdr + 1);
+            uint8_t old_sl = old_srh->segments_left;
+            uint8_t old_remaining = (uint8_t)(old_sl + 1);
+            uint8_t total = (uint8_t)(seg_cnt + old_remaining);
+
+            seg_lst = (ipv6_addr_t *)XCALLOC_BUFF(0, total * sizeof(ipv6_addr_t));
+
+            for (uint8_t i = 0; i < seg_cnt; i++)
+                memcpy(seg_lst[i].addr, (*fwd_obj->u.srv6.seg_lst)[i], 16);
+
+            for (uint8_t j = 0; j < old_remaining; j++)
+                memcpy(seg_lst[seg_cnt + j].addr,
+                       old_srh->segments[old_sl - j], 16);
+
+            Srv6_decapsulate(mbuf);
+            srh = srh_hdr_prepare(seg_lst, total);
+            XFREE(seg_lst);
+            seg_lst = NULL;
+        }
+        else {
+
+            /* Bare IPv6 outer header: peel it, then SRv6-encapsulate the payload. */
+            Srv6_decapsulate(mbuf);
+            seg_lst = (ipv6_addr_t *)XCALLOC_BUFF(0, seg_cnt * sizeof(ipv6_addr_t));
+
+            for (uint8_t i = 0; i < seg_cnt; i++)
+                memcpy(seg_lst[i].addr, (*fwd_obj->u.srv6.seg_lst)[i], 16);
+
+            srh = srh_hdr_prepare(seg_lst, seg_cnt);
+            XFREE(seg_lst);
+        }
+    }
+    else {
+
+        seg_lst = (ipv6_addr_t *)XCALLOC_BUFF(0, seg_cnt * sizeof(ipv6_addr_t));
+
+        for (uint8_t i = 0; i < seg_cnt; i++)
+            memcpy(seg_lst[i].addr, (*fwd_obj->u.srv6.seg_lst)[i], 16);
+
+        srh = srh_hdr_prepare(seg_lst, seg_cnt);
+        XFREE(seg_lst);
+    }
+
+    Srv6_encapsulate(mbuf, srh);
+    XFREE(srh);
+
+    pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD | DL2FWD,
+        "L2 SRv6 tunnel: encapsulated with %u segment(s), forwarding in default VRF\n",
+        seg_cnt);
+
+    layer3_ipv6_route_pkt(dp_ctx, vrf, NULL, mbuf, NULL);
 }
 
 static void
@@ -124,6 +280,8 @@ l2_vxlan_tunnel_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
 
         return;
     }
+
+    pkt_mbuf_clear_ingress_intf(mbuf);
 
     vni = fwd_obj->u.vxlan.l2vni;
     if (!vni) {
@@ -153,20 +311,59 @@ l2_vxlan_tunnel_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
 }
 
 static void
-l2_steer_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
+mpls_l2_steer_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
                             struct rte_mbuf *mbuf) {
 
-    (void)dp_ctx;
-    (void)mbuf;
-    assert (fwd_obj->fwd_type == L2_FWD_STEERING);
+    assert (fwd_obj->fwd_type == MPLS_L2_FWD_STEERING);
 
     switch (fwd_obj->u.steering.steering_type) {
 
         case STEER_INTO_VRF:
             assert (fwd_obj->u.steering.u_steer.steered_obj_ifindex );
+            pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD,
+                "MPLS L2 steer: into VRF ifindex=%u\n",
+                fwd_obj->u.steering.u_steer.steered_obj_ifindex);
+            assert(pkt_mbuf_verify_pkt (mbuf, IP_PROTO_IP_IN_IP));
+            /* Steer into VRF */
+            dp_send_pkt_out(dp_ctx, dp_ctx->intf_table[DP_INTF_TYPE_MPLS_TO_VRF_STEER], 
+                mbuf, fwd_obj->u.steering.u_steer.steered_obj_ifindex);
             break;
         case STEER_INTO_BD:
             assert (fwd_obj->u.steering.u_steer.steered_obj_ifindex );
+            pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD,
+                "MPLS L2 steer: into BD ifindex=%u\n",
+                fwd_obj->u.steering.u_steer.steered_obj_ifindex);
+            assert(pkt_mbuf_verify_pkt (mbuf, ETHERNET_HEADER));
+            /* Steer into BD */
+            dp_send_pkt_out(dp_ctx, dp_ctx->intf_table[DP_INTF_TYPE_MPLS_TO_BD_STEER], 
+                mbuf, fwd_obj->u.steering.u_steer.steered_obj_ifindex);
+            break;
+        default:
+            assert(0);
+    }
+}
+
+static void
+srv6_l2_steer_forwarding (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
+                            struct rte_mbuf *mbuf) {
+
+    assert (fwd_obj->fwd_type == MPLS_L2_FWD_STEERING);
+
+    switch (fwd_obj->u.steering.steering_type) {
+
+        case STEER_INTO_VRF:
+            assert (fwd_obj->u.steering.u_steer.steered_obj_ifindex );
+            assert(pkt_mbuf_verify_pkt (mbuf, IP_PROTO_IP_IN_IP));
+            /* Steer into VRF */
+            dp_send_pkt_out(dp_ctx, dp_ctx->intf_table[DP_INTF_TYPE_SRV6_TO_VRF_STEER], 
+                mbuf, fwd_obj->u.steering.u_steer.steered_obj_ifindex);
+            break;
+        case STEER_INTO_BD:
+            assert (fwd_obj->u.steering.u_steer.steered_obj_ifindex );
+            assert(pkt_mbuf_verify_pkt (mbuf, ETHERNET_HEADER));
+            /* Steer into BD */
+            dp_send_pkt_out(dp_ctx, dp_ctx->intf_table[DP_INTF_TYPE_SRV6_TO_BD_STEER], 
+                mbuf, fwd_obj->u.steering.u_steer.steered_obj_ifindex);
             break;
         default:
             assert(0);
@@ -208,18 +405,29 @@ static l2_fwding_ptr l2_fwding[] =
     l2_mpls_tunnel_forwarding,
     l2_srv6_tunnel_forwarding,
     l2_vxlan_tunnel_forwarding,
-    l2_steer_forwarding,
+    mpls_l2_steer_forwarding,
+    srv6_l2_steer_forwarding, /* Not used */
     0
  };
 
 void
 dp_l2fwd (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj, struct rte_mbuf *mbuf) {
 
-    if (!fwd_obj || fwd_obj->fwd_type >= L2_FWD_MAX)
+    if (!fwd_obj || fwd_obj->fwd_type >= L2_FWD_MAX) {
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD_DET | DERR,
+            "dp_l2fwd: invalid fwd_obj type, drop\n");
         return;
+    }
 
-    if (!l2_fwding[fwd_obj->fwd_type])
+    if (!l2_fwding[fwd_obj->fwd_type]) {
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD_DET | DERR,
+            "dp_l2fwd: no handler for fwd_type %u\n",
+            (unsigned)fwd_obj->fwd_type);
         return;
+    }
+
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD_DET,
+        "dp_l2fwd: dispatch fwd_type=%u\n", (unsigned)fwd_obj->fwd_type);
 
     (l2_fwding[fwd_obj->fwd_type])(dp_ctx, fwd_obj, mbuf);
 }
@@ -257,7 +465,11 @@ L2_forward_object_comp_fb (
                                   o2->u.l2_flood.vlan_bd_port);
 
         case L2_FWD_MPLS_TUNNEL:
-            return l2_fwd_cmp_ptr(o1->u.lbl_stk, o2->u.lbl_stk);
+            if (!o1->u.lbl_stk && !o2->u.lbl_stk)
+                return 0;
+            if (!o1->u.lbl_stk || !o2->u.lbl_stk)
+                return o1->u.lbl_stk ? 1 : -1;
+            return mpls_lstack_compare(o1->u.lbl_stk, o2->u.lbl_stk) ? 0 : -1;
 
         case L2_FWD_SRv6_TUNNEL:
             rc = l2_fwd_cmp_u32(o1->u.srv6.seg_lst_cnt,
@@ -272,7 +484,8 @@ L2_forward_object_comp_fb (
                 return rc;
             return l2_fwd_cmp_u32(o1->u.vxlan.vtep_ip, o2->u.vxlan.vtep_ip);
 
-        case L2_FWD_STEERING:
+        case MPLS_L2_FWD_STEERING:
+        case SRV6_L2_FWD_STEERING:
             rc = l2_fwd_cmp_u32(o1->u.steering.steering_type,
                                 o2->u.steering.steering_type);
             if (rc)
@@ -374,7 +587,8 @@ mac_fwd_object_copy_union (mac_fwd_object_t *dst, mac_fwd_object_t *src)
             dst->u.vxlan.vtep_ip = src->u.vxlan.vtep_ip;
             break;
 
-        case L2_FWD_STEERING:
+        case MPLS_L2_FWD_STEERING:
+        case SRV6_L2_FWD_STEERING:
             dst->u.steering.steering_type = src->u.steering.steering_type;
             dst->u.steering.u_steer.steered_obj_ifindex =
                 src->u.steering.u_steer.steered_obj_ifindex;
@@ -488,6 +702,18 @@ mac_fwd_object_spec_from_ifindex (mac_fwd_object_spec_t *spec,
 }
 
 void
+mac_fwd_object_spec_from_mpls_stack (mac_fwd_object_spec_t *spec,
+                                     const mpls_lstack_t *label_stack)
+{
+    mac_fwd_object_spec_init(spec);
+    spec->fwd_type = L2_FWD_MPLS_TUNNEL;
+
+    if (label_stack)
+        memcpy(&spec->u.mpls_tunnel.label_stack, label_stack,
+               sizeof(spec->u.mpls_tunnel.label_stack));
+}
+
+void
 dp_mac_fwd_object_init_from_spec (dp_ctx_t *dp_ctx,
                                   mac_fwd_object_t *tmpl,
                                   const mac_fwd_object_spec_t *spec,
@@ -527,13 +753,19 @@ dp_mac_fwd_object_init_from_spec (dp_ctx_t *dp_ctx,
                     vlan_vni_ht_vlan_to_vni_lookup(dp_ctx, (uint16_t)overlay_vlan);
             break;
 
-        case L2_FWD_STEERING:
+        case MPLS_L2_FWD_STEERING:
+        case SRV6_L2_FWD_STEERING:
             tmpl->u.steering.steering_type = spec->u.steering.steering_type;
             tmpl->u.steering.u_steer.steered_obj_ifindex =
                 spec->u.steering.steered_obj_ifindex;
             break;
 
         case L2_FWD_MPLS_TUNNEL:
+            tmpl->u.lbl_stk = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
+            memcpy(tmpl->u.lbl_stk, &spec->u.mpls_tunnel.label_stack,
+                   sizeof(*tmpl->u.lbl_stk));
+            break;
+
         case L2_FWD_SRv6_TUNNEL:
         case L2_FWD_MAX:
         default:

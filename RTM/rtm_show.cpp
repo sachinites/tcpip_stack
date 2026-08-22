@@ -97,11 +97,21 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route);
 static void
 rtm_format_nh_gateway (rtm_t *rtm, rtm_nh *nh, char *buffer, size_t buflen) {
 
+    memset (buffer, 0, buflen);
+
     if (nh->oif && nh->oif == MPLS_TO_VRF_INTF_STEER_IFINDEX) {
         uint8_t vrf_id = (uint8_t)nh->prefix.u.v4_addr;
         char *vrf_name = rtm_get_vrf_name(rtm->node, vrf_id);
         snprintf(buffer, buflen, "vrf:%s",
                  vrf_name ? vrf_name : "?");
+        return;
+    }
+
+    if (nh->oif && nh->oif == MPLS_TO_BD_INTF_STEER_IFINDEX) {
+        uint32_t bd_ifindex = nh->prefix.u.v4_addr;
+        char *intf_name = rtm_get_intf_name(rtm->node, bd_ifindex, buffer);
+        snprintf(buffer, buflen, "%s",
+                 intf_name ? intf_name : "?");
         return;
     }
 

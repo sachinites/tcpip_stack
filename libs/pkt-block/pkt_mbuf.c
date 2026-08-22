@@ -250,12 +250,7 @@ pkt_mbuf_get_ethernet_hdr(struct rte_mbuf *mbuf)
     if (hdr_type == ETHERNET_HEADER) {
         return (ethernet_hdr_t *)pkt;
     }
-    else if (hdr_type == IP_PROTO_GRE) {
-        gre_hdr_t *gre_hdr = (gre_hdr_t *)pkt;
-        if (ntohs(gre_hdr->protocol_type) == ETH_TYPE_GRE) {
-            return (ethernet_hdr_t *)(gre_hdr + 1);
-        }
-    }
+    
     return NULL;
 }
 

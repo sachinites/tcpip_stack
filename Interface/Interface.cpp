@@ -36,6 +36,7 @@
 #include "../CLIBuilder/libcli.h"
 #include "Interface.h"
 #include "InterfaceUApi.h"
+#include "../LabelMgr/label_mgr.h"
 #include "../Layer2/transport_svc.h"
 #include "../libs/Tracer/tracer.h"
 #include "../libs/common/ipv6_utils.h"
@@ -2032,7 +2033,8 @@ BDInterface::BDInterface(std::string ifname, InterfaceType_t iftype)
     : VirtualInterface(ifname, iftype),
       bd_id(0),
       ip_addr(0),
-      mask(0)
+      mask(0),
+      vpn_svc_label(0)
 {
 }
 
@@ -2098,7 +2100,16 @@ BDInterface::HasL3Config(bool matchvrf) {
 
 void
 BDInterface::InterfaceReleaseAllResources() {
+
     assert(member_ac.empty());
+
+    rtm_install_mpls_xconnect_bd_evpn_local_route(this, false);
+
+    label_mgr_block_release_label(
+        this->att_node->l2vpn_lbl_block,
+        this->vpn_svc_label);   
+
+    rtm_install_mpls_xconnect_bd_evpn_local_route((Interface *)this, false);
 }
 
 bool

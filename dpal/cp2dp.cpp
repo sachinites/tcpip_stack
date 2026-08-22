@@ -25,6 +25,7 @@
 #include "../datapath/dp_uapi.h"
 #include "../datapath/dp_utils.h"
 #include "../datapath/Layer3/ping.h"
+#include "../datapath/Layer2/MacNexthop/L2FwdObject.h"
 #include "../tcpconst.h"
 
 /*  Fix me : cp2dp_xmit_pkt is allocated by CP but freed by DP. This is not a desirable thing to do.
@@ -238,6 +239,59 @@ cp2dp_bd_mac_table_entry_del(node_t *node,
     mac_update_msg->flags = 0;
     mac_fwd_object_spec_from_ifindex(&mac_update_msg->fwd, oif_ifindex,
                                      0, bd_ifindex);
+
+    cp2dp_submit(node, dp_msg, async);
+}
+
+void
+cp2dp_bd_mac_table_entry_add_mpls(node_t *node,
+                                  uint8_t *mac_addr,
+                                  uint32_t bd_ifindex,
+                                  const mpls_lstack_t *label_stack,
+                                  uint16_t flags,
+                                  bool async)
+{
+    dp_msg_t *dp_msg;
+    mac_update_msg_t *mac_update_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = BD_MAC_TABLE;
+    dp_msg->opr_type = DP_CREATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(mac_update_msg_t);
+    mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+
+    memcpy(mac_update_msg->mac_addr, mac_addr, 6);
+    mac_update_msg->table_vlan_id = DEFAULT_VLAN_ID;
+    mac_update_msg->bd_ifindex = bd_ifindex;
+    mac_update_msg->flags = flags;
+    mac_fwd_object_spec_from_mpls_stack(&mac_update_msg->fwd, label_stack);
+
+    cp2dp_submit(node, dp_msg, async);
+}
+
+void
+cp2dp_bd_mac_table_entry_del_mpls(node_t *node,
+                                  uint8_t *mac_addr,
+                                  uint32_t bd_ifindex,
+                                  const mpls_lstack_t *label_stack,
+                                  bool async)
+{
+    dp_msg_t *dp_msg;
+    mac_update_msg_t *mac_update_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = BD_MAC_TABLE;
+    dp_msg->opr_type = DP_DEL;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(mac_update_msg_t);
+    mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+
+    memcpy(mac_update_msg->mac_addr, mac_addr, 6);
+    mac_update_msg->table_vlan_id = DEFAULT_VLAN_ID;
+    mac_update_msg->bd_ifindex = bd_ifindex;
+    mac_update_msg->flags = 0;
+    mac_fwd_object_spec_from_mpls_stack(&mac_update_msg->fwd, label_stack);
 
     cp2dp_submit(node, dp_msg, async);
 }

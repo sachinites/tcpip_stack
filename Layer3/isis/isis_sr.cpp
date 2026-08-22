@@ -121,6 +121,10 @@ isis_sr_mpls_enable (isis_node_info_t *node_info) {
 
     isis_sr_mpls_advertise_rtr_cap_tlv242(node_info);
 
+    /* Self TED may not yet reflect TLV(242) from our LSP; seed SRGB now so
+     * the next SPF can program inet.3 + mpls.0 without flush-and-bail. */
+    isis_sr_mpls_sync_self_ted_srgb(node_info);
+
     tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS,
         "%s : SR-MPLS Enabled, SRGB [ %u - %u ]\n", ISIS_SR_MPLS,
         srgb_get_base_label(node_info->srmpls_config->srgb),
@@ -187,7 +191,7 @@ isis_sr_mpls_disable (isis_node_info_t *node_info) {
 
 /* Push the locally configured SRGB into this router's TED node so SR route
     reinstall can use the new base/range without waiting for self-LSP refresh. */
-static void
+void
 isis_sr_mpls_sync_self_ted_srgb (isis_node_info_t *node_info) {
 
     ted_node_t *self;

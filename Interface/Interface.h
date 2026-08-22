@@ -463,10 +463,11 @@ class BDInterface : public VirtualInterface {
     protected:
 
     public:
-        uint16_t bd_id;
         uint32_t ip_addr;
+        uint32_t vpn_svc_label;
+        uint16_t bd_id;
         uint8_t mask;
-        char padding_bd[1];
+        char _pad[5];
         BDInterface(std::string ifname, InterfaceType_t iftype);
         virtual ~BDInterface();
         bool IsCrossReferenced() final;

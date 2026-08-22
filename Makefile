@@ -283,6 +283,7 @@ clean:
 	rm -f Layer2/*.o
 	rm -f Layer2/BD/*.o
 	rm -f Layer2/vxlan/cp/*.o
+	rm -f Layer2/Evpn/*.o
 	rm -f Layer3/*.o
 	rm -f Layer3/rt_table/*.o
 	rm -f Layer4/*.o

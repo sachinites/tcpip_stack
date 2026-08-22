@@ -12,6 +12,7 @@
 #include "../../dp_uapi.h"
 #include "../../classifier/pkt_classifier.h"
 #include "../../Layer3/layer3.h"
+#include "../../../libs/common/mpls_lstack.h"
 
 extern void
 dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
@@ -48,6 +49,10 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         encap the pkt within ethernet hdr with dst mac as broadcast mac */
     if (ethernet_hdr->type != htons(ETH_TYPE_IPv4) && 
         ethernet_hdr->type != htons(ETH_TYPE_MPLS_UC)) {
+
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD_DET,
+            "L2 fwd: non-IP/MPLS ethertype 0x%x → broadcast out %s\n",
+            ntohs(ethernet_hdr->type), oif ? oif->if_name : "-");
 
         layer2_fill_with_broadcast_mac (ethernet_hdr->dst_mac.mac);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
@@ -147,6 +152,10 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
     }
 
     l2_frame_prepare:
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD_DET,
+            "L2 fwd: ARP hit nh %s oif %s ethertype 0x%x → xmit\n",
+            next_hop_ip_str, oif->if_name, ntohs(ethernet_hdr->type));
+
         memcpy(ethernet_hdr->dst_mac.mac, arp_entry->mac_addr.mac, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->src_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
 
@@ -178,6 +187,29 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
 {
 
     gen_proto_id_t starting_hdr_type = pkt_mbuf_get_starting_hdr(mbuf);
+    char gw_str[IPV4_ADDR_LEN_STR];
+    char wire_buf[128] = {0};
+    pkt_size_t pkt_size = 0;
+
+    tcp_ip_covert_ip_n_to_p(next_hop_ip, (c_string)gw_str);
+
+    if (starting_hdr_type == IP_PROTO_MPLS_IN_IP) {
+        mpls_label_wire_t *lbl =
+            (mpls_label_wire_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+        mpls_format_wire_stack(lbl, (size_t)pkt_size, wire_buf, sizeof(wire_buf));
+    } else {
+        pkt_mbuf_get_pkt(mbuf, &pkt_size);
+    }
+
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD_DET | DMPLS_DET,
+        "demote→L2: vrf=%s oif=%s gw=%s start_hdr=%u demote_as=%u size=%u wire=[%s]\n",
+        vrf ? vrf->vrf_name : "-",
+        oif ? oif->if_name : "-",
+        gw_str,
+        (unsigned)starting_hdr_type,
+        (unsigned)hdr_type,
+        (unsigned)pkt_size,
+        wire_buf[0] ? wire_buf : "-");
 
     pkt_mbuf_tcp_ip_expand_buffer_ethernet_hdr(mbuf);
 
@@ -193,6 +225,9 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
             break;
         case IP_PROTO_MPLS_IN_IP:
             SET_COMMON_ETH_HDR_TYPE(empty_ethernet_hdr, ETH_TYPE_MPLS_UC);
+            pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD,
+                "demote→L2: ethertype MPLS_UC OIF %s Gw %s\n",
+                oif ? oif->if_name : "-", gw_str);
             break;
         default:
             assert(0);
@@ -381,13 +416,29 @@ promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
             break;
 
         case ETH_TYPE_MPLS_UC:
-            pkt_mbuf_slide(mbuf, -1, 1, 
-                    is_vlan_tagged ? (uint16_t)sizeof(vlan_ethernet_hdr_t) : \
-                    (uint16_t)sizeof(ethernet_hdr_t));
-            pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
-            pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_MPLS_IN_IP);
+            {
+                char wire_buf[128] = {0};
+                mpls_label_wire_t *lbl;
+                pkt_size_t rem;
 
-            dp_mpls_fwd_pkt (dp_ctx, vrf, iif, mbuf);
+                pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD,
+                    "promote→L3: ETH_TYPE_MPLS_UC on iif %s, strip eth → LFIB\n",
+                    iif ? iif->if_name : "-");
+
+                pkt_mbuf_slide(mbuf, -1, 1, 
+                        is_vlan_tagged ? (uint16_t)sizeof(vlan_ethernet_hdr_t) : \
+                        (uint16_t)sizeof(ethernet_hdr_t));
+                pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
+                pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_MPLS_IN_IP);
+
+                lbl = (mpls_label_wire_t *)pkt_mbuf_get_pkt(mbuf, &rem);
+                mpls_format_wire_stack(lbl, (size_t)rem, wire_buf, sizeof(wire_buf));
+                pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET | DL2FWD_DET,
+                    "promote→L3: MPLS wire=[%s] size=%u → dp_mpls_fwd_pkt\n",
+                    wire_buf, (unsigned)rem);
+
+                dp_mpls_fwd_pkt (dp_ctx, vrf, iif, mbuf);
+            }
             break;
 
         default: ;

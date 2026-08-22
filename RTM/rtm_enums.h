@@ -112,6 +112,7 @@ static const char* rtm_sub_proto_to_string(RTM_SUB_PROTO_T sub_proto) {
         case RTM_PROTO_BGP_EXT: return "BGP-EXT";
         case RTM_PROTO_BGP_VPN: return "BGP-VPN";
         case RTM_PROTO_BGP_EVPN: return "BGP-EVPN";
+        case RTM_PROTO_L2VPN_EVPN: return "L2VPN_EVPN";
         case RTM_SUB_PROTO_OSPF_EXT: return "OSPF-EXT";
         case RTM_SUB_PROTO_OSPF_INTER: return "OSPF-INTER";
         case RTM_SUB_PROTO_OSPF_INTRA: return "OSPF-INTRA";

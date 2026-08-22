@@ -56,6 +56,9 @@ isis_sr_mpls_flush_rtm_routes (isis_node_info_t *node_info);
 bool
 isis_sr_mpls_is_enabled (isis_node_info_t *node_info);
 
+void
+isis_sr_mpls_sync_self_ted_srgb (isis_node_info_t *node_info);
+
 isis_srmpls_config_t *
 isis_sr_mpls_get_config (isis_node_info_t *node_info);
 

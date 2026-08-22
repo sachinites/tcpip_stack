@@ -62,6 +62,8 @@ dp_mpls_fwd_pkt(dp_ctx_t *dp_ctx,
    Returns true if the packet's top header is still MPLS after applying the
    stack, false if the last label was popped off. */
 bool
-mpls_apply_nh_label_stack(struct rte_mbuf *mbuf, mpls_lstack_t *lstack);
+mpls_apply_nh_label_stack(dp_ctx_t *dp_ctx,
+                          struct rte_mbuf *mbuf,
+                          mpls_lstack_t *lstack);
 
 #endif /* __LAYER3__ */
