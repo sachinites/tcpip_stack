@@ -78,9 +78,9 @@ BD_FloodPacketOut(
     dp_intf_t *ac ;
     dp_intf_t *bd_intf;
 
-    /* Can be NULL*/
-    dp_intf_t *recv_phy_intf = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
-    dp_intf_t *exempt_ac = recv_phy_intf ? recv_phy_intf->ac_intf : 0;
+    /* Can be NULL, Or ingress Attachment Ckt Or Overlay Tunnel*/
+    dp_intf_t *exempt_ac = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
+    if (exempt_ac && exempt_ac->ac_intf) exempt_ac = exempt_ac->ac_intf;
 
     assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
 
@@ -111,6 +111,9 @@ BD_FloodPacketOut(
 
         if (!ac || ac == exempt_ac) continue;
 
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD_DET | DFLOW_DET,
+            "BD:%s Flooding the pkt on AC:%s\n", bd_intf->if_name, ac->if_name);
+            
         dup_mbuf = PKT_MBUF_DUP(mbuf);
         dp_send_pkt_out(dp_ctx, ac, dup_mbuf, 0);
         pkt_mbuf_dereference(dup_mbuf);

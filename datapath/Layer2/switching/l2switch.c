@@ -144,9 +144,8 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
             TCI_VID(vlan_8021q_hdr->tci));
     }
     else {
-        pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in BD %d\n",  
-            pkt_mbuf_str (mbuf), 
-            vlan_bd_intf->if_name);
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Flooding in BD %s\n",  
+            pkt_mbuf_str (mbuf), vlan_bd_intf->if_name);
     }
 
     mac_table_entry_xmit_frame (dp_ctx, vlan_bd_intf, mac_flood_entry, mbuf, exempted_intf);

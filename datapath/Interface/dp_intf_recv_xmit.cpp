@@ -599,8 +599,7 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx,
                     arp_hdr_reply->dst_mac.mac[5],
                     intf->if_name, bd_intf->if_name);
 
-                dp_intf_t *recv_ac_intf = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
-                dp_send_pkt_out(dp_ctx, recv_ac_intf, mbuf2, 0);
+                dp_send_pkt_out(dp_ctx, recv_intf, mbuf2, 0);
                 pkt_mbuf_dereference(mbuf2);
             }
         }
@@ -608,15 +607,38 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx,
         /* Case 3 : BDRmac Interface has recvd reply packet for itself */
             // populate ARP cache
         else if (ntohs(arp_hdr_in->op_code) == ARP_REPLY &&
-            mac_address_compare(arp_hdr_in->dst_mac.mac, dp_ctx->rmac.mac))
+                 ntohl(arp_hdr_in->dst_ip) == bd_intf->ip_addr)
         {
-            arp_table_update_from_arp_reply(dp_ctx,
-                                    vrf,
-                                    vrf->arp_table,
-                                    arp_hdr_in,
-                                    bd_intf);
+            if (mac_address_compare(arp_hdr_in->dst_mac.mac, bd_intf->mac_add.mac))
+            {
+                /* ARP tabele/mac table should be populated synchrnously if populated from
+                    data*/
+                arp_table_update_from_arp_reply(dp_ctx,
+                                                vrf,
+                                                vrf->arp_table,
+                                                (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)eth_hdr),
+                                                bd_intf);
+            }
+            else
+            {
+                cprintf ("CTX : %s : Warning : Duplicate IP Address %s Detected for intf %s\n", 
+                        dp_ctx->ctx_name,
+                        tcp_ip_covert_ip_n_to_p(ntohl(arp_hdr_in->dst_ip), (c_string)ip_addr_str),
+                        bd_intf->if_name);
+            }
         }
     }
+     else if (ntohs(eth_hdr->type) == ETH_TYPE_ARP && recvd_on_overlay) {
+
+        arp_hdr_t *arp_hdr_in = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
+        pkt_tracer(mbuf, dp_ctx->dptr, DARP,
+            "RTR-MAC intf Recvd ARP-%s for self from Evpn Overlay in BD %s, pkt dropped\n",
+            ntohs(arp_hdr_in->op_code) == ARP_REPLY ? "Reply" : "Broadcast", bd_intf->if_name);
+
+        bd_intf->recvd_pkt_dropped++;
+        return 0;
+     }
+
     else {
 
         /* Case 4 : BDRmac has recvd ethernet pkt destined to RMAC mac address*/
@@ -650,37 +672,6 @@ HostPathInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mb
     pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);  
     return 0;
-}
-
-static dp_intf_t *
-dp_xmit_ingress_vlan_intf(dp_ctx_t *dp_ctx,
-                          struct rte_mbuf *mbuf,
-                          uint16_t *vlan_id_out)
-{
-    dp_intf_t *ingress;
-    ethernet_hdr_t *eth_hdr;
-    vlan_8021q_hdr_t *vlan_8021q_hdr;
-    uint16_t vlan_id;
-
-    ingress = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
-    eth_hdr = pkt_mbuf_get_ethernet_hdr(mbuf);
-    vlan_8021q_hdr = is_pkt_vlan_tagged(eth_hdr);
-
-    if (!vlan_8021q_hdr)
-        return NULL;
-
-    vlan_id = (uint16_t)TCI_VID(vlan_8021q_hdr->tci);
-
-    if (vlan_id_out)
-        *vlan_id_out = vlan_id;
-
-    if (!ingress)
-        return dp_look_up_interface_by_vlan_id(dp_ctx->dp_vlan_intf_ht, vlan_id);
-
-    if (ingress->l2_mode == DP_LAN_ACCESS_MODE)
-        return ingress->vlan_intf;
-
-    return dp_look_up_interface_by_vlan_id(dp_ctx->dp_vlan_intf_ht, vlan_id);
 }
 
 static int 
@@ -792,7 +783,7 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
                         vlan_intf->if_name);
             }
         }
-    }
+    }   
     else {
 
         /* Case 4 : Rmac has recvd ethernet pkt destined to RMAC mac address*/

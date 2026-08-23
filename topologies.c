@@ -1047,7 +1047,7 @@ config node R0 bridge-domain 20
 config node R0 interface bridge-domain 20 ip-address 182.168.0.254 24
 
 config node H2 no protocol isis
-config node H1 no interface ethernet eth1 ip-address 172.168.0.2 24
+config node H2 no interface ethernet eth1 ip-address 172.168.0.2 24
 config node H2 interface ethernet eth1 ip-address 182.168.0.1 24
 config node H2 rtm-route prefix 0.0.0.0/0 0 0 0 2 0 gateway 182.168.0.254 interface eth1
 
@@ -1055,14 +1055,14 @@ config node CE2 no protocol isis
 config node CE2 no interface ethernet eth1 ip-address 172.168.0.1 24
 config node CE2 no interface ethernet eth1 vrf 0
 config node CE2 interface ethernet eth1 switchport
-config node CE2 interface vlan 10
-config node CE2 interface ethernet eth1 vlan 10
+config node CE2 interface vlan 20
+config node CE2 interface ethernet eth1 vlan 20
 config node CE2 no interface ethernet eth0 ip-address 192.168.0.1 24
 config node CE2 no interface ethernet eth0 vrf 0
 config node CE2 interface ethernet eth0 switchport
-config node CE2 transport-service-profile tsp10
-config node CE2 transport-service-profile tsp10 vlan 10
-config node CE2 interface ethernet eth0 transport-service-profile tsp10
+config node CE2 transport-service-profile tsp20
+config node CE2 transport-service-profile tsp20 vlan 20
+config node CE2 interface ethernet eth0 transport-service-profile tsp20
 
 config node R3 no protocol isis interface eth1
 config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
@@ -1075,14 +1075,22 @@ config node R3 interface ethernet eth1 switchport
 config node R3 bridge-domain 20 member eth1 encapsulation dot1q 20
 config node R3 interface bridge-domain 20 ip-address 182.168.0.254 24
 
-debug node R0 protocol evpn install bridge-domain 20 route f4:09:9e:24:91:d8 mpls-label 273 17003
+install imet routes :
 debug node R0 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17003
 debug node R0 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpls-label 273 17003
-
-debug node R3 protocol evpn install bridge-domain 10 route a4:0a:ea:d9:52:f1 mpls-label 272 17000
+debug node R3 protocol evpn install bridge-domain 10 route 7e:f2:93:4b:2d:fc mpls-label 272 17000
 debug node R3 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17000
-debug node R3 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpls-label 273 17003
 
+install MAC-only routes
+debug node R0 protocol evpn install bridge-domain 20 route c0:cc:c4:81:7a:66 mpls-label 273 17003
+debug node R3 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpls-label 273 17000
+
+Test : 
+run node H1 ping 182.168.0.1 
+-- You must see below logs on R0 for successful TC pass 
+R0 : 23-08-2026 19:38:20.648482 BDRmacInterface_SendPacketOut(633): DARP pkt_id=2209 Recvd ARP-B Request on Overlay on Router-MAC interface of BD bd20, pkt dropped
+
+------------------------
 
 Original Topo:
 
