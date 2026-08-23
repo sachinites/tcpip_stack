@@ -563,7 +563,7 @@ build_dualswitch_topo(void){
     node_set_intf_switchport(L2SW1, "eth5");
     node_set_intf_vlan_membership(L2SW1, "eth5", 10, true);
     node_set_intf_switchport(L2SW1, "eth6");
-    node_set_intf_vlan_membership(L2SW1, "eth6", 10, false);
+    node_set_intf_vlan_membership(L2SW1, "eth6", 11, false);
 
     node_set_intf_switchport(L2SW2, "eth7");
     node_set_intf_vlan_membership(L2SW2, "eth7", 10, true);
@@ -572,7 +572,7 @@ build_dualswitch_topo(void){
     node_set_intf_switchport(L2SW2, "eth10");
     node_set_intf_vlan_membership(L2SW2, "eth10", 10, false);
     node_set_intf_switchport(L2SW2, "eth12");
-    node_set_intf_vlan_membership(L2SW2, "eth12", 10, false);
+    node_set_intf_vlan_membership(L2SW2, "eth12", 11, false);
 
     /* Run control plane schedulers in the end so as to avoid 
     Race condition between main thread and CP-Schedulers since 
@@ -787,6 +787,33 @@ run node H1 ping 100.0.0.2 -c 10
 L2VPN EVPN using Mac-only routes communication (BD--BD)
 =========================================================
 
+                                                                                +--------+-+
+                                                +---------+                    | R2       |
+                                            eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      
+                                    +-----------+122.1.1.1+--------------------+          +------------------+
+                                    |10.1.1.2/24|         |20.1.1.1/24     eth3|          |50.1.1.1/24       |
+                                    |           +---------+                    +-----+--+-+                  +
+                                    +                                         eth4/  |eth7                   |
+                                    |10.1.1.1/24                      30.1.1.1/24/   |40.1.1.2/24            |
+                                    |eth0                                       /    |                  eth9 |50.1.1.2/24
+                                +---+---+--+                                   /     |                  +----+-----+                    +-------+
+                                |          |                                  /      |                  |    R3    |eth1      v10(Trunk)|       |
++------+v10(Trunk)          eth1|   R0     |                                 /       |                  | 122.1.1.3+--------------------+       |
+|      +------------------------+122.1.1.0 |                                /        |                  |          |AC-v10          eth0|  CE2  |
+| CE1  | eth0             AC-v10|          |                               /         |                  +----+-----+                    |10.0.0.2|
+|10.0.0.1|                      +---+---+--|               ---------------/          |                       |eth10                     +---+---+
++--+---+                            |eth14                /                          |                       |60.1.1.1/24                   |eth1
+   |eth1                            |80.1.1.1/24         /                           |                       |                              |v10
+   |v10                             |                   /                            |                       |                              |
+   |                                |                  /                        eth6 |40.1.1.1/24            |                              |
+   |172.168.0.1/24                  |             eth5/30.1.1.2/24             +-----+----+                  |                              |172.168.0.2/24     
+ +-+-+                              |           +----/----+                    |   R4     |                  |                           +--+---+
+ +-H1|                              |      eth15|   R5    |eth12    70.1.1.2/24|122.1.1.4 |eth11             |                           |  H2  |
+ +---+                              +-----------+122.1.1.5|+-------------------+          +------------------+                           +------+
+                                     80.1.1.2/24|         |70.1.1.1/24    eth13|          |60.1.1.2/24                                
+                                                |+--------|                    |----------|
+
+
 run ut Layer3/isis/ut/isis_config_sample_cross_link_topology.ut 0
 
 config node R0 no protocol isis interface eth1
@@ -893,13 +920,171 @@ config node R3 bridge-domain 10
 config node R3 interface ethernet eth1 switchport
 config node R3 bridge-domain 10 member eth1 encapsulation dot1q 10
 
-debug node R0 protocol evpn install bridge-domain 10 route 92:04:d8:4e:91:6c mpls-label 272 17003
+debug node R0 protocol evpn install bridge-domain 10 route 68:d5:3b:72:3f:7b mpls-label 272 17003
 debug node R0 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17003
-debug node R3 protocol evpn install bridge-domain 10 route d0:a0:cb:69:65:e9 mpls-label 272 17001
-debug node R3 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17001
+debug node R3 protocol evpn install bridge-domain 10 route e2:97:e3:8e:36:9d mpls-label 272 17000
+debug node R3 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17000
 
 Test :
 run node H1 ping 172.168.0.2
+
+
+
+================== IRB between two BDs ==========================
+
+                                                                                +--------+-+
+                                                +---------+                    | R2       |
+                                            eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      
+                                    +-----------+122.1.1.1+--------------------+          +------------------+
+                                    |10.1.1.2/24|         |20.1.1.1/24     eth3|          |50.1.1.1/24       |
+                                    |           +---------+                    +-----+--+-+                  +
+                                    +                                         eth4/  |eth7                   |
+                                    |10.1.1.1/24                      30.1.1.1/24/   |40.1.1.2/24            |
+                                    |eth0                                       /    |                  eth9 |50.1.1.2/24
+                                +---+---+--+                                   /     |                  +----+-----+                    +-------+
+                                |          |                                  /      |                  |    R3    |eth1      v20(Trunk)|       |
++------+v10(Trunk)          eth1|   R0     |                                 /       |                  | 122.1.1.3+--------------------+       |
+|      +------------------------+122.1.1.0 |                                /        |                  |          |AC-v20          eth0|  CE2  |
+| CE1  | eth0             AC-v10|          |                               /         |                  +----+-----+                    |10.0.0.2|
+|10.0.0.1|                      +---+---+--|               ---------------/          |                       |eth10                     +---+---+
++--+---+                            |eth14                /                          |                       |60.1.1.1/24                   |eth1
+   |eth1                            |80.1.1.1/24         /                           |                       |                              |v20
+   |v10                             |                   /                            |                       |                              |
+   |                                |                  /                        eth6 |40.1.1.1/24            |                              |
+   |172.168.0.1/24                  |             eth5/30.1.1.2/24             +-----+----+                  |                              |182.168.0.1/24     
+ +-+-+                              |           +----/----+                    |   R4     |                  |                           +--+---+
+ +-H1|                              |      eth15|   R5    |eth12    70.1.1.2/24|122.1.1.4 |eth11             |                           |  H2  |
+ +---+                              +-----------+122.1.1.5|+-------------------+          +------------------+                           +------+
+                                     80.1.1.2/24|         |70.1.1.1/24    eth13|          |60.1.1.2/24                                
+                                                |+--------|                    |----------|
+
+run ut Layer3/isis/ut/isis_config_sample_cross_link_topology.ut 0
+
+config node R0 no protocol isis interface eth1
+config node R0 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R0 no interface ethernet eth1 vrf 0
+config node R0 vrf red route-distinguisher 1:1
+config node R0 interface ethernet eth1 vrf red
+config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
+config node R0 vrf red protocol isis
+config node R0 vrf red protocol isis interface eth1
+config node R0 vrf red protocol isis redistribute bgp
+
+config node R0 rtm-route prefix 10.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3 l3vpn 16
+config node R0 rtm-route prefix 100.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3 l3vpn 16
+
+config node R3 no protocol isis interface eth1
+config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R3 no interface ethernet eth1 vrf 0
+config node R3 vrf red route-distinguisher 1:1
+config node R3 interface ethernet eth1 vrf red
+config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
+config node R3 vrf red protocol isis
+config node R3 vrf red protocol isis interface eth1
+config node R3 vrf red protocol isis redistribute bgp
+
+config node R3 rtm-route prefix 10.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0 l3vpn 16
+config node R3 rtm-route prefix 100.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0 l3vpn 16
+
+config node CE1 interface loopback 0
+config node CE1 interface loopback 0 up
+config node CE1 interface loopback 0 ip-address 10.0.0.1 32
+config node CE1 protocol isis
+config node CE1 protocol isis interface lo0
+config node CE1 protocol isis interface eth1
+config node CE1 protocol isis interface eth0
+
+config node CE2 interface loopback 0
+config node CE2 interface loopback 0 up
+config node CE2 interface loopback 0 ip-address 10.0.0.2 32
+config node CE2 protocol isis
+config node CE2 protocol isis interface lo0
+config node CE2 protocol isis interface eth1
+config node CE2 protocol isis interface eth0
+
+config node H1 interface loopback 0
+config node H1 interface loopback 0 up
+config node H1 interface loopback 0 ip-address 100.0.0.1 32
+config node H1 protocol isis
+config node H1 protocol isis interface lo0
+config node H1 protocol isis interface eth1
+
+config node H2 interface loopback 0
+config node H2 interface loopback 0 up
+config node H2 interface loopback 0 ip-address 100.0.0.2 32
+config node H2 protocol isis
+config node H2 protocol isis interface lo0
+config node H2 protocol isis interface eth1
+
+=========== BD Config changes=============
+
+config node H1 no protocol isis
+config node H1 no interface ethernet eth1 ip-address 172.168.0.2 24
+config node H1 interface ethernet eth1 ip-address 172.168.0.1 24
+config node H1 rtm-route prefix 0.0.0.0/0 0 0 0 2 0 gateway 172.168.0.254 interface eth1
+
+config node CE1 no protocol isis
+config node CE1 no interface ethernet eth1 ip-address 172.168.0.1 24
+config node CE1 no interface ethernet eth1 vrf 0
+config node CE1 interface ethernet eth1 switchport
+config node CE1 interface vlan 10
+config node CE1 interface ethernet eth1 vlan 10
+config node CE1 no interface ethernet eth0 ip-address 192.168.0.1 24
+config node CE1 no interface ethernet eth0 vrf 0
+config node CE1 interface ethernet eth0 switchport
+config node CE1 transport-service-profile tsp10
+config node CE1 transport-service-profile tsp10 vlan 10
+config node CE1 interface ethernet eth0 transport-service-profile tsp10
+
+config node R0 no protocol isis interface eth1
+config node R0 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R0 no interface ethernet eth1 vrf red
+config node R0 bridge-domain 10
+config node R0 interface ethernet eth1 switchport
+config node R0 bridge-domain 10 member eth1 encapsulation dot1q 10
+config node R0 interface bridge-domain 10 ip-address 172.168.0.254 24
+config node R0 bridge-domain 20
+config node R0 interface bridge-domain 20 ip-address 182.168.0.254 24
+
+config node H2 no protocol isis
+config node H1 no interface ethernet eth1 ip-address 172.168.0.2 24
+config node H2 interface ethernet eth1 ip-address 182.168.0.1 24
+config node H2 rtm-route prefix 0.0.0.0/0 0 0 0 2 0 gateway 182.168.0.254 interface eth1
+
+config node CE2 no protocol isis
+config node CE2 no interface ethernet eth1 ip-address 172.168.0.1 24
+config node CE2 no interface ethernet eth1 vrf 0
+config node CE2 interface ethernet eth1 switchport
+config node CE2 interface vlan 10
+config node CE2 interface ethernet eth1 vlan 10
+config node CE2 no interface ethernet eth0 ip-address 192.168.0.1 24
+config node CE2 no interface ethernet eth0 vrf 0
+config node CE2 interface ethernet eth0 switchport
+config node CE2 transport-service-profile tsp10
+config node CE2 transport-service-profile tsp10 vlan 10
+config node CE2 interface ethernet eth0 transport-service-profile tsp10
+
+config node R3 no protocol isis interface eth1
+config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
+config node R3 no interface ethernet eth1 vrf red
+
+config node R3 bridge-domain 10
+config node R3 interface bridge-domain 10 ip-address 172.168.0.254 24
+config node R3 bridge-domain 20
+config node R3 interface ethernet eth1 switchport
+config node R3 bridge-domain 20 member eth1 encapsulation dot1q 20
+config node R3 interface bridge-domain 20 ip-address 182.168.0.254 24
+
+debug node R0 protocol evpn install bridge-domain 20 route f4:09:9e:24:91:d8 mpls-label 273 17003
+debug node R0 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17003
+debug node R0 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpls-label 273 17003
+
+debug node R3 protocol evpn install bridge-domain 10 route a4:0a:ea:d9:52:f1 mpls-label 272 17000
+debug node R3 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17000
+debug node R3 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpls-label 273 17003
+
+
+Original Topo:
 
 
 
@@ -931,6 +1116,9 @@ run node H1 ping 172.168.0.2
                                                 |+--------|                    |----------+
 
 */
+
+// Base Configurations
+
     graph_t *topo = create_new_graph("Cross Links Topology"); 
 
     node_t *R0 = Router_Create(topo, (const c_string)"R0");

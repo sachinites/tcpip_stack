@@ -231,13 +231,16 @@ l2_switch_forward_frame(
             return;
     }
 
-    /* Check if the pkt matches the router mac , vlan id dont matter here */
+    /* Check if the pkt matches the router mac */
     if (mac_address_compare (dp_ctx->rmac.mac, ethernet_hdr->dst_mac.mac)) {
 
-        mac_table_entry = 
-            mac_table_lookup(mac_table, 
-                                      DEFAULT_VLAN_ID,
-                                      ethernet_hdr->dst_mac.mac);    
+        uint16_t rmac_vlan_id = (!bd_processing) ?
+            (uint16_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr) : DEFAULT_VLAN_ID;
+
+        mac_table_entry =
+            mac_table_lookup(mac_table,
+                                      rmac_vlan_id,
+                                      ethernet_hdr->dst_mac.mac);
 
         if (!mac_table_entry) {
             pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Mac Table : Router MAC not programmed, Dropping the frame\n");

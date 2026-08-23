@@ -11,6 +11,26 @@
 #include "../../libs/mtrie/mtrie.h"
 #include "../../libs/mtrie/atomic_mtrie.h"
 #include "../../libs/c-hashtable/hashtable.h"
+#include "../Interface/intf_cons.h"
+#include "../Interface/dp_intf.h"
+
+static bool
+fib_nh_oif_is_xconnect_steer(dp_intf_t *oif) {
+
+    if (!oif) {
+        return false;
+    }
+
+    switch (oif->if_type) {
+        case DP_INTF_TYPE_MPLS_TO_VRF_STEER:
+        case DP_INTF_TYPE_SRV6_TO_VRF_STEER:
+        case DP_INTF_TYPE_MPLS_TO_BD_STEER:
+        case DP_INTF_TYPE_SRV6_TO_BD_STEER:
+            return true;
+        default:
+            return false;
+    }
+}
 
 int
 fib_nh_comp_fn(const avltree_node_t *node1, 
@@ -33,6 +53,12 @@ fib_nh_comp_fn(const avltree_node_t *node1,
     dp_intf_t *oif2 = nh2->fwd_info->oif;
     if (oif1 < oif2) return -1;
     if (oif1 > oif2) return 1;
+
+    /* VRF/BD steer OIFs clear nh_addr; distinguish by xconnect target */
+    if (fib_nh_oif_is_xconnect_steer(oif1)) {
+        if (nh1->fwd_info->xconnect_id < nh2->fwd_info->xconnect_id) return -1;
+        if (nh1->fwd_info->xconnect_id > nh2->fwd_info->xconnect_id) return 1;
+    }
     
     /* Based on forwarding flags, compare type-specific fields */
     

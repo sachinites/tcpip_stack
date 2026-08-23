@@ -391,9 +391,28 @@ l2_rmac_forwarding (dp_ctx_t *dp_ctx,
                     mac_fwd_object_t *fwd_obj,
                     struct rte_mbuf *mbuf) {
 
+    uint32_t vlan_bd_port;
+    dp_intf_t *vlan_intf;
+    ethernet_hdr_t *eth_hdr;
+    vlan_8021q_hdr_t *vlan_hdr;
+
     assert (fwd_obj->fwd_type == L2_FWD_RMAC);
 
-    dp_send_pkt_out(dp_ctx, fwd_obj->u.rmac.rmacif, mbuf, 0);
+    vlan_bd_port = fwd_obj->u.rmac.vlan_bd_port;
+
+    if (!vlan_bd_port) {
+        eth_hdr = pkt_mbuf_get_ethernet_hdr(mbuf);
+        vlan_hdr = is_pkt_vlan_tagged(eth_hdr);
+        if (vlan_hdr) {
+            vlan_intf = dp_look_up_interface_by_vlan_id(
+                            dp_ctx->dp_vlan_intf_ht,
+                            (uint16_t)GET_802_1Q_VLAN_ID(vlan_hdr));
+            if (vlan_intf)
+                vlan_bd_port = vlan_intf->port_id;
+        }
+    }
+
+    dp_send_pkt_out(dp_ctx, fwd_obj->u.rmac.rmacif, mbuf, vlan_bd_port);
 }
 
 /* Maintained in the order of L2_FWD_TYPE_T enums */
@@ -455,7 +474,10 @@ L2_forward_object_comp_fb (
             return l2_fwd_cmp_u32(o1->u.dp_intf, o2->u.dp_intf);
 
         case L2_FWD_RMAC:
-            return l2_fwd_cmp_ptr(o1->u.rmac.rmacif, o2->u.rmac.rmacif);
+            rc = l2_fwd_cmp_ptr(o1->u.rmac.rmacif, o2->u.rmac.rmacif);
+            if (rc) return rc;
+            return l2_fwd_cmp_u32(o1->u.rmac.vlan_bd_port,
+                                  o2->u.rmac.vlan_bd_port);
 
         case L2_FWD_FLOODING:
             rc = l2_fwd_cmp_ptr(o1->u.l2_flood.vfif, o2->u.l2_flood.vfif);
@@ -557,6 +579,7 @@ mac_fwd_object_copy_union (mac_fwd_object_t *dst, mac_fwd_object_t *src)
 
         case L2_FWD_RMAC:
             dst->u.rmac.rmacif = src->u.rmac.rmacif;
+            dst->u.rmac.vlan_bd_port = src->u.rmac.vlan_bd_port;
             break;
 
         case L2_FWD_FLOODING:
@@ -674,7 +697,7 @@ void
 mac_fwd_object_spec_from_ifindex (mac_fwd_object_spec_t *spec,
                                   uint32_t ifindex,
                                   uint32_t remote_dst_ip,
-                                  uint32_t vlan_bd_port)
+                                  uint32_t vlan_bd_ifindex)
 {
     mac_fwd_object_spec_init(spec);
 
@@ -687,13 +710,14 @@ mac_fwd_object_spec_from_ifindex (mac_fwd_object_spec_t *spec,
     if (ifindex == VLAN_FLOOD_INDEX || ifindex == BD_FLOOD_IFINDEX) {
         spec->fwd_type = L2_FWD_FLOODING;
         spec->u.flood.vfif_ifindex = ifindex;
-        spec->u.flood.vlan_bd_port = vlan_bd_port;
+        spec->u.flood.vlan_bd_port = vlan_bd_ifindex;
         return;
     }
 
     if (ifindex == RMAC_INTF_INDEX || ifindex == BD_RMAC_INTF_INDEX) {
         spec->fwd_type = L2_FWD_RMAC;
         spec->u.rmac.rmacif = ifindex;
+        spec->u.rmac.vlan_bd_port = vlan_bd_ifindex;
         return;
     }
 
@@ -735,6 +759,7 @@ dp_mac_fwd_object_init_from_spec (dp_ctx_t *dp_ctx,
 
         case L2_FWD_RMAC:
             tmpl->u.rmac.rmacif = dp_ctx->intf_table[spec->u.rmac.rmacif];
+            tmpl->u.rmac.vlan_bd_port = spec->u.rmac.vlan_bd_port;
             break;
 
         case L2_FWD_FLOODING:

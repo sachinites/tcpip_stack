@@ -27,24 +27,6 @@ typedef struct dp_intf_ dp_intf_t;
 void untag_pkt_with_vlan_id(struct rte_mbuf *mbuf);
 void tag_pkt_with_vlan_id (struct rte_mbuf *mbuf, int vlan_id );
 
-/* Return TRUE if the pkt is subjected to inter-vlan routing*/
-bool
-svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
-                        dp_vrf_t *vrf,
-                        struct rte_mbuf *mbuf);
-
-bool 
-is_arp_pkt_for_bd_svi_interface (dp_ctx_t *dp_ctx,
-                                   struct rte_mbuf *mbuf);
-
-bool
-bd_svi_interface_intercept_arp_pkt (dp_ctx_t *dp_ctx,
-                                    struct rte_mbuf *mbuf);
-
-bool 
-is_arp_pkt_for_svi_interface (dp_ctx_t *dp_ctx, 
-                              struct rte_mbuf *mbuf);
-
 void
 promote_pkt_to_layer2(dp_ctx_t *dp_ctx,
                       dp_vrf_t *vrf,

@@ -933,19 +933,6 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             {
                 case DP_GENERIC_RMAC:
                     memcpy(dp_ctx->rmac.mac, gen_msg->u.mac_addr, 6);
-                    {
-                        mac_fwd_object_t tmpl;
-                        mac_fwd_object_spec_t spec;
-
-                        mac_fwd_object_spec_from_ifindex(&spec, RMAC_INTF_INDEX, 0, 0);
-                        dp_mac_fwd_object_init_from_spec(dp_ctx, &tmpl, &spec, 0);
-                        mac_table_entry_add(dp_ctx,
-                                dp_ctx->mac_table,
-                                dp_ctx->rmac.mac,
-                                DEFAULT_VLAN_ID,
-                                MAC_STATIC,
-                                &tmpl);
-                    }
                 break;
 
 
@@ -980,19 +967,6 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             {
                 case DP_GENERIC_RMAC:
                     memcpy(dp_ctx->rmac.mac, gen_msg->u.mac_addr, 6);
-                    {
-                        mac_fwd_object_t tmpl;
-                        mac_fwd_object_spec_t spec;
-
-                        mac_fwd_object_spec_from_ifindex(&spec, RMAC_INTF_INDEX, 0, 0);
-                        dp_mac_fwd_object_init_from_spec(dp_ctx, &tmpl, &spec, 0);
-                        mac_table_entry_add(dp_ctx,
-                                dp_ctx->mac_table,
-                                dp_ctx->rmac.mac,
-                                DEFAULT_VLAN_ID,
-                                MAC_STATIC,
-                                &tmpl);
-                    }
                     break;
 
 
@@ -1007,7 +981,6 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             switch (gen_msg->opcode)
             {
                 case DP_GENERIC_RMAC:
-                    mac_table_entry_delete2 (dp_ctx, dp_ctx->mac_table, 0, dp_ctx->rmac.mac);
                     memset(dp_ctx->rmac.mac, 0, 6);
                 break;
 

@@ -138,7 +138,8 @@ cp2dp_mac_table_entry_add (node_t *node,
                       uint32_t ifindex,
                       uint16_t flags,
                       bool async,
-                      uint32_t remote_dst_ip) {
+                      uint32_t remote_dst_ip,
+                      uint32_t vlan_bd_ifindex) {
 
     dp_msg_t *dp_msg;
     mac_update_msg_t *mac_update_msg;
@@ -155,7 +156,7 @@ cp2dp_mac_table_entry_add (node_t *node,
     mac_update_msg->bd_ifindex = 0;
     mac_update_msg->flags = flags;
     mac_fwd_object_spec_from_ifindex(&mac_update_msg->fwd, ifindex,
-                                     remote_dst_ip, vlan_id);
+                                     remote_dst_ip, vlan_bd_ifindex);
     
     cp2dp_submit(node, dp_msg, async);
 }
@@ -166,7 +167,8 @@ cp2dp_mac_table_entry_del (node_t *node,
                       uint16_t vlan_id,
                       uint32_t ifindex,
                       bool async,
-                      uint32_t remote_dst_ip) {
+                      uint32_t remote_dst_ip,
+                      uint32_t vlan_bd_ifindex) {
 
     dp_msg_t *dp_msg;
     mac_update_msg_t *mac_update_msg;
@@ -183,7 +185,7 @@ cp2dp_mac_table_entry_del (node_t *node,
     mac_update_msg->bd_ifindex = 0;
     mac_update_msg->flags = 0;
     mac_fwd_object_spec_from_ifindex(&mac_update_msg->fwd, ifindex,
-                                     remote_dst_ip, vlan_id);
+                                     remote_dst_ip, vlan_bd_ifindex);
     
     cp2dp_submit(node, dp_msg, async);
 }

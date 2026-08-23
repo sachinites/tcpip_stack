@@ -36,6 +36,7 @@
 #include "../Layer2/l2fwd/ipv4-l2fwd.h"
 #include "../Layer3/layer3.h"
 #include "../Layer2/vxlan/vxlan_dp.h"
+#include "../Layer2/arp/arp.h"
 
 #include "../dp_ctx.h"
 #include "../dp_utils.h"
@@ -89,6 +90,10 @@ l2_switch_forward_frame(
                         dp_intf_t *vlan_bd_intf,
                         dp_intf_t *recv_intf,
                         struct rte_mbuf *mbuf);
+extern void
+l2_prepare_arp_reply_msg(ethernet_hdr_t *eth_reply,
+                         mac_addr_t *dst_mac, uint32_t dst_ip,
+                         mac_addr_t *src_mac, uint32_t src_ip);
 
 static int
 linux_send_xmit_out (dp_intf_t *dp_intf, struct rte_mbuf *mbuf) {
@@ -495,59 +500,145 @@ dp_xmit_ingress_bd_intf(dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf)
     return NULL;
 }
 
+
 static int
-BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *mbuf, uint32_t ctx)
+BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx,
+                              dp_intf_t *intf,  // BDRMAC intf
+                              struct rte_mbuf *mbuf,
+                              uint32_t ctx)     // bd port
 {
-    pkt_size_t pkt_size;
-    ethernet_hdr_t *eth_hdr;
-    dp_intf_t *bd_intf;
     dp_vrf_t *vrf;
+    dp_intf_t *bd_intf;
+    pkt_size_t pkt_size;
+    bool recvd_on_overlay = false;
+    dp_intf_t *recv_intf = NULL;
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
 
     assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
+    recv_intf = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
+    assert(recv_intf);
+
+    switch (recv_intf->port_id) {
+
+        case MPLS_TO_BD_INTF_STEER_IFINDEX:
+        case SRv6_TO_BD_STEER_IFINDEX:
+            recvd_on_overlay = true;
+            break;
+        default:
+            break;
+    }
+
+    if (!recvd_on_overlay && recv_intf->ac_intf) {
+        recv_intf = recv_intf->ac_intf;
+    }
+
+    bd_intf = dp_ctx->intf_table[ctx];
+    assert(bd_intf);
 
     pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
-        "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);  
+        "Pkt:%s Intf:%s, recv_intf:%s BD:%s\n", 
+        pkt_mbuf_str(mbuf), intf->if_name, recv_intf->if_name, bd_intf->if_name);
 
-    eth_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+    ethernet_hdr_t *eth_hdr =
+        (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
     if (is_pkt_vlan_tagged(eth_hdr)) {
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD|DERR,
+            "Pkt:%s Intf:%s, recv_intf:%s: Dropped vlan tagged pkt\n", 
+            pkt_mbuf_str(mbuf), intf->if_name, recv_intf->if_name);
         intf->recvd_pkt_dropped++;
         return 0;
     }
 
-    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DERR,
-        "BDRmac Interface %s : Recvd untagged pkt %s\n",
-        intf->if_name, pkt_mbuf_str(mbuf));    
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
+        "BD %s BDRmac Interface %s : Recvd untagged pkt %s\n",
+        bd_intf->if_name, intf->if_name, pkt_mbuf_str(mbuf));
 
-    if (is_arp_pkt_for_bd_svi_interface(dp_ctx, mbuf)) {
-        bd_svi_interface_intercept_arp_pkt(dp_ctx, mbuf);
-        return 0;
+    vrf = bd_intf->vrf;
+
+    if (ntohs(eth_hdr->type) == ETH_TYPE_ARP && !recvd_on_overlay) {
+
+        arp_hdr_t *arp_hdr_in = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
+
+        /* Case 1 : BDRmac Interface has recvd ARP B pkt (for anybody, including self) */
+            // Action : Over hear and populate ARP cache , goto Case 2
+        if (ntohs(arp_hdr_in->op_code) == ARP_BROAD_REQ) {
+
+            arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table,
+                                            arp_hdr_in, recv_intf);
+
+            /* Case 2 : BDRmac Interface has recvd ARP B pkt requesting IP for BD SVI */
+                // Action : Reply with ARP reply
+            if (bd_intf->ip_addr == ntohl(arp_hdr_in->dst_ip)) {
+
+                pkt_size_t arp_reply_pkt_size = sizeof(ethernet_hdr_t) +
+                                                ETH_FCS_SIZE +
+                                                (pkt_size_t)sizeof(arp_hdr_t);
+
+                struct rte_mbuf *mbuf2 = dp_pkt_mbuf_get_new(dp_ctx, arp_reply_pkt_size);
+                ethernet_hdr_t *eth_reply =
+                        (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf2, 0);
+
+                l2_prepare_arp_reply_msg(eth_reply,
+                                        &arp_hdr_in->src_mac,
+                                        ntohl(arp_hdr_in->src_ip),
+                                        (mac_addr_t *)&dp_ctx->rmac,
+                                        bd_intf->ip_addr);
+
+                pkt_mbuf_update_new_hdr_type(mbuf2, ETHERNET_HEADER);
+                arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(eth_reply));
+
+                pkt_tracer(mbuf2, dp_ctx->dptr, DARP,
+                    "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of BDRmac interface %s, BD %s\n",
+                    tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, (c_string)ip_addr_str),
+                    arp_hdr_reply->dst_mac.mac[0],
+                    arp_hdr_reply->dst_mac.mac[1],
+                    arp_hdr_reply->dst_mac.mac[2],
+                    arp_hdr_reply->dst_mac.mac[3],
+                    arp_hdr_reply->dst_mac.mac[4],
+                    arp_hdr_reply->dst_mac.mac[5],
+                    intf->if_name, bd_intf->if_name);
+
+                dp_intf_t *recv_ac_intf = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
+                dp_send_pkt_out(dp_ctx, recv_ac_intf, mbuf2, 0);
+                pkt_mbuf_dereference(mbuf2);
+            }
+        }
+
+        /* Case 3 : BDRmac Interface has recvd reply packet for itself */
+            // populate ARP cache
+        else if (ntohs(arp_hdr_in->op_code) == ARP_REPLY &&
+            mac_address_compare(arp_hdr_in->dst_mac.mac, dp_ctx->rmac.mac))
+        {
+            arp_table_update_from_arp_reply(dp_ctx,
+                                    vrf,
+                                    vrf->arp_table,
+                                    arp_hdr_in,
+                                    bd_intf);
+        }
     }
+    else {
 
-    if (!mac_address_compare((unsigned char *)dp_ctx->rmac.mac,
-                            (unsigned char *)eth_hdr->dst_mac.mac)) {
-        intf->recvd_pkt_dropped++;
-        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DERR,
-            "Error : BDRmac Interface %s : Recvd pkt %s with mis-matched dst mac %s\n",
-            intf->if_name, pkt_mbuf_str(mbuf), eth_hdr->dst_mac.mac);
-        return 0;
+        /* Case 4 : BDRmac has recvd ethernet pkt destined to RMAC mac address*/
+        // promote to L3
+        gen_proto_id_t proto = ntohs(eth_hdr->type);
+        pkt_mbuf_slide(mbuf, -1, 1, sizeof(ethernet_hdr_t));
+        pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
+        switch (proto) {
+            case ETH_TYPE_IPv4:
+                pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
+                break;
+            case ETH_TYPE_IPv6:
+                pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IPv6);
+                break;
+            case ETH_TYPE_MPLS_UC:
+                pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_MPLS_IN_IP);
+                break;
+            default:
+                assert(0);
+        }
+        dp_promote_pkt_to_layer3(dp_ctx, vrf, bd_intf, mbuf);
     }
-
-    if (ntohs(eth_hdr->type) != ETH_TYPE_IPv4) {
-        intf->recvd_pkt_dropped++;
-        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DERR,
-            "Error : BDRmac Interface %s : Recvd pkt %s with non-IPv4 type %x\n",
-            intf->if_name, pkt_mbuf_str(mbuf), ntohs(eth_hdr->type));
-        return 0;
-    }
-
-    bd_intf = dp_xmit_ingress_bd_intf(dp_ctx, mbuf);
-    vrf = (bd_intf && bd_intf->vrf) ? bd_intf->vrf : dp_ctx->default_vrf;
-
-    pkt_mbuf_slide(mbuf, -1, 1, sizeof(ethernet_hdr_t));
-    pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
-    pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
-    dp_promote_pkt_to_layer3(dp_ctx, vrf, intf, mbuf);
 
     return 0;
 }
@@ -598,6 +689,7 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
     dp_vrf_t *vrf;
     pkt_size_t pkt_size;
     dp_intf_t *vlan_intf;
+    char ip_addr_str[IPV4_ADDR_LEN_STR];
     vlan_8021q_hdr_t *vlan_8021q_hdr = NULL;
 
     assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
@@ -607,45 +699,122 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
 
     ethernet_hdr_t *eth_hdr = 
         ( ethernet_hdr_t  *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
-
+    
     /* Rmac interface never recvs untagged pkt */
     assert ((vlan_8021q_hdr = is_pkt_vlan_tagged (eth_hdr)));
-
-    vlan_intf = dp_xmit_ingress_vlan_intf(dp_ctx, mbuf, NULL);
-    vrf = (vlan_intf && vlan_intf->vrf) ? vlan_intf->vrf : dp_ctx->default_vrf;
-
-    /* Case 1 : If this is ARP Broadcast pkt requesting IP for Rmac interface*/
-    /* Case 2 : If this is ARP reply packet recvd by Rmac Interface */
-
-    pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD , 
-        "Rmac Interface %s : Recvd pkt %s with vlan tag : %d\n", 
-        intf->if_name, pkt_mbuf_str(mbuf), TCI_VID(vlan_8021q_hdr->tci));
+    /* Get the vlan interface from Context */
+    vlan_intf = (ctx < DP_MAX_INTF) ? dp_ctx->intf_table[ctx] : NULL;
+    if (!vlan_intf || vlan_intf->if_type != DP_INTF_TYPE_VLAN) {
+        vlan_intf = dp_look_up_interface_by_vlan_id(
+                        dp_ctx->dp_vlan_intf_ht,
+                        (uint16_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr));
+    }
+    assert(vlan_intf);
+    /* Validate that we are processing right pkt */
+    assert (GET_802_1Q_VLAN_ID(vlan_8021q_hdr) == vlan_intf->vlan_id);
     
-    if ( is_arp_pkt_for_svi_interface (dp_ctx, mbuf) ) {
+    vrf = vlan_intf->vrf;
 
-        pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD , 
-                "Rmac Interface %s : ARP pkt %s Intercepted by SVI interface\n", 
-                intf->if_name, pkt_mbuf_str(mbuf));
+    vlan_ethernet_hdr_t *vlan_eth_hdr = (vlan_ethernet_hdr_t *)eth_hdr;
 
-        svi_interface_intercept_arp_pkt (dp_ctx, vrf, mbuf);
-        return 0;
+    if (ntohs(vlan_eth_hdr->type) == ETH_TYPE_ARP) {
+
+        arp_hdr_t *arp_hdr_in = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
+
+        /* Case 1 : Rmac Interface has recvd ARP B pkt (for anybody, including self) */
+            // Action : Over hear and populate ARP cache , goto Case 2
+        if (ntohs(arp_hdr_in->op_code) == ARP_BROAD_REQ) {
+
+            arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table,
+                                            arp_hdr_in, vlan_intf);
+
+            /* Case 2 : Rmac Interface has recvd ARP B pkt requesting IP for Rmac interface*/
+                // Action : Rmac reply with ARP reply        
+            if (vlan_intf->ip_addr == ntohl(arp_hdr_in->dst_ip)) {
+
+                pkt_size_t arp_reply_pkt_size = sizeof(vlan_ethernet_hdr_t) + 
+                                                ETH_FCS_SIZE +
+                                                (pkt_size_t)sizeof(arp_hdr_t);
+
+                struct rte_mbuf *mbuf2 = dp_pkt_mbuf_get_new(dp_ctx, arp_reply_pkt_size);
+                vlan_ethernet_hdr_t *vlan_ethernet_hdr_reply =
+                        (vlan_ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf2, 0);
+                
+                vlan_ethernet_hdr_reply->vlan_8021q_hdr.tpid = htons(ETH_TYPE_VLAN_8021Q);
+                vlan_ethernet_hdr_reply->vlan_8021q_hdr.tci  = MAKE_TCI(0, 0, vlan_intf->vlan_id);
+                l2_prepare_arp_reply_msg((ethernet_hdr_t *)vlan_ethernet_hdr_reply,
+                                        &arp_hdr_in->src_mac, 
+                                        ntohl(arp_hdr_in->src_ip),
+                                        &vlan_intf->mac_add, 
+                                        vlan_intf->ip_addr);
+
+                pkt_mbuf_update_new_hdr_type(mbuf2, ETHERNET_HEADER);
+                arp_hdr_t *arp_hdr_reply = (arp_hdr_t *)(GET_ETHERNET_HDR_PAYLOAD(
+                                                (ethernet_hdr_t *)vlan_ethernet_hdr_reply));
+
+                pkt_tracer(mbuf2, dp_ctx->dptr, DARP,
+                    "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of Rmac interface %s, vlan %s\n",
+                    tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, (c_string)ip_addr_str),
+                    arp_hdr_reply->dst_mac.mac[0],
+                    arp_hdr_reply->dst_mac.mac[1],
+                    arp_hdr_reply->dst_mac.mac[2],
+                    arp_hdr_reply->dst_mac.mac[3],
+                    arp_hdr_reply->dst_mac.mac[4],
+                    arp_hdr_reply->dst_mac.mac[5],
+                    intf->if_name, vlan_intf->if_name);
+
+                dp_intf_t *recv_sw_intf = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
+                dp_send_pkt_out(dp_ctx, recv_sw_intf, mbuf2, 0);
+                pkt_mbuf_dereference(mbuf2);
+            }
+        }
+
+        /* Case 3 : Rmac Interface has recvd reply packet for itself */
+            // populate ARP cache
+        else if (ntohs(arp_hdr_in->op_code) == ARP_REPLY &&
+                 ntohl(arp_hdr_in->dst_ip) == vlan_intf->ip_addr)
+        {
+            if (mac_address_compare(arp_hdr_in->dst_mac.mac, vlan_intf->mac_add.mac))
+            {
+                /* ARP tabele/mac table should be populated synchrnously if populated from
+                    data*/
+                arp_table_update_from_arp_reply(dp_ctx,
+                                                vrf,
+                                                vrf->arp_table,
+                                                (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD((ethernet_hdr_t *)vlan_eth_hdr),
+                                                vlan_intf);
+            }
+            else
+            {
+                cprintf ("CTX : %s : Warning : Duplicate IP Address %s Detected for intf %s\n", 
+                        dp_ctx->ctx_name,
+                        tcp_ip_covert_ip_n_to_p(ntohl(arp_hdr_in->dst_ip), (c_string)ip_addr_str),
+                        vlan_intf->if_name);
+            }
+        }
     }
+    else {
 
-    /* Case 3 : if this is any other ethernet pkt with dst mac = RMAC address */
-
-    if (!mac_address_compare ((unsigned char *)dp_ctx->rmac.mac, 
-                              (unsigned char *)eth_hdr->dst_mac.mac)) {
-        intf->recvd_pkt_dropped++;
-        return 0;
+        /* Case 4 : Rmac has recvd ethernet pkt destined to RMAC mac address*/
+        // promote to L3
+        gen_proto_id_t proto = ntohs(vlan_eth_hdr->type);
+        pkt_mbuf_slide(mbuf, -1, 1, sizeof (vlan_ethernet_hdr_t));
+        pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
+        switch (proto) {
+            case ETH_TYPE_IPv4:
+                pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
+                break;
+            case ETH_TYPE_IPv6:
+                pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IPv6);
+                break;
+            case ETH_TYPE_MPLS_UC:
+                pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_MPLS_IN_IP);
+                break;
+            default: 
+                assert(0);
+        }
+        dp_promote_pkt_to_layer3 (dp_ctx, vrf, vlan_intf, mbuf);       
     }
-
-    untag_pkt_with_vlan_id(mbuf);
-    eth_hdr = ( ethernet_hdr_t  *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
-    assert (eth_hdr->type == htons (ETH_TYPE_IPv4));
-    pkt_mbuf_slide(mbuf, -1, 1, sizeof (ethernet_hdr_t));
-    pkt_mbuf_slide(mbuf, 1, -1, ETH_FCS_SIZE);
-    pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_IP_IN_IP);
-    dp_promote_pkt_to_layer3 (dp_ctx, vrf, intf, mbuf);
 
     return 0;
 }
@@ -1098,7 +1267,7 @@ dp_pkt_entry_point(dp_ctx_t *dp_ctx,
     else if (interface->ip_addr){
 
         pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW, 
-            "Pkt : %s : Recvd on L3 Interface %s, being protmoted to L3Fwding\n", 
+            "Pkt : %s : Recvd on L3 Interface %s, being protmoted to L2 Switching\n", 
             pkt_mbuf_str(mbuf), interface->if_name);
             
         promote_pkt_to_layer2(dp_ctx, interface->vrf, interface, mbuf);

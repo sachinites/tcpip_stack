@@ -48,9 +48,11 @@ interface_loopback_canonical_name (const char *ifname, char *out, size_t out_len
 }
 
 void
-interface_bd_install_router_mac(node_t *node, BDInterface *bd) {
+interface_bd_install_router_mac(node_t *node, Interface *bd) {
 
-    if (!node || !bd || !bd->IsIpConfigured())
+    if (bd->iftype != INTF_TYPE_BD) return;
+
+    if (!bd->IsIpConfigured() || !bd->is_up)
         return;
 
     cp2dp_bd_mac_table_entry_add(node,
@@ -69,10 +71,9 @@ interface_bd_install_router_mac(node_t *node, BDInterface *bd) {
 }
 
 void
-interface_bd_uninstall_router_mac(node_t *node, BDInterface *bd) {
+interface_bd_uninstall_router_mac(node_t *node, Interface *bd) {
 
-    if (!node || !bd)
-        return;
+    if (bd->iftype != INTF_TYPE_BD) return;
 
     cp2dp_bd_mac_table_entry_del(node,
                                  (uint8_t *)NODE_RMAC(node)->mac,
@@ -85,6 +86,51 @@ interface_bd_uninstall_router_mac(node_t *node, BDInterface *bd) {
                                  bd->ifindex,
                                  BD_RMAC_INTF_INDEX,
                                  true);
+}
+
+static void
+interface_vlan_install_router_mac(node_t *node, Interface *intf) {
+
+    VlanInterface *vlan_intf;
+
+    if (intf->iftype != INTF_TYPE_VLAN) return;
+
+    vlan_intf = dynamic_cast<VlanInterface *>(intf);
+
+    if (!vlan_intf->IsIpConfigured() || !vlan_intf->is_up)
+        return;
+
+    cp2dp_mac_table_entry_add(node,
+                              (uint8_t *)NODE_RMAC(node)->mac,
+                              vlan_intf->GetVlanId(),
+                              RMAC_INTF_INDEX, MAC_STATIC, true, 0,
+                              vlan_intf->ifindex);
+
+    cp2dp_mac_table_entry_add(node, (uint8_t *)BROADCAST_MAC,
+                              vlan_intf->GetVlanId(),
+                              RMAC_INTF_INDEX, MAC_STATIC, true, 0,
+                              vlan_intf->ifindex);
+}
+
+static void
+interface_vlan_uninstall_router_mac(node_t *node, Interface *intf) {
+
+    VlanInterface *vlan_intf;
+
+    if (intf->iftype != INTF_TYPE_VLAN) return;
+
+    vlan_intf = dynamic_cast<VlanInterface *>(intf);
+
+    cp2dp_mac_table_entry_del(node,
+                              (uint8_t *)NODE_RMAC(node)->mac,
+                              vlan_intf->GetVlanId(),
+                              RMAC_INTF_INDEX, true, 0,
+                              vlan_intf->ifindex);
+
+    cp2dp_mac_table_entry_del(node, (uint8_t *)BROADCAST_MAC,
+                              vlan_intf->GetVlanId(),
+                              RMAC_INTF_INDEX, true, 0,
+                              vlan_intf->ifindex);
 }
 
 void
@@ -109,24 +155,8 @@ interface_set_ip_addr(node_t *node,
         intf->InterfaceSetIpAddressMask(ip_addr_int, mask);
         cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, ip_addr_int, mask);
         interface_install_local_v4_routes(node, intf);
-
-        switch (intf->iftype) {
-
-            case INTF_TYPE_VLAN:
-            {
-                VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
-                cp2dp_mac_table_entry_add(node, (uint8_t *)BROADCAST_MAC,
-                       vlan_intf->GetVlanId(),
-                       RMAC_INTF_INDEX, MAC_STATIC, true, 0);
-            }
-            break;
-            case INTF_TYPE_BD:
-            {
-                BDInterface *bd_intf = dynamic_cast<BDInterface *>(intf);
-                interface_bd_install_router_mac(node, bd_intf);   
-            }
-            break;
-        }
+        interface_bd_install_router_mac(node, intf);
+        interface_vlan_install_router_mac(node, intf);
         return;
     }
 
@@ -175,20 +205,11 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
     }
 
     interface_uninstall_local_v4_routes  (node, intf);
-    
-    /* Remove MAC table entry for VLAN interface before clearing IP */
-    if (intf->iftype == INTF_TYPE_VLAN) {
-        VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
-         cp2dp_mac_table_entry_del (node, (uint8_t *)BROADCAST_MAC, vlan_intf->GetVlanId(), 
-                        RMAC_INTF_INDEX, true, 0);
-    }
-    else if (intf->iftype == INTF_TYPE_BD) {
-        BDInterface *bd_intf = dynamic_cast<BDInterface *>(intf);
-        interface_bd_uninstall_router_mac(node, bd_intf);
-    }
+    interface_vlan_uninstall_router_mac(node, intf);
     
     intf->InterfaceSetIpAddressMask(0, 0);
     cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, 0, 0);
+    interface_bd_uninstall_router_mac(node, intf);
 }
 
 void
@@ -849,12 +870,12 @@ cp_get_intf_name_from_ifindex(void *ctx,
     }
 
     if (ifindex == MPLS_TO_VRF_INTF_STEER_IFINDEX) {
-        snprintf(buffer, IF_NAME_SIZE, MPLS_TO_VRF_STEER_INTF_NAME);
+        snprintf(buffer, IF_NAME_SIZE, "%s", MPLS_TO_VRF_STEER_INTF_NAME);
         return buffer;
     }
 
     if (ifindex == MPLS_TO_BD_INTF_STEER_IFINDEX) {
-        snprintf(buffer, IF_NAME_SIZE, MPLS_TO_BD_STEER_INTF_NAME);
+        snprintf(buffer, IF_NAME_SIZE, "%s", MPLS_TO_BD_STEER_INTF_NAME);
         return buffer;
     }
 

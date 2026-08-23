@@ -18,6 +18,7 @@
 #include "../../tcpconst.h"
 #include "../../datapath/Interface/dp_intf.h"
 #include "../../datapath/Vrfs/dp_vrf.h"
+#include "../../datapath/dp_ctx.h"
 #include "../../Layer3/SegmentRouting/SRv6/common/srv6_const.h"
 
 extern int cprintf (const char* format, ...) ;
@@ -82,23 +83,27 @@ fib_format_nh_addr(cmn_prefix_t *nh_addr, char *buffer, size_t buf_size) {
     }
 }
 
-/* VPNv4 steer OIF: print "To vrf:<name>", else normal gateway */
+/* VPNv4/BD steer OIF: print "vrf:<id>" / "bd:<name>", else normal gateway */
 static void
-fib_format_nh_gateway(fib_nh_fwd_info_t *fi, char *buffer, size_t buf_size) {
+fib_format_nh_gateway(dp_ctx_t *dp_ctx,
+                      fib_nh_fwd_info_t *fi,
+                      char *buffer,
+                      size_t buf_size) {
 
     if (fi->oif &&
         (fi->oif->if_type == DP_INTF_TYPE_MPLS_TO_VRF_STEER ||
          fi->oif->if_type == DP_INTF_TYPE_SRV6_TO_VRF_STEER)) {
     
-        snprintf(buffer, buf_size, "vrf:%d", fi->xconnect_id);
+        snprintf(buffer, buf_size, "vrf:%u", fi->xconnect_id);
         return;
     }
 
     if (fi->oif &&
         (fi->oif->if_type == DP_INTF_TYPE_MPLS_TO_BD_STEER ||
          fi->oif->if_type == DP_INTF_TYPE_SRV6_TO_BD_STEER)) {
-    
-        snprintf(buffer, buf_size, "BD:%d", fi->xconnect_id);
+
+        dp_intf_t *bd_intf = dp_ctx->intf_table[fi->xconnect_id];
+        snprintf(buffer, buf_size, "%s", bd_intf->if_name);
         return;
     }
 
@@ -257,7 +262,7 @@ fib_show_nh_extra_encap(fib_nh_fwd_info_t *fi, const char *indent) {
 
 /* Display FIB contents with all routes and nexthops */
 void
-fib_show_routes(fib_t *fib) {
+fib_show_routes(dp_ctx_t *dp_ctx, fib_t *fib) {
         
     uint32_t route_count = 0;
     char ip_addr_str1[48];
@@ -310,7 +315,7 @@ fib_show_routes(fib_t *fib) {
                 
                 /* Nexthop address */
                 char nh_addr_str[128];
-                fib_format_nh_gateway(nh->fwd_info, nh_addr_str, sizeof(nh_addr_str));
+                fib_format_nh_gateway(dp_ctx, nh->fwd_info, nh_addr_str, sizeof(nh_addr_str));
                 cprintf("      Gateway: %s\n", nh_addr_str);
                 
                 /* Outgoing interface */
@@ -405,7 +410,7 @@ fib_show_routes(fib_t *fib) {
                 
                 /* Nexthop address */
                 char nh_addr_str[128];
-                fib_format_nh_gateway(nh->fwd_info, nh_addr_str, sizeof(nh_addr_str));
+                fib_format_nh_gateway(dp_ctx, nh->fwd_info, nh_addr_str, sizeof(nh_addr_str));
                 cprintf("      Gateway: %s\n", nh_addr_str);
                 
                 /* Outgoing interface */
@@ -456,7 +461,7 @@ fib_show_routes(fib_t *fib) {
 
 /* Brief/Compact route display - Cisco-like forwarding table format */
 void
-fib_show_routes_brief(fib_t *fib) {
+fib_show_routes_brief(dp_ctx_t *dp_ctx, fib_t *fib) {
     
     uint32_t route_count = 0;
 
@@ -507,7 +512,7 @@ fib_show_routes_brief(fib_t *fib) {
                 fib_nh_fwd_info_t *fi = nh->fwd_info;
 
                 char nh_addr_str[48];
-                fib_format_nh_gateway(fi, nh_addr_str, sizeof(nh_addr_str));
+                fib_format_nh_gateway(dp_ctx, fi, nh_addr_str, sizeof(nh_addr_str));
 
                 char stack_str[128];
                 fib_format_label_stack_ops(fi, stack_str, sizeof(stack_str));
@@ -584,7 +589,7 @@ fib_show_routes_brief(fib_t *fib) {
             fib_nh_fwd_info_t *fi = nh->fwd_info;
 
             char nh_addr_str[48];
-            fib_format_nh_gateway(fi, nh_addr_str, sizeof(nh_addr_str));
+            fib_format_nh_gateway(dp_ctx, fi, nh_addr_str, sizeof(nh_addr_str));
 
             char stack_str[128];
             fib_format_label_stack_ops(fi, stack_str, sizeof(stack_str));

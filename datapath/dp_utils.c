@@ -89,9 +89,6 @@ dp_intf_t *
 pkt_mbuf_get_ingress_intf(dp_ctx_t *dp_ctx, struct rte_mbuf *mbuf)
 {
     uint32_t ifindex = pkt_mbuf_get_ingress_ifindex(mbuf);
-
-    if (!dp_ctx || !ifindex || ifindex >= DP_MAX_INTF)
-        return NULL;
     return dp_ctx->intf_table[ifindex];
 }
 

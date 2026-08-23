@@ -16,7 +16,26 @@ ifeq ($(ARCH),aarch64)
 endif
 
 export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_CFLAGS} -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS} -MMD -MP
-TARGET:tcpstack.exe pkt_gen.exe
+BUILD_TIMER := .build_timer
+
+.DEFAULT_GOAL := TARGET
+
+TARGET: build-timer-init tcpstack.exe pkt_gen.exe build-timer-report
+
+.PHONY: build-timer-init build-timer-report
+
+build-timer-init:
+	@date +%s > $(BUILD_TIMER)
+
+build-timer-report:
+	@start=$$(cat $(BUILD_TIMER) 2>/dev/null || echo 0); \
+	elapsed=$$(($$(date +%s) - start)); \
+	min=$$((elapsed / 60)); sec=$$((elapsed % 60)); \
+	if [ $$min -gt 0 ]; then \
+		echo "Build finished in $${min}m $${sec}s"; \
+	else \
+		echo "Build finished in $${sec}s"; \
+	fi
 
 # Install external dependent libs :   sudo apt-get install libpq-dev
 
@@ -279,6 +298,7 @@ LabelMgr/liblabelmgr.a:
 clean:
 	rm -f *.o *.d
 	rm -f *exe
+	rm -f $(BUILD_TIMER)
 	rm -f ted/*.o
 	rm -f Layer2/*.o
 	rm -f Layer2/BD/*.o
@@ -302,8 +322,7 @@ clean:
 	rm -f Layer3/SegmentRouting/SR-MPLS/*.o
 	rm -f dpal/*.o
 	
-all:
-	make
+all: TARGET
 	
 cleanall:
 	make clean

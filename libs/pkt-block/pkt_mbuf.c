@@ -558,6 +558,11 @@ pkt_mbuf_str(struct rte_mbuf *mbuf)
             return (char *)ip_addr_str;
         }
 
+        case IP_PROTO_MPLS_IN_IP:
+        {
+            return "MPLS Pkt";
+        }
+
         case IP_PROTO_GRE:
         {
             pkt_size_t old_pkt_size;

@@ -123,7 +123,8 @@ node_set_intf_vlan_membership(node_t *node,
         cp2dp_send_intf_admin_status_update(node, vlan_intf->ifindex, false);
         cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, 
                         vlan_id, 
-                        VLAN_FLOOD_INDEX, MAC_STATIC, true, 0);
+                        VLAN_FLOOD_INDEX, MAC_STATIC, true, 0,
+                        vlan_intf->ifindex);
     }
 
     if (Trunk) {

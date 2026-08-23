@@ -56,10 +56,10 @@ interface_unset_ipv6_addr (node_t *node, Interface *intf,
                                         c_string intf_ipv6_addr_with_mask);
 
 void
-interface_bd_install_router_mac(node_t *node, BDInterface *bd);
+interface_bd_install_router_mac(node_t *node, Interface *bd);
 
 void
-interface_bd_uninstall_router_mac(node_t *node, BDInterface *bd);
+interface_bd_uninstall_router_mac(node_t *node, Interface *bd);
 
 Interface * 
 interface_loopback_create (node_t *node, char *ifname);

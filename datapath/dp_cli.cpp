@@ -634,7 +634,7 @@ dp_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
             #endif
         }
 
-        fib_show_routes_brief(fib);
+        fib_show_routes_brief(dp_ctx, fib);
         break;
     }
 

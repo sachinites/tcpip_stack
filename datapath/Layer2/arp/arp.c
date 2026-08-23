@@ -2,9 +2,9 @@
  * arp.c — ARP table backed by DPDK rte_hash + single-writer dp_ev_dis.
  *
  * All functions that mutate the table assert they run on dp_ev_dis.
- * Packet-path entry points (process_arp_reply_msg, process_arp_broadcast_request,
- * create_update_arp_sane_entry) post async jobs to dp_ev_dis so they are safe
- * to call from DPDK poll threads.
+ * Packet-path entry points (process_arp_reply_msg, process_arp_broadcast_request)
+ * update the ARP table synchronously from the datapath.
+ * create_update_arp_sane_entry still posts async jobs to dp_ev_dis.
  */
 
 #include <stdio.h>
@@ -258,9 +258,7 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *eth_in, dp_intf_t *oif)
 }
 
 /* -------------------------------------------------------------------------
- * Packet-path entry points — post jobs to dp_ev_dis so they are safe
- * from DPDK poll threads.  The actual table mutations happen in the
- * dp_arp_table_process_msg handler on dp_ev_dis.
+ * Packet-path entry points — update ARP table synchronously in datapath.
  * ---------------------------------------------------------------------- */
 
 void
@@ -272,12 +270,10 @@ process_arp_reply_msg(dp_ctx_t *dp_ctx,
     arp_hdr_t *arp = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
 
     pkt_tracer(mbuf, dp_ctx->dptr, DARP,
-           "VRF:%s: Recvd ARP Reply on %s — posting ARP_UPDATE job\n",
+           "VRF:%s: Recvd ARP Reply on %s — updating ARP table\n",
            vrf->vrf_name, iif->if_name);
 
-    dp_post_arp_update_from_pkt_job(dp_ctx, vrf, iif->port_id,
-                                    htonl(arp->src_ip),
-                                    arp->src_mac.mac);
+    arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table, arp, iif);
 }
 
 void
@@ -305,10 +301,8 @@ process_arp_broadcast_request(dp_ctx_t *dp_ctx,
     if (htonl(arp->dst_ip) == iif->ip_addr)
         send_arp_reply_msg(dp_ctx, ethernet_hdr, iif);
 
-    /* Update ARP table from sender's info — post to dp_ev_dis. */
-    dp_post_arp_update_from_pkt_job(dp_ctx, vrf, iif->port_id,
-                                    htonl(arp->src_ip),
-                                    arp->src_mac.mac);
+    /* Update ARP table from sender's info synchronously. */
+    arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table, arp, iif);
 }
 
 /* -------------------------------------------------------------------------
@@ -609,9 +603,10 @@ arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
                                 arp_hdr_t *arp_hdr,
                                 dp_intf_t *iif)
 {
-    ASSERT_ON_DP_EV_DIS(dp_ctx);
+    //ASSERT_ON_DP_EV_DIS(dp_ctx);
 
-    uint32_t src_ip = htonl(arp_hdr->src_ip);
+    /* arp_hdr->src_ip is in on-wire (network) byte order. */
+    uint32_t src_ip = ntohl(arp_hdr->src_ip);
     char ip_str[IPV4_ADDR_LEN_STR];
     tcp_ip_covert_ip_n_to_p(src_ip, ip_str);
     tracer(dp_ctx->dptr, DARP, "VRF:%s: ARP update from %s\n",

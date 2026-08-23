@@ -16,42 +16,34 @@ rtm_fib_copy_fwd_info (dp_ctx_t *dp_ctx,
     dst->nh_addr = src->nh_addr;
     dst->fwd_flags = src->fwd_flags;
 
-    if (src->oif == MPLS_TO_VRF_INTF_STEER_IFINDEX ) {
+    if (src->oif == MPLS_TO_VRF_INTF_STEER_IFINDEX) {
 
         /* Steer to VPN VRF */
-        uint8_t vrf_id = (uint8_t)src->nh_addr.u.v4_addr;
         dst->oif = dp_ctx->intf_table[src->oif];
-        dst->xconnect_id = vrf_id;
+        dst->xconnect_id = (uint32_t)src->nh_addr.u.v4_addr;
         cmn_prefix_initialize_v4(&dst->nh_addr, 0, 0);
     }
-
-    if (src->oif == SRv6_TO_VRF_INTF_STEER_IFINDEX) {
+    else if (src->oif == SRv6_TO_VRF_INTF_STEER_IFINDEX) {
 
         /* Steer to VPN VRF */
-        uint8_t vrf_id = (uint8_t)src->nh_addr.u.v6_addr[0];
         dst->oif = dp_ctx->intf_table[src->oif];
-        dst->xconnect_id = vrf_id;
+        dst->xconnect_id = (uint32_t)src->nh_addr.u.v6_addr[0];
         cmn_prefix_initialize_v6(&dst->nh_addr, 0, 0);
-    }    
-
+    }
     else if (src->oif == MPLS_TO_BD_INTF_STEER_IFINDEX) {
 
-        /* Steer to Bridge-Domain */
-        uint8_t bd_id = (uint8_t)src->nh_addr.u.v4_addr;
+        /* Steer to Bridge-Domain; nh_addr encodes BD ifindex */
         dst->oif = dp_ctx->intf_table[src->oif];
-        dst->xconnect_id = bd_id;
+        dst->xconnect_id = (uint32_t)src->nh_addr.u.v4_addr;
         cmn_prefix_initialize_v4(&dst->nh_addr, 0, 0);
-    }    
-    
-    if (src->oif == SRv6_TO_BD_STEER_IFINDEX) {
+    }
+    else if (src->oif == SRv6_TO_BD_STEER_IFINDEX) {
 
         /* Steer to Bridge-Domain */
-        uint8_t bd_id = (uint8_t)src->nh_addr.u.v6_addr[0];
         dst->oif = dp_ctx->intf_table[src->oif];
-        dst->xconnect_id = bd_id;
+        dst->xconnect_id = (uint32_t)src->nh_addr.u.v6_addr[0];
         cmn_prefix_initialize_v6(&dst->nh_addr, 0, 0);
-    }   
-
+    }
     else if (src->oif) {
         dst->oif = dp_ctx->intf_table[src->oif];
     }

@@ -339,9 +339,11 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_UP); 
                      update_data->up_status = false;
                      cp2dp_send_intf_admin_status_update(node, interface->ifindex, false);
-                     rtm_install_mpls_xconnect_bd_evpn_local_route(interface, true);
+                     
+
                 }
                 interface->is_up = true;
+                
             }
             else{
                 
@@ -353,7 +355,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                      update_data->up_status = true;
                      update_data->intf = interface->GetSharedPtr();
                      cp2dp_send_intf_admin_status_update(node, interface->ifindex, true);
-                     rtm_install_mpls_xconnect_bd_evpn_local_route(interface, false);
+                     
                 }
                 interface->is_up = false;
             }
@@ -369,10 +371,14 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 if (interface->is_up && interface->IsIpConfigured()) {
                     interface_install_local_v4_routes  (node, interface);
                     interface_install_local_v6_routes  (node, interface);
+                    rtm_install_mpls_xconnect_bd_evpn_local_route(interface, true);
+                    interface_bd_install_router_mac(node, interface);
                 }
                 else if (!interface->is_up && interface->IsIpConfigured()) {
                     interface_uninstall_local_v4_routes  (node, interface);
                     interface_uninstall_local_v6_routes  (node, interface);
+                    rtm_install_mpls_xconnect_bd_evpn_local_route(interface, false);
+                    interface_bd_uninstall_router_mac(node, interface);
                 }
             }
 
@@ -638,7 +644,8 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 cp2dp_send_intf_admin_status_update(node, vlan_intfP->ifindex, false);
                 cp2dp_mac_table_entry_add (node, (uint8_t *)BROADCAST_MAC, 
                         vlan_id, 
-                        VLAN_FLOOD_INDEX, MAC_STATIC, true, 0);
+                        VLAN_FLOOD_INDEX, MAC_STATIC, true, 0,
+                        vlan_intfP->ifindex);
             }
             break;
             case CONFIG_DISABLE:
@@ -667,7 +674,8 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
 					vlan_intf, &intf_prop_changed, if_change_flags);
 
                 cp2dp_mac_table_entry_del (node, (uint8_t *)BROADCAST_MAC, 
-                    vlan_id, VLAN_FLOOD_INDEX, true, 0);
+                    vlan_id, VLAN_FLOOD_INDEX, true, 0,
+                    vlan_intf->ifindex);
     
                 node->vlan_intf_db->erase(vlan_id);
                 node_global_intf_map_delete_by_ifindex(node, vlan_intf->ifindex);

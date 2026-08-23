@@ -51,7 +51,7 @@ struct MacFwdObject_ {
         struct {
 
             dp_intf_t *vfif;
-            uint32_t  vlan_bd_port;
+            uint32_t  vlan_bd_port; /* vlan or BD interface ifindex (port_id) */
 
         }l2_flood;
 
@@ -93,6 +93,7 @@ struct MacFwdObject_ {
 
             /* BD or VLAN RMAC If*/
             dp_intf_t *rmacif;
+            uint32_t  vlan_bd_port; /* vlan or BD interface ifindex (port_id) */
 
         }rmac;
 
@@ -139,7 +140,7 @@ struct mac_fwd_object_spec_ {
 
         struct {
             uint32_t vfif_ifindex;
-            uint32_t vlan_bd_port;
+            uint32_t vlan_bd_port; /* vlan or BD interface ifindex */
         } flood;
 
         struct {
@@ -158,7 +159,7 @@ struct mac_fwd_object_spec_ {
 
             /* BD or VLAN RMAC If*/
             uint32_t rmacif;
-
+            uint32_t vlan_bd_port; /* vlan or BD interface ifindex */
         }rmac;
 
         struct {
@@ -176,7 +177,7 @@ void
 mac_fwd_object_spec_from_ifindex (mac_fwd_object_spec_t *spec,
                                   uint32_t ifindex,
                                   uint32_t remote_dst_ip,
-                                  uint32_t vlan_bd_port);
+                                  uint32_t vlan_bd_ifindex);
 
 void
 mac_fwd_object_spec_from_mpls_stack (mac_fwd_object_spec_t *spec,

@@ -55,14 +55,23 @@ cp2dp_mac_table_entry_add (node_t *node,
                       uint32_t ifindex,
                       uint16_t flags,
                       bool async,
-                      uint32_t remote_dst_ip = 0);
+                      uint32_t remote_dst_ip
+#ifdef __cplusplus
+                      , uint32_t vlan_bd_ifindex = 0
+#endif
+                      );
 
 void
 cp2dp_mac_table_entry_del (node_t *node,
                       uint8_t *mac_addr,
                       uint16_t vlan_id,
                       uint32_t ifindex,
-                      bool async, uint32_t remote_dst_ip);
+                      bool async,
+                      uint32_t remote_dst_ip
+#ifdef __cplusplus
+                      , uint32_t vlan_bd_ifindex = 0
+#endif
+                      );
 
 void
 cp2dp_bd_mac_table_entry_add(node_t *node,

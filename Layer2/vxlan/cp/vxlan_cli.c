@@ -63,12 +63,12 @@ mac_table_config_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or
 
                 if (vtep_ip)  
                     cp2dp_mac_table_entry_add (node, (uint8_t *)mac_addr.mac, vlan_id,
-                            intf->ifindex,  MAC_STATIC, true, vtep_ip);
+                            intf->ifindex,  MAC_STATIC, true, vtep_ip, 0);
             }
             else {
 
                 cp2dp_mac_table_entry_add (node, (uint8_t *)mac_addr.mac, vlan_id,
-                        intf->ifindex,  MAC_STATIC, true,  0);
+                        intf->ifindex,  MAC_STATIC, true,  0, 0);
             }
             break;
         }
@@ -94,12 +94,12 @@ mac_table_config_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or
 
                 if (vtep_ip)  
                     cp2dp_mac_table_entry_del (node, (uint8_t *)mac_addr.mac, vlan_id, 
-                        intf->ifindex, true, vtep_ip);           
+                        intf->ifindex, true, vtep_ip, 0);           
             }
             else {
 
                 cp2dp_mac_table_entry_del (node, (uint8_t *)mac_addr.mac, vlan_id,
-                        intf->ifindex,  true,  0);
+                        intf->ifindex,  true,  0, 0);
             }
             break;
         }
