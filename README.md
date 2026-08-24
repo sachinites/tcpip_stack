@@ -47,6 +47,8 @@ Visit : www.csepracticals.com for more projects and courses.
 
 ## Project 20 : IPV4 L3VPN using MPLS Transport in the core
 
+## Project 21 : L2VPN EVPN Dataplane Implementation using Mac-only Routes ( Type 2 ) Over MPLS Transport in ISP core. 
+
 #### After Doing These Projects, you shall be able to :
 
 Tell why you need Data link layer and Network Layer
