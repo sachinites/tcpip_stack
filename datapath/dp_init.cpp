@@ -189,7 +189,7 @@ dp_uapi_ctx_init(dp_ctx_t **_dp_ctx, void *arg, char *ctx_name)
     dp_ctx->ctx_pvt_data = arg;
 
     /* Members below are filled by control plane */
-    memset(&dp_ctx->rmac, 0, sizeof(dp_ctx->rmac));
+    memset(&dp_ctx->anycast_gw_mac, 0, sizeof(dp_ctx->anycast_gw_mac));
     dp_ctx->default_vrf = NULL;
     dp_ctx->send_log_buffer = (unsigned char *)calloc(1, TCP_PRINT_BUFFER_SIZE);
     dp_ctx->recv_log_buffer = (unsigned char *)calloc(1, TCP_PRINT_BUFFER_SIZE);

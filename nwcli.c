@@ -596,6 +596,71 @@ clear_rt_handler(int64_t cmdcode, Stack_t *tlv_stack,
     return 0;
 }
 
+/* config node <node-name> distributed-anycast-gateway <mac-address> */
+static int
+distributed_anycast_gateway_config_handler(int64_t cmdcode,
+                                           Stack_t *tlv_stack,
+                                           op_mode enable_or_disable)
+{
+    node_t *node = NULL;
+    c_string node_name = NULL;
+    c_string mac_address = NULL;
+    tlv_struct_t *tlv = NULL;
+    mac_addr_t mac_addr;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
+
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "mac-address"))
+            mac_address = tlv->value;
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    if (!node) {
+        cprintf("Error : Node not found\n");
+        return -1;
+    }
+
+    if (!mac_address) {
+        cprintf("Error : MAC address required\n");
+        return -1;
+    }
+
+    if (sscanf((const char *)mac_address,
+               "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+               &mac_addr.mac[0], &mac_addr.mac[1], &mac_addr.mac[2],
+               &mac_addr.mac[3], &mac_addr.mac[4], &mac_addr.mac[5]) != 6) {
+        cprintf("Error : Failed to parse MAC address %s\n", mac_address);
+        return -1;
+    }
+
+    switch (enable_or_disable) {
+
+        case CONFIG_ENABLE:
+            node_set_distributed_anycast_gateway(node, &mac_addr);
+            break;
+
+        case CONFIG_DISABLE:
+            /* Clear only if the configured MAC matches (or nothing configured) */
+            if (memcmp(NODE_ANYCAST_GW_MAC(node)->mac, mac_addr.mac, MAC_ADDR_SIZE) != 0 &&
+                memcmp(NODE_ANYCAST_GW_MAC(node)->mac, "\0\0\0\0\0\0", MAC_ADDR_SIZE) != 0) {
+                cprintf("%s : Config Rejected : MAC does not match configured "
+                        "distributed-anycast-gateway\n",
+                        node->node_name);
+                return -1;
+            }
+            node_clear_distributed_anycast_gateway(node);
+            break;
+
+        default:
+            break;
+    }
+
+    return 0;
+}
+
 static int
 l3_config_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
@@ -1410,43 +1475,54 @@ nw_init_cli(){
 
 
             {
-                /*run node <node-name> ping */
+                /*run node <node-name> ping [source-address <src-ip>] <ip-address> */
                 static param_t ping;
                 init_param(&ping, CMD, "ping" , 0, 0, INVALID, 0, "Ping utility");
                 libcli_register_param(&node_name, &ping);
                 libcli_register_param(&vrf_name, &ping);
 
+                static param_t ip_addr;
+                init_param(&ip_addr, LEAF, 0, ping_handler, 0, IPV4, "ip-address", "Destination IPv4 Address");
+                libcli_register_param(&ping, &ip_addr);
+                libcli_set_param_cmd_code(&ip_addr, CMDCODE_PING);
+                libcli_set_inbuilt_param  (&ip_addr);
                 {
-                    /*run node <node-name> ping <ip-address>*/    
-                    static param_t ip_addr;
-                    init_param(&ip_addr, LEAF, 0, ping_handler, 0, IPV4, "ip-address", "Ipv4 Address");
-                    libcli_register_param(&ping, &ip_addr);
-                    libcli_set_param_cmd_code(&ip_addr, CMDCODE_PING);
-                    libcli_set_inbuilt_param  (&ip_addr);
-                    {
-                        /*run node <node-name> ping <ip-address> -c */
-                            static param_t _c;
-                            init_param(&_c, CMD, "-c", 0, 0, INVALID, 0, "-c count switch");
-                            libcli_register_param(&ip_addr, &_c);
-                            {
-                                 static param_t count;
-                                 init_param(&count, LEAF, 0, ping_handler, 0, INT, "count", "No of Pings to send");
-                                 libcli_register_param(&_c, &count);
-                                 libcli_set_param_cmd_code(&count, CMDCODE_PING);
-                                 libcli_set_inbuilt_param  (&count);
-                            }
-                    }
-                    {
-                        static param_t ero;
-                        init_param(&ero, CMD, "ero", 0, 0, INVALID, 0, "ERO(Explicit Route Object)");
-                        libcli_register_param(&ip_addr, &ero);
+                    /*run node <node-name> ping <ip-address> -c */
+                        static param_t _c;
+                        init_param(&_c, CMD, "-c", 0, 0, INVALID, 0, "-c count switch");
+                        libcli_register_param(&ip_addr, &_c);
                         {
-                            static param_t ero_ip_addr;
-                            init_param(&ero_ip_addr, LEAF, 0, ping_handler, 0, IPV4, "ero-ip-address", "ERO Ipv4 Address");
-                            libcli_register_param(&ero, &ero_ip_addr);
-                            libcli_set_param_cmd_code(&ero_ip_addr, CMDCODE_ERO_PING);
-                            libcli_set_inbuilt_param  (&ero_ip_addr);
+                             static param_t count;
+                             init_param(&count, LEAF, 0, ping_handler, 0, INT, "count", "No of Pings to send");
+                             libcli_register_param(&_c, &count);
+                             libcli_set_param_cmd_code(&count, CMDCODE_PING);
+                             libcli_set_inbuilt_param  (&count);
                         }
+                }
+                {
+                    static param_t ero;
+                    init_param(&ero, CMD, "ero", 0, 0, INVALID, 0, "ERO(Explicit Route Object)");
+                    libcli_register_param(&ip_addr, &ero);
+                    {
+                        static param_t ero_ip_addr;
+                        init_param(&ero_ip_addr, LEAF, 0, ping_handler, 0, IPV4, "ero-ip-address", "ERO Ipv4 Address");
+                        libcli_register_param(&ero, &ero_ip_addr);
+                        libcli_set_param_cmd_code(&ero_ip_addr, CMDCODE_ERO_PING);
+                        libcli_set_inbuilt_param  (&ero_ip_addr);
+                    }
+                }
+                {
+                    /*run node <node-name> ping source-address <src-ip> <ip-address>*/
+                    static param_t source_address;
+                    init_param(&source_address, CMD, "source-address", 0, 0, INVALID, 0,
+                               "Specify explicit source IPv4 address");
+                    libcli_register_param(&ping, &source_address);
+                    {
+                        static param_t src_ip;
+                        init_param(&src_ip, LEAF, 0, 0, 0, IPV4, "src-ip", "Source IPv4 Address");
+                        libcli_register_param(&source_address, &src_ip);
+                        /* destination (+ -c / ero) after optional source-address */
+                        libcli_register_param(&src_ip, &ip_addr);
                     }
                 }
             }
@@ -1553,6 +1629,23 @@ nw_init_cli(){
                     0, IPV4, "ip-address", "IPV4 address");
                 libcli_register_param(&router_id, &rtr_id);
                 libcli_set_param_cmd_code(&rtr_id, CMDCODE_CONFIG_RTR_ID);
+            }
+        }
+
+        {
+            /* config node <node-name> distributed-anycast-gateway <mac-address> */
+            static param_t dagw;
+            init_param(&dagw, CMD, "distributed-anycast-gateway", 0, 0, INVALID, NULL,
+                       "EVPN distributed anycast gateway MAC");
+            libcli_register_param(&node_name, &dagw);
+            {
+                static param_t mac_address;
+                init_param(&mac_address, LEAF, NULL,
+                           distributed_anycast_gateway_config_handler,
+                           0, MAC, "mac-address", "Anycast gateway MAC address");
+                libcli_register_param(&dagw, &mac_address);
+                libcli_set_param_cmd_code(&mac_address,
+                                          CMDCODE_CONFIG_DISTRIBUTED_ANYCAST_GATEWAY);
             }
         }
 

@@ -50,13 +50,20 @@ interface_loopback_canonical_name (const char *ifname, char *out, size_t out_len
 void
 interface_bd_install_router_mac(node_t *node, Interface *bd) {
 
+    mac_addr_t *rmac;
+
     if (bd->iftype != INTF_TYPE_BD) return;
 
     if (!bd->IsIpConfigured() || !bd->is_up)
         return;
 
+    rmac = bd->GetMacAddr();
+    if (!rmac)
+        return;
+
+    /* Push BD RMAC into BD MAC table as L2FwdObject via BD_RMAC interface */
     cp2dp_bd_mac_table_entry_add(node,
-                                 (uint8_t *)NODE_RMAC(node)->mac,
+                                 (uint8_t *)rmac->mac,
                                  bd->ifindex,
                                  BD_RMAC_INTF_INDEX,
                                  MAC_STATIC,
@@ -73,10 +80,16 @@ interface_bd_install_router_mac(node_t *node, Interface *bd) {
 void
 interface_bd_uninstall_router_mac(node_t *node, Interface *bd) {
 
+    mac_addr_t *rmac;
+
     if (bd->iftype != INTF_TYPE_BD) return;
 
+    rmac = bd->GetMacAddr();
+    if (!rmac)
+        return;
+
     cp2dp_bd_mac_table_entry_del(node,
-                                 (uint8_t *)NODE_RMAC(node)->mac,
+                                 (uint8_t *)rmac->mac,
                                  bd->ifindex,
                                  BD_RMAC_INTF_INDEX,
                                  true);
@@ -88,9 +101,120 @@ interface_bd_uninstall_router_mac(node_t *node, Interface *bd) {
                                  true);
 }
 
-static void
+static bool
+node_anycast_gw_mac_configured(node_t *node)
+{
+    static const unsigned char zero_mac[MAC_ADDR_SIZE] = {0};
+    return memcmp(NODE_ANYCAST_GW_MAC(node)->mac, zero_mac, MAC_ADDR_SIZE) != 0;
+}
+
+void
+interface_install_anycast_gw_mac(node_t *node, Interface *intf)
+{
+    if (!intf || !node_anycast_gw_mac_configured(node))
+        return;
+
+    /* Prerequisites: anycast MAC configured, IP configured, oper up */
+    if (!intf->IsIpConfigured() || !intf->is_up)
+        return;
+
+    if (intf->iftype == INTF_TYPE_BD) {
+        cp2dp_bd_mac_table_entry_add(node,
+                                     (uint8_t *)NODE_ANYCAST_GW_MAC(node)->mac,
+                                     intf->ifindex,
+                                     BD_RMAC_INTF_INDEX,
+                                     MAC_STATIC,
+                                     true);
+        return;
+    }
+
+    if (intf->iftype == INTF_TYPE_VLAN) {
+        VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
+        if (!vlan_intf)
+            return;
+
+        cp2dp_mac_table_entry_add(node,
+                                  (uint8_t *)NODE_ANYCAST_GW_MAC(node)->mac,
+                                  vlan_intf->GetVlanId(),
+                                  RMAC_INTF_INDEX, MAC_STATIC, true, 0,
+                                  vlan_intf->ifindex);
+    }
+}
+
+void
+interface_uninstall_anycast_gw_mac(node_t *node, Interface *intf)
+{
+    if (!intf || !node_anycast_gw_mac_configured(node))
+        return;
+
+    if (intf->iftype == INTF_TYPE_BD) {
+        cp2dp_bd_mac_table_entry_del(node,
+                                     (uint8_t *)NODE_ANYCAST_GW_MAC(node)->mac,
+                                     intf->ifindex,
+                                     BD_RMAC_INTF_INDEX,
+                                     true);
+        return;
+    }
+
+    if (intf->iftype == INTF_TYPE_VLAN) {
+        VlanInterface *vlan_intf = dynamic_cast<VlanInterface *>(intf);
+        if (!vlan_intf)
+            return;
+
+        cp2dp_mac_table_entry_del(node,
+                                  (uint8_t *)NODE_ANYCAST_GW_MAC(node)->mac,
+                                  vlan_intf->GetVlanId(),
+                                  RMAC_INTF_INDEX, true, 0,
+                                  vlan_intf->ifindex);
+    }
+}
+
+void
+node_install_anycast_gw_mac_all(node_t *node)
+{
+    Interface *intf;
+
+    if (!node_anycast_gw_mac_configured(node))
+        return;
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+        if (intf->iftype == INTF_TYPE_BD || intf->iftype == INTF_TYPE_VLAN)
+            interface_install_anycast_gw_mac(node, intf);
+    } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    if (node->vlan_intf_db) {
+        for (auto it = node->vlan_intf_db->begin();
+             it != node->vlan_intf_db->end(); it++) {
+            interface_install_anycast_gw_mac(node, it->second.get());
+        }
+    }
+}
+
+void
+node_uninstall_anycast_gw_mac_all(node_t *node)
+{
+    Interface *intf;
+
+    if (!node_anycast_gw_mac_configured(node))
+        return;
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+        if (intf->iftype == INTF_TYPE_BD || intf->iftype == INTF_TYPE_VLAN)
+            interface_uninstall_anycast_gw_mac(node, intf);
+    } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    if (node->vlan_intf_db) {
+        for (auto it = node->vlan_intf_db->begin();
+             it != node->vlan_intf_db->end(); it++) {
+            interface_uninstall_anycast_gw_mac(node, it->second.get());
+        }
+    }
+}
+
+void
 interface_vlan_install_router_mac(node_t *node, Interface *intf) {
 
+    mac_addr_t *rmac;
     VlanInterface *vlan_intf;
 
     if (intf->iftype != INTF_TYPE_VLAN) return;
@@ -100,8 +224,13 @@ interface_vlan_install_router_mac(node_t *node, Interface *intf) {
     if (!vlan_intf->IsIpConfigured() || !vlan_intf->is_up)
         return;
 
+    rmac = vlan_intf->GetMacAddr();
+    if (!rmac)
+        return;
+
+    /* Push VLAN RMAC into MAC table as L2FwdObject via RMAC interface */
     cp2dp_mac_table_entry_add(node,
-                              (uint8_t *)NODE_RMAC(node)->mac,
+                              (uint8_t *)rmac->mac,
                               vlan_intf->GetVlanId(),
                               RMAC_INTF_INDEX, MAC_STATIC, true, 0,
                               vlan_intf->ifindex);
@@ -112,17 +241,22 @@ interface_vlan_install_router_mac(node_t *node, Interface *intf) {
                               vlan_intf->ifindex);
 }
 
-static void
+void
 interface_vlan_uninstall_router_mac(node_t *node, Interface *intf) {
 
+    mac_addr_t *rmac;
     VlanInterface *vlan_intf;
 
     if (intf->iftype != INTF_TYPE_VLAN) return;
 
     vlan_intf = dynamic_cast<VlanInterface *>(intf);
 
+    rmac = vlan_intf->GetMacAddr();
+    if (!rmac)
+        return;
+
     cp2dp_mac_table_entry_del(node,
-                              (uint8_t *)NODE_RMAC(node)->mac,
+                              (uint8_t *)rmac->mac,
                               vlan_intf->GetVlanId(),
                               RMAC_INTF_INDEX, true, 0,
                               vlan_intf->ifindex);
@@ -157,6 +291,7 @@ interface_set_ip_addr(node_t *node,
         interface_install_local_v4_routes(node, intf);
         interface_bd_install_router_mac(node, intf);
         interface_vlan_install_router_mac(node, intf);
+        interface_install_anycast_gw_mac(node, intf);
         return;
     }
 
@@ -206,6 +341,7 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
 
     interface_uninstall_local_v4_routes  (node, intf);
     interface_vlan_uninstall_router_mac(node, intf);
+    interface_uninstall_anycast_gw_mac(node, intf);
     
     intf->InterfaceSetIpAddressMask(0, 0);
     cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, 0, 0);
@@ -361,7 +497,7 @@ interface_loopback_create (node_t *node, char *ifname) {
         if (intf) return intf;
     }
     
-    InterfaceP intfP = std::make_shared<LoopbackInterface>(std::string(lo_name));
+    InterfaceP intfP = std::make_shared<LoopbackInterface>(std::string(lo_name), node);
     intfP->SetSharedPtr(intfP);
     intfP->att_node = node;
     intfP->ifindex = interface_get_new_ifindex(node);

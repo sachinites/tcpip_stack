@@ -931,8 +931,8 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
 
             switch (gen_msg->opcode)
             {
-                case DP_GENERIC_RMAC:
-                    memcpy(dp_ctx->rmac.mac, gen_msg->u.mac_addr, 6);
+                case DP_GENERIC_ANYCAST_GW_MAC:
+                    memcpy(dp_ctx->anycast_gw_mac.mac, gen_msg->u.mac_addr, 6);
                 break;
 
 
@@ -965,13 +965,12 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
         case DP_UPDATE:
             switch (gen_msg->opcode)
             {
-                case DP_GENERIC_RMAC:
-                    memcpy(dp_ctx->rmac.mac, gen_msg->u.mac_addr, 6);
-                    break;
-
-
                 case DP_GENERIC_RTR_ID:
                     dp_ctx->rtr_id = gen_msg->u.rtr_id;
+                    break;
+
+                case DP_GENERIC_ANYCAST_GW_MAC:
+                    memcpy(dp_ctx->anycast_gw_mac.mac, gen_msg->u.mac_addr, 6);
                     break;
 
             }
@@ -980,8 +979,8 @@ dp_generic_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
         case DP_DEL:
             switch (gen_msg->opcode)
             {
-                case DP_GENERIC_RMAC:
-                    memset(dp_ctx->rmac.mac, 0, 6);
+                case DP_GENERIC_ANYCAST_GW_MAC:
+                    memset(dp_ctx->anycast_gw_mac.mac, 0, 6);
                 break;
 
                 case DP_TRAP_RULE:
@@ -1058,7 +1057,7 @@ dp_arp_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
             memset(&fake_hdr, 0, sizeof(fake_hdr));
             fake_hdr.src_ip = htonl(am->ip_addr);
             memcpy(fake_hdr.src_mac.mac, am->src_mac, 6);
-            arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table,
+            arp_table_update_from_arp_pkt(dp_ctx, vrf, vrf->arp_table,
                                             &fake_hdr, intf);
             break;
         }

@@ -83,8 +83,9 @@ typedef struct node_nw_prop_{
     /* VLAN-VNI mapping database */
     vxlan_vni_db_t *vlan_vni_db;         
     
-    mac_addr_t rmac;
-    char padding[2];
+    /* EVPN distributed anycast gateway MAC (shared across PEs); zero = unset */
+    mac_addr_t anycast_gw_mac;
+    char padding[4];
 
     /* Default VRF containing all RIBs and FIBs */
     def_vrf_t *def_vrf;
@@ -120,7 +121,7 @@ typedef struct node_nw_prop_{
 #define NODE_LOG_FILE(node_ptr) (node_ptr->node_nw_prop.log_file)
 #define NODE_LOG_BUFF(node_ptr) (node_ptr->node_nw_prop.log_buffer)
 #define NODE_SRv6_SID_POOL(node_ptr) (node_ptr->node_nw_prop.srv6_sid_pools)
-#define NODE_RMAC(node_ptr)      (&node_ptr->node_nw_prop.rmac) 
+#define NODE_ANYCAST_GW_MAC(node_ptr) (&node_ptr->node_nw_prop.anycast_gw_mac)
 #define NODE_NVE_INTF(node_ptr) (node_ptr->node_nw_prop.nve)
 #define NODE_GET_TRAFFIC_GEN_DB_HEAD(node_ptr)	\
 	(&node_ptr->node_nw_prop.traffic_gen_db_head)
@@ -130,6 +131,8 @@ typedef struct node_nw_prop_{
 bool node_set_rtr_id(node_t *node, const char *ip_addr);
 void node_set_v6_rtr_id(node_t *node, const char *ipv6_addr );
 void node_set_intf_ip_address(node_t *node, const char *local_if, const char *ip_addr, char mask);
+bool node_set_distributed_anycast_gateway(node_t *node, mac_addr_t *mac);
+void node_clear_distributed_anycast_gateway(node_t *node);
 
 /*Dumping Functions to dump network information
  * on nodes and interfaces*/

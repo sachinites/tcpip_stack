@@ -175,8 +175,11 @@ cp2dp_interface_add_acl (node_t *node,
                          uint8_t layer,
                          uint32_t ifindex, bool ingress);
 
-void 
-cp2dp_send_rmac(node_t *node, uint8_t (*mac)[6]);
+void
+cp2dp_send_distributed_anycast_gateway(node_t *node, uint8_t (*mac)[6]);
+
+void
+cp2dp_delete_distributed_anycast_gateway(node_t *node);
 
 void 
 cp2dp_send_rtr_id(node_t *node, uint32_t rtr_id);

@@ -107,7 +107,7 @@ gre_decapsulate (dp_ctx_t *dp_ctx,
             pkt_mbuf_update_new_hdr_type (mbuf, ETHERNET_HEADER);
             pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW, 
                 "VRF %s: GRE Decapsulation %s\n", vrf->vrf_name, pkt_mbuf_str (mbuf));
-             dp_pkt_entry_point(dp_ctx, gre_intf->vrf, gre_intf, mbuf);
+             dp_pkt_entry_point(dp_ctx, gre_intf->vrf, gre_intf, mbuf, 0);
         }
         break;
     }

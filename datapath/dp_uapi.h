@@ -101,7 +101,8 @@ void
 dp_pkt_entry_point(dp_ctx_t *dp_ctx, 
                     dp_vrf_t *vrf,
                     dp_intf_t *interface,
-                    struct rte_mbuf *mbuf);
+                    struct rte_mbuf *mbuf,
+                    uint8_t *raw_pkt);
 
 /* -------------------------------------------------------------------------
  * Async job posting helpers — safe to call from any thread (DPDK workers).

@@ -230,8 +230,8 @@ l2_switch_forward_frame(
             return;
     }
 
-    /* Check if the pkt matches the router mac */
-    if (mac_address_compare (dp_ctx->rmac.mac, ethernet_hdr->dst_mac.mac)) {
+    /* Check if the pkt matches the anycast gateway MAC (RMAC is in MAC table) */
+    if (mac_address_compare (dp_ctx->anycast_gw_mac.mac, ethernet_hdr->dst_mac.mac)) {
 
         uint16_t rmac_vlan_id = (!bd_processing) ?
             (uint16_t)GET_802_1Q_VLAN_ID(vlan_8021q_hdr) : DEFAULT_VLAN_ID;
@@ -242,7 +242,7 @@ l2_switch_forward_frame(
                                       ethernet_hdr->dst_mac.mac);
 
         if (!mac_table_entry) {
-            pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Mac Table : Router MAC not programmed, Dropping the frame\n");
+            pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Mac Table : Anycast GW MAC not programmed, Dropping the frame\n");
             return;
         }
 

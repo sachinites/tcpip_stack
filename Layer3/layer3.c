@@ -117,6 +117,7 @@ ping_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
     node_t *node;
     uint32_t count = 1;
     c_string ip_addr = NULL;
+    c_string src_ip = NULL;
     c_string ero_ip_addr = NULL;
     c_string node_name = NULL;
     c_string vrf_name = NULL;
@@ -129,6 +130,8 @@ ping_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
             node_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "ip-address"))
             ip_addr = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "src-ip"))
+            src_ip = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "ero-ip-address"))
             ero_ip_addr = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "count"))
@@ -154,6 +157,10 @@ ping_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
 
             pctx->vrf_id = vrf->vrf_id;
             cmn_prefix_initialize_v4(&pctx->dst, ip_addr_int, 32);
+            if (src_ip) {
+                cmn_prefix_initialize_v4(&pctx->src,
+                                         tcp_ip_convert_ip_p_to_n(src_ip), 32);
+            }
             sem_init(&pctx->cli_unblock_sem, 0, 0);
             pctx->count = count;
 

@@ -106,7 +106,7 @@ node_set_intf_vlan_membership(node_t *node,
 
     if(!vlan_intf) {
 
-        vlan_intfP = std::make_shared<VlanInterface>(vlan_id);
+        vlan_intfP = std::make_shared<VlanInterface>(vlan_id, node);
         vlan_intfP->SetSharedPtr(vlan_intfP);
         vlan_intf = vlan_intfP.get();
         vlan_intf->att_node = node;

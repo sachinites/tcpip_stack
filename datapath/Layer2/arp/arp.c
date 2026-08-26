@@ -33,6 +33,7 @@
 #include "../../Vrfs/dp_vrf.h"
 #include "../../dp_ctx.h"
 #include "../../Interface/dp_intf.h"
+#include "../../FIB/fib_nh.h"
 #include "../../dp_utils.h"
 #include "../../dp_uapi.h"
 #include "../../../CLIBuilder/cmdtlv.h"
@@ -214,34 +215,146 @@ l2_prepare_arp_reply_msg(ethernet_hdr_t *eth_reply,
     SET_COMMON_ETH_FCS(eth_reply, sizeof(arp_hdr_t), 0);
 }
 
-static void
-send_arp_reply_msg(dp_ctx_t *dp_ctx, ethernet_hdr_t *eth_in, dp_intf_t *oif)
+mac_addr_t *
+dp_arp_gateway_reply_src_mac(dp_ctx_t *dp_ctx, mac_addr_t *fallback)
+{
+    static const unsigned char zero_mac[MAC_ADDR_SIZE] = {0};
+
+    if (memcmp(dp_ctx->anycast_gw_mac.mac, zero_mac, MAC_ADDR_SIZE) != 0)
+        return &dp_ctx->anycast_gw_mac;
+
+    return fallback;
+}
+
+static bool
+dp_arp_reply_prefers_anycast_gw(dp_intf_t *local_oif,
+                                bool caller_supplied)
+{
+    /* Caller-supplied path is BDRmac (BD IP). LOCAL is Lo IP. */
+    if (caller_supplied)
+        return true;
+
+    if (!local_oif)
+        return false;
+
+    /* SVI / BD gateway IPs */
+    return (local_oif->if_type == DP_INTF_TYPE_VLAN ||
+            local_oif->if_type == DP_INTF_TYPE_BD);
+}
+
+static dp_intf_t *
+send_arp_reply_local_oif(dp_intf_t *oif)
+{
+    if (oif->bd_intf) {
+        return oif->bd_intf;
+    }
+    if (oif->vlan_intf) {
+        return oif->vlan_intf;
+    }
+    return oif;
+}
+
+void
+send_arp_reply_msg(dp_ctx_t *dp_ctx, 
+                   ethernet_hdr_t *eth_in, 
+                   dp_intf_t *oif, 
+                   mac_addr_t *src_mac)
 {
     char ip_str[IPV4_ADDR_LEN_STR];
+    
+    dp_vrf_t *vrf;
+    uint32_t arp_dst_ip;
+    cmn_prefix_t prefix;
+    fib_nh_t *nh = NULL;
+    dp_intf_t *local_oif = NULL;
+    bool fib_local = false;
+    bool caller_supplied = false;
+    dp_intf_t *src_intf = NULL;
+    mac_addr_t *reply_src_mac = NULL;
     arp_hdr_t *arp_in = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_in);
+
+    arp_dst_ip = ntohl(arp_in->dst_ip);
+
+    if (src_mac) 
+    {
+        reply_src_mac = src_mac;
+        local_oif = send_arp_reply_local_oif(oif);
+        caller_supplied = true;
+    } 
+    else 
+    {
+        vrf = oif->vrf;
+        cmn_prefix_initialize_v4(&prefix, arp_dst_ip, 32);
+        nh = fib_get_forwarding_nh(vrf->fib_inet0, &prefix);
+
+        if (!nh || !nh->fwd_info->oif) {
+
+            tracer(dp_ctx->dptr, DARP | DERR,
+                "VRF:%s: No forwarding NH found for %s, ARP reply send failed\n",
+                vrf->vrf_name,
+                tcp_ip_covert_ip_n_to_p(htonl(arp_dst_ip), ip_str));
+            return;
+        }
+
+        local_oif = nh->fwd_info->oif;
+
+        if (nh->fwd_info->fwd_flags & FIB_NH_FWD_F_LOCAL) {
+            reply_src_mac = (mac_addr_t *)&local_oif->mac_add;
+            fib_local = true;
+        }
+        else {
+            tracer(dp_ctx->dptr, DARP | DERR,
+                "VRF:%s: %s is not a local/connected IP, ARP reply suppressed\n",
+                vrf->vrf_name,
+                tcp_ip_covert_ip_n_to_p(htonl(arp_dst_ip), ip_str));
+            return;
+        }
+    }
+
+    if (!reply_src_mac)
+        return;
+
+    if (dp_arp_reply_prefers_anycast_gw(local_oif, caller_supplied)) {
+        reply_src_mac = dp_arp_gateway_reply_src_mac(dp_ctx, reply_src_mac);
+    }
+
     pkt_size_t total = sizeof(ethernet_hdr_t) + sizeof(arp_hdr_t) + ETH_FCS_SIZE;
     struct rte_mbuf *mbuf = dp_pkt_mbuf_get_new(dp_ctx, total);
     pkt_mbuf_update_new_hdr_type(mbuf, ETHERNET_HEADER);
     ethernet_hdr_t *eth_reply = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, 0);
 
     l2_prepare_arp_reply_msg(eth_reply,
-        &arp_in->src_mac, htonl(arp_in->src_ip),
-        &oif->mac_add, oif->ip_addr);
+        &arp_in->src_mac, ntohl(arp_in->src_ip),
+        reply_src_mac, arp_dst_ip);
 
     arp_hdr_t *arp_reply = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_reply);
-    pkt_tracer(mbuf, dp_ctx->dptr, DARP,
-           "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of %s\n",
-           tcp_ip_covert_ip_n_to_p(htonl(arp_reply->dst_ip), (unsigned char *)ip_str),
-           arp_reply->dst_mac.mac[0], arp_reply->dst_mac.mac[1],
-           arp_reply->dst_mac.mac[2], arp_reply->dst_mac.mac[3],
-           arp_reply->dst_mac.mac[4], arp_reply->dst_mac.mac[5],
-           oif->if_name);
+    if (src_mac) {
+        pkt_tracer(mbuf, dp_ctx->dptr, DARP,
+               "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of %s "
+               "(caller-supplied src MAC%s)\n",
+               tcp_ip_covert_ip_n_to_p(htonl(arp_reply->dst_ip), (unsigned char *)ip_str),
+               arp_reply->dst_mac.mac[0], arp_reply->dst_mac.mac[1],
+               arp_reply->dst_mac.mac[2], arp_reply->dst_mac.mac[3],
+               arp_reply->dst_mac.mac[4], arp_reply->dst_mac.mac[5],
+               oif->if_name,
+               (reply_src_mac == &dp_ctx->anycast_gw_mac) ? ", anycast-gw" : "");
+    } else {
+        pkt_tracer(mbuf, dp_ctx->dptr, DARP,
+               "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of %s "
+               "(FIB %s route, src MAC %s)\n",
+               tcp_ip_covert_ip_n_to_p(htonl(arp_reply->dst_ip), (unsigned char *)ip_str),
+               arp_reply->dst_mac.mac[0], arp_reply->dst_mac.mac[1],
+               arp_reply->dst_mac.mac[2], arp_reply->dst_mac.mac[3],
+               arp_reply->dst_mac.mac[4], arp_reply->dst_mac.mac[5],
+               oif->if_name,
+               fib_local ? "local" : "connected",
+               (reply_src_mac == &dp_ctx->anycast_gw_mac) ? "anycast-gw" :
+                   (fib_local ? "rmac" : "oif"));
+    }
 
-               /* Compute Src interface for this pkt. Since ARP are 
-    locally generated pkts, Take RMAC interface as src interface for such pkts*/
-    dp_intf_t *src_intf = NULL;
-
-    switch (oif->if_type) {
+    /* Compute Src interface for this pkt. Since ARP are
+       locally generated pkts, Take RMAC interface as src interface for such pkts */
+    switch (local_oif->if_type) {
         case DP_INTF_TYPE_VLAN:
             src_intf = dp_ctx->intf_table[RMAC_INTF_INDEX];
             break;
@@ -269,11 +382,20 @@ process_arp_reply_msg(dp_ctx_t *dp_ctx,
 {
     arp_hdr_t *arp = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(ethernet_hdr);
 
-    pkt_tracer(mbuf, dp_ctx->dptr, DARP,
-           "VRF:%s: Recvd ARP Reply on %s — updating ARP table\n",
-           vrf->vrf_name, iif->if_name);
+    /* Check if Dst mac == interface MAC or anycast GW MAC */
+    if (mac_address_compare (ethernet_hdr->dst_mac.mac, iif->mac_add.mac) ||
+        mac_address_compare (ethernet_hdr->dst_mac.mac, dp_ctx->anycast_gw_mac.mac)) {
+        
+        pkt_tracer(mbuf, dp_ctx->dptr, DARP,
+            "VRF:%s: Recvd ARP Reply on %s — updating ARP table\n",
+            vrf->vrf_name, iif->if_name);            
 
-    arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table, arp, iif);
+        arp_table_update_from_arp_pkt(dp_ctx, vrf, vrf->arp_table, arp, iif);
+    }
+    else {
+        pkt_tracer(mbuf, dp_ctx->dptr, DERR,
+            "VRF:%s: Recvd Invalid ARP Reply on %s", vrf->vrf_name, iif->if_name);   
+    }
 }
 
 void
@@ -296,13 +418,12 @@ process_arp_broadcast_request(dp_ctx_t *dp_ctx,
            tcp_ip_covert_ip_n_to_p(htonl(arp->dst_ip), ip_str),
            iif->if_name);
 
+    /* Update ARP table from sender's info synchronously. */
+    arp_table_update_from_arp_pkt(dp_ctx, vrf, vrf->arp_table, arp, iif);
+
     /* Send reply immediately if this request targets our interface IP.
      * This does not touch the ARP table, so it is safe from any thread. */
-    if (htonl(arp->dst_ip) == iif->ip_addr)
-        send_arp_reply_msg(dp_ctx, ethernet_hdr, iif);
-
-    /* Update ARP table from sender's info synchronously. */
-    arp_table_update_from_arp_reply(dp_ctx, vrf, vrf->arp_table, arp, iif);
+    send_arp_reply_msg(dp_ctx, ethernet_hdr, iif, NULL);    
 }
 
 /* -------------------------------------------------------------------------
@@ -597,13 +718,15 @@ pending_arp_processing_callback_function(dp_ctx_t *dp_ctx,
 }
 
 void
-arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
+arp_table_update_from_arp_pkt(dp_ctx_t *dp_ctx,
                                 dp_vrf_t *vrf,
                                 arp_table_t *arp_table,
                                 arp_hdr_t *arp_hdr,
                                 dp_intf_t *iif)
 {
     //ASSERT_ON_DP_EV_DIS(dp_ctx);
+
+    if (!iif) return;
 
     /* arp_hdr->src_ip is in on-wire (network) byte order. */
     uint32_t src_ip = ntohl(arp_hdr->src_ip);

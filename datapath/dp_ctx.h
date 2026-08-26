@@ -94,8 +94,8 @@ typedef struct dp_ctx_ {
 
     void *ctx_pvt_data;
 
-    /* Router MAC and router ID (control-plane configured) */
-    mac_addr_t rmac;
+    /* Distributed anycast gateway MAC (control-plane configured; zero = unset) */
+    mac_addr_t anycast_gw_mac;
     uint32_t rtr_id;
 
     /* Pkt dropped because recipient interface do not exist,

@@ -295,17 +295,17 @@ BD_SendPacketOut(
         dp_intf_t *bd_intf, 
         struct rte_mbuf *mbuf, uint32_t ctx) {
 
-    dp_intf_t *ac = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
+    dp_intf_t *recv_intf = pkt_mbuf_get_ingress_intf(dp_ctx, mbuf);
 
     pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD | DFLOW,
-        "pkt %s Recvd on AC %s BD %s\n", 
-        pkt_mbuf_str(mbuf), ac->if_name, bd_intf->if_name);
+        "pkt %s Recvd on intf %s in BD %s\n", 
+        pkt_mbuf_str(mbuf), recv_intf->if_name, bd_intf->if_name);
 
     bd_switch_forward_frame (
             dp_ctx, 
             bd_intf->mac_table,
             bd_intf,
-            ac,
+            recv_intf,
             mbuf);
 
     return 0;

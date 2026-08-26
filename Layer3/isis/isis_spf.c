@@ -1418,6 +1418,9 @@ isis_compute_spf (isis_node_info_t *node_info){
     isis_spf_data_t *curr_spf_data;
     isis_spf_data_t *spf_root_spf_data = NULL;
     isis_spf_data_t *nbr_node_spf_data = NULL;
+
+    if (!node_info) return;
+    
     node_t *spf_root = node_info->vrf->node;
 
     ted_spf_root = ted_lookup_node(

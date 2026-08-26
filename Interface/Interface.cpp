@@ -881,10 +881,39 @@ bool PhysicalInterface::HasL3Config(bool matchvrf) {
 VirtualInterface::VirtualInterface(std::string ifname, InterfaceType_t iftype)
     : Interface(ifname, iftype)
 {
+    memset(&this->mac_add, 0, sizeof(this->mac_add));
 }
 
 VirtualInterface::~VirtualInterface()
 {
+}
+
+void
+VirtualInterface::init_router_mac()
+{
+    tcp_ip_generate_random_mac_address(&this->mac_add.mac);
+}
+
+void
+VirtualInterface::SetMacAddr(mac_addr_t *mac_add_in)
+{
+    if (mac_add_in) {
+        memcpy(this->mac_add.mac, mac_add_in->mac, sizeof(this->mac_add.mac));
+    } else {
+        memset(this->mac_add.mac, 0, sizeof(this->mac_add.mac));
+    }
+}
+
+mac_addr_t *
+VirtualInterface::GetMacAddr()
+{
+    mac_addr_t zero_mac = {0};
+
+    if (memcmp(this->mac_add.mac, zero_mac.mac, sizeof(this->mac_add.mac)) == 0) {
+        return NULL;
+    }
+
+    return &this->mac_add;
 }
 
 void VirtualInterface::PrintInterfaceDetails()
@@ -1142,7 +1171,7 @@ GRETunnelInterface::IsSameSubnet(uint32_t ip_addr)
 mac_addr_t *
 GRETunnelInterface::GetMacAddr() {
 
-    return &this->att_node->node_nw_prop.rmac;
+    return VirtualInterface::GetMacAddr();
 }
 
 void GRETunnelInterface::PrintInterfaceDetails()
@@ -1392,7 +1421,7 @@ VirtualPort::IsCrossReferenced() {
 
 /* ************ VlanInterface ************ */
 
-VlanInterface::VlanInterface(vlan_id_t vlan_id)
+VlanInterface::VlanInterface(vlan_id_t vlan_id, node_t *node)
     : VirtualInterface("null", INTF_TYPE_VLAN)
 {
 
@@ -1403,6 +1432,10 @@ VlanInterface::VlanInterface(vlan_id_t vlan_id)
     
     std::string if_name = "vlan" + std::to_string(vlan_id);
     this->if_name = if_name;
+
+    if (node) {
+        this->init_router_mac();
+    }
 }
 
 VlanInterface::~VlanInterface() {
@@ -1486,12 +1519,6 @@ VlanInterface::IsIpConfigured() {
     return (this->ip_addr && this->mask);
 }
 
-mac_addr_t *
-VlanInterface::GetMacAddr( ) {
-
-    return &this->att_node->node_nw_prop.rmac;
-}
-
 bool
 VlanInterface::IsSameSubnet(uint32_t ip_addr) {
 
@@ -1557,7 +1584,7 @@ VlanInterface::IsVniConfigured() const {
 
 /* Implement Loopback Interface Methods*/
 
-LoopbackInterface::LoopbackInterface(std::string ifname)
+LoopbackInterface::LoopbackInterface(std::string ifname, node_t *node)
     : VirtualInterface(ifname, INTF_TYPE_LOOPBACK)
 {
     this->ip_addr = 0;
@@ -2029,13 +2056,16 @@ ACInterface::IsCrossReferenced() {
 }
 
 /* BD Interface */
-BDInterface::BDInterface(std::string ifname, InterfaceType_t iftype)
+BDInterface::BDInterface(std::string ifname, InterfaceType_t iftype, node_t *node)
     : VirtualInterface(ifname, iftype),
       bd_id(0),
       ip_addr(0),
       mask(0),
       vpn_svc_label(0)
 {
+    if (node) {
+        this->init_router_mac();
+    }
 }
 
 BDInterface::~BDInterface() {
@@ -2062,12 +2092,6 @@ bool
 BDInterface::IsIpConfigured() {
 
     return (this->ip_addr && this->mask);
-}
-
-mac_addr_t *
-BDInterface::GetMacAddr() {
-
-    return &this->att_node->node_nw_prop.rmac;
 }
 
 bool

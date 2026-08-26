@@ -252,11 +252,16 @@ typedef struct linkage_ {
 class VirtualInterface : public Interface {
 
     private:
+        mac_addr_t mac_add;
     protected:
+        /* Generate per-interface router MAC (VLAN / BD SVIs) */
+        void init_router_mac();
          VirtualInterface(std::string ifname, InterfaceType_t iftype);
     public:
         virtual ~VirtualInterface();
         virtual void PrintInterfaceDetails ();
+        virtual void SetMacAddr(mac_addr_t *mac_add) override;
+        virtual mac_addr_t *GetMacAddr() override;
 } __attribute__((aligned(8)));;
 
 
@@ -275,7 +280,7 @@ class VlanInterface : public VirtualInterface {
         uint32_t vni_id;  /* Virtual Network Identifier */
         /* Number of access mode interfaces using this LAN*/
         std::vector<InterfaceP> access_member_intf_lst;
-        VlanInterface(vlan_id_t vlan_id);
+        VlanInterface(vlan_id_t vlan_id, node_t *node);
          virtual ~VlanInterface();
         virtual void PrintInterfaceDetails ();
         virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
@@ -287,7 +292,6 @@ class VlanInterface : public VirtualInterface {
         virtual bool IsInterfaceUp(vlan_id_t vlan_id) final;
         virtual bool IsCrossReferenced() final;
         virtual bool IsSVI ();
-        virtual mac_addr_t *GetMacAddr( );
         virtual bool HasL3Config(bool matchvrf) final;
         
         /* VNI Management Methods */
@@ -406,7 +410,7 @@ class LoopbackInterface : public VirtualInterface {
         uint8_t v6mask;
         char padding[2];
 
-        LoopbackInterface(std::string ifname);
+        LoopbackInterface(std::string ifname, node_t *node);
         virtual ~LoopbackInterface();
         virtual void PrintInterfaceDetails ();
         virtual bool IsIpConfigured() final;
@@ -468,14 +472,13 @@ class BDInterface : public VirtualInterface {
         uint16_t bd_id;
         uint8_t mask;
         char _pad[5];
-        BDInterface(std::string ifname, InterfaceType_t iftype);
+        BDInterface(std::string ifname, InterfaceType_t iftype, node_t *node);
         virtual ~BDInterface();
         bool IsCrossReferenced() final;
         virtual void InterfaceSetIpAddressMask(uint32_t ip_addr, uint8_t mask) final;
         virtual void InterfaceGetIpAddressMask(uint32_t *ip_addr, uint8_t *mask) final;
         virtual bool IsIpConfigured() final;
         virtual bool IsSameSubnet(uint32_t ip_addr) final;
-        virtual mac_addr_t *GetMacAddr() final;
         virtual bool IsSVI() final;
         virtual bool HasL3Config(bool matchvrf) final;
         /* Member Attachment circuits */

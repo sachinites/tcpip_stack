@@ -704,10 +704,10 @@ cp2dp_interface_create (node_t *node, Interface *intf) {
     intf_msg->vlan_id = (uint32_t)intf->GetVlanId();
     intf_msg->iftype = (uint32_t)intf->iftype;
 
-    /* Some intf may not support MAC Addresses, for ex loopbacks*/
     if (intf->GetMacAddr()) {
-        memcpy (intf_msg->mac_addr, intf->GetMacAddr()->mac, 6);
+        memcpy(intf_msg->mac_addr, intf->GetMacAddr()->mac, 6);
     }
+
     strncpy (intf_msg->intf_name, intf->if_name.c_str(), IF_NAME_SIZE);
 
     intf_msg->update_code = 0;
@@ -850,8 +850,8 @@ cp2dp_send_intf_grp_bind_to_vlan_update(node_t *node,
 }
 
 
-void 
-cp2dp_send_rmac(node_t *node, uint8_t (*mac)[6]) {
+void
+cp2dp_send_distributed_anycast_gateway(node_t *node, uint8_t (*mac)[6]) {
 
     dp_msg_t *dp_msg;
     dp_generic_msg_t *gen_msg;
@@ -861,12 +861,30 @@ cp2dp_send_rmac(node_t *node, uint8_t (*mac)[6]) {
     dp_msg->opr_type = DP_CREATE;
     dp_msg->flags = 0;
     dp_msg->data_size = sizeof(dp_generic_msg_t);
-    
-    /* Fill in the header */
+
     gen_msg = (dp_generic_msg_t *)dp_msg->data;
-    gen_msg->opcode = DP_GENERIC_RMAC;
-    memcpy (gen_msg->u.mac_addr, mac, 6);
-    
+    gen_msg->opcode = DP_GENERIC_ANYCAST_GW_MAC;
+    memcpy(gen_msg->u.mac_addr, mac, 6);
+
+    cp2dp_submit(node, dp_msg, true);
+}
+
+void
+cp2dp_delete_distributed_anycast_gateway(node_t *node) {
+
+    dp_msg_t *dp_msg;
+    dp_generic_msg_t *gen_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = DP_GENERICS;
+    dp_msg->opr_type = DP_DEL;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_generic_msg_t);
+
+    gen_msg = (dp_generic_msg_t *)dp_msg->data;
+    gen_msg->opcode = DP_GENERIC_ANYCAST_GW_MAC;
+    memset(gen_msg->u.mac_addr, 0, 6);
+
     cp2dp_submit(node, dp_msg, true);
 }
 

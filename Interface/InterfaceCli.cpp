@@ -373,12 +373,16 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     interface_install_local_v6_routes  (node, interface);
                     rtm_install_mpls_xconnect_bd_evpn_local_route(interface, true);
                     interface_bd_install_router_mac(node, interface);
+                    interface_vlan_install_router_mac(node, interface);
+                    interface_install_anycast_gw_mac(node, interface);
                 }
                 else if (!interface->is_up && interface->IsIpConfigured()) {
                     interface_uninstall_local_v4_routes  (node, interface);
                     interface_uninstall_local_v6_routes  (node, interface);
                     rtm_install_mpls_xconnect_bd_evpn_local_route(interface, false);
                     interface_bd_uninstall_router_mac(node, interface);
+                    interface_vlan_uninstall_router_mac(node, interface);
+                    interface_uninstall_anycast_gw_mac(node, interface);
                 }
             }
 
@@ -627,7 +631,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 
                 if (vlan_intf) return 0;
 
-                VlanInterfaceP vlan_intfP = std::make_shared<VlanInterface>(vlan_id);
+                VlanInterfaceP vlan_intfP = std::make_shared<VlanInterface>(vlan_id, node);
 		        vlan_intfP->SetSharedPtr(vlan_intfP);
                 vlan_intfP->att_node = node;
                 vlan_intfP->ifindex = interface_get_new_ifindex(node);
@@ -705,6 +709,8 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 vlan_intf->is_up = true;
                 cp2dp_send_intf_admin_status_update(node, vlan_intf->ifindex, false);
                 interface_install_local_v4_routes(node, vlan_intf);
+                interface_vlan_install_router_mac(node, vlan_intf);
+                interface_install_anycast_gw_mac(node, vlan_intf);
                 SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_UP);
             }
             break;
@@ -715,6 +721,8 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 vlan_intf->is_up = false;
                 cp2dp_send_intf_admin_status_update(node, vlan_intf->ifindex, true);
                 interface_uninstall_local_v4_routes(node, vlan_intf);
+                interface_vlan_uninstall_router_mac(node, vlan_intf);
+                interface_uninstall_anycast_gw_mac(node, vlan_intf);
                 SET_BIT(minor_code, IPC_INTERFACE_ADMIN_STATE_DOWN);
             }
             break;

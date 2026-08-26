@@ -60,7 +60,7 @@ dp_uapi_inject_packet(dp_ctx_t *dp_ctx,
 
     if (!recv_intf) return -1;
 
-    dp_pkt_entry_point(dp_ctx, recv_intf->vrf, recv_intf, mbuf);
+    dp_pkt_entry_point(dp_ctx, recv_intf->vrf, recv_intf, mbuf, 0);
                       
     return 0;
 }

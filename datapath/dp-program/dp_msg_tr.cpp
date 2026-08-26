@@ -279,17 +279,18 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             dp_generic_msg_t *g = (dp_generic_msg_t *)dp_msg->data;
 
             const char *opcode_str =
-                (g->opcode == DP_GENERIC_RMAC)   ? "RMAC"   :
-                (g->opcode == DP_GENERIC_RTR_ID) ? "RTR_ID" : "?";
+                (g->opcode == DP_GENERIC_RTR_ID)          ? "RTR_ID" :
+                (g->opcode == DP_GENERIC_ANYCAST_GW_MAC)  ? "ANYCAST_GW_MAC" :
+                                                            "?";
 
             tracer(dp_ctx->dptr, DCONF,
                 "  generic_msg: opcode=%s(%u)\n",
                 opcode_str, (unsigned)g->opcode);
 
             switch (g->opcode) {
-                case DP_GENERIC_RMAC:
+                case DP_GENERIC_ANYCAST_GW_MAC:
                     tracer(dp_ctx->dptr, DCONF,
-                        "  generic_rmac: mac=%02x:%02x:%02x:%02x:%02x:%02x\n",
+                        "  generic_anycast_gw_mac: mac=%02x:%02x:%02x:%02x:%02x:%02x\n",
                         g->u.mac_addr[0], g->u.mac_addr[1], g->u.mac_addr[2],
                         g->u.mac_addr[3], g->u.mac_addr[4], g->u.mac_addr[5]);
                     break;

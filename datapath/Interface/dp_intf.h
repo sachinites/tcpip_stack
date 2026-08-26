@@ -36,25 +36,14 @@ typedef struct mac_table_ mac_table_t;
 
 #define DP_INTF_COMMON_FIELDS   \
     /* Identifiers */           \
-    uint32_t port_id;           \
     DP_InterfaceType_t if_type; \
+    uint32_t port_id;           \
     char if_name[DP_INTF_NAME]; \
-                                \
     /* Stats */                 \
     uint32_t pkt_recv;          \
     uint32_t pkt_sent;          \
     uint32_t xmit_pkt_dropped;  \
     uint32_t recvd_pkt_dropped;
-
-
-/* Warning : If you are changing any fields in these structure, 
-    pls do the same change in dp_intf_t structure aso. These fields*/
-typedef struct Fake_dp_intf_ {
-
-    DP_INTF_COMMON_FIELDS
-
-} Fake_dp_intf_t ;
-
 
 typedef struct dp_intf_ {
 

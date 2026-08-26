@@ -125,7 +125,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         memset(ethernet_hdr->src_mac.mac, 0, MAC_ADDR_SIZE);
         memcpy(ethernet_hdr->dst_mac.mac, oif->mac_add.mac, MAC_ADDR_SIZE);
         SET_COMMON_ETH_FCS(ethernet_hdr, ethernet_payload_size, 0);
-        dp_pkt_entry_point(dp_ctx,oif->vrf, oif, mbuf);
+        dp_pkt_entry_point(dp_ctx,oif->vrf, oif, mbuf, 0);
         return;
     }
 

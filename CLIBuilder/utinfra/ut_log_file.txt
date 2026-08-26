@@ -1,0 +1,47 @@
+CMD :  config node R0 interface loopback lo0
+CMD :  config node R0 router-id 122.1.1.0
+CMD :  config node R0 interface loopback lo0 ip-address 122.1.1.0 32
+CMD :  config node R0 protocol isis interface all
+CMD :  config node R0 protocol isis source-packet-routing mpls
+CMD :  config node R0 protocol isis source-packet-routing mpls node-sid 1000
+CMD :  config node R0 protocol isis redistribute connected
+
+CMD :  config node R1 interface loopback lo0
+CMD :  config node R1 router-id 122.1.1.1
+CMD :  config node R1 interface loopback lo0 ip-address 122.1.1.1 32
+CMD :  config node R1 protocol isis interface all
+CMD :  config node R1 protocol isis source-packet-routing mpls
+CMD :  config node R1 protocol isis source-packet-routing mpls node-sid 1001
+CMD :  config node R1 protocol isis redistribute connected
+
+CMD :  config node R2 interface loopback lo0
+CMD :  config node R2 router-id 122.1.1.2
+CMD :  config node R2 interface loopback lo0 ip-address 122.1.1.2 32
+CMD :  config node R2 protocol isis interface all
+CMD :  config node R2 protocol isis source-packet-routing mpls
+CMD :  config node R2 protocol isis source-packet-routing mpls node-sid 1002
+CMD :  config node R2 protocol isis redistribute connected
+
+CMD :  config node R3 interface loopback lo0
+CMD :  config node R3 router-id 122.1.1.3
+CMD :  config node R3 interface loopback lo0 ip-address 122.1.1.3 32
+CMD :  config node R3 protocol isis interface all
+CMD :  config node R3 protocol isis source-packet-routing mpls
+CMD :  config node R3 protocol isis source-packet-routing mpls node-sid 1003
+CMD :  config node R3 protocol isis redistribute connected
+
+CMD :  config node R4 interface loopback lo0
+CMD :  config node R4 router-id 122.1.1.4
+CMD :  config node R4 interface loopback lo0 ip-address 122.1.1.4 32
+CMD :  config node R4 protocol isis interface all
+CMD :  config node R4 protocol isis source-packet-routing mpls
+CMD :  config node R4 protocol isis source-packet-routing mpls node-sid 1004
+CMD :  config node R4 protocol isis redistribute connected
+
+CMD :  config node R5 interface loopback lo0
+CMD :  config node R5 router-id 122.1.1.5
+CMD :  config node R5 interface loopback lo0 ip-address 122.1.1.5 32
+CMD :  config node R5 protocol isis interface all
+CMD :  config node R5 protocol isis source-packet-routing mpls
+CMD :  config node R5 protocol isis source-packet-routing mpls node-sid 1005
+CMD :  config node R5 protocol isis redistribute connected

@@ -58,7 +58,6 @@ typedef struct def_vrf_ def_vrf_t;
 extern void init_tcp_logging(node_t *);
 extern void srv6_pool_init_srv6_pools (srv6_sid_pools_t **srv6_sid_pools) ;
 extern void lfa_init (node_t *node, lfa_t **lfa) ;
-void  node_assign_router_mac (node_t *node) ;
 extern void node_init_default_rtm(node_t *node) ;
 extern def_vrf_t* vrf_def_init (node_t *node);
 
@@ -95,77 +94,41 @@ interface_reserve_ifindex (node_t *node, uint32_t ifindex) {
     bitmap_set_bit_at(&node->if_index_bm, ifindex);
 }
 
-void 
-node_assign_router_mac (node_t *node) {
-
-    mac_table_entry_t *mac_table_entry = NULL;
-
-    tcp_ip_generate_random_mac_address (
-            &node->node_nw_prop.rmac.mac);
-            
-    cp2dp_send_rmac(node, &node->node_nw_prop.rmac.mac);
-}
-
-#if 0
-void 
-node_create_vlan_flood_interface(node_t *node) {
-
-    node->node_nw_prop.vlan_flood_interface = 
-        std::make_shared<VlanFloodInterface>();
-    node->node_nw_prop.vlan_flood_interface->SetSharedPtr(
-                node->node_nw_prop.vlan_flood_interface);
-    node->node_nw_prop.vlan_flood_interface->att_node = node;
-    node->node_nw_prop.vlan_flood_interface->ifindex = VLAN_FLOOD_INDEX;
-    interface_reserve_ifindex(node, VLAN_FLOOD_INDEX);
-    node->node_nw_prop.vlan_flood_interface->vrf = NULL;
-    cp2dp_interface_create(node, node->node_nw_prop.vlan_flood_interface.get());
-    cp2dp_send_intf_admin_status_update(node, 
-        node->node_nw_prop.vlan_flood_interface->ifindex, false);
-}
-
-void
-node_create_bd_rmac_interface(node_t *node) {
-
-    node->node_nw_prop.bdrmac_interface =
-        std::make_shared<BDRmacInterface>();
-    node->node_nw_prop.bdrmac_interface->SetSharedPtr(
-                node->node_nw_prop.bdrmac_interface);
-    node->node_nw_prop.bdrmac_interface->att_node = node;
-    node->node_nw_prop.bdrmac_interface->ifindex = BD_RMAC_INTF_INDEX;
-    interface_reserve_ifindex(node, BD_RMAC_INTF_INDEX);
-    node->node_nw_prop.bdrmac_interface->vrf = NULL;
-    cp2dp_interface_create(node, node->node_nw_prop.bdrmac_interface.get());
-    cp2dp_send_intf_admin_status_update(node,
-        node->node_nw_prop.bdrmac_interface->ifindex, false);
-}
-
-void 
-node_create_host_path_interface (node_t *node) {
-
-    node->node_nw_prop.host_path_interface = 
-        std::make_shared<HostPathInterface>();
-    node->node_nw_prop.host_path_interface->SetSharedPtr(
-                node->node_nw_prop.host_path_interface);
-    node->node_nw_prop.host_path_interface->att_node = node;
-    node->node_nw_prop.host_path_interface->ifindex = HOST_PATH_IFINDEX;
-    interface_reserve_ifindex(node, HOST_PATH_IFINDEX);
-    node->node_nw_prop.host_path_interface->vrf = NODE_DEF_VRF(node);
-    cp2dp_interface_create(node, node->node_nw_prop.host_path_interface.get());
-    cp2dp_send_intf_admin_status_update(node, 
-        node->node_nw_prop.host_path_interface->ifindex, false);
-}
-#endif 
-
 bool node_set_rtr_id(node_t *node, const char *ip_addr){
 
     string_copy((char *)NODE_RTRID_ADDR(node), ip_addr, 16);
     NODE_RTRID_ADDR(node)[15] = '\0';
-    
     cp2dp_send_rtr_id(node, tcp_ip_convert_ip_p_to_n(ip_addr));
-
-    //Interface *lo0 = interface_loopback_create(node, "lo0");
-    //interface_set_ip_addr(node, lo0, ip_addr, 32);
     return true;
+}
+
+bool
+node_set_distributed_anycast_gateway(node_t *node, mac_addr_t *mac) {
+
+    static const unsigned char zero_mac[MAC_ADDR_SIZE] = {0};
+
+    /* Same MAC already configured — ensure MAC-table entries are present */
+    if (memcmp(NODE_ANYCAST_GW_MAC(node)->mac, mac->mac, MAC_ADDR_SIZE) == 0) {
+        node_install_anycast_gw_mac_all(node);
+        return true;
+    }
+
+    /* Changing MAC: remove old entries first */
+    if (memcmp(NODE_ANYCAST_GW_MAC(node)->mac, zero_mac, MAC_ADDR_SIZE) != 0)
+        node_uninstall_anycast_gw_mac_all(node);
+
+    memcpy(NODE_ANYCAST_GW_MAC(node)->mac, mac->mac, MAC_ADDR_SIZE);
+    cp2dp_send_distributed_anycast_gateway(node, &NODE_ANYCAST_GW_MAC(node)->mac);
+    node_install_anycast_gw_mac_all(node);
+    return true;
+}
+
+void
+node_clear_distributed_anycast_gateway(node_t *node) {
+
+    node_uninstall_anycast_gw_mac_all(node);
+    memset(NODE_ANYCAST_GW_MAC(node)->mac, 0, MAC_ADDR_SIZE);
+    cp2dp_delete_distributed_anycast_gateway(node);
 }
 
 void 
@@ -285,11 +248,7 @@ init_node_nw_prop(node_t *node, node_nw_prop_t *node_nw_prop) {
     node->vrf[0] = (vrf_t *)node_nw_prop->def_vrf;
 
     cp2dp_vrf_create(node, DEF_VRF_NAME, RTM_DEFAULT_VRF);
-    node_assign_router_mac (node);
-    //node_create_vlan_flood_interface(node);
-    //node_create_bd_rmac_interface(node);
-    //node_create_host_path_interface (node);
-    
+
     node_nw_prop->log_buffer =  (c_string)calloc(1, TCP_LOG_BUFFER_LEN);
     init_tcp_logging(node);
     srv6_pool_init_srv6_pools (&node_nw_prop->srv6_sid_pools);

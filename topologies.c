@@ -1016,12 +1016,14 @@ config node H2 protocol isis
 config node H2 protocol isis interface lo0
 config node H2 protocol isis interface eth1
 
-=========== BD Config changes=============
-
 config node H1 no protocol isis
 config node H1 no interface ethernet eth1 ip-address 172.168.0.2 24
 config node H1 interface ethernet eth1 ip-address 172.168.0.1 24
 config node H1 rtm-route prefix 0.0.0.0/0 0 0 0 2 0 gateway 172.168.0.254 interface eth1
+config node H1 no interface loopback 0 ip-address 100.0.0.1 32
+config node H1 interface loopback 0 ip-address 172.168.0.10 24
+config node H1 no router-id 100.0.0.1
+config node H1 router-id 172.168.0.10
 
 config node CE1 no protocol isis
 config node CE1 no interface ethernet eth1 ip-address 172.168.0.1 24
@@ -1050,6 +1052,10 @@ config node H2 no protocol isis
 config node H2 no interface ethernet eth1 ip-address 172.168.0.2 24
 config node H2 interface ethernet eth1 ip-address 182.168.0.1 24
 config node H2 rtm-route prefix 0.0.0.0/0 0 0 0 2 0 gateway 182.168.0.254 interface eth1
+config node H2 no interface loopback 0 ip-address 100.0.0.2 32
+config node H2 interface loopback 0 ip-address 182.168.0.10 24
+config node H2 no router-id 100.0.0.2
+config node H2 router-id 182.168.0.10
 
 config node CE2 no protocol isis
 config node CE2 no interface ethernet eth1 ip-address 172.168.0.1 24
@@ -1075,15 +1081,15 @@ config node R3 interface ethernet eth1 switchport
 config node R3 bridge-domain 20 member eth1 encapsulation dot1q 20
 config node R3 interface bridge-domain 20 ip-address 182.168.0.254 24
 
-install imet routes :
 debug node R0 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17003
 debug node R0 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpls-label 273 17003
-debug node R3 protocol evpn install bridge-domain 10 route 7e:f2:93:4b:2d:fc mpls-label 272 17000
+debug node R3 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpls-label 273 17000
 debug node R3 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17000
 
 install MAC-only routes
+debug node R3 protocol evpn install bridge-domain 10 route 7e:f2:93:4b:2d:fc mpls-label 272 17000
 debug node R0 protocol evpn install bridge-domain 20 route c0:cc:c4:81:7a:66 mpls-label 273 17003
-debug node R3 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpls-label 273 17000
+
 
 Test : 
 run node H1 ping 182.168.0.1 

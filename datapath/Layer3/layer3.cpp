@@ -21,7 +21,7 @@ layer3_ipv6_route_pkt(dp_ctx_t *dp_ctx,
                       fib_nh_t *nh);
 
 static void
-_layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
+layer3_pkt_recv_from_layer2(dp_ctx_t *dp_ctx,
                              dp_vrf_t *vrf,
                              dp_intf_t *interface,
                              struct rte_mbuf *mbuf) {
@@ -70,5 +70,5 @@ void dp_promote_pkt_to_layer3(dp_ctx_t *dp_ctx,
         in the pkt. L3 routing never push the pkt out of same interface
         in the same context */
     pkt_mbuf_clear_ingress_intf(mbuf);
-    _layer3_pkt_recv_from_layer2(dp_ctx, vrf, interface, mbuf);
+    layer3_pkt_recv_from_layer2(dp_ctx, vrf, interface, mbuf);
 }

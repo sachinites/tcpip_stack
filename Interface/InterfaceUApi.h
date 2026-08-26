@@ -61,6 +61,25 @@ interface_bd_install_router_mac(node_t *node, Interface *bd);
 void
 interface_bd_uninstall_router_mac(node_t *node, Interface *bd);
 
+void
+interface_vlan_install_router_mac(node_t *node, Interface *intf);
+
+void
+interface_vlan_uninstall_router_mac(node_t *node, Interface *intf);
+
+/* Distributed anycast gateway MAC in VLAN (global) / BD MAC tables */
+void
+interface_install_anycast_gw_mac(node_t *node, Interface *intf);
+
+void
+interface_uninstall_anycast_gw_mac(node_t *node, Interface *intf);
+
+void
+node_install_anycast_gw_mac_all(node_t *node);
+
+void
+node_uninstall_anycast_gw_mac_all(node_t *node);
+
 Interface * 
 interface_loopback_create (node_t *node, char *ifname);
 

@@ -159,7 +159,7 @@ void create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
                                   uint32_t ip_addr,
                                   struct rte_mbuf *mbuf);
 
-void arp_table_update_from_arp_reply(dp_ctx_t *dp_ctx,
+void arp_table_update_from_arp_pkt(dp_ctx_t *dp_ctx,
                                      dp_vrf_t *vrf,
                                      arp_table_t *arp_table,
                                      arp_hdr_t *arp_hdr,
@@ -210,6 +210,14 @@ void process_arp_reply_msg(dp_ctx_t *dp_ctx,
 void l2_prepare_arp_reply_msg(ethernet_hdr_t *ethernet_hdr_reply,
                               mac_addr_t *dst_mac, uint32_t dst_ip,
                               mac_addr_t *src_mac, uint32_t src_ip);
+
+/* When distributed anycast GW MAC is configured, return it; else fallback. */
+mac_addr_t *dp_arp_gateway_reply_src_mac(dp_ctx_t *dp_ctx, mac_addr_t *fallback);
+
+void send_arp_reply_msg(dp_ctx_t *dp_ctx,
+                        ethernet_hdr_t *eth_in,
+                        dp_intf_t *oif,
+                        mac_addr_t *src_mac);
 
 /* -------------------------------------------------------------------------
  * Show (runs on dp_ev_dis via dp_uapi sync job)

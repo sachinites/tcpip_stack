@@ -73,7 +73,8 @@ bd_config_handler(int64_t cmdcode,
                     }
 
                     std::shared_ptr<BDInterface> bdP =
-                        std::make_shared<BDInterface>(std::string(intf_name), INTF_TYPE_BD);
+                        std::make_shared<BDInterface>(std::string(intf_name),
+                                                      INTF_TYPE_BD, node);
                     bdP->SetSharedPtr(bdP);
                     bdP->att_node = node;
                     bdP->ifindex = interface_get_new_ifindex(node);

@@ -84,10 +84,10 @@ typedef struct dp_pkt_trap_rule_ {
 
 } dp_pkt_trap_rule_t;
 
-#define DP_GENERIC_RMAC 1
 #define DP_GENERIC_RTR_ID 2
 #define DP_PING_REQ 3
 #define DP_TRAP_RULE 4
+#define DP_GENERIC_ANYCAST_GW_MAC 5
 
 typedef struct dp_generic_msg_ {
 

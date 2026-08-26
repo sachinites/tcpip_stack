@@ -34,7 +34,7 @@
 #define __CMDCODES__
 
 #define CMDCODE_SHOW_NW_TOPOLOGY    1   /*show topology*/
-#define CMDCODE_PING                2   /*run node <node-name> ping <ip-address> -c <count>*/
+#define CMDCODE_PING                2   /*run node <node-name> ping [source-address <src-ip>] <ip-address> [-c <count>]*/
 #define CMDCODE_CONFIG_RTR_ID       3   /* config node <node-name> router-id <rtr-id>*/
 #define CMDCODE_RUN_ARP             4   /*run node <node-name> resolve-arp <ip-address>*/
 #define CMDCODE_INTF_CONFIG_SWITCHPORT 5   /*config node <node-name> interface <intf-name> l2mode <access|trunk>*/
@@ -206,8 +206,11 @@
 /* config node <node-name> interface bridge-domain <bd-id> */
 #define CMDCODE_INTF_CONFIG_BD_CREATE 85
 
+/* config node <node-name> distributed-anycast-gateway <mac-address> */
+#define CMDCODE_CONFIG_DISTRIBUTED_ANYCAST_GATEWAY 86
+
 /* Flag to distinguish if the CLI typed should go to
-  control plane scheduler or data plane scheduler*/
+   control plane scheduler or data plane scheduler*/
 #define CLI_F_CONTROL_PLANE 1
 #define CLI_F_DATA_PLANE 2
 
