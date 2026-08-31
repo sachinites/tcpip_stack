@@ -920,9 +920,9 @@ config node R3 bridge-domain 10
 config node R3 interface ethernet eth1 switchport
 config node R3 bridge-domain 10 member eth1 encapsulation dot1q 10
 
-debug node R0 protocol evpn install bridge-domain 10 route 68:d5:3b:72:3f:7b mpls-label 272 17003
+debug node R0 protocol evpn install bridge-domain 10 route 4e:55:70:a3:d3:35 mpls-label 272 17003
 debug node R0 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17003
-debug node R3 protocol evpn install bridge-domain 10 route e2:97:e3:8e:36:9d mpls-label 272 17000
+debug node R3 protocol evpn install bridge-domain 10 route 26:97:49:b2:a2:fb mpls-label 272 17000
 debug node R3 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17000
 
 Test :
@@ -969,6 +969,7 @@ config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
 config node R0 vrf red protocol isis
 config node R0 vrf red protocol isis interface eth1
 config node R0 vrf red protocol isis redistribute bgp
+config node R0 distributed-anycast-gateway 00:02:00:02:00:02
 
 config node R0 rtm-route prefix 10.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3 l3vpn 16
 config node R0 rtm-route prefix 100.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3 l3vpn 16
@@ -982,6 +983,7 @@ config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
 config node R3 vrf red protocol isis
 config node R3 vrf red protocol isis interface eth1
 config node R3 vrf red protocol isis redistribute bgp
+config node R3 distributed-anycast-gateway 00:02:00:02:00:02
 
 config node R3 rtm-route prefix 10.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0 l3vpn 16
 config node R3 rtm-route prefix 100.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0 l3vpn 16
@@ -1086,15 +1088,15 @@ debug node R0 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpl
 debug node R3 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpls-label 273 17000
 debug node R3 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17000
 
-install MAC-only routes
+
+install MAC-only routes ( if you want to replace Unknown Unicast flooding in ISP core with Unicast forwarding )
 debug node R3 protocol evpn install bridge-domain 10 route 7e:f2:93:4b:2d:fc mpls-label 272 17000
 debug node R0 protocol evpn install bridge-domain 20 route c0:cc:c4:81:7a:66 mpls-label 273 17003
 
 
 Test : 
-run node H1 ping 182.168.0.1 
--- You must see below logs on R0 for successful TC pass 
-R0 : 23-08-2026 19:38:20.648482 BDRmacInterface_SendPacketOut(633): DARP pkt_id=2209 Recvd ARP-B Request on Overlay on Router-MAC interface of BD bd20, pkt dropped
+run node H1 ping source-address 172.168.0.1 182.168.0.1
+Ping must succeed.
 
 ------------------------
 

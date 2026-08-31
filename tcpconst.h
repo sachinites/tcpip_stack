@@ -101,7 +101,7 @@ tcpip_protocol_classification(uint16_t proto) {
 
 
 /* Special interface ifindices */
-#define RMAC_INTF_INDEX               (MAX_INTF_IFINDEX)   /* Only one instance exist, you may lookup in array */
+#define RMAC_INTF_INDEX                (MAX_INTF_IFINDEX)   /* Only one instance exist, you may lookup in array */
 #define RMAC_INTF_NAME                 "rmacif"
 #define BD_RMAC_INTF_INDEX             (MAX_INTF_IFINDEX - 1)/* Only one instance exist, you may lookup in array */
 #define BDRMAC_INTF_NAME                "bdrmacif"
@@ -124,8 +124,11 @@ tcpip_protocol_classification(uint16_t proto) {
 
 #define SRv6_TO_VRF_INTF_STEER_IFINDEX (MAX_INTF_IFINDEX - 8) /* Many instances with same ifindex exist, do not lookup in dp_ctx->intf_table[]*/
 #define SRv6_TO_VRF_STEER_INTF_NAME     "srv6-xconn-vrf"
-#define SRv6_TO_BD_STEER_IFINDEX       (MAX_INTF_IFINDEX - 9)/* Only one instance exist, you may lookup in array */
+#define SRv6_TO_BD_STEER_IFINDEX       (MAX_INTF_IFINDEX - 9) /* Only one instance exist, you may lookup in array */
 #define SRv6_TO_BD_STEER_INTF_NAME      "srv6-xconn-bd"
+
+#define INTF_TYPE_VXLAN_TO_VLAN_STEER  (MAX_INTF_IFINDEX - 10)
+#define INTF_TYPE_VXLAN_TO_VLAN_NAME    "vxlan-xconn-vlan"
 
 /* VPNV4 LABEL SPACE */
 #define VPNV4_START_LABEL 16

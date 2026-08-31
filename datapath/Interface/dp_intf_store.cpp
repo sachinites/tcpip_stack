@@ -410,6 +410,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->pkt_sent = 0;          
     Fake_dp_intf->xmit_pkt_dropped = 0;
     Fake_dp_intf->recvd_pkt_dropped = 0;
+    Fake_dp_intf->is_up = true;
 
     // BD RMAC Interface
     Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
@@ -422,6 +423,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->pkt_sent = 0;          
     Fake_dp_intf->xmit_pkt_dropped = 0;
     Fake_dp_intf->recvd_pkt_dropped = 0;
+    Fake_dp_intf->is_up = true;
 
     // Vlan Flood Interface
     Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
@@ -434,6 +436,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->pkt_sent = 0;          
     Fake_dp_intf->xmit_pkt_dropped = 0;
     Fake_dp_intf->recvd_pkt_dropped = 0;
+    Fake_dp_intf->is_up = true;
 
     // BD Flood Interface
     Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
@@ -446,6 +449,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->pkt_sent = 0;          
     Fake_dp_intf->xmit_pkt_dropped = 0;
     Fake_dp_intf->recvd_pkt_dropped = 0;
+    Fake_dp_intf->is_up = true;
 
     // NVE Interface
     Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
@@ -458,6 +462,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->pkt_sent = 0;          
     Fake_dp_intf->xmit_pkt_dropped = 0;
     Fake_dp_intf->recvd_pkt_dropped = 0;
+    Fake_dp_intf->is_up = true;
 
     // Host Path Interface
     Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
@@ -470,6 +475,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->pkt_sent = 0;          
     Fake_dp_intf->xmit_pkt_dropped = 0;
     Fake_dp_intf->recvd_pkt_dropped = 0;
+    Fake_dp_intf->is_up = true;
 
     // MPLS to BD Steering Interface
     Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
@@ -479,7 +485,8 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     strncpy (Fake_dp_intf->if_name, MPLS_TO_BD_STEER_INTF_NAME, strlen (MPLS_TO_BD_STEER_INTF_NAME) -1);
     Fake_dp_intf->if_name[strlen (MPLS_TO_BD_STEER_INTF_NAME) -1] = '\0';
     Fake_dp_intf->pkt_recv = 0;
-    Fake_dp_intf->pkt_sent = 0;          
+    Fake_dp_intf->pkt_sent = 0;         
+    Fake_dp_intf->is_up = true; 
 
     // MPLS to VRF Steering Interface
     Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
@@ -492,6 +499,7 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->pkt_sent = 0;          
     Fake_dp_intf->xmit_pkt_dropped = 0;
     Fake_dp_intf->recvd_pkt_dropped = 0;
+    Fake_dp_intf->is_up = true;
 
     // SRv6 to BD Steering Interface
     Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
@@ -501,7 +509,8 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     strncpy (Fake_dp_intf->if_name, SRv6_TO_BD_STEER_INTF_NAME, strlen (SRv6_TO_BD_STEER_INTF_NAME) -1);
     Fake_dp_intf->if_name[strlen (SRv6_TO_BD_STEER_INTF_NAME) -1] = '\0';
     Fake_dp_intf->pkt_recv = 0;
-    Fake_dp_intf->pkt_sent = 0;          
+    Fake_dp_intf->pkt_sent = 0;        
+    Fake_dp_intf->is_up = true;  
 
     // SRv6 to VRF Steering Interface
     Fake_dp_intf = (dp_intf_t *)XCALLOC2(0, 1, dp_intf_t);
@@ -514,5 +523,5 @@ dp_intf_create_fake_interfaces (dp_ctx_t *dp_ctx) {
     Fake_dp_intf->pkt_sent = 0;          
     Fake_dp_intf->xmit_pkt_dropped = 0;
     Fake_dp_intf->recvd_pkt_dropped = 0;
-
+    Fake_dp_intf->is_up = true;
 }

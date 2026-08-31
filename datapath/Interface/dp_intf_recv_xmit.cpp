@@ -931,6 +931,7 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
 
     assert(pkt_mbuf_verify_pkt(mbuf, ETHERNET_HEADER));
 
+    intf->pkt_recv++;
     pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD,
         "Pkt:%s Intf:%s\n", pkt_mbuf_str(mbuf), intf->if_name);  
 
@@ -1265,6 +1266,7 @@ MPLS_XConnect_VRF_SendPacketOut(
 
     if (!vrf) return 0;
 
+    intf->pkt_recv++;
     pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET | DL3FWD_DET, 
         "Pkt:%s Context Switched from Def-vrf to VPN VRF %s\n",
         pkt_mbuf_ip(mbuf, ip_addr_str),
@@ -1309,6 +1311,8 @@ MPLS_XConnect_BD_SendPacketOut(
         "MPLS→BD steer: intf %s → BD %s (ctx=%u) size=%u\n",
         intf->if_name, bd_intf->if_name, ctx, (unsigned)pkt_size);
 
+    intf->pkt_recv++;
+    bd_intf->pkt_recv++;
     // prevent Split-Horizon, SH is the problem if BUM traffic at L2.
     pkt_mbuf_set_ingress_ifindex(mbuf, intf->port_id);
     BD_SendPacketOut(dp_ctx, bd_intf, mbuf, 0);
@@ -1342,7 +1346,8 @@ SRv6_Xconnect_BD_SendPacketOut(
         dp_ctx->pkt_dropped++;
         return 0;
     }
-
+    intf->pkt_recv++;
+    bd_intf->pkt_recv++;
     // prevent Split-Horizon, SH is the problem if BUM traffic at L2.
     pkt_mbuf_set_ingress_ifindex(mbuf, intf->port_id); 
     BD_SendPacketOut(dp_ctx, bd_intf, mbuf, 0);

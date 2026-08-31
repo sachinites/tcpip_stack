@@ -48,7 +48,7 @@
 #include "RTM/rtm_nb_integ.h"
 #include "libs/common/cmn_prefix.h"
 #include "datapath/dp_uapi.h"
-#include "../RDBMSImplementation/uapi/sql_api.h"
+#include "libs/RDBMSImplementation/uapi/sql_api.h"
 #include "LabelMgr/label_mgr.h"
 
 extern void cp_init_ipc_pub_sub(node_t *node);
