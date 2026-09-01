@@ -18,6 +18,15 @@ endif
 export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_CFLAGS} -Wall -Wextra -Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 -Wignored-qualifiers -g ${SANITIZER_FLAGS} -MMD -MP
 BUILD_TIMER := .build_timer
 
+# GoBGP gRPC: set to 1 to link libgrpc_wrapper.a, 0 to use weak stubs (default).
+GOBGP_GRPC ?= 1
+GOBGP_GRPC_CPPFLAGS = -std=c++17 -ILayer5/gobgp -ILayer5/gobgp/gobgp-grpc/generated $(shell pkg-config --cflags grpc++ protobuf 2>/dev/null)
+GOBGP_GRPC_LIBS =
+ifeq ($(GOBGP_GRPC),1)
+GOBGP_GRPC_LIBS = -LLayer5/gobgp/gobgp-grpc -lgrpc_wrapper \
+	-Wl,--start-group $(shell pkg-config --libs --static grpc++ protobuf) -Wl,--end-group -ldl
+endif
+
 .DEFAULT_GOAL := TARGET
 
 TARGET: build-timer-init tcpstack.exe pkt_gen.exe build-timer-report
@@ -77,6 +86,7 @@ export LIBS=${ISIS_LIB_PATH} \
  			-lfl \
 			-lm \
 			-lncurses \
+			${GOBGP_GRPC_LIBS} \
 
 OBJS=     router_init.o   \
 		  cli_interface.o \
@@ -123,7 +133,12 @@ OBJS=     router_init.o   \
 		  ips_pub_sub_init.o \
 		  dpcp_cmn.o \
 		  sql_exec.o \
-		  
+		  Layer5/gobgp/sf_gobgp_grpc_client_fake.o \
+
+ifeq ($(GOBGP_GRPC),1)
+OBJS += Layer5/gobgp/sf_gobgp_grpc_client.o
+endif
+
 lmm_reg.o:lmm_reg.c
 	${CC} ${CFLAGS} -c -I LinuxMemoryManager lmm_reg.c -o lmm_reg.o
 
@@ -170,7 +185,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a LabelMgr/liblabelmgr.a
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a LabelMgr/liblabelmgr.a $(if $(filter 1,$(GOBGP_GRPC)),Layer5/gobgp/gobgp-grpc/libgrpc_wrapper.a)
 	${CC} ${CFLAGS} main.o ${OBJS} ${LIBS} ${DPDK} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -227,6 +242,15 @@ Layer4/udp.o:Layer4/udp.c
 	
 Layer5/layer5.o:Layer5/layer5.c
 	${CC} ${CFLAGS} -c -I . Layer5/layer5.c -o Layer5/layer5.o
+
+Layer5/gobgp/sf_gobgp_grpc_client_fake.o:Layer5/gobgp/sf_gobgp_grpc_client_fake.cpp
+	${CC} ${CFLAGS} -c -I Layer5/gobgp Layer5/gobgp/sf_gobgp_grpc_client_fake.cpp -o Layer5/gobgp/sf_gobgp_grpc_client_fake.o
+
+Layer5/gobgp/sf_gobgp_grpc_client.o:Layer5/gobgp/sf_gobgp_grpc_client.cpp Layer5/gobgp/gobgp-grpc/libgrpc_wrapper.a
+	${CC} ${CFLAGS} ${GOBGP_GRPC_CPPFLAGS} -c -I Layer5/gobgp Layer5/gobgp/sf_gobgp_grpc_client.cpp -o Layer5/gobgp/sf_gobgp_grpc_client.o
+
+Layer5/gobgp/gobgp-grpc/libgrpc_wrapper.a:
+	(cd Layer5/gobgp/gobgp-grpc; make)
 
 nwcli.o:nwcli.c
 	${CC} ${CFLAGS} -c -I . nwcli.c  -o nwcli.o
@@ -308,6 +332,7 @@ clean:
 	rm -f Layer3/rt_table/*.o
 	rm -f Layer4/*.o
 	rm -f Layer5/*.o
+	rm -f Layer5/gobgp/*.o
 	(cd Layer3/isis; make clean)
 	(cd Layer3/SegmentRouting/SRv6; make clean)
 	(cd Layer3/LFA; make clean)
@@ -332,6 +357,7 @@ cleanall:
 	(cd datapath; make clean)
 	(cd libs; make clean)
 	(cd LabelMgr; make clean)
+	@if [ "$(GOBGP_GRPC)" = "1" ]; then cd Layer5/gobgp/gobgp-grpc && make clean; fi
 
 # Auto-generated header dependencies (-MMD -MP); only .o members of OBJS
 -include $(filter %.o,$(OBJS:.o=.d))

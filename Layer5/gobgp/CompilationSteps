@@ -1,0 +1,154 @@
+To compile the test program test.cpp which talk to GoBGP over gRPC, we need to first setup dependent libs :
+1. Protobuf
+2. gRPC 
+3. Then we would generate gRPC calls. For this we need goBGP src code (uncompiled) as an input.
+4. Compilation gRPC with test program.
+
+1. Setting Up protobuf 
+===============================
+
+Use Latest version of protobuf Lib : 
+
+vm@vm:~$ cd OpenSrc-Codes/
+vm@vm:~/OpenSrc-Codes$ git clone https://github.com/protocolbuffers/protobuf.git
+
+cd protobuf
+git submodule update --init --recursive
+
+cmake -S . -B build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -Dprotobuf_BUILD_TESTS=OFF \
+    -DBUILD_SHARED_LIBS=ON \
+    -DCMAKE_INSTALL_PREFIX=/usr/local
+
+
+cmake --build build -j$(nproc)
+sudo cmake --install build
+sudo ldconfig
+
+verify : 
+
+vm@vm:~/OpenSrc-Codes/protobuf$ /usr/local/bin/protoc --version
+libprotoc 27.3
+
+export PATH=/usr/local/bin:$PATH
+
+Ensure : 
+vm@vm:~/GitProjects/gobgp_import_export$ which protoc
+/usr/local/bin/protoc
+vm@vm:~/GitProjects/gobgp_import_export$ protoc --version
+libprotoc 27.3
+
+Ensure :
+vm@vm:~/OpenSrc-Codes/protobuf$ ls -l /usr/local/lib/libprotobuf*
+-rw-r--r-- 1 root root 7069748 Aug 31 14:24 /usr/local/lib/libprotobuf.a
+-rw-r--r-- 1 root root 1110650 Aug 31 14:23 /usr/local/lib/libprotobuf-lite.a
+lrwxrwxrwx 1 root root      26 Aug 31 15:16 /usr/local/lib/libprotobuf-lite.so -> libprotobuf-lite.so.27.3.0
+-rw-r--r-- 1 root root  721496 Aug 31 15:16 /usr/local/lib/libprotobuf-lite.so.27.3.0
+lrwxrwxrwx 1 root root      21 Aug 31 15:16 /usr/local/lib/libprotobuf.so -> libprotobuf.so.27.3.0
+-rw-r--r-- 1 root root 4062984 Aug 31 15:16 /usr/local/lib/libprotobuf.so.27.3.0
+
+
+=====================================================================
+
+2. Setting up gRPC
+==========================
+
+cd ~/OpenSrc-Codes
+
+git clone --recurse-submodules -b v1.66.2 https://github.com/grpc/grpc.git
+cd grpc
+git checkout v1.66.2
+
+cmake -S . -B build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DgRPC_INSTALL=ON \
+    -DgRPC_BUILD_TESTS=OFF \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DgRPC_PROTOBUF_PROVIDER=package \
+    -DProtobuf_DIR=/usr/local/lib/cmake/protobuf
+
+cmake --build build -j$(nproc)
+sudo cmake --install build
+sudo ldconfig
+
+verify install :
+vm@vm:~/OpenSrc-Codes/grpc$ find /usr/local -name 'gRPCConfig.cmake' 2>/dev/null
+/usr/local/lib/cmake/grpc/gRPCConfig.cmake
+vm@vm:~/OpenSrc-Codes/grpc$ find /usr/local -name 'grpc++.pc' 2>/dev/null
+/usr/local/lib/pkgconfig/grpc++.pc
+
+
+#--------------------------------------------------------------------#
+3. Steps to build test.exe ( sample test program and libgrpc_wrapper.a )
+#--------------------------------------------------------------------#
+
+export GOBGP_SRC="$HOME/OpenSrc-Codes/GoBGP/gobgp"
+export APP_DIR="$HOME/GitProjects/tcpip_stack/Layer5/gobgp/gobgp-grpc"
+
+cd "$APP_DIR"
+
+rm -rf generated build
+rm -f libgrpc_wrapper.a test.exe
+
+mkdir -p generated build
+
+cd "$GOBGP_SRC/proto"
+
+protoc \
+    -I. \
+    --cpp_out="$APP_DIR/generated" \
+    api/*.proto
+
+protoc \
+    -I. \
+    --grpc_out="$APP_DIR/generated" \
+    --plugin=protoc-gen-grpc="$(command -v grpc_cpp_plugin)" \
+    api/gobgp.proto
+
+cd "$APP_DIR"
+
+g++ -std=c++17 \
+    -Wall \
+    -Wextra \
+    -O2 \
+    -I./generated \
+    $(pkg-config --cflags grpc++ protobuf) \
+    -c gobgp_grpc.cpp \
+    -o build/gobgp_grpc.o
+
+for src in generated/api/*.pb.cc; do
+    obj="build/$(basename "${src%.cc}").o"
+
+    echo "Compiling $src"
+
+    g++ -std=c++17 \
+        -Wall \
+        -Wextra \
+        -O2 \
+        -I./generated \
+        $(pkg-config --cflags grpc++ protobuf) \
+        -c "$src" \
+        -o "$obj" || exit 1
+done
+
+ar rcs libgrpc_wrapper.a build/*.o
+
+g++ -std=c++17 \
+    -Wall \
+    -Wextra \
+    -O2 \
+    -I. \
+    -I./generated \
+    $(pkg-config --cflags grpc++ protobuf) \
+    test.cpp \
+    -L. \
+    -Wl,--start-group \
+    -lgrpc_wrapper \
+    $(pkg-config --libs --static grpc++ protobuf) \
+    -Wl,--end-group \
+    -ldl \
+    -pthread \
+    -o test.exe
+
+ls -lh libgrpc_wrapper.a test.exe
