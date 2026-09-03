@@ -1339,6 +1339,7 @@ rtm_install_route (
     bool new_rt = false;
     rtm_nh_proto_t *nh_proto;
     rtm_error_t rc = RTM_SUCCESS;
+    bool rtm_rt_was_resolved = false;
 
     rc = rtm_validate_cp_nexthop_template(cp_nh_template);
 
@@ -1382,6 +1383,9 @@ rtm_install_route (
         tracer(rtm->node->cptr, DRTM_DET,
             "RTM[%s] : Success : New Route %s Added to RTM DB\n",
             rtm->name, prefix_str);
+    }
+    else {
+        rtm_rt_was_resolved = rtm_route_is_resolved(route);
     }
 
     rtm_nh *nh = rtm_nh_create_from_nh_template(cp_nh_template);
@@ -1452,7 +1456,8 @@ rtm_install_route (
         prefix_str,
         rtm_nh_one_liner_trace(nh, gw_str, sizeof(gw_str)));
         
-    if (new_rt && rtm_route_is_resolved (route)) {
+    if ((new_rt && rtm_route_is_resolved (route)) || // If this is a new route altogether
+          (!rtm_rt_was_resolved && rtm_route_is_resolved (route))) { // addition of new nexthop has transitioned the route from unres -> res state
 
         if (!Fglthread_list_is_empty(&rtm->unresolvable_paths)) {
 

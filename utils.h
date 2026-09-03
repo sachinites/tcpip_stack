@@ -217,4 +217,8 @@ static const char* afi_to_string(AFI_T afi) {
 	hrs_min_sec_format((unsigned int)difftime(time(NULL), \
                                         time_t_obj), buff, size)
 
+
+const char *
+bgp_addr_family_str(uint8_t afi, uint8_t safi);
+
 #endif /* __UTILS__ */

@@ -33,10 +33,14 @@ typedef struct rt_advert_info_ {
     RTM_PROTO_T src_proto;
     uint8_t src_vrf_id;
 
+
     /* Output info*/
     uint32_t out_cost;       /* redistribute static cost 1000 */
     uint32_t out_tag;        /* Tag the routes */
     uint32_t out_community;  /* Ist 16 bits:2nd16 bits , eg : 100:1 */
+    uint8_t afi;             /* To be filled by redist_target_t*/
+    uint8_t safi;            /* To be filled by redist_target_t*/
+    cmn_prefix_t bgp_nbr;    /* To be filled by redist_target_t*/
 
     uint64_t Cnhidx;
 

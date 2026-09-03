@@ -59,12 +59,12 @@ traffic into the topology. Once Node recv the pkt, the traffic will be
 set on its course towards destination as per the usual pseudo TCPIP stack
 implementation */
 
-static uint32_t udp_port_number = 40000;
+static uint32_t udp_port_number = 20000;
 
 static uint32_t 
 node_get_next_udp_port_number(void) {
     
-    return udp_port_number++;
+    return udp_port_number += 1000;
 }
 
 extern void

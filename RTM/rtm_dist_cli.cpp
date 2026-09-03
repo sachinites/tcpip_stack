@@ -6,6 +6,8 @@ redistribute connected|static|bgp|ospf|isis [prefix-list <pfx-lst-name>] [metric
 #include <stdlib.h>
 #include <string.h>
 
+#include "../tcpconst.h"
+
 #include "../CLIBuilder/libcli.h"
 #include "../CLIBuilder/cmdtlv.h"
 #include "../router_init.h"
@@ -233,16 +235,24 @@ rtm_redist_cmdcode_to_src_proto(int64_t cmdcode)
 
 static redist_target_t *
 redist_target_find(
-    dist_mgr_t *dm,
-    RTM_PROTO_T dst_proto,
-    uint32_t dst_inst,
-    uint8_t dst_vrf)
+        dist_mgr_t *dm,
+        RTM_PROTO_T dst_proto,
+        uint32_t dst_inst,
+        uint8_t dst_vrf, 
+        cmn_prefix_t *bgp_nbr,
+        uint8_t afi, 
+        uint8_t safi)
 {
     redist_target_t *t;
 
     for (t = dm->target_lst; t; t = t->next) {
-        if (t->proto == dst_proto && t->instance_no == dst_inst
-            && t->vrf->vrf_id == dst_vrf)
+
+        if (t->proto == dst_proto && 
+            t->instance_no == dst_inst &&
+            t->vrf->vrf_id == dst_vrf &&
+            !cmn_prefix_compare(&t->bgp_nbr, bgp_nbr) &&
+            t->afi == afi && 
+            t->safi == safi)
             return t;
     }
     return NULL;
@@ -266,9 +276,12 @@ redist_target_get_or_create(
     dist_mgr_t *dm,
     RTM_PROTO_T dst_proto,
     uint32_t dst_inst,
-    uint8_t dst_vrf)
+    uint8_t dst_vrf,
+    cmn_prefix_t *bgp_nbr_pfx,
+    uint8_t afi, uint8_t safi)
 {
-    redist_target_t *t = redist_target_find(dm, dst_proto, dst_inst, dst_vrf);
+    redist_target_t *t = redist_target_find(dm, dst_proto, dst_inst, dst_vrf,
+                            bgp_nbr_pfx, afi, safi);
 
     if (t) return t;
 
@@ -276,6 +289,9 @@ redist_target_get_or_create(
     t->proto = dst_proto;
     t->instance_no = dst_inst;
     t->vrf = vrf_get_by_id(dm->node, dst_vrf);
+    if (bgp_nbr_pfx) memcpy(&t->bgp_nbr, bgp_nbr_pfx, sizeof (*bgp_nbr_pfx));
+    t->afi = afi;
+    t->safi = safi;
     init_Fglthread(&t->client_redis_queue);
     t->client_flash_job = NULL;
     avltree_init(&t->rt_advertised, rt_advertised_node_tree_comp_fn);
@@ -331,11 +347,6 @@ dist_rule_find(redist_target_t *target, const dist_rule_t *key)
         /* Filter */
         if (r->pfx_lst         != key->pfx_lst)         continue;
 
-        /* Action */
-        if (r->out_cost        != key->out_cost)        continue;
-        if (r->out_tag         != key->out_tag)         continue;
-        if (r->out_community   != key->out_community)   continue;
-
         return r;
     }
     return NULL;
@@ -355,7 +366,12 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
     c_string node_name = NULL;
     c_string vrf_name = NULL;
     c_string pfx_lst_name = NULL;
-    const char *metric_str = NULL;
+    c_string metric_str = NULL;
+    c_string bgp_nbr = NULL;
+    uint8_t afi = AFI_IPV4; uint8_t safi = SAFI_UNICAST;
+    cmn_prefix_t bgp_nbr_pfx;
+
+    memset (&bgp_nbr_pfx, 0, sizeof (bgp_nbr_pfx));
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv)
     {
@@ -370,9 +386,30 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
         else if (parser_match_leaf_id(tlv->leaf_id, "pfx-lst-name"))
             pfx_lst_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "metric-val"))
-            metric_str = (const char *)tlv->value;
+            metric_str = tlv->value;
         else if (parser_match_param(tlv, "protocol"))
             proto_readname = true;
+        else if (parser_match_param(tlv, IPV4_UNICAST_AF_STR) &&
+            target_proto == RTM_PROTO_BGP) {
+            afi = AFI_IPV4;
+            safi = SAFI_UNICAST;
+        }
+        else if (parser_match_param(tlv, IPV6_UNICAST_AF_STR) &&
+            target_proto == RTM_PROTO_BGP) {
+            afi = AFI_IPV6;
+            safi = SAFI_UNICAST;
+        }
+        else if (parser_match_param(tlv, VPNV4_UNICAST_AF_STR) &&
+            target_proto == RTM_PROTO_BGP) {
+            afi = AFI_IPV4;
+            safi = SAFI_MPLS_VPN;
+        }
+        else if (parser_match_leaf_id(tlv->leaf_id, "bgp-neighbor-addr") &&
+            target_proto == RTM_PROTO_BGP){
+            bgp_nbr = tlv->value;
+            uint32_t nbr_ip_addr_int = tcp_ip_convert_ip_p_to_n(bgp_nbr);
+            cmn_prefix_initialize_v4(&bgp_nbr_pfx, nbr_ip_addr_int, 32);
+        }
     }
     TLV_LOOP_END;
 
@@ -394,7 +431,7 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
     uint32_t metric_u = 0;
 
     if (metric_str && metric_str[0])
-        metric_u = (uint32_t)strtoul(metric_str, NULL, 10);
+        metric_u = (uint32_t)strtoul((const char *)metric_str, NULL, 10);
 
     prefix_list_t *pfx_lst = NULL;
 
@@ -419,12 +456,12 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
     key.src_instance_no = 0;
     key.src_vrf_id      = vrf->vrf_id;
     key.pfx_lst         = pfx_lst;
-    key.out_cost        = metric_u;
-    key.out_tag         = 0;
-    key.out_community   = 0;
 
     redist_target_t *target =
-        redist_target_find(node->dist_mgr, target_proto, 0, vrf->vrf_id);
+        redist_target_find(node->dist_mgr, target_proto, 0, vrf->vrf_id,
+                    &bgp_nbr_pfx,
+                    target_proto == RTM_PROTO_BGP ? afi : AFI_IPV4,
+                    target_proto == RTM_PROTO_BGP ? safi : SAFI_UNICAST);
 
     switch (enable_or_disable) {
 
@@ -464,7 +501,13 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
 
             if (!target) {
                 target = redist_target_get_or_create(
-                    node->dist_mgr, target_proto, 0, vrf->vrf_id);
+                    node->dist_mgr, 
+                    target_proto, 
+                    0, 
+                    vrf->vrf_id, 
+                    &bgp_nbr_pfx,
+                    target_proto == RTM_PROTO_BGP ? afi : AFI_IPV4,
+                    target_proto == RTM_PROTO_BGP ? safi : SAFI_UNICAST);
             }
 
             /* Materialize the rule from the template. memcpy preserves every
@@ -508,12 +551,21 @@ rtm_unregister_rt_distribution_cbk (
     RTM_PROTO_T proto, 
     uint8_t vrf_id, uint32_t instance_no) {
 
-    redist_target_t *target = 
-        redist_target_find(dist_mgr, proto, instance_no, vrf_id);
-    
-    if (!target) return;
-    dist_mgr_target_delink (dist_mgr, target);
-    rtm_dis_mgr_gc (dist_mgr, target, DIST_MGR_GC_TYPE_TARGET);
+    redist_target_t *target = dist_mgr->target_lst;
+    redist_target_t *next;
+
+    /* BGP may have multiple targets (bgp_nbr / afi / safi). Tear down every
+       match for this proto / vrf / instance. */
+    while (target) {
+        next = target->next;
+        if (target->proto == proto &&
+            target->instance_no == instance_no &&
+            target->vrf->vrf_id == vrf_id) {
+            dist_mgr_target_delink(dist_mgr, target);
+            rtm_dis_mgr_gc(dist_mgr, target, DIST_MGR_GC_TYPE_TARGET);
+        }
+        target = next;
+    }
 }
 
 

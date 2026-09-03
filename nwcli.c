@@ -149,6 +149,7 @@ static cli_register_cb
         srv6_build_global_config_cli_tree,
         lfa_config_cli_tree,
         evpn_config_cli_tree,
+        bgp_config_cli_tree,
 
         /*  Add more CB here */
         
@@ -164,6 +165,7 @@ static cli_register_cb
         isis_show_cli_tree,
         srv6_build_cli_show_tree,
         lfa_show_cli_tree,
+        bgp_show_cli_tree,
 
         /* Add more CB here */
 
@@ -186,6 +188,7 @@ static cli_register_cb
 	cli_register_cb_arr_run_node_node_name_protocol_level[] =
 	{
 		isis_run_cli_tree,
+		bgp_run_cli_tree,
 		0
 		/* Add more CB here */
 	};

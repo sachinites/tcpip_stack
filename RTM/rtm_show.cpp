@@ -1183,14 +1183,6 @@ rtm_show_dist_mgr_database (dist_mgr_t *dist_mgr) {
     cprintf("\nTotal: %d entr%s\n", entry_count, entry_count == 1 ? "y" : "ies");
 }
 
-static void
-rtm_show_dist_mgr_comm_fmt(uint32_t wc, char *buf, size_t buflen)
-{
-    uint32_t hi = (wc >> 16) & 0xFFFFu;
-    uint32_t lo = wc & 0xFFFFu;
-
-    snprintf(buf, buflen, "%u:%u", hi, lo);
-}
 
 /* Reconstruct the exact "redistribute ..." CLI line that would create
    `rule`. Only fields that the CLI actually exposes are emitted; defaults
@@ -1208,11 +1200,6 @@ rtm_dist_rule_format_cli(const dist_rule_t *rule, char *buf, size_t buflen)
         n += snprintf(buf + n, buflen - n, " prefix-list %s",
                       (const char *)rule->pfx_lst->name);
         if (n < 0 || (size_t)n >= buflen) return;
-    }
-
-    if (rule->out_cost) {
-        snprintf(buf + n, buflen - n, " metric %u",
-                 (unsigned)rule->out_cost);
     }
 }
 
@@ -1238,18 +1225,33 @@ rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
 
     for (target = dist_mgr->target_lst; target; target = target->next) {
         char vrf_buf[48];
-        char client_id[128];
+        char client_id[160];
         const char *vrf_str = target->vrf->vrf_name;
 
         snprintf(vrf_buf, sizeof(vrf_buf), "%s", vrf_str);
 
-        snprintf(
-            client_id,
-            sizeof(client_id),
-            "%s.%s.%u",
-            vrf_buf,
-            rtm_proto_to_string(target->proto),
-            (unsigned)target->instance_no);
+        if (target->proto == RTM_PROTO_BGP) {
+            char nbr_str[48];
+
+            rtm_format_nexthop(&target->bgp_nbr, nbr_str, sizeof(nbr_str));
+            snprintf(
+                client_id,
+                sizeof(client_id),
+                "%s.%s.%u.%s.%s",
+                vrf_buf,
+                rtm_proto_to_string(target->proto),
+                (unsigned)target->instance_no,
+                nbr_str,
+                bgp_addr_family_str(target->afi, target->safi));
+        } else {
+            snprintf(
+                client_id,
+                sizeof(client_id),
+                "%s.%s.%u",
+                vrf_buf,
+                rtm_proto_to_string(target->proto),
+                (unsigned)target->instance_no);
+        }
 
         cprintf("\nClient : %s\n", client_id);
         cprintf(
@@ -1276,8 +1278,6 @@ rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
             } else {
                 pfx_str = "(any)";
             }
-
-            rtm_show_dist_mgr_comm_fmt(rule->out_community, comm_buf, sizeof(comm_buf));
 
             cprintf("  Rule %d\n", rule_no + 1);
 
@@ -1308,20 +1308,6 @@ rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
                 "      %-14s %s\n",
                 "Prefix-list:",
                 pfx_str);
-
-            cprintf("    Action\n");
-            cprintf(
-                "      %-14s %u\n",
-                "Metric:",
-                (unsigned)rule->out_cost);
-            cprintf(
-                "      %-14s %u\n",
-                "Tag:",
-                (unsigned)rule->out_tag);
-            cprintf(
-                "      %-14s %s\n",
-                "Community:",
-                comm_buf);
 
             cprintf(
                 "------------------------------------------------------------------\n");
@@ -1363,18 +1349,24 @@ rtm_show_dist_mgr_targets (dist_mgr_t *dist_mgr,
     }
     uint8_t target_vrf_id = vrf->vrf_id;
 
-    /* Locate the target */
-    redist_target_t *target = NULL;
+    /* Collect every target that shares (proto, instance, vrf).  Non-BGP
+       protocols have at most one; BGP may have several that differ only by
+       (bgp_nbr, afi, safi). */
+    redist_target_t *group[64];
+    int group_count = 0;
+
     for (redist_target_t *t = dist_mgr->target_lst; t; t = t->next) {
-        if (t->proto == target_proto &&
-            t->instance_no == instance_no &&
-            t->vrf->vrf_id == target_vrf_id) {
-            target = t;
-            break;
+        if (t->proto != target_proto ||
+            t->instance_no != instance_no ||
+            t->vrf->vrf_id != target_vrf_id) {
+            continue;
+        }
+        if (group_count < (int)(sizeof(group) / sizeof(group[0]))) {
+            group[group_count++] = t;
         }
     }
 
-    if (!target) {
+    if (!group_count) {
         cprintf("redistribution target %s.%s.%u not found\n",
                 vrf->vrf_name,
                 rtm_proto_to_string(target_proto),
@@ -1388,50 +1380,76 @@ rtm_show_dist_mgr_targets (dist_mgr_t *dist_mgr,
             rtm_proto_to_string(target_proto),
             instance_no);
 
-    if (avltree_is_empty(&target->rt_advertised)) {
-        cprintf("  (no routes advertised)\n\n");
-        return;
+    for (int g = 0; g < group_count; g++) {
+        redist_target_t *target = group[g];
+
+        if (target_proto == RTM_PROTO_BGP) {
+            char nbr_str[48];
+            const char *afi_str;
+            const char *safi_str;
+
+            rtm_format_nexthop(&target->bgp_nbr, nbr_str, sizeof(nbr_str));
+
+            switch (target->afi) {
+                case AFI_IPV6: afi_str = "ipv6"; break;
+                default:       afi_str = "ipv4"; break;
+            }
+            switch (target->safi) {
+                case SAFI_MPLS_VPN: safi_str = "mpls-vpn"; break;
+                case SAFI_MULTICAST: safi_str = "multicast"; break;
+                default:             safi_str = "unicast"; break;
+            }
+
+            cprintf("\n  BGP peer %s  afi %s  safi %s\n",
+                    nbr_str, afi_str, safi_str);
+        }
+
+        if (avltree_is_empty(&target->rt_advertised)) {
+            cprintf("  (no routes advertised)\n");
+            continue;
+        }
+
+        cprintf("  %-4s %-26s %-12s %-14s %-12s %-10s %-20s\n",
+                "#", "Route", "Src-Proto", "Src-Sub-Proto",
+                "Src-VRF", "Src-Inst", "Cnhidx");
+        cprintf("  %-4s %-26s %-12s %-14s %-12s %-10s %-20s\n",
+                "----", "--------------------------",
+                "------------", "--------------",
+                "------------", "----------",
+                "--------------------");
+
+        avltree_node_t *avl_node;
+        rt_advertised_node_t *adv_node;
+        rt_redist_route_t *dist_rt;
+        char prefix_str[48];
+        int idx = 0;
+
+        ITERATE_AVL_TREE_BEGIN(&target->rt_advertised, avl_node)
+        {
+            adv_node = avltree_container_of(avl_node, rt_advertised_node_t, glue);
+            dist_rt = adv_node->dist_rt;
+            if (!dist_rt || !dist_rt->nh_proto) continue;
+
+            rtm_format_prefix(&dist_rt->prefix, prefix_str, sizeof(prefix_str));
+
+            const char *src_vrf_name = vrf_name(dist_mgr->node,
+                                                dist_rt->route_vrf);
+
+            cprintf("  %-4d %-26s %-12s %-14s %-12s %-10u 0x%-18llx\n",
+                    ++idx,
+                    prefix_str,
+                    rtm_proto_to_string(dist_rt->nh_proto->proto),
+                    rtm_sub_proto_to_string(dist_rt->nh_proto->sub_proto),
+                    src_vrf_name ? src_vrf_name : "?",
+                    dist_rt->nh_proto->instance_no,
+                    (unsigned long long)dist_rt->Cnhidx);
+        }
+        ITERATE_AVL_TREE_END;
+
+        cprintf("  Total advertised routes : %d\n", idx);
     }
 
-    /* Tabular header */
-    cprintf("%-4s %-26s %-12s %-14s %-12s %-10s %-20s\n",
-            "#", "Route", "Src-Proto", "Src-Sub-Proto",
-            "Src-VRF", "Src-Inst", "Cnhidx");
-    cprintf("%-4s %-26s %-12s %-14s %-12s %-10s %-20s\n",
-            "----", "--------------------------",
-            "------------", "--------------",
-            "------------", "----------",
-            "--------------------");
-
-    avltree_node_t *avl_node;
-    rt_advertised_node_t *adv_node;
-    rt_redist_route_t *dist_rt;
-    char prefix_str[48];
-    int idx = 0;
-
-    ITERATE_AVL_TREE_BEGIN(&target->rt_advertised, avl_node)
-    {
-        adv_node = avltree_container_of(avl_node, rt_advertised_node_t, glue);
-        dist_rt = adv_node->dist_rt;
-        if (!dist_rt || !dist_rt->nh_proto) continue;
-
-        rtm_format_prefix(&dist_rt->prefix, prefix_str, sizeof(prefix_str));
-
-        const char *src_vrf_name = vrf_name(dist_mgr->node,
-                                            dist_rt->route_vrf);
-
-        cprintf("%-4d %-26s %-12s %-14s %-12s %-10u 0x%-18llx\n",
-                ++idx,
-                prefix_str,
-                rtm_proto_to_string(dist_rt->nh_proto->proto),
-                rtm_sub_proto_to_string(dist_rt->nh_proto->sub_proto),
-                src_vrf_name ? src_vrf_name : "?",
-                dist_rt->nh_proto->instance_no,
-                (unsigned long long)dist_rt->Cnhidx);
-    }
-    ITERATE_AVL_TREE_END;
-
-    cprintf("\nTotal advertised routes : %d\n\n", idx);
+    cprintf("\n");
 }
 
 /* For each redistribution source row (same prefix, different NH / Cnhidx), list
@@ -1544,15 +1562,6 @@ rtm_show_dist_mgr_target_route(dist_mgr_t *dist_mgr, const char *prefix_str)
                 continue;
             }
 
-            char comm_buf[24];
-            rtm_show_dist_mgr_comm_fmt(rule->out_community, comm_buf,
-                                       sizeof(comm_buf));
-
-            cprintf("        Rule metric (out_cost) : %u\n",
-                    (unsigned)rule->out_cost);
-            cprintf("        Rule tag               : %u\n",
-                    (unsigned)rule->out_tag);
-            cprintf("        Rule community         : %s\n", comm_buf);
             if (rule->pfx_lst) {
                 cprintf("        Prefix-list filter     : %s\n",
                         (const char *)rule->pfx_lst->name);

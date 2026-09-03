@@ -77,15 +77,15 @@ A route’s refcount drops to zero only when nothing holds it: prefix list,
 vrf/proto list, redis queue glue, target advertisement nodes, etc.  On add,
 rt_redist_route_reference is called when linking into each structure and again
 when enqueueing for distribution; matching rt_redist_route_dereference calls
-remove those references.  When refcount hits zero, nh_proto is released,
-bitmaps freed, and the rt_redist_route_t is destroyed.
+remove those references.  When refcount hits zero, nh_proto is released
+and the rt_redist_route_t is destroyed.
 
 ADVERTISEMENT TRACKING
 ----------------------
-client_advert_tracker (bitmaps over proto / vrf / instance) records which
-targets have been told about this route so we can withdraw precisely and avoid
-duplicate adds.  rtm_redist_target_record_rt_advertisement updates both the
-target’s rt_advertised tree and those bitmaps.
+Each redist_target_t keeps an rt_advertised AVL of routes currently advertised
+to that client.  redist_route_is_advertised_to_client() looks up a route in
+that tree; rtm_redist_target_record_rt_advertisement inserts/removes entries
+and adjusts the route’s refcount.
 
 POLICY
 ------
@@ -115,8 +115,7 @@ Key Concepts and Data Structures:
 
 2. **rt_redist_route_t**:
    Represents a redistributed route instance, encapsulating route prefix,
-   next-hop, client advertisement tracking bitmaps, reference counts, and glue
-   nodes for AVL trees.
+   next-hop, reference counts, and glue nodes for AVL trees.
 
 3. **redist_target_t**:
    Represents a redistribution target client/protocol – e.g., OSPF, IS-IS –
@@ -195,6 +194,7 @@ typedef struct node_ node_t;
 
 /* Mention Application CBKs here*/
 extern void isis_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert);
+extern void bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert);
 
 /* Pack indirect + direct next-hop indices into one 64-bit key (Cnhidx) used as
  * the AVL sort key for nhidx_tree.  Presentation events always supply both. */
@@ -309,8 +309,9 @@ rtm_dist_mgr_init (node_t *node) {
     init_Fglthread(&dist_mgr->pfxlst_book_keep);
     
     for (i = 0; i < RTM_PROTO_MAX; i++) dist_mgr->target_cbks[i] = NULL;
-    dist_mgr->target_cbks[RTM_PROTO_ISIS] = isis_rtm_route_notif;
 
+    dist_mgr->target_cbks[RTM_PROTO_ISIS] = isis_rtm_route_notif;
+    dist_mgr->target_cbks[RTM_PROTO_BGP] = bgp_rtm_route_notif;
 
     node->dist_mgr = dist_mgr;
 
@@ -352,18 +353,14 @@ rt_redist_route_dereference (dist_mgr_t *dist_mgr, rt_redist_route_t *redis_rt) 
     rtm_nh_proto_dereference(rtm, redis_rt->nh_proto);
     redis_rt->nh_proto = NULL;
 
-    bitmap_free_internal (&redis_rt->client_advert_tracker.proto_bitmap);
-    bitmap_free_internal (&redis_rt->client_advert_tracker.vrf_id);
-    bitmap_free_internal (&redis_rt->client_advert_tracker.instance_no);
-    
     rtm_dist_mgr_check_and_delete (redis_rt);    
 
     return 0;
 }   
 
 /* Record or clear that `dist_rt` is advertised to `target`: maintains
- * target->rt_advertised AVL and the per-route bitmaps.  add=true bumps
- * dist_rt refcount; add=false may drop it to zero and destroy the route. */
+ * target->rt_advertised AVL.  add=true bumps dist_rt refcount; add=false
+ * may drop it to zero and destroy the route. */
 
 void 
 rtm_redist_target_record_rt_advertisement 
@@ -379,9 +376,6 @@ rtm_redist_target_record_rt_advertisement
         node->dist_rt = dist_rt;
         rt_redist_route_reference(dist_rt);
         assert(!avltree_insert(&node->glue, &target->rt_advertised));
-        bitmap_set_bit_at (&dist_rt->client_advert_tracker.proto_bitmap, target->proto);
-        bitmap_set_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf->vrf_id);
-        bitmap_set_bit_at (&dist_rt->client_advert_tracker.instance_no, target->instance_no);
         return;
     }
 
@@ -397,9 +391,7 @@ rtm_redist_target_record_rt_advertisement
     assert(node->dist_rt == dist_rt);
 
     node->dist_rt = NULL;
-    bitmap_unset_bit_at (&dist_rt->client_advert_tracker.proto_bitmap, target->proto);
-    bitmap_unset_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf->vrf_id);
-    bitmap_unset_bit_at (&dist_rt->client_advert_tracker.instance_no, target->instance_no);
+    XFREE(node);
     rt_redist_route_dereference(dist_mgr, dist_rt);
 }
 
@@ -459,10 +451,6 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
             redis_rt->is_deleted = false;
             redis_rt->ref_count = 0;
 
-            bitmap_init(&redis_rt->client_advert_tracker.proto_bitmap, bitmap_next_32_divisible_integer((uint16_t)RTM_PROTO_MAX));
-            bitmap_init(&redis_rt->client_advert_tracker.vrf_id, bitmap_next_32_divisible_integer((uint16_t)MAX_VRF_PER_NODE));
-            bitmap_init(&redis_rt->client_advert_tracker.instance_no, bitmap_next_32_divisible_integer(32));
-            
             avl_node = avltree_insert (&redis_rt->nhidx_glue, &dist_mgr->nhidx_tree);
 
             /* Duplicate Cnhidx would mean two redist entries for same NH keys. */
@@ -771,6 +759,13 @@ target_redis_cbk (
         advert_info = redis_glue_to_rt_advert_info(curr);
 
         if ((dist_mgr->target_cbks)[target->proto]) {
+            
+            /* Fill the target info in the route so that target known 
+            this route has been flashed for me !! */
+            memcpy (&advert_info->bgp_nbr, &target->bgp_nbr, sizeof (advert_info->bgp_nbr));
+            advert_info->afi = target->afi;
+            advert_info->safi = target->safi;
+
             (*dist_mgr->target_cbks[target->proto])(target->vrf, advert_info);
         }
         XFREE(advert_info);
@@ -872,9 +867,6 @@ void rtm_dist_mgr_distribute_route_to_target_clients(
                 /* Clone base advertisement, apply rule action and queue by pointer */
                 advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
                 memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
-                advert_info->out_cost = rule->out_cost;
-                advert_info->out_tag = rule->out_tag;
-                advert_info->out_community = rule->out_community;
                 advert_info->code = RTM_CLIENT_RT_ADD;
                 init_glthread(&advert_info->redis_glue);
 
@@ -957,9 +949,6 @@ rtm_dist_mgr_broadcast_dist_routes_to_target(
             rtm_dist_mgr_advert_fill_from_route(&advert_tmplate, dist_rt);
             advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
             memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
-            advert_info->out_cost = rule->out_cost;
-            advert_info->out_tag = rule->out_tag;
-            advert_info->out_community = rule->out_community;
             advert_info->code = RTM_CLIENT_RT_ADD;
             init_glthread(&advert_info->redis_glue);
 
@@ -1048,9 +1037,6 @@ rtm_dist_mgr_client_request_route_replay (
             rtm_dist_mgr_advert_fill_from_route(&advert_tmplate, dist_rt);
             advert_info = (rt_advert_info_t *)XCALLOC2(0, 1, rt_advert_info_t);
             memcpy(advert_info, &advert_tmplate, sizeof(*advert_info));
-            advert_info->out_cost = rule->out_cost;
-            advert_info->out_tag = rule->out_tag;
-            advert_info->out_community = rule->out_community;
             advert_info->code = RTM_CLIENT_RT_ADD;
             init_glthread(&advert_info->redis_glue);
 
@@ -1111,8 +1097,8 @@ rtm_dist_mgr_target_release_all_resources (dist_mgr_t *dist_mgr, redist_target_t
 
     /* Release the routes advertised to this target i.e. target->rt_advertised.
        At GC time the client has already drained client_redis_queue, so we just
-       tear down the bookkeeping: drop the per-target advertisement bit on each
-       dist_rt, dereference the dist_rt, and free the avl entry. */
+       tear down the bookkeeping: remove each avl entry and dereference the
+       dist_rt. */
     avltree_node_t *avl_node;
     rt_advertised_node_t *adv_node;
     rt_redist_route_t *dist_rt;
@@ -1126,9 +1112,6 @@ rtm_dist_mgr_target_release_all_resources (dist_mgr_t *dist_mgr, redist_target_t
         adv_node->dist_rt = NULL;
         XFREE(adv_node);
 
-        bitmap_unset_bit_at (&dist_rt->client_advert_tracker.proto_bitmap, target->proto);
-        bitmap_unset_bit_at (&dist_rt->client_advert_tracker.vrf_id, target->vrf->vrf_id);
-        bitmap_unset_bit_at (&dist_rt->client_advert_tracker.instance_no, target->instance_no);
         rt_redist_route_dereference(dist_mgr, dist_rt);
 
     } ITERATE_AVL_TREE_END;

@@ -39,6 +39,7 @@
 #include <stdbool.h>
 #include <time.h>
 
+#include "tcpconst.h"
 #include "utils.h"
 
 /*Apply mask on prefix, and store result in 'str_prefix'
@@ -478,6 +479,43 @@ afi_stride_len (AFI_T afi) {
         default:
             return 0;
     }
+}
+
+const char *
+bgp_addr_family_str(uint8_t afi, uint8_t safi)
+{
+    switch (afi)
+    {
+        case AFI_IPV4:
+            switch (safi)
+            {
+                case SAFI_UNICAST:
+                    return IPV4_UNICAST_AF_STR;
+
+                case SAFI_MPLS_VPN:
+                    return VPNV4_UNICAST_AF_STR;
+
+                default:
+                    break;
+            }
+            break;
+
+        case AFI_IPV6:
+            switch (safi)
+            {
+                case SAFI_UNICAST:
+                    return IPV6_UNICAST_AF_STR;
+
+                default:
+                    break;
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    return "unknown";
 }
 
 #if 0

@@ -2,6 +2,7 @@
 #define __APP_HANDLERS__
 
 #include "../CLIBuilder/libcli.h"
+#include "bgp_route.h"
 
 typedef struct stack Stack_t ;
 
@@ -57,6 +58,15 @@ evpn_config_cli_tree(param_t *param);
 
 int
 evpn_debug_cli_tree(param_t *param);
+
+int
+bgp_config_cli_tree(param_t *param);
+
+int
+bgp_show_cli_tree(param_t *param);
+
+int
+bgp_run_cli_tree(param_t *param);
 
 param_t *
 vrf_build_config_tree (param_t *node_name);

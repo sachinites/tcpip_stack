@@ -87,8 +87,6 @@ void vrf_delete_by_id(node_t *node, uint8_t vrf_id) {
 /* Delete VRF instance */
 void vrf_delete(vrf_t* vrf, bool _free) {
 
-    glthread_t *curr;
-
     assert (vrf->vrf_id != RTM_DEFAULT_VRF);
 
     rtm_stop(vrf->inet0);

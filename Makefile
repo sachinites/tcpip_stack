@@ -134,6 +134,9 @@ OBJS=     router_init.o   \
 		  dpcp_cmn.o \
 		  sql_exec.o \
 		  Layer5/gobgp/sf_gobgp_grpc_client_fake.o \
+		  Layer5/bgp_rtr.o \
+		  Layer5/bgp_cli.o \
+		  Layer5/bgp_route.o \
 
 ifeq ($(GOBGP_GRPC),1)
 OBJS += Layer5/gobgp/sf_gobgp_grpc_client.o
@@ -242,6 +245,16 @@ Layer4/udp.o:Layer4/udp.c
 	
 Layer5/layer5.o:Layer5/layer5.c
 	${CC} ${CFLAGS} -c -I . Layer5/layer5.c -o Layer5/layer5.o
+
+#BGP files
+Layer5/bgp_cli.o:Layer5/bgp_cli.cpp
+	${CC} ${CFLAGS} -c -I . -I Layer5/gobgp Layer5/bgp_cli.cpp -o Layer5/bgp_cli.o
+
+Layer5/bgp_rtr.o:Layer5/bgp_rtr.cpp
+	${CC} ${CFLAGS} -c -I . -I Layer5/gobgp Layer5/bgp_rtr.cpp -o Layer5/bgp_rtr.o
+
+Layer5/bgp_route.o:Layer5/bgp_route.cpp
+	${CC} ${CFLAGS} -c -I . -I Layer5/gobgp Layer5/bgp_route.cpp -o Layer5/bgp_route.o
 
 Layer5/gobgp/sf_gobgp_grpc_client_fake.o:Layer5/gobgp/sf_gobgp_grpc_client_fake.cpp
 	${CC} ${CFLAGS} -c -I Layer5/gobgp Layer5/gobgp/sf_gobgp_grpc_client_fake.cpp -o Layer5/gobgp/sf_gobgp_grpc_client_fake.o

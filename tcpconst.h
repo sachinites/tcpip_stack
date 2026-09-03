@@ -137,4 +137,21 @@ tcpip_protocol_classification(uint16_t proto) {
 #define L2VPN_START_LABEL (VPNV4_START_LABEL + VPNV4_LABEL_RANGE)
 #define L2VPN_LABEL_RANGE MAX_VRF_SUPPORTED   /* Must be Same as MAX_VRF_SUPPORTED */
 
+
+/* Addr Families */
+#define IPV4_UNICAST_AF_STR "ipv4-unicast"
+#define IPV6_UNICAST_AF_STR "ipv6-unicast"
+#define VPNV4_UNICAST_AF_STR "vpnv4-unicast"
+#define L2VPN_EVPN_AF_STR    "l2vpn-evpn"
+
+#define AFI_IPV4 1
+#define AFI_IPV6 2
+#define AFI_L2VPN 25
+
+#define SAFI_UNICAST 1
+#define SAFI_MULTICAST 2
+#define SAFI_MPLS_VPN 128
+#define SAFI_MPLS_EVPN 75
+
+
 #endif /* __TCPCONST__ */

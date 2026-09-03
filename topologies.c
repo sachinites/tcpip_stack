@@ -1237,6 +1237,24 @@ Original Topo:
     event_dispatcher_run(&H1->purger_ev_dis, true, 0);
     event_dispatcher_run(&H2->purger_ev_dis, true, 0);
 
+#if 1
+    /* launch GoBGP for each PE router  */
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:22000 --pprof-host=127.0.0.1:22001 --log-level=debug &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:23000 --pprof-host=127.0.0.1:23001 --log-level=debug &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:24000 --pprof-host=127.0.0.1:24001 --log-level=debug &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:25000 --pprof-host=127.0.0.1:25001 --log-level=debug &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:26000 --pprof-host=127.0.0.1:26001 --log-level=debug &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:27000 --pprof-host=127.0.0.1:27001 --log-level=debug &");
+#endif
+    /* Create linux loop backs and set IPs because GoBGP needs them */
+    system("ip link add lo0 type dummy");
+    system("ip addr add 122.1.1.0/32 dev lo0");
+    system("ip addr add 122.1.1.1/32 dev lo0");
+    system("ip addr add 122.1.1.2/32 dev lo0");
+    system("ip addr add 122.1.1.3/32 dev lo0");
+    system("ip addr add 122.1.1.4/32 dev lo0");
+    system("ip addr add 122.1.1.5/32 dev lo0");
+
     return topo;
 }
 

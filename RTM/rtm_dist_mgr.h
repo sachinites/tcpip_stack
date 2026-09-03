@@ -8,7 +8,6 @@
 #include "../libs/common/cmn_prefix.h"
 #include "../libs/Tree/libtree.h"
 #include "../libs/EventDispatcher/event_dispatcher.h"
-#include "../libs/BitOp/bitmap.h"
 #include "../libs/prefix-list/prefixlst.h"
 
 #include "rtm_fib_common.h"
@@ -53,23 +52,11 @@ typedef struct rt_redist_route_ {
 
     uint32_t ref_count;
 
-    /* This track to which clients this route has been  advertised 
-        bit 0 - route has not been advertised to client
-        bit 1 - route has been advertised to client 
-        Be noted : In case the route is deleted (is_deleted = true), 
-        and for the client advertisement bit is set to 1, we advertise
-        the route to client irrespective of policy decision, and reset it bit to 0.
-        This way we ensure that client gets the delete advertisement for the route as well.
-    */
-
-    /* Target is identified by using set o 3 bits below */
-    struct {
-
-        bitmap_t proto_bitmap;
-        bitmap_t vrf_id;
-        bitmap_t instance_no;
-
-    } client_advert_tracker;
+    /* Which targets currently hold this route is tracked on each
+       redist_target_t::rt_advertised AVL (keyed by dist_rt pointer).
+       When is_deleted is true and the route is still present in a
+       target's rt_advertised tree, we withdraw it regardless of policy
+       so the client always sees the delete. */
 
 } rt_redist_route_t;
 GLTHREAD_TO_STRUCT(rt_redist_route_redis_glue_to_rt, rt_redist_route_t ,redis_glue);
@@ -93,11 +80,6 @@ typedef struct dist_rule_ {
     /* Filters */
     prefix_list_t *pfx_lst;
 
-    /* Action */
-    uint32_t out_cost;
-    uint32_t out_tag;
-    uint32_t out_community;
-
 } dist_rule_t;
 
 typedef struct rt_advertised_node_ {
@@ -106,6 +88,7 @@ typedef struct rt_advertised_node_ {
     rt_redist_route_t *dist_rt;
 
 } rt_advertised_node_t;
+
 
 /* The deletion of this object is done in a deferred manner using GC
     so that all routes are synchronized (withdrawn) from this
@@ -116,6 +99,9 @@ typedef struct redist_target_ {
     RTM_PROTO_T proto;
     uint32_t instance_no; // default 0
     vrf_t *vrf;
+    cmn_prefix_t bgp_nbr; // applicable only for bgp
+    uint8_t afi;          // applicable only for bgp
+    uint8_t safi;         // applicable only for bgp
 
     dist_rule_t *rule_list;
 
@@ -134,28 +120,11 @@ typedef struct redist_target_ {
 static inline bool
 redist_route_is_advertised_to_client(rt_redist_route_t *dist_rt, redist_target_t *target) {
 
-    if (bitmap_at(&dist_rt->client_advert_tracker.proto_bitmap, (uint16_t)target->proto) &&
-        bitmap_at(&dist_rt->client_advert_tracker.vrf_id, (uint16_t)target->vrf->vrf_id) &&
-        bitmap_at(&dist_rt->client_advert_tracker.instance_no, target->instance_no)) {
-        
-        return true;
-    }
+    rt_advertised_node_t tmplate;
+    avltree_node_init(&tmplate.glue);
+    tmplate.dist_rt = dist_rt;
 
-    return false;
-}
-
-static inline bool 
-redist_route_is_advertised_to_client2(rt_redist_route_t *dist_rt, 
-    RTM_PROTO_T client_proto, uint8_t vrf_id, uint32_t instance_no) {
-
-    if (bitmap_at(&dist_rt->client_advert_tracker.proto_bitmap, (uint16_t)client_proto) &&
-        bitmap_at(&dist_rt->client_advert_tracker.vrf_id, (uint16_t)vrf_id) &&
-        bitmap_at(&dist_rt->client_advert_tracker.instance_no, (uint16_t)instance_no)) {
-        
-        return true;
-    }
-
-    return false;
+    return avltree_lookup(&tmplate.glue, &target->rt_advertised) != NULL;
 }
 
 void 
