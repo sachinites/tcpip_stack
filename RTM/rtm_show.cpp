@@ -1289,7 +1289,7 @@ rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
             cprintf(
                 "      %-14s %s\n",
                 "Src-VRF:",
-                vrf_buf);
+                dist_mgr->node->vrf[rule->src_vrf_id]->vrf_name);
             cprintf(
                 "      %-14s %s\n",
                 "Protocol:",

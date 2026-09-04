@@ -37,9 +37,6 @@ extern graph_t *topo;
 /* show node <node-name> protocol bgp summary */
 #define CMDCODE_SHOW_BGP_SUMMARY 5
 
-/* config node <node-name> protocol bgp route <prefix> nexthop <ip> [...] */
-#define CMDCODE_CONFIG_BGP_ROUTE 6
-
 /* show node <node-name> protocol bgp routes <afi> <safi> */
 #define CMDCODE_SHOW_BGP_ROUTES_IPV4_UNICAST 7
 #define CMDCODE_SHOW_BGP_ROUTES_IPV4_MPLS_VPN 8
@@ -47,6 +44,9 @@ extern graph_t *topo;
 
 /* run node <node-name> protocol bgp monitor <afi> <safi> */
 #define CMDCODE_RUN_BGP_MONITOR 10
+
+/* show node <node-name> protocol bgp running-config */
+#define CMDCODE_SHOW_BGP_RUNNING_CONFIG 11
 
 
 
@@ -201,6 +201,7 @@ bgp_config_handler(int64_t cmdcode,
     bool peer_asn_present = false;
     bool local_asn_present = false;
     tlv_struct_t *tlv = NULL;
+    c_string vrf_name = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
 
@@ -218,14 +219,17 @@ bgp_config_handler(int64_t cmdcode,
             peer_asn = (uint32_t)atoi((const char *)tlv->value);
             peer_asn_present = true;
         }
+        else if (parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
+            vrf_name = tlv->value;
 
     } TLV_LOOP_END;
 
-    node = node_get_node_by_name(topo, node_name);
-    if (!node) {
-        cprintf("Error : Node not found\n");
+    if (vrf_name) {
+        cprintf("Error : BGP Protocol is supported only in default VRF\n");
         return -1;
     }
+
+    node = node_get_node_by_name(topo, node_name);
 
     sf_gobgp_rpc_result_t result;
     bgp_node_config_t *cfg = nullptr;
@@ -235,6 +239,12 @@ bgp_config_handler(int64_t cmdcode,
 
         case CMDCODE_CONFIG_BGP_START:
         {
+            /* Intermediate leaf also carries this cmd-code; skip when the
+             * command continues into neighbor / address-family. */
+            if (neighbor_addr) {
+                break;
+            }
+
             if (!local_asn_present) {
                 cprintf("Error : AS number required\n");
                 return -1;
@@ -406,8 +416,10 @@ bgp_config_handler(int64_t cmdcode,
 
         case CMDCODE_CONFIG_BGP_NEIGHBOR_AF_IPV4:
         {
-            if (!neighbor_addr || !peer_asn_present) {
-                cprintf("Error : Neighbor address and AS required\n");
+            bgp_neighbor_config_t *nbr;
+
+            if (!neighbor_addr) {
+                cprintf("Error : Neighbor address required\n");
                 return -1;
             }
 
@@ -419,20 +431,28 @@ bgp_config_handler(int64_t cmdcode,
             cfg = bgp_config_get(node);
             client = bgp_get_grpc_client(node);
 
+            /* AF CLI has no remote-as leaf — reuse ASN from the
+             * already-configured neighbor (or from TLV if present). */
+            nbr = bgp_config_find_neighbor(cfg, (const char *)neighbor_addr);
+            if (!peer_asn_present) {
+                if (!nbr || !nbr->configured) {
+                    cprintf("Error : Neighbor %s is not configured; "
+                            "configure remote-as first\n",
+                            neighbor_addr);
+                    return -1;
+                }
+                peer_asn = nbr->peer_asn;
+            }
+
             switch (enable_or_disable) {
 
                 case CONFIG_ENABLE:
-                    {
-                        bgp_neighbor_config_t *nbr =
-                            bgp_config_find_neighbor(cfg,
-                                                     (const char *)neighbor_addr);
-                        if (nbr && nbr->configured &&
-                            nbr->peer_asn == peer_asn &&
-                            nbr->ipv4_unicast) {
-                            cprintf("IPv4 unicast already enabled for neighbor %s\n",
-                                    neighbor_addr);
-                            break;
-                        }
+                    if (nbr && nbr->configured &&
+                        nbr->peer_asn == peer_asn &&
+                        nbr->ipv4_unicast) {
+                        cprintf("IPv4 unicast already enabled for neighbor %s\n",
+                                neighbor_addr);
+                        break;
                     }
                     result = sf_gobgp_enable_ipv4(client,
                                                   (const char *)neighbor_addr,
@@ -443,32 +463,24 @@ bgp_config_handler(int64_t cmdcode,
                                             &result);
                         return -1;
                     }
-                    {
-                        bgp_neighbor_config_t *nbr =
-                            bgp_config_add_neighbor(cfg,
-                                                    (const char *)neighbor_addr);
-                        if (!nbr) {
-                            cprintf("Error : BGP neighbor table full\n");
-                            return -1;
-                        }
-                        nbr->peer_asn = peer_asn;
-                        nbr->configured = true;
-                        nbr->ipv4_unicast = true;
+                    nbr = bgp_config_add_neighbor(cfg,
+                                                  (const char *)neighbor_addr);
+                    if (!nbr) {
+                        cprintf("Error : BGP neighbor table full\n");
+                        return -1;
                     }
+                    nbr->peer_asn = peer_asn;
+                    nbr->configured = true;
+                    nbr->ipv4_unicast = true;
                     cprintf("IPv4 unicast enabled for neighbor %s\n",
                             neighbor_addr);
                     break;
 
                 case CONFIG_DISABLE:
-                    {
-                        bgp_neighbor_config_t *nbr =
-                            bgp_config_find_neighbor(cfg,
-                                                     (const char *)neighbor_addr);
-                        if (!nbr || !nbr->configured || !nbr->ipv4_unicast) {
-                            cprintf("IPv4 unicast is not enabled for neighbor %s\n",
-                                    neighbor_addr);
-                            break;
-                        }
+                    if (!nbr || !nbr->configured || !nbr->ipv4_unicast) {
+                        cprintf("IPv4 unicast is not enabled for neighbor %s\n",
+                                neighbor_addr);
+                        break;
                     }
                     result = sf_gobgp_disable_ipv4(client,
                                                    (const char *)neighbor_addr,
@@ -479,14 +491,7 @@ bgp_config_handler(int64_t cmdcode,
                                             &result);
                         return -1;
                     }
-                    {
-                        bgp_neighbor_config_t *nbr =
-                            bgp_config_find_neighbor(cfg,
-                                                     (const char *)neighbor_addr);
-                        if (nbr) {
-                            nbr->ipv4_unicast = false;
-                        }
-                    }
+                    nbr->ipv4_unicast = false;
                     cprintf("IPv4 unicast disabled for neighbor %s\n",
                             neighbor_addr);
                     break;
@@ -573,6 +578,56 @@ bgp_show_routes(node_t *node, const char *afi, const char *safi)
     return 0;
 }
 
+/* Cisco-style hierarchical dump of local bgp_node_config_t. */
+static void
+bgp_show_running_config(node_t *node)
+{
+    bgp_node_config_t *cfg;
+    int i;
+    int af_ipv4_printed = 0;
+
+    cfg = bgp_config_get(node);
+    if (!cfg || !cfg->started) {
+        cprintf("BGP is not configured on node %s\n", node->node_name);
+        return;
+    }
+
+    cprintf("!\n");
+    cprintf("router bgp %u\n", cfg->local_asn);
+    if (cfg->router_id[0] != '\0') {
+        cprintf(" bgp router-id %s\n", cfg->router_id);
+    }
+
+    for (i = 0; i < cfg->num_neighbors; i++) {
+        bgp_neighbor_config_t *nbr = &cfg->neighbors[i];
+
+        if (!nbr->configured) {
+            continue;
+        }
+        cprintf(" neighbor %s remote-as %u\n",
+                nbr->neighbor_address, nbr->peer_asn);
+    }
+
+    for (i = 0; i < cfg->num_neighbors; i++) {
+        bgp_neighbor_config_t *nbr = &cfg->neighbors[i];
+
+        if (!nbr->configured || !nbr->ipv4_unicast) {
+            continue;
+        }
+        if (!af_ipv4_printed) {
+            cprintf(" !\n");
+            cprintf(" address-family ipv4\n");
+            af_ipv4_printed = 1;
+        }
+        cprintf("  neighbor %s activate\n", nbr->neighbor_address);
+    }
+    if (af_ipv4_printed) {
+        cprintf(" exit-address-family\n");
+    }
+
+    cprintf("!\n");
+}
+
 static int
 bgp_show_handler(int64_t cmdcode,
                  Stack_t *tlv_stack,
@@ -595,6 +650,11 @@ bgp_show_handler(int64_t cmdcode,
     if (!node) {
         cprintf("Error : Node not found\n");
         return -1;
+    }
+
+    if (cmdcode == CMDCODE_SHOW_BGP_RUNNING_CONFIG) {
+        bgp_show_running_config(node);
+        return 0;
     }
 
     sf_gobgp_grpc_client_t *client = bgp_get_grpc_client(node);
@@ -883,6 +943,8 @@ bgp_config_cli_tree(param_t *param)
 /*
  * show node <node-name> protocol bgp peers
  * show node <node-name> protocol bgp summary
+ * show node <node-name> protocol bgp running-config
+ * show node <node-name> protocol bgp routes <afi> <safi>
  */
 int
 bgp_show_cli_tree(param_t *param)
@@ -906,6 +968,16 @@ bgp_show_cli_tree(param_t *param)
                        0, INVALID, 0, "Show BGP summary");
             libcli_register_param(&bgp, &summary);
             libcli_set_param_cmd_code(&summary, CMDCODE_SHOW_BGP_SUMMARY);
+        }
+        {
+            /* show node <node-name> protocol bgp running-config */
+            static param_t running_config;
+            init_param(&running_config, CMD, "running-config",
+                       bgp_show_handler, 0, INVALID, 0,
+                       "Show BGP running configuration");
+            libcli_register_param(&bgp, &running_config);
+            libcli_set_param_cmd_code(&running_config,
+                                      CMDCODE_SHOW_BGP_RUNNING_CONFIG);
         }
         {
             /* show node <node-name> protocol bgp routes <afi> <safi> */

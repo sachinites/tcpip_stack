@@ -218,7 +218,7 @@ vrf_get_by_name (node_t *node, char *name) {
     int i;
     
     if (!name || strcmp (name, DEF_VRF_NAME) == 0) 
-        return (vrf_t *)node->node_nw_prop.def_vrf;
+        return node->vrf[0];
 
     for (i = 0; i < MAX_VRF_PER_NODE; i++) {
         if (node->vrf[i] && 

@@ -20,6 +20,11 @@ redistribute connected|static|bgp|ospf|isis [prefix-list <pfx-lst-name>] [metric
 
 extern graph_t *topo;
 extern int cprintf(const char *format, ...);
+extern int 
+validate_vrf_existence(Stack_t *tlv_stack, unsigned char *leaf_value);
+extern void 
+display_cbk_all_vrfs(param_t *param, Stack_t *tlv_stack);
+
 
 /* Per-file command codes for redistribution policy CLI */
 #define CMDCODE_RTM_REDIST_CONNECTED  1
@@ -76,10 +81,28 @@ rtm_distribution_policy_common_subtree_cli(
             int (*cbk)(int64_t, Stack_t*, op_mode) ) {
 
  {
+            param_t *src_vrf_name;
+            {
+                param_t *vrf = (param_t *)calloc (1, sizeof (param_t));
+                init_param(vrf, CMD, "vrf", 0, 0, INVALID, 0,
+                "Source VRF");
+                libcli_register_param(mount_point, vrf);
+                {
+                    src_vrf_name = (param_t *)calloc (1, sizeof (param_t));
+                    init_param(src_vrf_name, LEAF, 0, cbk, 
+                        validate_vrf_existence, STRING, "src-vrf-name", "Source VRF name");
+                    libcli_register_display_callback(src_vrf_name, display_cbk_all_vrfs);
+                    libcli_register_param(vrf, src_vrf_name);
+                    libcli_set_param_cmd_code(src_vrf_name, cmdcode);
+                    libcli_disable_batch_processing(src_vrf_name);
+                }
+            }
+
             param_t *prefix_list = (param_t *)calloc (1, sizeof (param_t));
             init_param(prefix_list, CMD, "prefix-list", 0, 0, INVALID, 0,
                 "Optional: apply prefix-list filter");
             libcli_register_param(mount_point, prefix_list);
+            libcli_register_param(src_vrf_name, prefix_list);
             {
                 param_t *pfx_lst_name = (param_t *)calloc (1, sizeof (param_t));
                 init_param(pfx_lst_name, LEAF, 0, cbk, 
@@ -365,6 +388,7 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
     RTM_PROTO_T target_proto;
     c_string node_name = NULL;
     c_string vrf_name = NULL;
+    c_string src_vrf_name = NULL;
     c_string pfx_lst_name = NULL;
     c_string metric_str = NULL;
     c_string bgp_nbr = NULL;
@@ -383,6 +407,8 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
             node_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
             vrf_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "src-vrf-name"))
+            src_vrf_name = tlv->value;            
         else if (parser_match_leaf_id(tlv->leaf_id, "pfx-lst-name"))
             pfx_lst_name = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "metric-val"))
@@ -422,11 +448,10 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
 
     node_t *node = node_get_node_by_name(topo, node_name);
     vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
+    vrf_t *src_vrf = vrf_get_by_name(node, (char *)src_vrf_name);
 
-    if (!vrf) {
-        cprintf("Error: VRF not found\n");
-        return -1;
-    }
+    // CLI enforcement check
+    assert (node && vrf && src_vrf);
 
     uint32_t metric_u = 0;
 
@@ -454,7 +479,7 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
     key.src_proto       = src_proto;
     key.src_sub_proto   = RTM_SUB_PROTO_NA;
     key.src_instance_no = 0;
-    key.src_vrf_id      = vrf->vrf_id;
+    key.src_vrf_id      = src_vrf->vrf_id;
     key.pfx_lst         = pfx_lst;
 
     redist_target_t *target =

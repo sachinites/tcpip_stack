@@ -19,7 +19,7 @@ export CFLAGS=-g -Wcast-align -fpermissive ${DPDK_CFLAGS} -Wall -Wextra -Wmissin
 BUILD_TIMER := .build_timer
 
 # GoBGP gRPC: set to 1 to link libgrpc_wrapper.a, 0 to use weak stubs (default).
-GOBGP_GRPC ?= 1
+GOBGP_GRPC ?= 0
 GOBGP_GRPC_CPPFLAGS = -std=c++17 -ILayer5/gobgp -ILayer5/gobgp/gobgp-grpc/generated $(shell pkg-config --cflags grpc++ protobuf 2>/dev/null)
 GOBGP_GRPC_LIBS =
 ifeq ($(GOBGP_GRPC),1)

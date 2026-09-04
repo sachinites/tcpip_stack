@@ -56,94 +56,6 @@ bgp_route_config_get(node_t *node)
     return &bgp->bgp_config;
 }
 
-static bgp_route_config_t *
-bgp_route_config_find(bgp_node_config_t *cfg, const char *prefix, const char *rd)
-{
-    for (int i = 0; i < cfg->num_routes; i++) {
-        if (strcmp(cfg->routes[i].prefix, prefix) != 0) {
-            continue;
-        }
-        if (strcmp(cfg->routes[i].rd, rd ? rd : "") != 0) {
-            continue;
-        }
-        return &cfg->routes[i];
-    }
-    return NULL;
-}
-
-static bgp_route_config_t *
-bgp_route_config_add(bgp_node_config_t *cfg,
-                     const bgp_route_params_t *params)
-{
-    bgp_route_config_t *route =
-        bgp_route_config_find(cfg, params->prefix, params->rd);
-
-    if (route) {
-        return route;
-    }
-
-    if (cfg->num_routes >= BGP_MAX_ROUTES) {
-        return NULL;
-    }
-
-    route = &cfg->routes[cfg->num_routes++];
-    memset(route, 0, sizeof(*route));
-    strncpy(route->prefix, params->prefix, sizeof(route->prefix) - 1);
-    strncpy(route->rd, params->rd, sizeof(route->rd) - 1);
-    return route;
-}
-
-static void
-bgp_route_config_remove(bgp_node_config_t *cfg,
-                        const char *prefix,
-                        const char *rd)
-{
-    for (int i = 0; i < cfg->num_routes; i++) {
-        if (strcmp(cfg->routes[i].prefix, prefix) != 0) {
-            continue;
-        }
-        if (strcmp(cfg->routes[i].rd, rd ? rd : "") != 0) {
-            continue;
-        }
-
-        for (int j = i + 1; j < cfg->num_routes; j++) {
-            cfg->routes[j - 1] = cfg->routes[j];
-        }
-        cfg->num_routes--;
-        return;
-    }
-}
-
-static bool
-bgp_route_params_equal(const bgp_route_config_t *cached,
-                       const bgp_route_params_t *params)
-{
-    return cached->configured &&
-           strcmp(cached->prefix, params->prefix) == 0 &&
-           strcmp(cached->nexthop, params->nexthop) == 0 &&
-           strcmp(cached->rd, params->rd) == 0 &&
-           strcmp(cached->rt, params->rt) == 0 &&
-           cached->med_present == params->med_present &&
-           cached->local_pref_present == params->local_pref_present &&
-           cached->med == params->med &&
-           cached->local_pref == params->local_pref;
-}
-
-static void
-bgp_route_config_store(bgp_route_config_t *route,
-                       const bgp_route_params_t *params)
-{
-    strncpy(route->prefix, params->prefix, sizeof(route->prefix) - 1);
-    strncpy(route->nexthop, params->nexthop, sizeof(route->nexthop) - 1);
-    strncpy(route->rd, params->rd, sizeof(route->rd) - 1);
-    strncpy(route->rt, params->rt, sizeof(route->rt) - 1);
-    route->med = params->med;
-    route->local_pref = params->local_pref;
-    route->med_present = params->med_present;
-    route->local_pref_present = params->local_pref_present;
-    route->configured = true;
-}
-
 static int
 bgp_route_parse_afi(const char *afi)
 {
@@ -309,8 +221,6 @@ bgp_route_apply_to_gobgp(node_t *node,
                          bool is_delete)
 {
     sf_gobgp_grpc_client_t *client;
-    bgp_node_config_t *cfg;
-    bgp_route_config_t *route;
     sf_gobgp_route_params_t sf_params;
     sf_gobgp_rpc_result_t result;
     bgp_inst_t *bgp;
@@ -321,39 +231,20 @@ bgp_route_apply_to_gobgp(node_t *node,
     tr = bgp ? bgp->tr : nullptr;
     op = is_delete ? "DeletePath" : "AddPath";
 
-    client = bgp_route_get_grpc_client(node);
-    if (!client) {
+    if (!bgp) {
         tracer(tr, TR_BGP_GRPC_TALK | TR_BGP_RT_EVENTS,
-               "%s : %s aborted — no gRPC client for node %s (prefix %s)\n",
+               "%s : %s aborted — no BGP instance for node %s (prefix %s)\n",
                BGP_RTM_TAG, op, node ? node->node_name : "?",
                params ? params->prefix : "?");
         return -1;
     }
 
-    cfg = bgp_route_config_get(node);
-    if (!cfg) {
+    client = bgp_route_get_grpc_client(node);
+    if (!client) {
         tracer(tr, TR_BGP_GRPC_TALK | TR_BGP_RT_EVENTS,
-               "%s : %s aborted — no BGP config for node %s (prefix %s)\n",
+               "%s : %s aborted — no gRPC client for node %s (prefix %s)\n",
                BGP_RTM_TAG, op, node->node_name, params->prefix);
         return -1;
-    }
-
-    route = bgp_route_config_find(cfg, params->prefix, params->rd);
-    if (!is_delete) {
-        if (route && bgp_route_params_equal(route, params)) {
-            tracer(tr, TR_BGP_GRPC_TALK,
-                   "%s : %s skip — route %s already programmed identically "
-                   "(afi=%d safi=%d nh=%s rd=%s)\n",
-                   BGP_RTM_TAG, op, params->prefix, sf_afi, sf_safi,
-                   params->nexthop,
-                   params->rd[0] ? params->rd : "-");
-            return 0;
-        }
-    } else if (!route || !route->configured) {
-        tracer(tr, TR_BGP_GRPC_TALK,
-               "%s : %s skip — route %s not in local cache (afi=%d safi=%d)\n",
-               BGP_RTM_TAG, op, params->prefix, sf_afi, sf_safi);
-        return 0;
     }
 
     bgp_route_to_sf_params(params, sf_afi, sf_safi, &sf_params);
@@ -388,22 +279,6 @@ bgp_route_apply_to_gobgp(node_t *node,
     tracer(tr, TR_BGP_GRPC_TALK,
            "%s : %s RPC OK for %s (afi=%d safi=%d)\n",
            BGP_RTM_TAG, op, params->prefix, sf_params.afi, sf_params.safi);
-
-    if (is_delete) {
-        bgp_route_config_remove(cfg, params->prefix, params->rd);
-        return 0;
-    }
-
-    route = bgp_route_config_add(cfg, params);
-    if (!route) {
-        tracer(tr, TR_BGP_GRPC_TALK | TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
-               "%s : AddPath RPC OK but local cache full — cannot store %s "
-               "(num_routes=%d max=%d)\n",
-               BGP_RTM_TAG, params->prefix, cfg->num_routes, BGP_MAX_ROUTES);
-        return -1;
-    }
-
-    bgp_route_config_store(route, params);
     return 0;
 }
 
@@ -1098,16 +973,15 @@ bgp_schedule_route_processing_job_cbk (event_dispatcher_t *ev_dis,
 
     bgp_inst->recvd_route_processing_task = NULL;
 
+    tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
+            "%s : Route processing job cbk invoked\n", BGP_RTM_TAG);
+
     while ((curr = dequeue_glthread_first (&bgp_inst->pending_routes_list.head))) {
 
         info = glue_to_bgp_route_processing_info(curr);
 
-        if (info->is_add) {
-            bgp_rtm_route_install (info->node, info->route);
-        }
-        else {
-            bgp_rtm_route_uninstall (info->node, info->route);
-        }
+        info->is_add ? bgp_rtm_route_install (info->node, info->route) : \
+                       bgp_rtm_route_uninstall (info->node, info->route);
 
         XFREE (info->route);
         XFREE(info);        
@@ -1125,7 +999,7 @@ bgp_schedule_route_processing_job (node_t *node,
     if (!bgp_inst) return;
 
     bgp_route_processing_info_t *info = (bgp_route_processing_info_t *)
-            XCALLOC2(0,1,bgp_route_processing_info_t);
+            XCALLOC2(0, 1, bgp_route_processing_info_t);
 
     bgp_route_info_t *route_cpy = (bgp_route_info_t *)
             XCALLOC2(0, 1, bgp_route_info_t);

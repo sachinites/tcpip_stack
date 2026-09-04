@@ -8,7 +8,6 @@
 #include "gobgp/sf_gobgp_grpc_client.h"
 
 #define BGP_ROUTER_ID_LEN 16
-#define BGP_MAX_ROUTES 256
 #define BGP_MONITOR_MAX_SUBS 16
 
 #pragma pack(push, 8)
@@ -19,18 +18,6 @@ typedef struct bgp_neighbor_config_ {
     bool configured;
     bool ipv4_unicast;
 } bgp_neighbor_config_t;
-
-typedef struct bgp_route_config_ {
-    char prefix[64];
-    char nexthop[64];
-    char rd[32];
-    char rt[32];
-    uint32_t med;
-    uint32_t local_pref;
-    bool med_present;
-    bool local_pref_present;
-    bool configured;
-} bgp_route_config_t;
 
 typedef void (*bgp_monitor_notify_cb)(const void *route_info,
                                       bool is_withdraw,
@@ -58,8 +45,6 @@ typedef struct bgp_node_config_ {
     char router_id[BGP_ROUTER_ID_LEN];
     bgp_neighbor_config_t neighbors[SF_GOBGP_MAX_PEERS];
     int num_neighbors;
-    bgp_route_config_t routes[BGP_MAX_ROUTES];
-    int num_routes;
     bgp_monitor_ctx_t monitor;
 } bgp_node_config_t;
 
