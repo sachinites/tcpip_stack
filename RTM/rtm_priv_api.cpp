@@ -1662,7 +1662,7 @@ rtm_copy_ribs (node_t *node,
     rtm_route *dst_route;
     avltree_node_t *src_rt_node;
 
-    bool pass_through = (import_rt.asn == 0 && import_rt.number == 0);
+    bool pass_through = (import_rt.rtr_id == 0 && import_rt.vrf_id == 0);
 
     ITERATE_AVL_TREE_BEGIN(&src_rib->route_tree, src_rt_node) {
 
@@ -1699,8 +1699,8 @@ rtm_copy_ribs (node_t *node,
             nh = route_glue_to_rtm_nh(curr);
 
             if (!pass_through &&
-                (nh->import_rt.asn != import_rt.asn || 
-                nh->import_rt.number != import_rt.number)) continue;
+                (nh->import_rt.rtr_id != import_rt.rtr_id || 
+                nh->import_rt.vrf_id != import_rt.vrf_id)) continue;
             
             new_nh = rtm_nh_duplicate (nh);
             rc = rtm_route_add_nh(dst_rib, dst_route, new_nh);
@@ -1872,8 +1872,8 @@ rtm_install_l3vpn_routes_to_all_client_ribs(
 
         vrf = vrf_get_by_id(rtm->node, client_rtm->vrf);
 
-        if (vrf->import_rt.asn == cp_nh_template->import_rt.asn &&
-            vrf->import_rt.number == cp_nh_template->import_rt.number) {
+        if (vrf->import_rt.rtr_id == cp_nh_template->import_rt.rtr_id &&
+            vrf->import_rt.vrf_id == cp_nh_template->import_rt.vrf_id) {
 
             if (install) {
                 rc = rtm_install_route ( client_rtm,  prefix, cp_nh_template);

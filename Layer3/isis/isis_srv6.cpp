@@ -118,7 +118,7 @@ void
     init_glthread(&advt_data->glue);
 
     /* Fill it with Rtr Cap data */
-    advt_data->u.rtr_cap.rtr_cap.rtr_id = NODE_LO_ADDR_INT(node_info->vrf->node);
+    advt_data->u.rtr_cap.rtr_cap.rtr_id = NODE_RTR_ID_INT(node_info->vrf->node);
     advt_data->u.rtr_cap.rtr_cap.flags = 0;
 
     /* Rtr Cap Algorithm SubTLV 19 : Algorithm Subtlv  */

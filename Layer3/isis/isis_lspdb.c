@@ -498,7 +498,7 @@ isis_print_lsp_id (isis_lsp_pkt_t *lsp_pkt, byte *lsp_id_str) {
     pn_id = isis_get_lsp_pkt_pn_id(lsp_pkt);
     fr_no = isis_get_lsp_pkt_fr_no(lsp_pkt);
     snprintf((char *)lsp_id_str, ISIS_LSP_ID_STR_SIZE, "%s-%hu-%hu[%u]",
-             tcp_ip_covert_ip_n_to_p(*rtr_id, ip_addr),
+             ip_ntop(*rtr_id, ip_addr),
              pn_id, fr_no, *seq_no);
     return (byte *)lsp_id_str;
 }

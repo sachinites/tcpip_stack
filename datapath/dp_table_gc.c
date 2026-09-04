@@ -55,7 +55,7 @@ dp_arp_table_gc_scan(dp_ctx_t *dp_ctx, arp_table_t *arp_table, time_t now)
 
     for (int i = 0; i < n; i++) {
         char ip_str[IPV4_ADDR_LEN_STR];
-        tcp_ip_covert_ip_n_to_p(expired[i]->ip_addr, ip_str);
+        ip_ntop(expired[i]->ip_addr, ip_str);
         tracer(dp_ctx->dptr, DARP | DTIMER,
                "GC scan: ARP-entry %s idle >= %ds — deleting\n",
                ip_str, DP_TABLE_SCAN_INTERVAL_SECS);

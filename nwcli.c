@@ -709,7 +709,7 @@ l3_config_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable
 
         case CMDCODE_CONFIG_RTR_ID:
         {
-            uint32_t existing_rtr_id = NODE_LO_ADDR_INT(node);
+            uint32_t existing_rtr_id = NODE_RTR_ID_INT(node);
             uint32_t new_rtr_id = tcp_ip_convert_ip_p_to_n(dest);
 
             switch(enable_or_disable){

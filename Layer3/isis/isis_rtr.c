@@ -390,7 +390,7 @@ isis_init (vrf_t *vrf) {
     vrf->isis_node_info = node_info;
     node_info->vrf = vrf;
 
-    node_info->sys_id = {NODE_LO_ADDR_INT(node), 0};
+    node_info->sys_id = {NODE_RTR_ID_INT(node), 0};
     node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
     node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
 

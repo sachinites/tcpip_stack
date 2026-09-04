@@ -106,7 +106,7 @@ isis_ips_send_frr_config (isis_node_info_t *node_info, uint8_t pvt_code,
                             calloc(1, sizeof(isis_ips_frr_config_t));
 
     frr_config->code = pvt_code;
-    frr_config->system_id.rtr_id = NODE_LO_ADDR_INT(node);
+    frr_config->system_id.rtr_id = NODE_RTR_ID_INT(node);
     frr_config->system_id.pn_id = 0;
 
     switch (pvt_code) {

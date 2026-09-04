@@ -117,7 +117,7 @@ typedef struct node_nw_prop_{
 #define NODE_RTRID_ADDR(node_ptr) (node_ptr->node_nw_prop.rtr_id.ip_addr)
 #define NODE_VLAN_VNI_DB(node_ptr)  (node_ptr->node_nw_prop.vlan_vni_db)
 #define NODE_FLAGS(node_ptr)        (node_ptr->node_nw_prop.flags)
-#define NODE_LO_ADDR_INT(node_ptr) (tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node_ptr)))
+#define NODE_RTR_ID_INT(node_ptr) (tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node_ptr)))
 #define NODE_LOG_FILE(node_ptr) (node_ptr->node_nw_prop.log_file)
 #define NODE_LOG_BUFF(node_ptr) (node_ptr->node_nw_prop.log_buffer)
 #define NODE_SRv6_SID_POOL(node_ptr) (node_ptr->node_nw_prop.srv6_sid_pools)

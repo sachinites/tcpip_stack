@@ -92,7 +92,7 @@ add_arp_pending_entry(dp_ctx_t *dp_ctx,
     glthread_add_next(&arp_entry->arp_pending_list, &pe->arp_pending_entry_glue);
 
     char ip_str[IPV4_ADDR_LEN_STR];
-    tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_str);
+    ip_ntop(arp_entry->ip_addr, ip_str);
     pkt_tracer(mbuf, dp_ctx->dptr, DARP_DET, "ARP-entry %s: pending entry added\n", ip_str);
 }
 
@@ -109,7 +109,7 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     uint16_t vlan_id = 0;
     char ip_str[16];
 
-    tcp_ip_covert_ip_n_to_p(ip_addr, ip_str);
+    ip_ntop(ip_addr, ip_str);
 
     if (oif && oif->if_type == DP_INTF_TYPE_VLAN)
         vlan_id = oif->vlan_id;
@@ -292,7 +292,7 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx,
             tracer(dp_ctx->dptr, DARP | DERR,
                 "VRF:%s: No forwarding NH found for %s, ARP reply send failed\n",
                 vrf->vrf_name,
-                tcp_ip_covert_ip_n_to_p(htonl(arp_dst_ip), ip_str));
+                ip_ntop(htonl(arp_dst_ip), ip_str));
             return;
         }
 
@@ -306,7 +306,7 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx,
             tracer(dp_ctx->dptr, DARP | DERR,
                 "VRF:%s: %s is not a local/connected IP, ARP reply suppressed\n",
                 vrf->vrf_name,
-                tcp_ip_covert_ip_n_to_p(htonl(arp_dst_ip), ip_str));
+                ip_ntop(htonl(arp_dst_ip), ip_str));
             return;
         }
     }
@@ -332,7 +332,7 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx,
         pkt_tracer(mbuf, dp_ctx->dptr, DARP,
                "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of %s "
                "(caller-supplied src MAC%s)\n",
-               tcp_ip_covert_ip_n_to_p(htonl(arp_reply->dst_ip), (unsigned char *)ip_str),
+               ip_ntop(htonl(arp_reply->dst_ip), (unsigned char *)ip_str),
                arp_reply->dst_mac.mac[0], arp_reply->dst_mac.mac[1],
                arp_reply->dst_mac.mac[2], arp_reply->dst_mac.mac[3],
                arp_reply->dst_mac.mac[4], arp_reply->dst_mac.mac[5],
@@ -342,7 +342,7 @@ send_arp_reply_msg(dp_ctx_t *dp_ctx,
         pkt_tracer(mbuf, dp_ctx->dptr, DARP,
                "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of %s "
                "(FIB %s route, src MAC %s)\n",
-               tcp_ip_covert_ip_n_to_p(htonl(arp_reply->dst_ip), (unsigned char *)ip_str),
+               ip_ntop(htonl(arp_reply->dst_ip), (unsigned char *)ip_str),
                arp_reply->dst_mac.mac[0], arp_reply->dst_mac.mac[1],
                arp_reply->dst_mac.mac[2], arp_reply->dst_mac.mac[3],
                arp_reply->dst_mac.mac[4], arp_reply->dst_mac.mac[5],
@@ -415,7 +415,7 @@ process_arp_broadcast_request(dp_ctx_t *dp_ctx,
            ethernet_hdr->src_mac.mac[0], ethernet_hdr->src_mac.mac[1],
            ethernet_hdr->src_mac.mac[2], ethernet_hdr->src_mac.mac[3],
            ethernet_hdr->src_mac.mac[4], ethernet_hdr->src_mac.mac[5],
-           tcp_ip_covert_ip_n_to_p(htonl(arp->dst_ip), ip_str),
+           ip_ntop(htonl(arp->dst_ip), ip_str),
            iif->if_name);
 
     /* Update ARP table from sender's info synchronously. */
@@ -562,7 +562,7 @@ arp_entry_delete(dp_ctx_t *dp_ctx, dp_vrf_t *vrf,
     if (!entry || entry->proto != proto) return;
 
     char ip_str[IPV4_ADDR_LEN_STR];
-    tcp_ip_covert_ip_n_to_p(ip_addr, ip_str);
+    ip_ntop(ip_addr, ip_str);
     tracer(dp_ctx->dptr, DARP, "VRF:%s: ARP-entry %s deleted\n",
            vrf->vrf_name, ip_str);
 
@@ -602,7 +602,7 @@ arp_table_entry_add_nolock(dp_ctx_t *dp_ctx,
                            glthread_t **arp_pending_list)
 {
     char ip_str[IPV4_ADDR_LEN_STR];
-    tcp_ip_covert_ip_n_to_p(arp_entry->ip_addr, ip_str);
+    ip_ntop(arp_entry->ip_addr, ip_str);
     tracer(dp_ctx->dptr, DARP, "VRF:%s: ARP-entry %s: add called\n",
            vrf->vrf_name, ip_str);
 
@@ -731,7 +731,7 @@ arp_table_update_from_arp_pkt(dp_ctx_t *dp_ctx,
     /* arp_hdr->src_ip is in on-wire (network) byte order. */
     uint32_t src_ip = ntohl(arp_hdr->src_ip);
     char ip_str[IPV4_ADDR_LEN_STR];
-    tcp_ip_covert_ip_n_to_p(src_ip, ip_str);
+    ip_ntop(src_ip, ip_str);
     tracer(dp_ctx->dptr, DARP, "VRF:%s: ARP update from %s\n",
            vrf->vrf_name, ip_str);
 
@@ -794,7 +794,7 @@ create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
     }
 
     char ip_str[IPV4_ADDR_LEN_STR];
-    tcp_ip_covert_ip_n_to_p(ip_addr, ip_str);
+    ip_ntop(ip_addr, ip_str);
     pkt_tracer(mbuf, dp_ctx->dptr, DARP, "VRF:%s: creating ARP sane entry for %s\n",
            vrf->vrf_name, ip_str);
 
@@ -861,7 +861,7 @@ show_arp_table(arp_table_t *arp_table)
             cprintf("\t|====================|===================|==============|=============|=================|==========|\n");
 
         char ip_str[IPV4_ADDR_LEN_STR];
-        tcp_ip_covert_ip_n_to_p(entry->ip_addr, ip_str);
+        ip_ntop(entry->ip_addr, ip_str);
         time_t lu = __atomic_load_n(&entry->last_used, __ATOMIC_RELAXED);
         long idle = (lu == 0) ? -1 : (long)(now - lu);
         char idle_str[16];

@@ -636,13 +636,13 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx,
             if (bd_intf->ip_addr && arp_src_ip == bd_intf->ip_addr) {
                 cprintf("CTX : %s : Warning : Duplicate IP Address %s Detected for intf %s\n",
                         dp_ctx->ctx_name,
-                        tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str),
+                        ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str),
                         bd_intf->if_name);
 
                 pkt_tracer(mbuf, dp_ctx->dptr, DARP_DET,
                     "BDRmac BD %s : Some Remote PE is Impersonating me, ARP-B pkt dropped for duplicate IP Address %s\n",
                     bd_intf->if_name,
-                    tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str));
+                    ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str));
 
                 intf->recvd_pkt_dropped++;
                 return 0;
@@ -658,7 +658,7 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx,
                 pkt_tracer(mbuf, dp_ctx->dptr, DARP | DERR,
                     "BDRmac BD %s : Somebody is trying to resolve ARP for me, But on overlay, Cannot be replied on MPLS fabric, Pkt dropped\n",
                     bd_intf->if_name,
-                    tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str));
+                    ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str));
 
                 intf->recvd_pkt_dropped++;
                 return 0;
@@ -676,13 +676,13 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx,
 
                 cprintf("CTX : %s : Warning : Duplicate IP Address %s Detected for intf %s\n",
                         dp_ctx->ctx_name,
-                        tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str),
+                        ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str),
                         bd_intf->if_name);
 
                 pkt_tracer(mbuf, dp_ctx->dptr, DERR,
                             "BDRmac BD %s : Someone on local ACs is Impersonating me, pkt dropped for duplicate IP Address %s\n",
                             bd_intf->if_name,
-                            tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str));
+                            ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str));
 
                 intf->recvd_pkt_dropped++;
                 return 0;
@@ -700,7 +700,7 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx,
                     pkt_tracer(mbuf, dp_ctx->dptr, DARP | DFLOW,
                         "BDRmac BD %s : case 1.2 — ARP reply for SVI IP %s\n",
                         bd_intf->if_name,
-                        tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str));
+                        ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str));
 
                     send_arp_reply_msg(dp_ctx, eth_hdr, recv_intf,
                                        (mac_addr_t *)&bd_intf->mac_add);
@@ -719,12 +719,12 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx,
             if (bd_intf->ip_addr && arp_src_ip == bd_intf->ip_addr) {
                 cprintf("CTX : %s : Warning : Duplicate IP Address %s Detected for intf %s\n",
                         dp_ctx->ctx_name,
-                        tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str),
+                        ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str),
                         bd_intf->if_name);
                 pkt_tracer(mbuf, dp_ctx->dptr, DARP | DERR,
                             "BDRmac BD %s : Some Remote PE is Impersonating me, ARP-REPLY pkt dropped for duplicate IP Address %s\n",
                             bd_intf->if_name,
-                            tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str));
+                            ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str));
                 intf->recvd_pkt_dropped++;
                 return 0;
             }
@@ -752,13 +752,13 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx,
                 /* Duplicate IP Address, drop the pkt */
                 cprintf("CTX : %s : Warning : Duplicate IP Address %s Detected for intf %s\n",
                         dp_ctx->ctx_name,
-                        tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str),
+                        ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str),
                         bd_intf->if_name);
 
                 pkt_tracer(mbuf, dp_ctx->dptr, DARP | DERR,
                     "BDRmac BD %s : Recvd ARP Reply for Self, but with a mis-matched Dst-MAC, Pkt Dropped\n",
                     bd_intf->if_name,
-                    tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str));
+                    ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str));
 
                 intf->recvd_pkt_dropped++;
                 return 0;
@@ -775,13 +775,13 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx,
             if (bd_intf->ip_addr && arp_src_ip == bd_intf->ip_addr) {
                 cprintf("CTX : %s : Warning : Duplicate IP Address %s Detected for intf %s\n",
                         dp_ctx->ctx_name,
-                        tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str),
+                        ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str),
                         bd_intf->if_name);
 
                 pkt_tracer(mbuf, dp_ctx->dptr, DARP | DERR,
                     "BDRmac BD %s : Someone on local ACs is Impersonating me, ARP-REPLY pkt dropped for duplicate IP Address %s\n",
                     bd_intf->if_name,
-                    tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str));
+                    ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str));
                 intf->recvd_pkt_dropped++;
                 return 0;
             }
@@ -803,13 +803,13 @@ BDRmacInterface_SendPacketOut(dp_ctx_t *dp_ctx,
                 /* Duplicate IP Address, drop the pkt */
                 cprintf("CTX : %s : Warning : Duplicate IP Address %s Detected for intf %s\n",
                         dp_ctx->ctx_name,
-                        tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str),
+                        ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str),
                         bd_intf->if_name);
 
                 pkt_tracer(mbuf, dp_ctx->dptr, DARP | DERR,
                     "BDRmac BD %s : Recvd Arp Reply as if I generated ARP-B, but Dst Mac not matching, pkt dropped\n",
                     bd_intf->if_name,
-                    tcp_ip_covert_ip_n_to_p(bd_intf->ip_addr, (c_string)ip_addr_str));
+                    ip_ntop(bd_intf->ip_addr, (c_string)ip_addr_str));
                 
                 /* ARP Learning */
                 arp_table_update_from_arp_pkt(dp_ctx, vrf, vrf->arp_table,
@@ -995,7 +995,7 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
 
                 pkt_tracer(mbuf2, dp_ctx->dptr, DARP,
                     "Sending ARP Reply [%s : %02x:%02x:%02x:%02x:%02x:%02x] out of Rmac interface %s, vlan %s%s\n",
-                    tcp_ip_covert_ip_n_to_p(arp_hdr_reply->dst_ip, (c_string)ip_addr_str),
+                    ip_ntop(arp_hdr_reply->dst_ip, (c_string)ip_addr_str),
                     arp_hdr_reply->dst_mac.mac[0],
                     arp_hdr_reply->dst_mac.mac[1],
                     arp_hdr_reply->dst_mac.mac[2],
@@ -1032,7 +1032,7 @@ RmacInterface_SendPacketOut(dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
             {
                 cprintf ("CTX : %s : Warning : Duplicate IP Address %s Detected for intf %s\n", 
                         dp_ctx->ctx_name,
-                        tcp_ip_covert_ip_n_to_p(ntohl(arp_hdr_in->dst_ip), (c_string)ip_addr_str),
+                        ip_ntop(ntohl(arp_hdr_in->dst_ip), (c_string)ip_addr_str),
                         vlan_intf->if_name);
             }
         }
@@ -1117,8 +1117,8 @@ NVEInterface_SendPacketOut (dp_ctx_t *dp_ctx, dp_intf_t *intf, struct rte_mbuf *
 
     pkt_tracer(mbuf, dp_ctx->dptr, DTUNNEL | DFLOW, 
         "VxLAN Encapsulation : Outer IP Hdr Header Attached with Src : %s, Dst %s, Proto = %x\n",
-        tcp_ip_covert_ip_n_to_p ( ntohl(ip_hdr->src_ip), ipv4_addr_str1),
-        tcp_ip_covert_ip_n_to_p ( ntohl(ip_hdr->dst_ip), ipv4_addr_str2),
+        ip_ntop ( ntohl(ip_hdr->src_ip), ipv4_addr_str1),
+        ip_ntop ( ntohl(ip_hdr->dst_ip), ipv4_addr_str2),
         ip_hdr->protocol );
 
     dp_send_ip_data (dp_ctx, intf->vrf, mbuf);

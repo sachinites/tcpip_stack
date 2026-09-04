@@ -975,13 +975,13 @@ isis_fragment_print (isis_node_info_t *node_info, isis_fragment_t *fragment, byt
                 rc +=  cprintf ("       local ifindex : %u\n", advt_data->u.adj_data.local_ifindex);
                 rc +=  cprintf ("       remote ifindex : %u\n", advt_data->u.adj_data.remote_ifindex);
                 rc +=  cprintf ("       local ip : %s\n",
-                             tcp_ip_covert_ip_n_to_p (advt_data->u.adj_data.local_intf_ip, system_id_str));
+                             ip_ntop (advt_data->u.adj_data.local_intf_ip, system_id_str));
                 rc +=  cprintf ("       remote ip : %s\n",
-                             tcp_ip_covert_ip_n_to_p (advt_data->u.adj_data.remote_intf_ip, system_id_str)); 
+                             ip_ntop (advt_data->u.adj_data.remote_intf_ip, system_id_str)); 
                 break;
             case ISIS_TLV_IP_REACH:
                 rc += cprintf ("       Prefix : %s/%d   metric : %u\n",
-                            tcp_ip_covert_ip_n_to_p (advt_data->u.pfx.prefix, system_id_str),
+                            ip_ntop (advt_data->u.pfx.prefix, system_id_str),
                 advt_data->u.pfx.mask, advt_data->u.pfx.metric);
                 break;
             case ISIS_TLV_IPV6_REACH:
@@ -1027,7 +1027,7 @@ isis_fragment_print (isis_node_info_t *node_info, isis_fragment_t *fragment, byt
             break;
 	    case ISIS_TLV_RTR_CAP:
                 rc += cprintf("       Rtr ID : %s  Flags : 0x%x\n",
-                    tcp_ip_covert_ip_n_to_p(advt_data->u.rtr_cap.rtr_cap.rtr_id, system_id_str),
+                    ip_ntop(advt_data->u.rtr_cap.rtr_cap.rtr_id, system_id_str),
                     advt_data->u.rtr_cap.rtr_cap.flags);
 
                 if (advt_data->u.rtr_cap.is_rtr_cap_algo_subtlv19_present) {
@@ -1069,7 +1069,7 @@ isis_fragment_print (isis_node_info_t *node_info, isis_fragment_t *fragment, byt
             break;
             case ISIS_TLV_NODE_SID:
                 rc += cprintf ("       Prefix : %s/%d   SID-Index : %u   Flags : 0x%x\n",
-                            tcp_ip_covert_ip_n_to_p (advt_data->u.node_sid.prefix, system_id_str),
+                            ip_ntop (advt_data->u.node_sid.prefix, system_id_str),
                             advt_data->u.node_sid.prefix_len,
                             advt_data->u.node_sid.sid_index,
                             advt_data->u.node_sid.flags);

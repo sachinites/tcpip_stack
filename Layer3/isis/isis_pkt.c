@@ -196,8 +196,8 @@ isis_process_hello_pkt(isis_node_info_t *node_info,
             iif->InterfaceGetIpAddressMask(&intf_ip_addr, &mask);
             char intf_ip_addr_str[16];
             char hello_ip_addr_str[16];
-            tcp_ip_covert_ip_n_to_p (intf_ip_addr, intf_ip_addr_str);
-            tcp_ip_covert_ip_n_to_p (rcvd_if_ip, hello_ip_addr_str);
+            ip_ntop (intf_ip_addr, intf_ip_addr_str);
+            ip_ntop (rcvd_if_ip, hello_ip_addr_str);
 
             tracer(ISIS_TR(node_info), TR_ISIS_PKT_HELLO | TR_ISIS_ERRORS,
                 "Interface %s : %s/%d , hello IP addr rcvd : %s\n", 
@@ -477,7 +477,7 @@ isis_print_lsp_pkt(byte *buff,
 
     uint32_t seq_no = lsp_pkt_hdr->seq_no;
     uint32_t rtr_id = lsp_pkt_hdr->rtr_id;
-    tcp_ip_covert_ip_n_to_p(rtr_id, ip_addr);
+    ip_ntop(rtr_id, ip_addr);
 
     rc += sprintf((char *)(buff + rc), "LSP pkt : %s-%hu-%hu[%u]   , pkt size = %hu\n",
                     ip_addr, lsp_pkt_hdr->pn_no,  lsp_pkt_hdr->fr_no, seq_no, (pkt_size_t)pkt_size);
@@ -603,7 +603,7 @@ isis_print_hello_pkt(byte *buff,
                 break;
             case ISIS_TLV_RTR_ID:
             case ISIS_TLV_IF_IP:
-                tcp_ip_covert_ip_n_to_p(htonl(tlv_read_u32(tlv_value)), ip_addr_str);
+                ip_ntop(htonl(tlv_read_u32(tlv_value)), ip_addr_str);
                 rc += sprintf((char *)(buff + rc), "%d %d %s :: ", tlv_type, tlv_len, ip_addr_str);
                 break;
             case ISIS_TLV_HOLD_TIME:

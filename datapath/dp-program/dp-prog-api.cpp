@@ -581,7 +581,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                     dp_intf_ipv4_addr_update_t *ipv4_update = 
                         (dp_intf_ipv4_addr_update_t *)(msg + 1);
                     
-                    tcp_ip_covert_ip_n_to_p(ipv4_update->ipv4_addr, (c_string)ip_str);
+                    ip_ntop(ipv4_update->ipv4_addr, (c_string)ip_str);
                     
                     tracer(dp_ctx->dptr, DCONF, 
                         "Updating IPv4 address on if_name=%s to %s/%u\n",
@@ -871,9 +871,9 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                     char src_str[32];
                     char dst_str[32];
 
-                    tcp_ip_covert_ip_n_to_p(gre_upd->lcl_ip, (c_string)lcl_str);
-                    tcp_ip_covert_ip_n_to_p(gre_upd->tunnel_src_ip, (c_string)src_str);
-                    tcp_ip_covert_ip_n_to_p(gre_upd->tunnel_dst_ip, (c_string)dst_str);
+                    ip_ntop(gre_upd->lcl_ip, (c_string)lcl_str);
+                    ip_ntop(gre_upd->tunnel_src_ip, (c_string)src_str);
+                    ip_ntop(gre_upd->tunnel_dst_ip, (c_string)dst_str);
 
                     tracer(dp_ctx->dptr, DCONF,
                         "Updating GRE tunnel on if_name=%s "

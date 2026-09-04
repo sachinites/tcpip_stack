@@ -639,7 +639,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
 
                     mask32bit = tcp_ip_convert_dmask_to_bin_mask (ted_prefix->mask);
                     prefix32bit = ted_prefix->prefix & mask32bit;
-                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr);
+                    ip_ntop(prefix32bit, ip_addr);
 
                     cmn_prefix_initialize_v4(&prefix, prefix32bit, ted_prefix->mask);
 
@@ -700,7 +700,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
 
                         tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Delete %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
-                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask); 
+                                    ip_ntop(prefix32bit, ip_addr), ted_prefix->mask); 
 
                         isis_rt_ipv4_route_del (node_info,
                                  prefix32bit, ted_prefix->mask,  0, 0, 0);
@@ -734,7 +734,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
 
                         tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : ECMP Route Add %s/%d\n", 
                                     ISIS_ROUTE, spf_result->node->node_name,
-                                    tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr), ted_prefix->mask);      
+                                    ip_ntop(prefix32bit, ip_addr), ted_prefix->mask);      
 
                             /* New RTM Route Install */
                             isis_rt_ipv4_route_add (node_info,
@@ -835,7 +835,7 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
             if (!ted_prefix->has_sid) continue;
 
             uint32_t prefix32bit = ted_prefix->prefix;
-            tcp_ip_covert_ip_n_to_p(prefix32bit, ip_addr);
+            ip_ntop(prefix32bit, ip_addr);
 
             /* This router's own ( local ) incoming label for this FEC - used
                 as the lookup key in 0.mpls.0 */
@@ -1009,7 +1009,7 @@ isis_initialize_direct_nbrs (isis_node_info_t *node_info, ted_node_t *ted_spf_ro
                          nh_flush_nexthops(nbr_spf_data->nexthops);
                          nexthop = nh_create_new_nexthop(nbr->node_name,
                                                          oif->ifindex,
-                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr), IP_PROTO_ISIS);
+                                                         ip_ntop(nxt_hop_ip, ip_addr), IP_PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, oif->ifindex)->GetSharedPtr();
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
                          nbr_spf_data->spf_metric = oif->cost;
@@ -1026,7 +1026,7 @@ isis_initialize_direct_nbrs (isis_node_info_t *node_info, ted_node_t *ted_spf_ro
                     {
                          nexthop = nh_create_new_nexthop(nbr->node_name,
                                                          oif->ifindex,
-                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip, ip_addr),
+                                                         ip_ntop(nxt_hop_ip, ip_addr),
                                                          IP_PROTO_ISIS);
                          
                          if (nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop)) {
@@ -1096,7 +1096,7 @@ isis_initialize_direct_nbrs (isis_node_info_t *node_info, ted_node_t *ted_spf_ro
                          nh_flush_nexthops(nbr_spf_data->nexthops);
                          nexthop = nh_create_new_nexthop(nbr_of_pn->node_name,
                                                         root_to_pn_oif->ifindex,
-                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip2, ip_addr), IP_PROTO_ISIS);
+                                                         ip_ntop(nxt_hop_ip2, ip_addr), IP_PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex)->GetSharedPtr();
                          nh_insert_new_nexthop_nh_array(nbr_spf_data->nexthops, nexthop);
                          tracer (ISIS_TR(node_info), TR_ISIS_SPF, "%s : PN's %s direct nbr %s nexthops learned :  %s\n",
@@ -1112,7 +1112,7 @@ isis_initialize_direct_nbrs (isis_node_info_t *node_info, ted_node_t *ted_spf_ro
                     {
                          nexthop = nh_create_new_nexthop(nbr_of_pn->node_name,
                                                          oif2->ifindex,
-                                                         tcp_ip_covert_ip_n_to_p(nxt_hop_ip2, ip_addr),
+                                                         ip_ntop(nxt_hop_ip2, ip_addr),
                                                          IP_PROTO_ISIS);
                          nexthop->oif = node_get_intf_by_ifindex(spf_root, root_to_pn_oif->ifindex)->GetSharedPtr();
 

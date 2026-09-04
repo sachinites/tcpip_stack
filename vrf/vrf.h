@@ -27,14 +27,18 @@ typedef struct bgp_inst_ bgp_inst_t;
 
 typedef struct rd_
 {
-    uint16_t asn;
-    uint32_t number;
+    uint16_t type; /* Support only type 1 RD*/
+    uint32_t rtr_id;
+    uint16_t vrf_id;
 } rd_t;
 
 typedef struct rt_
 {
-    uint16_t asn;
-    uint32_t number;
+    uint8_t type; /* Type 1*/
+    uint8_t sub_type;
+    uint32_t rtr_id;
+    uint16_t vrf_id;
+    
 } rt_t;
 
 typedef struct vrf_ {

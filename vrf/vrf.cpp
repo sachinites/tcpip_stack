@@ -61,14 +61,14 @@ vrf_t* vrf_init(node_t *node, uint8_t vrf_id, char *vrf_name, vrf_t *vrf) {
     }
 
     /* Initialize Route Distinguisher */
-    vrf->rd.asn = 0;
-    vrf->rd.number = 0;
+    vrf->rd.rtr_id = 0;
+    vrf->rd.vrf_id = 0;
 
     /* Initialize Route Target */
-    vrf->import_rt.asn = 0;
-    vrf->import_rt.number = 0;
-    vrf->export_rt.asn = 0;
-    vrf->export_rt.number = 0;    
+    vrf->import_rt.rtr_id = 0;
+    vrf->import_rt.vrf_id = 0;
+    vrf->export_rt.rtr_id = 0;
+    vrf->export_rt.vrf_id = 0;    
 
     vrf->isis_node_info = NULL;
     vrf->srv6_node_info = NULL;
@@ -251,7 +251,7 @@ show_vrfs(node_t *node) {
 
     cprintf("%-10s %-20s %-15s %-15s %-15s %-12s\n",
             "VRF ID", "VRF Name", "RD", "Import RT", "Export RT", "L3VPN Label");
-    cprintf("%-10s %-20s %-15s %-15s %-15s %-12s\n",
+    cprintf("%-10s %-20s %-15s %-22s %-22s %-12s\n",
             "------", "--------", "--", "---------", "---------", "-----------");
 
     for (i = 0; i < MAX_VRF_PER_NODE; i++) {
@@ -266,26 +266,24 @@ show_vrfs(node_t *node) {
         char export_rt_str[32];
 
         /* Format Route Distinguisher */
-        if (vrf->rd.asn == 0 && vrf->rd.number == 0) {
+        if (vrf->rd.rtr_id == 0 && vrf->rd.vrf_id == 0) {
             snprintf(rd_str, sizeof(rd_str), "Not Set");
         } else {
-            snprintf(rd_str, sizeof(rd_str), "%u:%u", vrf->rd.asn, vrf->rd.number);
+            rd_type1_to_str(&vrf->rd, rd_str, sizeof(rd_str));
         }
 
         /* Format Import RT */
-        if (vrf->import_rt.asn == 0 && vrf->import_rt.number == 0) {
+        if (vrf->import_rt.rtr_id == 0 && vrf->import_rt.vrf_id == 0) {
             snprintf(import_rt_str, sizeof(import_rt_str), "Not Set");
         } else {
-            snprintf(import_rt_str, sizeof(import_rt_str), "%u:%u", 
-                    vrf->import_rt.asn, vrf->import_rt.number);
+            rt_type1_to_str(&vrf->import_rt, import_rt_str, sizeof(import_rt_str));
         }
 
         /* Format Export RT */
-        if (vrf->export_rt.asn == 0 && vrf->export_rt.number == 0) {
+        if (vrf->export_rt.rtr_id == 0 && vrf->export_rt.vrf_id == 0) {
             snprintf(export_rt_str, sizeof(export_rt_str), "Not Set");
         } else {
-            snprintf(export_rt_str, sizeof(export_rt_str), "%u:%u", 
-                    vrf->export_rt.asn, vrf->export_rt.number);
+            rt_type1_to_str(&vrf->export_rt, export_rt_str, sizeof(export_rt_str));
         }
 
         /* Display VRF information */

@@ -437,7 +437,7 @@ void PhysicalInterface::PrintInterfaceDetails()
     if (this->IsIpConfigured())
     {
         cprintf("IP Addr : %s/%d\n", 
-            tcp_ip_covert_ip_n_to_p(this->ip_addr, ip_addr), this->mask);
+            ip_ntop(this->ip_addr, ip_addr), this->mask);
     }
     else
     {
@@ -1183,19 +1183,19 @@ void GRETunnelInterface::PrintInterfaceDetails()
     cprintf("Tunnel Src Intf  : %s\n",
            this->tunnel_src_intf ? this->tunnel_src_intf->if_name.c_str() : "Not Set");
     if (this->config_flags & GRE_TUNNEL_SRC_ADDR_SET) {
-        cprintf("Tunnel Src Ip : %s\n", tcp_ip_covert_ip_n_to_p(this->tunnel_src_ip, ip_str));
+        cprintf("Tunnel Src Ip : %s\n", ip_ntop(this->tunnel_src_ip, ip_str));
     }
     else if (this->config_flags & GRE_TUNNEL_SRC_INTF_SET ){
         uint32_t ip_addr;
         uint8_t mask;
         this->tunnel_src_intf->InterfaceGetIpAddressMask(&ip_addr, &mask);
-        cprintf("Tunnel Src Ip : %s\n", tcp_ip_covert_ip_n_to_p(ip_addr, ip_str));
+        cprintf("Tunnel Src Ip : %s\n", ip_ntop(ip_addr, ip_str));
     }
     else {
         cprintf("Tunnel Src Ip : Nil\n"); 
     }
-    cprintf("Tunnel Dst Ip : %s\n", tcp_ip_covert_ip_n_to_p(this->tunnel_dst_ip, ip_str));
-    cprintf("Tunnel Lcl Ip/Mask : %s/%d\n", tcp_ip_covert_ip_n_to_p(this->lcl_ip, ip_str), this->mask);
+    cprintf("Tunnel Dst Ip : %s\n", ip_ntop(this->tunnel_dst_ip, ip_str));
+    cprintf("Tunnel Lcl Ip/Mask : %s/%d\n", ip_ntop(this->lcl_ip, ip_str), this->mask);
     cprintf("Is Tunnel Active : %s\n", this->IsGRETunnelActive() ? "Y" : "N");
 
     this->VirtualInterface::PrintInterfaceDetails();
@@ -1472,7 +1472,7 @@ VlanInterface::PrintInterfaceDetails() {
     cprintf("Vlan Id : %u\n", this->vlan_id);
 
     if (this->IsIpConfigured()) {
-        cprintf("  IP Addr : %s/%d\n", tcp_ip_covert_ip_n_to_p(this->ip_addr, ip_str), this->mask);
+        cprintf("  IP Addr : %s/%d\n", ip_ntop(this->ip_addr, ip_str), this->mask);
     }
 
     if (this->IsVniConfigured()) {
@@ -1604,7 +1604,7 @@ void LoopbackInterface::PrintInterfaceDetails()
     unsigned char ip_addr[IPV4_ADDR_LEN_STR];
     unsigned char v6_addr_str[INET6_ADDRSTRLEN];
 
-    cprintf("IP Addr : %s/%d\n", tcp_ip_covert_ip_n_to_p(this->ip_addr, ip_addr), this->mask);
+    cprintf("IP Addr : %s/%d\n", ip_ntop(this->ip_addr, ip_addr), this->mask);
     inet_ntop(AF_INET6, this->v6addr, (char *)v6_addr_str, INET6_ADDRSTRLEN);
     cprintf ("IPv6 Addr : %s/%d\n", v6_addr_str, this->v6mask);
     this->VirtualInterface::PrintInterfaceDetails();
@@ -1704,7 +1704,7 @@ dump_intf_props (Interface *interface){
     interface->InterfaceGetIpAddressMask(&intf_ip_addr, &intf_mask);
 
     if (intf_ip_addr) {
-        tcp_ip_covert_ip_n_to_p(intf_ip_addr, intf_ip_addr_str);
+        ip_ntop(intf_ip_addr, intf_ip_addr_str);
         char ip_with_mask[24];
         snprintf(ip_with_mask, sizeof(ip_with_mask), "%s/%u", (char*)intf_ip_addr_str, intf_mask);
         cprintf("%-18s ", ip_with_mask);

@@ -31,7 +31,7 @@ fib_format_prefix(cmn_prefix_t *prefix, char *buffer, size_t buf_size) {
     
     switch (prefix->afi) {
         case AF_IPV4:
-            tcp_ip_covert_ip_n_to_p(prefix->u.v4_addr, (c_string)addr_str);
+            ip_ntop(prefix->u.v4_addr, (c_string)addr_str);
             snprintf(buffer, buf_size, "%s/%d", addr_str, prefix->prefix_len);
             break;
             
@@ -59,7 +59,7 @@ fib_format_nh_addr(cmn_prefix_t *nh_addr, char *buffer, size_t buf_size) {
     
     switch (nh_addr->afi) {
         case AF_IPV4:
-            tcp_ip_covert_ip_n_to_p(nh_addr->u.v4_addr, (c_string)addr_str);
+            ip_ntop(nh_addr->u.v4_addr, (c_string)addr_str);
             snprintf(buffer, buf_size, "%s", addr_str);
             break;
             

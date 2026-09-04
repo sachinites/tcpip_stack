@@ -41,6 +41,7 @@
 
 #include "tcpconst.h"
 #include "utils.h"
+#include "vrf/vrf.h"
 
 /*Apply mask on prefix, and store result in 'str_prefix'
  *For eg : prefix = 122.1.1.1, mask 24, then str_prefix
@@ -67,7 +68,7 @@ apply_mask(unsigned char *prefix, char mask, unsigned char *str_prefix){
     binary_prefix = binary_prefix & subnet_mask;
 
     /*Convert the Final IP into string format again*/
-    tcp_ip_covert_ip_n_to_p(binary_prefix, str_prefix);
+    ip_ntop(binary_prefix, str_prefix);
 }
 
 void
@@ -82,7 +83,7 @@ layer2_fill_with_broadcast_mac(unsigned char *mac_array){
 }
 
 unsigned char *
-tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 
+ip_ntop(uint32_t ip_addr, 
                         c_string output_buffer){
 
     memset(output_buffer, 0, 16);
@@ -517,6 +518,37 @@ bgp_addr_family_str(uint8_t afi, uint8_t safi)
 
     return "unknown";
 }
+
+const char *
+rd_type1_to_str(rd_t *rd, char *buf, size_t buflen)
+{
+    unsigned char ip_addr_str[16];
+
+    snprintf(buf,
+             buflen,
+             "%s:%hu",
+             ip_ntop(rd->rtr_id, ip_addr_str),
+             rd->vrf_id);
+
+    return buf;
+}
+
+const char *
+rt_type1_to_str(rt_t *rt,
+                char *buf,
+                size_t buflen)
+{
+    unsigned char ip_addr_str[16];
+    
+    snprintf(buf,
+             buflen,
+             "%s:%hu",
+             ip_ntop(rt->rtr_id, ip_addr_str),
+             rt->vrf_id);
+
+    return buf;
+}
+
 
 #if 0
 

@@ -16,7 +16,7 @@ isis_print_formatted_tlv130( byte* out_buff, byte* tlv130_start,  uint8_t tlv_le
 
     rc += cprintf("\tTLV%d IP-REACH TLV   len:%dB\n", ISIS_TLV_IP_REACH, tlv_len);
     rc += cprintf("\t  %s/%d  metric = %u  %s\n",
-                tcp_ip_covert_ip_n_to_p(htonl(tlv_130->prefix), ip_addr_str),
+                ip_ntop(htonl(tlv_130->prefix), ip_addr_str),
                 tcp_ip_convert_bin_mask_to_dmask(htonl(tlv_130->mask)),
                 htonl(tlv_130->metric), 
                 IS_BIT_SET (tlv_130->flags, ISIS_EXTERN_ROUTE_F) ? "External" : "Internal");
@@ -103,7 +103,7 @@ isis_print_formatted_rtr_cap_tlv242 (byte* out_buff, byte* tlv242_start,  uint8_
     rc += cprintf("\tTLV%d RTR-CAP   len:%dB\n",    
                     ISIS_TLV_RTR_CAP, tlv_len - TLV_OVERHEAD_SIZE); 
     rc += cprintf("\t  Rtr ID : %s  Flags : 0x%x\n",
-                tcp_ip_covert_ip_n_to_p(tlv_242->rtr_id, ip_addr_str), tlv_242->flags);
+                ip_ntop(tlv_242->rtr_id, ip_addr_str), tlv_242->flags);
 
     /* Does it have Subtlvs ?*/
     if (tlv_len == (sizeof(isis_rtr_cap_tlv242_t) + TLV_OVERHEAD_SIZE)) {
@@ -204,7 +204,7 @@ isis_print_formatted_node_sid_tlv (byte* out_buff, byte* tlv_start, uint8_t tlv_
 
     rc += cprintf("\tTLV%d NODE-SID TLV   len:%dB\n", ISIS_TLV_NODE_SID, tlv_len - TLV_OVERHEAD_SIZE);
     rc += cprintf("\t  %s/%d  SID-Index : %u  Flags : 0x%x  %s%s\n",
-                tcp_ip_covert_ip_n_to_p(htonl(tlv_fmt->prefix), ip_addr_str),
+                ip_ntop(htonl(tlv_fmt->prefix), ip_addr_str),
                 tlv_fmt->prefix_len,
                 htonl(tlv_fmt->sid_index),
                 tlv_fmt->flags,
@@ -512,7 +512,7 @@ isis_format_nbr_tlv22(byte *out_buff,
 
                     rc += cprintf("\t SubTLV%d  Len : %d   Local IP : %s\n",
                                   tlv_type2, tlv_len2,
-                                  tcp_ip_covert_ip_n_to_p(ip_addr_int, ip_addr));
+                                  ip_ntop(ip_addr_int, ip_addr));
 
                     break;
                 case ISIS_TLV_REMOTE_IP:
@@ -523,7 +523,7 @@ isis_format_nbr_tlv22(byte *out_buff,
                     rc += cprintf(
                                   "\t SubTLV%d  Len : %d   Remote IP : %s\n",
                                   tlv_type2, tlv_len2,
-                                  tcp_ip_covert_ip_n_to_p(ip_addr_int, ip_addr));
+                                  ip_ntop(ip_addr_int, ip_addr));
 
                     break;
                 default:

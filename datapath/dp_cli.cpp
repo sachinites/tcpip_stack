@@ -115,7 +115,7 @@ dp_print_interface_brief(dp_intf_t *intf)
     if (!intf) return;
 
     if (intf->ip_addr) {
-        tcp_ip_covert_ip_n_to_p(intf->ip_addr, (c_string)ipv4_str);
+        ip_ntop(intf->ip_addr, (c_string)ipv4_str);
         snprintf(ipv4_str + strlen(ipv4_str),
                  sizeof(ipv4_str) - strlen(ipv4_str),
                  "/%u", intf->mask);
@@ -161,7 +161,7 @@ dp_print_interface(dp_intf_t *intf)
 
     /* IPv4 */
     if (intf->ip_addr) {
-        tcp_ip_covert_ip_n_to_p(intf->ip_addr, (c_string)ipv4_str);
+        ip_ntop(intf->ip_addr, (c_string)ipv4_str);
         snprintf(ipv4_str + strlen(ipv4_str),
                  sizeof(ipv4_str) - strlen(ipv4_str), "/%u", intf->mask);
     } else {
@@ -308,8 +308,8 @@ dp_print_interface(dp_intf_t *intf)
 
         char tunnel_src_str[32];
         char tunnel_dst_str[32];
-        tcp_ip_covert_ip_n_to_p(intf->gre_tunnel_src_ip, (c_string)tunnel_src_str);
-        tcp_ip_covert_ip_n_to_p(intf->gre_tunnel_dst_ip, (c_string)tunnel_dst_str);
+        ip_ntop(intf->gre_tunnel_src_ip, (c_string)tunnel_src_str);
+        ip_ntop(intf->gre_tunnel_dst_ip, (c_string)tunnel_dst_str);
         cprintf("\n  Tunnel Configuration:\n");
         cprintf("    GRE Tunnel End Point  : [%s %s]\n", tunnel_src_str, tunnel_dst_str);
         cprintf("    Is Active ? %s", intf->is_tunnel_up ? "Y" : "N");
@@ -448,7 +448,7 @@ dp_print_l2_fwd_object(dp_ctx_t *dp_ctx, mac_fwd_object_t *obj)
 
         case L2_FWD_VxLAN: {
             char vtep[IPV4_ADDR_LEN_STR];
-            tcp_ip_covert_ip_n_to_p(obj->u.vxlan.vtep_ip, (c_string)vtep);
+            ip_ntop(obj->u.vxlan.vtep_ip, (c_string)vtep);
             cprintf("vni=%u  vtep=%s",
                     obj->u.vxlan.l2vni, vtep);
             break;

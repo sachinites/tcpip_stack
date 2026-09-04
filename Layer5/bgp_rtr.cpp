@@ -2,13 +2,21 @@
 
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../libs/Tracer/tracer.h"
+#include "../libs/prefix-list/prefixlst.h"
 
 #include "../vrf/vrf.h"
 #include "../router_init.h"
 
 #include "bgp_rtr.h"
 
+static void
+bgp_prefix_list_change_cbk(node_t *node,
+                           vrf_t *vrf,
+                           uint32_t instance_no,
+                           prefix_list_t *prefix_lst) {
 
+    cprintf ("%s called ...\n", __FUNCTION__);
+}
 
 bgp_inst_t *
 bgp_init(node_t *node) {
@@ -33,6 +41,7 @@ bgp_init(node_t *node) {
     bgp->recvd_route_processing_task = NULL;
     init_Fglthread (&bgp->pending_routes_list);
 
+    prefix_list_register_client(node, bgp_prefix_list_change_cbk, node->vrf[0], 0);
     return bgp;
 }
 

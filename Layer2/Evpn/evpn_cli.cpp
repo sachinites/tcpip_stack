@@ -339,12 +339,13 @@ evpn_config_handler (int64_t cmdcode,
         case CMDCODE_CONFIG_EVPN_IMPORT_RD:
         {
             rd_t rd;
-
-            if (!rd_str || !parse_2b_4b ((const char *)rd_str, &rd.asn, &rd.number)) {
+            rd.type = 1;
+#if 0
+            if (!rd_str || !parse_2b_4b ((const char *)rd_str, &rd.rtr_id, &rd.vrf_id)) {
                 cprintf ("Error : Invalid route-distinguisher format\n");
                 return -1;
             }
-
+#endif
             switch (enable_or_disable) {
 
                 case CONFIG_ENABLE:
@@ -380,12 +381,12 @@ evpn_config_handler (int64_t cmdcode,
         {
             rt_t rt;
             bool import = (cmdcode == CMDCODE_CONFIG_EVPN_IMPORT_RT);
-
+#if 0
             if (!rt_str || !parse_2b_4b ((const char *)rt_str, &rt.asn, &rt.number)) {
                 cprintf ("Error : Invalid route-target format\n");
                 return -1;
             }
-
+#endif
             switch (enable_or_disable) {
 
                 case CONFIG_ENABLE:

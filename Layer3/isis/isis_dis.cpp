@@ -42,7 +42,7 @@ isis_intf_allocate_lan_id (Interface *intf) {
     assert(rc);
 
     isis_create_advt_db (ISIS_CTX_INTF(intf), pn_id);
-    intf_info->lan_id = {NODE_LO_ADDR_INT(intf->att_node), pn_id};
+    intf_info->lan_id = {NODE_RTR_ID_INT(intf->att_node), pn_id};
 }
 
 void
@@ -95,7 +95,7 @@ isis_intf_reelect_dis (Interface *intf) {
     if (intf_info->priority > adj->priority) return self_lan_id;
     if (intf_info->priority < adj->priority) return adj->lan_id;
 
-    rtr_id = NODE_LO_ADDR_INT(intf->att_node);
+    rtr_id = NODE_RTR_ID_INT(intf->att_node);
     if (rtr_id > adj->nbr_rtr_id) return self_lan_id;
     if (rtr_id < adj->nbr_rtr_id) return adj->lan_id;
     

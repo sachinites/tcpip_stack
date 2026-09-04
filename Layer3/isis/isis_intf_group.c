@@ -398,7 +398,7 @@ isis_dynamic_intf_grp_update_on_adjacency_create (
         return;
     }
 
-    tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, nbr_rtr_id_str);
+    ip_ntop (adjacency->nbr_rtr_id, nbr_rtr_id_str);
     intf_grp = isis_intf_grp_look_up (node_info, nbr_rtr_id_str);
 
     if (!intf_grp) {
@@ -427,7 +427,7 @@ isis_dynamic_intf_grp_update_on_adjacency_delete (
         return;
     }
 
-    tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id,  nbr_rtr_id_str);
+    ip_ntop (adjacency->nbr_rtr_id,  nbr_rtr_id_str);
     intf_grp = isis_intf_grp_look_up (node_info, nbr_rtr_id_str);
     if (!intf_grp) return;
 

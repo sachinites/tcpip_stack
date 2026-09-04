@@ -106,8 +106,8 @@ is_interface_l3_bidirectional(Interface *interface){
     interface->InterfaceGetIpAddressMask(&intf_ip_addr, intf_ip_mask);
     other_interface->InterfaceGetIpAddressMask(&other_intf_ip_addr, other_intf_mask);
 
-    tcp_ip_covert_ip_n_to_p(intf_ip_addr, intf_ip_addr_str);
-    tcp_ip_covert_ip_n_to_p(other_intf_ip_addr, other_intf_ip_addr_str);
+    ip_ntop(intf_ip_addr, intf_ip_addr_str);
+    ip_ntop(other_intf_ip_addr, other_intf_ip_addr_str);
 
     if (!(is_same_subnet(intf_ip_addr_str, IF_MASK(interface), 
         other_intf_ip_addr) &&
@@ -246,7 +246,7 @@ initialize_direct_nbrs(node_t *spf_root){
         /*Step 2.2 : Begin*/
         /*Cover the ECMP case*/
         else if (oif->GetIntfCost() == SPF_METRIC(nbr)){
-            tcp_ip_covert_ip_n_to_p(nxt_hop_ip, nxt_hop_ip_str);
+            ip_ntop(nxt_hop_ip, nxt_hop_ip_str);
             nexthop = nh_create_new_nexthop (nbr->node_name, oif->ifindex, nxt_hop_ip_str, PROTO_STATIC);
             nexthop->oif = oif->GetSharedPtr();
             nh_insert_new_nexthop_nh_array(nbr->spf_data->nexthops, nexthop);

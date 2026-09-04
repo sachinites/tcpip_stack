@@ -359,13 +359,13 @@ object_group_network_construct_name (
         case OBJECT_GRP_NET_RANGE:
             snprintf(output, OBJ_GRP_NAME_LEN, "%s-%s-%s",
                  object_group_type_str(og_type),
-                 tcp_ip_covert_ip_n_to_p(ip_addr1, ip_addr),
-                 tcp_ip_covert_ip_n_to_p(ip_addr2, ip_addr3));
+                 ip_ntop(ip_addr1, ip_addr),
+                 ip_ntop(ip_addr2, ip_addr3));
             break;
         case OBJECT_GRP_NET_HOST:
             snprintf(output, OBJ_GRP_NAME_LEN, "%s-%s", 
                  object_group_type_str(og_type),
-                tcp_ip_covert_ip_n_to_p(ip_addr1, ip_addr));
+                ip_ntop(ip_addr1, ip_addr));
             break;
         case OBJECT_GRP_NESTED:
             assert(0);

@@ -1378,11 +1378,11 @@ acl_print (acl_entry_t *acl_entry) {
     case ACL_ADDR_NOT_SPECIFIED:
         break;
     case ACL_ADDR_HOST:
-        cprintf(" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.host_addr, ip_addr));
+        cprintf(" host %s", ip_ntop(acl_entry->src_addr.u.host_addr, ip_addr));
         break;
     case ACL_ADDR_SUBNET_MASK:
-        cprintf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_addr, ip_addr));
-        cprintf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->src_addr.u.subnet.subnet_mask, ip_addr));
+        cprintf(" %s", ip_ntop(acl_entry->src_addr.u.subnet.subnet_addr, ip_addr));
+        cprintf(" %s", ip_ntop(acl_entry->src_addr.u.subnet.subnet_mask, ip_addr));
         break;
     case ACL_ADDR_OBJECT_NETWORK:
         cprintf(" object-network %s", acl_entry->src_addr.u.obj_nw->name);
@@ -1415,11 +1415,11 @@ acl_print (acl_entry_t *acl_entry) {
     case ACL_ADDR_NOT_SPECIFIED:
         break;
     case ACL_ADDR_HOST:
-        cprintf(" host %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.host_addr, ip_addr));
+        cprintf(" host %s", ip_ntop(acl_entry->dst_addr.u.host_addr, ip_addr));
         break;
     case ACL_ADDR_SUBNET_MASK:
-        cprintf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_addr, ip_addr));
-        cprintf(" %s", tcp_ip_covert_ip_n_to_p(acl_entry->dst_addr.u.subnet.subnet_mask, ip_addr));
+        cprintf(" %s", ip_ntop(acl_entry->dst_addr.u.subnet.subnet_addr, ip_addr));
+        cprintf(" %s", ip_ntop(acl_entry->dst_addr.u.subnet.subnet_mask, ip_addr));
         break;
     case ACL_ADDR_OBJECT_NETWORK:
         cprintf(" object-network %s", acl_entry->dst_addr.u.obj_nw->name);

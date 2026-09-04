@@ -104,7 +104,7 @@ ping_send4 (void *_pctx)
                 ip_hdr->src_ip = htonl (dp_ctx->rtr_id);
             }
 
-            tcp_ip_covert_ip_n_to_p (ntohl (ip_hdr->src_ip), (c_string)src_addr_str);
+            ip_ntop (ntohl (ip_hdr->src_ip), (c_string)src_addr_str);
 
             tracer (dp_ctx->dptr, DL3FWD_DET,
                 "VRF:%s Src Address Determined is %s\n", vrf->vrf_name, src_addr_str);
@@ -143,8 +143,8 @@ ping_send4 (void *_pctx)
         /* Timestamp before handing off to the DP so RTT includes queuing time */
         pctx->send_time[seq % PING_MAX_SEQ] = ping_get_time_us ();
 
-        tcp_ip_covert_ip_n_to_p (ntohl (ip_hdr->dst_ip), (c_string)dst_addr_str);
-        tcp_ip_covert_ip_n_to_p (ntohl (ip_hdr->src_ip), (c_string)src_addr_str);
+        ip_ntop (ntohl (ip_hdr->dst_ip), (c_string)dst_addr_str);
+        ip_ntop (ntohl (ip_hdr->src_ip), (c_string)src_addr_str);
 
         tracer (dp_ctx->dptr, DL3FWD_DET, 
             "vrf:%s Dest:%s Src:%s Sending ping ... \n",
@@ -235,7 +235,7 @@ ping_echo_reply_recvd (ping_ctx_t *pctx, struct rte_mbuf *mbuf)
     ip_hdr   = pkt_mbuf_get_ip_hdr (mbuf);
     icmp_hdr = (icmp_hdr_t *)INCREMENT_IPHDR (ip_hdr);
 
-    tcp_ip_covert_ip_n_to_p (ntohl (ip_hdr->src_ip), src_str);
+    ip_ntop (ntohl (ip_hdr->src_ip), src_str);
 
     if (icmp_hdr->type == ICMP_ECHO_REP) {
 

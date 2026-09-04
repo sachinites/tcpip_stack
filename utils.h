@@ -45,6 +45,8 @@ typedef unsigned char byte;
 typedef unsigned char* c_string; 
 typedef void unused;
 typedef uint16_t vlan_id_t;
+typedef struct rd_ rd_t;
+typedef struct rt_ rt_t;
 
 #define TO_BE_OVERRIDDEN_BY_DERIEVED_CLASS    assert(0)
 
@@ -107,7 +109,7 @@ tlv_buffer_insert_tlv(byte *tlv_buff, uint8_t tlv_no,
                      uint8_t data_len, byte *data);
 
 unsigned char *
-tcp_ip_covert_ip_n_to_p(uint32_t ip_addr, 
+ip_ntop(uint32_t ip_addr, 
                         c_string output_buffer);
 
 uint32_t
@@ -220,5 +222,13 @@ static const char* afi_to_string(AFI_T afi) {
 
 const char *
 bgp_addr_family_str(uint8_t afi, uint8_t safi);
+
+const char *
+rd_type1_to_str(rd_t *rd, char *buf, size_t buflen);
+
+const char *
+rt_type1_to_str(rt_t *rt,
+                char *buf,
+                size_t buflen);
 
 #endif /* __UTILS__ */

@@ -508,7 +508,7 @@ ted_create_or_update_node (ted_db_t *ted_db,
 
     /* PNs dont have host name, cook up one for ease of debugging*/
     if ( template_node_data->pn_no) {
-        tcp_ip_covert_ip_n_to_p (template_node_data->rtr_id, ip_addr_str);
+        ip_ntop (template_node_data->rtr_id, ip_addr_str);
         snprintf ((char *)ted_node->node_name, NODE_NAME_SIZE, "%s-%hu",
                             ip_addr_str, template_node_data->pn_no);
     }
@@ -565,7 +565,7 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
 
     rc += cprintf("Node : %s[%s-%hu][%u]   flags : 0x%x\n", 
                 node->node_name,
-                tcp_ip_covert_ip_n_to_p(node->rtr_id, ip_addr), 
+                ip_ntop(node->rtr_id, ip_addr), 
                 node->pn_no,
                 node->seq_no,
                 node->flags);
@@ -585,12 +585,12 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
 
         nbr = ted_get_nbr_node(intf);
         rc += cprintf ("    Local Intf : %u,  Ip-Address/Mask : %s/%d,  cost = %u\n",
-                                intf->ifindex, tcp_ip_covert_ip_n_to_p(intf->ip_addr, ip_addr),
+                                intf->ifindex, ip_ntop(intf->ip_addr, ip_addr),
                                 intf->mask, intf->cost);
 
         rc += cprintf ("    Nbr : %s[%s-%hu]", 
                                 nbr ? nbr->node_name : "-",
-                                nbr ? tcp_ip_covert_ip_n_to_p(nbr->rtr_id, ip_addr)  : "-",
+                                nbr ? ip_ntop(nbr->rtr_id, ip_addr)  : "-",
                                 nbr ? nbr->pn_no : 0);
 
         if (nbr) {
@@ -598,7 +598,7 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
             other_intf = ted_link_get_other_interface(intf);
             rc += cprintf ("   Remote if index : %u, Remote-Ip-Address/Mask : %s/%d,  cost = %u\n",
                 other_intf->ifindex,
-                tcp_ip_covert_ip_n_to_p(other_intf->ip_addr, ip_addr),
+                ip_ntop(other_intf->ip_addr, ip_addr),
                 other_intf->mask, other_intf->cost);
         }
 
@@ -609,7 +609,7 @@ ted_show_one_node (ted_node_t *node, byte *buff, bool detail) {
 
         ted_prefix = avltree_container_of(curr, ted_prefix_t, avl_glue);
         rc += cprintf ("  Prefix : %s/%d  metric %u  flags 0x%x\n",
-                        tcp_ip_covert_ip_n_to_p(ted_prefix->prefix, ip_addr),
+                        ip_ntop(ted_prefix->prefix, ip_addr),
                         ted_prefix->mask,
                         ted_prefix->metric,
                         ted_prefix->flags);

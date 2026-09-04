@@ -233,9 +233,9 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                             char src_str[INET_ADDRSTRLEN];
                             char dst_str[INET_ADDRSTRLEN];
 
-                            tcp_ip_covert_ip_n_to_p(u->lcl_ip, (c_string)lcl_str);
-                            tcp_ip_covert_ip_n_to_p(u->tunnel_src_ip, (c_string)src_str);
-                            tcp_ip_covert_ip_n_to_p(u->tunnel_dst_ip, (c_string)dst_str);
+                            ip_ntop(u->lcl_ip, (c_string)lcl_str);
+                            ip_ntop(u->tunnel_src_ip, (c_string)src_str);
+                            ip_ntop(u->tunnel_dst_ip, (c_string)dst_str);
 
                             tracer(dp_ctx->dptr, DCONF,
                                 "    intf_update: gre_tunnel lcl=%s/%u src=%s dst=%s up=%u\n",

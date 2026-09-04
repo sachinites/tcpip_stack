@@ -273,7 +273,7 @@ isis_config_handler(int64_t cmdcode,
             switch(enable_or_disable) {
                 case CONFIG_ENABLE:
                     if (isis_is_protocol_enable_on_node(vrf)) return 0;
-                    if (!NODE_LO_ADDR_INT(node)) {
+                    if (!NODE_RTR_ID_INT(node)) {
                         cprintf ("%s : Error : Router-id not configured\n", node->node_name);
                         return -1;
                     }

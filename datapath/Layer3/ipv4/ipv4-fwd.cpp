@@ -77,7 +77,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
 
     ip_hdr = (ip_hdr_t *)pkt_mbuf_get_ip_hdr(mbuf);
 
-    tcp_ip_covert_ip_n_to_p(ntohl(ip_hdr->dst_ip), (c_string)dest_ip_addr);
+    ip_ntop(ntohl(ip_hdr->dst_ip), (c_string)dest_ip_addr);
 
     pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Dest : %s : Trying to route ... \n", 
         vrf->vrf_name, dest_ip_addr);
@@ -264,8 +264,8 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
                                     (uint16_t)IP_HDR_LEN_IN_BYTES(ip_hdr));
 
                     pkt_mbuf_update_new_hdr_type (mbuf, IP_PROTO_GRE);
-                    tcp_ip_covert_ip_n_to_p ( ntohl (ip_hdr->dst_ip), (c_string)gre_t_src_addr);
-                    tcp_ip_covert_ip_n_to_p ( ntohl (ip_hdr->src_ip), (c_string)gre_t_dst_addr);
+                    ip_ntop ( ntohl (ip_hdr->dst_ip), (c_string)gre_t_src_addr);
+                    ip_ntop ( ntohl (ip_hdr->src_ip), (c_string)gre_t_dst_addr);
 
                     pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
                            "VRF %s: Pkt : %s : Pkt is being subjected to GRE Decapsulation, Tunnel key : [%s, %s]\n", 
@@ -362,7 +362,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         ip_hdr->src_ip = htonl(nh->fwd_info->oif->ip_addr);
         pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "VRF %s: Pkt: %s : Using OIF IP as Src IP : %s\n", 
             vrf->vrf_name, pkt_mbuf_str (mbuf), 
-            tcp_ip_covert_ip_n_to_p(htonl(ip_hdr->src_ip), (c_string)ip_addr_str)); 
+            ip_ntop(htonl(ip_hdr->src_ip), (c_string)ip_addr_str)); 
 
     }
 
@@ -461,7 +461,7 @@ layer3_ip_route_pkt(dp_ctx_t *dp_ctx,
         pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, 
             "VRF %s: Pkt is GRE encapsulated to Tunnel end point %s\n",
             vrf->vrf_name,
-            tcp_ip_covert_ip_n_to_p(nh->fwd_info->u.gre_fwd.gre_tunnel_dst.u.v4_addr, (c_string)dest_ip_addr),
+            ip_ntop(nh->fwd_info->u.gre_fwd.gre_tunnel_dst.u.v4_addr, (c_string)dest_ip_addr),
             proto_id_str(encap_proto));
     }
 
@@ -529,7 +529,7 @@ void demote_packet_to_layer3(dp_ctx_t *dp_ctx,
     pkt_size_t pkt_size;
 
     pkt_tracer(mbuf, dp_ctx->dptr, DL3FWD, "Dest : %s :  Pkt Arrived in L3-land from Top\n", 
-        tcp_ip_covert_ip_n_to_p(dest_ip_address, dst_ip_addr_str));
+        ip_ntop(dest_ip_address, dst_ip_addr_str));
 
     dp_vrf_t *vrf = dp_look_up_vrf(dp_ctx, vrf_id);
 

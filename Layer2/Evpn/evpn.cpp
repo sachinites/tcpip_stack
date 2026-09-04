@@ -146,12 +146,12 @@ evpn_unconfig_rd (evpn_inst_t *evpn_inst, rd_t rd)
     if (!mac_vrf)
         return false;
 
-    if (mac_vrf->vrf.rd.asn != rd.asn ||
-        mac_vrf->vrf.rd.number != rd.number)
+    if (mac_vrf->vrf.rd.rtr_id != rd.rtr_id ||
+        mac_vrf->vrf.rd.vrf_id != rd.vrf_id)
         return false;
 
-    mac_vrf->vrf.rd.asn = 0;
-    mac_vrf->vrf.rd.number = 0;
+    mac_vrf->vrf.rd.rtr_id = 0;
+    mac_vrf->vrf.rd.vrf_id = 0;
     return true;
 }
 
@@ -180,11 +180,11 @@ evpn_unconfig_rt (evpn_inst_t *evpn_inst, rt_t rt, bool import)
 
     tgt = import ? &mac_vrf->vrf.import_rt : &mac_vrf->vrf.export_rt;
 
-    if (tgt->asn != rt.asn || tgt->number != rt.number)
+    if (tgt->rtr_id != rt.rtr_id || tgt->vrf_id != rt.vrf_id)
         return false;
 
-    tgt->asn = 0;
-    tgt->number = 0;
+    tgt->rtr_id = 0;
+    tgt->vrf_id = 0;
     return true;
 }
 

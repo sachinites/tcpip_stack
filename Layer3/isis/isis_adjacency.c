@@ -493,7 +493,7 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
     byte lan_id_str[32];
     byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
 
-    tcp_ip_covert_ip_n_to_p (adjacency->nbr_rtr_id, ip_addr_str);
+    ip_ntop (adjacency->nbr_rtr_id, ip_addr_str);
     cprintf("    Nbr : %s(%s)   priority : %u\n", adjacency->nbr_name, ip_addr_str, adjacency->priority);
     cprintf ("    Nbr Sys-id : %s\n", isis_system_id_tostring (&adjacency->nbr_sys_id, lan_id_str));
 
@@ -501,7 +501,7 @@ isis_show_adjacency( isis_adjacency_t *adjacency,
         cprintf ("    Nbr Lan-id : %s\n", isis_lan_id_tostring (&adjacency->lan_id, lan_id_str));
     }
 
-    tcp_ip_covert_ip_n_to_p( adjacency->nbr_intf_ip, ip_addr_str);
+    ip_ntop( adjacency->nbr_intf_ip, ip_addr_str);
     cprintf("    Nbr intf ip : %s  ifindex : %u\n",
         ip_addr_str,
         adjacency->remote_if_index);

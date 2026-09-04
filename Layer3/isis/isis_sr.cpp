@@ -47,7 +47,7 @@ isis_sr_mpls_advertise_rtr_cap_tlv242 (isis_node_info_t *node_info) {
     advt_data->src.holder = &sr_config->rtr_cap_adv_data_tlv242;
     init_glthread(&advt_data->glue);
 
-    advt_data->u.rtr_cap.rtr_cap.rtr_id = NODE_LO_ADDR_INT(node_info->vrf->node);
+    advt_data->u.rtr_cap.rtr_cap.rtr_id = NODE_RTR_ID_INT(node_info->vrf->node);
     advt_data->u.rtr_cap.rtr_cap.flags = 0;
 
     /* SR-Algorithm SubTLV(19) - Generic to Segment Routing, shared numbering
@@ -203,7 +203,7 @@ isis_sr_mpls_sync_self_ted_srgb (isis_node_info_t *node_info) {
     if (!sr_config || !sr_config->srgb) return;
 
     self = ted_lookup_node(node_info->ted_db,
-                           NODE_LO_ADDR_INT(node_info->vrf->node), 0);
+                           NODE_RTR_ID_INT(node_info->vrf->node), 0);
     if (!self) return;
 
     self->has_srgb = true;
@@ -340,7 +340,7 @@ isis_sr_mpls_advertise_node_sid (isis_node_info_t *node_info,
     /* Node-SID is bound to this router's Loopback / Router-Id. Only the
         SID Index is advertised on the wire ( per RFC 8667 ); each router
         computes the actual label locally as ( its own SRGB Base + Index ) */
-    advt_data->u.node_sid.prefix = NODE_LO_ADDR_INT(node_info->vrf->node);
+    advt_data->u.node_sid.prefix = NODE_RTR_ID_INT(node_info->vrf->node);
     advt_data->u.node_sid.prefix_len = 32;
     advt_data->u.node_sid.sid_index = sid_index;
     advt_data->u.node_sid.flags = flags;

@@ -70,7 +70,7 @@ l2_forward_ip_packet(dp_ctx_t *dp_ctx,
         return;
     }
 
-    tcp_ip_covert_ip_n_to_p(next_hop_ip, (c_string)next_hop_ip_str);
+    ip_ntop(next_hop_ip, (c_string)next_hop_ip_str);
 
     if(oif) {
 
@@ -191,7 +191,7 @@ void dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
     char wire_buf[128] = {0};
     pkt_size_t pkt_size = 0;
 
-    tcp_ip_covert_ip_n_to_p(next_hop_ip, (c_string)gw_str);
+    ip_ntop(next_hop_ip, (c_string)gw_str);
 
     if (starting_hdr_type == IP_PROTO_MPLS_IN_IP) {
         mpls_label_wire_t *lbl =

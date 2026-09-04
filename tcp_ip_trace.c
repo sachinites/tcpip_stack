@@ -214,8 +214,8 @@ tcp_dump_ip_hdr(c_string buff, ip_hdr_t *ip_hdr, pkt_size_t pkt_size){
      byte ip2[IPV4_ADDR_LEN_STR];
      byte string_buffer[32] = {0};
 
-     tcp_ip_covert_ip_n_to_p( htonl(ip_hdr->src_ip), ip1);
-     tcp_ip_covert_ip_n_to_p( htonl(ip_hdr->dst_ip), ip2);
+     ip_ntop( htonl(ip_hdr->src_ip), ip1);
+     ip_ntop( htonl(ip_hdr->dst_ip), ip2);
 
      rc +=  sprintf((char *)(buff + rc), "IP Hdr : ");
      rc +=  sprintf((char *)(buff + rc), 
@@ -261,8 +261,8 @@ tcp_dump_arp_hdr(c_string buff, arp_hdr_t *arp_hdr,
             arp_hdr->dst_mac.mac[4],
             arp_hdr->dst_mac.mac[5],
 
-            tcp_ip_covert_ip_n_to_p(htonl(arp_hdr->src_ip), ip1),
-            tcp_ip_covert_ip_n_to_p(htonl(arp_hdr->dst_ip), ip2));
+            ip_ntop(htonl(arp_hdr->src_ip), ip1),
+            ip_ntop(htonl(arp_hdr->dst_ip), ip2));
             
     return rc;
 }

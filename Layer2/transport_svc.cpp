@@ -631,7 +631,7 @@ show_vlan_db_handler(int64_t cmdcode,
 
         /* Print IP Address */
         if (vlan_intf->IsIpConfigured()) {
-            cprintf("%-15s ", tcp_ip_covert_ip_n_to_p(vlan_intf->ip_addr, ip_str));
+            cprintf("%-15s ", ip_ntop(vlan_intf->ip_addr, ip_str));
         } else {
             cprintf("%-15s ", "Not configured");
         }

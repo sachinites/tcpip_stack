@@ -199,17 +199,17 @@ bgp_route_vrf_fill_rd_rt(vrf_t *vrf,
         return true;
     }
 
-    if (vrf->rd.asn == 0 && vrf->rd.number == 0) {
+    if (vrf->rd.rtr_id == 0 && vrf->rd.vrf_id == 0) {
         return false;
     }
-    if (vrf->export_rt.asn == 0 && vrf->export_rt.number == 0) {
+    if (vrf->export_rt.rtr_id == 0 && vrf->export_rt.vrf_id == 0) {
         return false;
     }
 
     snprintf(params->rd, sizeof(params->rd), "%u:%u",
-             vrf->rd.asn, vrf->rd.number);
+             vrf->rd.rtr_id, vrf->rd.vrf_id);
     snprintf(params->rt, sizeof(params->rt), "%u:%u",
-             vrf->export_rt.asn, vrf->export_rt.number);
+             vrf->export_rt.rtr_id, vrf->export_rt.vrf_id);
     return true;
 }
 

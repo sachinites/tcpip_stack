@@ -240,7 +240,7 @@ dp_mpls_fwd_pkt(dp_ctx_t *dp_ctx,
         return;
     }
 
-    tcp_ip_covert_ip_n_to_p(nh->fwd_info->nh_addr.u.v4_addr, (c_string)gw_str);
+    ip_ntop(nh->fwd_info->nh_addr.u.v4_addr, (c_string)gw_str);
     mpls_format_lstack(&nh->fwd_info->u.mpls_fwd.label_stack,
                        ops_buf, sizeof(ops_buf));
 

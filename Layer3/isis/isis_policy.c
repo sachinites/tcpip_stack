@@ -111,7 +111,7 @@ isis_free_all_exported_rt_advt_data (isis_node_info_t *node_info) {
              continue;
         }
 
-        tcp_ip_covert_ip_n_to_p (htonl(advt_data->u.pfx.prefix), ip_addr_str);
+        ip_ntop (htonl(advt_data->u.pfx.prefix), ip_addr_str);
         mask = advt_data->u.pfx.mask;
 
         rc = isis_withdraw_tlv_advertisement(node_info, advt_data);
