@@ -14,6 +14,7 @@ namespace gobgp_client {
 
 enum class AddressFamily {
     kIpv4Unicast,
+    kIpv4Vpn,
     kEvpn
 };
 
@@ -37,6 +38,8 @@ struct BgpRouteParams {
     std::uint32_t local_pref = 0;
     bool med_present = false;
     bool local_pref_present = false;
+    std::uint32_t l3_vpn_label = 0;
+    bool l3_vpn_label_present = false;
     BgpAfi afi = BgpAfi::kIpv4;
     BgpSafi safi = BgpSafi::kUnicast;
 };
@@ -50,7 +53,10 @@ struct BgpRouteInfo {
     std::uint32_t local_pref = 0;
     bool med_present = false;
     bool local_pref_present = false;
+    std::uint32_t l3_vpn_label = 0;
+    bool l3_vpn_label_present = false;
     bool best = false;
+    bool is_from_external = false;
     BgpAfi afi = BgpAfi::kIpv4;
     BgpSafi safi = BgpSafi::kUnicast;
 };
@@ -131,6 +137,14 @@ public:
                           std::uint32_t peer_asn,
                           const std::string& local_address);
 
+    RpcResult EnableIpv4Vpn(const std::string& neighbor_address,
+                            std::uint32_t peer_asn,
+                            const std::string& local_address);
+
+    RpcResult DisableIpv4Vpn(const std::string& neighbor_address,
+                             std::uint32_t peer_asn,
+                             const std::string& local_address);
+
     RpcResult EnableEvpn(const std::string& neighbor_address,
                          std::uint32_t peer_asn,
                          const std::string& local_address);
@@ -138,6 +152,14 @@ public:
     RpcResult DisableEvpn(const std::string& neighbor_address,
                           std::uint32_t peer_asn,
                           const std::string& local_address);
+
+    RpcResult ApplyNeighborAddressFamilies(
+        const std::string& neighbor_address,
+        std::uint32_t peer_asn,
+        const std::string& local_address,
+        bool ipv4_unicast,
+        bool ipv4_vpn,
+        bool evpn);
 
     RpcResult AddRoute(const BgpRouteParams& params);
 

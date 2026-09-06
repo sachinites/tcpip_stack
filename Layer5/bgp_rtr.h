@@ -5,6 +5,7 @@ typedef struct tracer_ tracer_t;
 typedef struct bgp_inst_ bgp_inst_t;
 
 #include "bgp_config.h"
+#include "../libs/EventDispatcher/event_dispatcher.h"
 
 
 #pragma pack(push, 8)
@@ -20,9 +21,8 @@ typedef struct bgp_inst_ {
     /* Tracefile */
     tracer_t *tr;
 
-    /* Task to process recvd route updated from GoBGP */
-    task_t *recvd_route_processing_task;
-    Fglthread_t pending_routes_list;
+    /* Queue for GoBGP watch route updates (watcher thread -> CP scheduler). */
+    pkt_q_t bgp_route_pkt_q;
 
 } bgp_inst_t;
 

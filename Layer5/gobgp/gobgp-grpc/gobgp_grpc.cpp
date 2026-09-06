@@ -215,6 +215,9 @@ void GoBgpGrpcClient::AppendFamily(api::Peer* peer,
     if (family == AddressFamily::kIpv4Unicast) {
         proto_family->set_afi(api::Family::AFI_IP);
         proto_family->set_safi(api::Family::SAFI_UNICAST);
+    } else if (family == AddressFamily::kIpv4Vpn) {
+        proto_family->set_afi(api::Family::AFI_IP);
+        proto_family->set_safi(api::Family::SAFI_MPLS_VPN);
     } else {
         proto_family->set_afi(api::Family::AFI_L2VPN);
         proto_family->set_safi(api::Family::SAFI_EVPN);
@@ -389,6 +392,37 @@ RpcResult GoBgpGrpcClient::DisableAddressFamily(
     return FromStatus(stub_->UpdatePeer(&context, request, &response));
 }
 
+RpcResult GoBgpGrpcClient::ApplyNeighborAddressFamilies(
+    const std::string& neighbor_address,
+    std::uint32_t peer_asn,
+    const std::string& local_address,
+    bool ipv4_unicast,
+    bool ipv4_vpn,
+    bool evpn)
+{
+    api::UpdatePeerRequest request;
+    api::UpdatePeerResponse response;
+
+    api::Peer* peer = request.mutable_peer();
+    PopulateBasePeer(peer, neighbor_address, peer_asn, local_address);
+
+    if (ipv4_unicast) {
+        AppendFamily(peer, AddressFamily::kIpv4Unicast, true);
+    }
+    if (ipv4_vpn) {
+        AppendFamily(peer, AddressFamily::kIpv4Vpn, true);
+    }
+    if (evpn) {
+        AppendFamily(peer, AddressFamily::kEvpn, true);
+    }
+
+    request.set_do_soft_reset_in(true);
+
+    grpc::ClientContext context;
+    SetDeadline(&context);
+    return FromStatus(stub_->UpdatePeer(&context, request, &response));
+}
+
 RpcResult GoBgpGrpcClient::EnableIpv4(
     const std::string& neighbor_address,
     std::uint32_t peer_asn,
@@ -405,6 +439,24 @@ RpcResult GoBgpGrpcClient::DisableIpv4(
 {
     return DisableAddressFamily(neighbor_address, peer_asn, local_address,
                                 AddressFamily::kIpv4Unicast);
+}
+
+RpcResult GoBgpGrpcClient::EnableIpv4Vpn(
+    const std::string& neighbor_address,
+    std::uint32_t peer_asn,
+    const std::string& local_address)
+{
+    return EnableAddressFamily(neighbor_address, peer_asn, local_address,
+                               AddressFamily::kIpv4Vpn);
+}
+
+RpcResult GoBgpGrpcClient::DisableIpv4Vpn(
+    const std::string& neighbor_address,
+    std::uint32_t peer_asn,
+    const std::string& local_address)
+{
+    return DisableAddressFamily(neighbor_address, peer_asn, local_address,
+                                AddressFamily::kIpv4Vpn);
 }
 
 RpcResult GoBgpGrpcClient::EnableEvpn(
@@ -474,7 +526,11 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
         }
         vpn->set_prefix(addr);
         vpn->set_prefix_len(prefix_len);
-        vpn->add_labels(0);
+        if (params.l3_vpn_label_present && params.l3_vpn_label != 0) {
+            vpn->add_labels(params.l3_vpn_label);
+        } else {
+            vpn->add_labels(0);
+        }
     } else {
         api::IPAddressPrefix* prefix = nlri->mutable_prefix();
         prefix->set_prefix(addr);
@@ -486,8 +542,17 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
         origin_attr->mutable_origin()->set_origin(0);
 
         if (!params.nexthop.empty()) {
-            api::Attribute* nh_attr = path.add_pattrs();
-            nh_attr->mutable_next_hop()->set_next_hop(params.nexthop);
+            if (params.safi == BgpSafi::kMplsVpn) {
+                api::Attribute* mp_attr = path.add_pattrs();
+                api::MpReachNLRIAttribute* mp =
+                    mp_attr->mutable_mp_reach();
+                SetFamily(mp->mutable_family(), params.afi, params.safi);
+                mp->add_next_hops(params.nexthop);
+                *mp->add_nlris() = path.nlri();
+            } else {
+                api::Attribute* nh_attr = path.add_pattrs();
+                nh_attr->mutable_next_hop()->set_next_hop(params.nexthop);
+            }
         }
 
         if (params.med_present) {
@@ -524,6 +589,7 @@ void GoBgpGrpcClient::FillRouteInfo(const api::Path& path,
     info->afi = afi;
     info->safi = safi;
     info->best = path.best();
+    info->is_from_external = path.is_from_external();
 
     if (path.has_nlri()) {
         const api::NLRI& nlri = path.nlri();
@@ -539,6 +605,10 @@ void GoBgpGrpcClient::FillRouteInfo(const api::Path& path,
             if (vpn.has_rd()) {
                 info->rd = FormatRouteDistinguisher(vpn.rd());
             }
+            if (vpn.labels_size() > 0) {
+                info->l3_vpn_label = vpn.labels(0);
+                info->l3_vpn_label_present = true;
+            }
         }
     }
 
@@ -551,6 +621,11 @@ void GoBgpGrpcClient::FillRouteInfo(const api::Path& path,
         switch (attr.attr_case()) {
             case api::Attribute::kNextHop:
                 info->nexthop = attr.next_hop().next_hop();
+                break;
+            case api::Attribute::kMpReach:
+                if (attr.mp_reach().next_hops_size() > 0) {
+                    info->nexthop = attr.mp_reach().next_hops(0);
+                }
                 break;
             case api::Attribute::kMultiExitDisc:
                 info->med = attr.multi_exit_disc().med();
@@ -716,6 +791,7 @@ RpcResult GoBgpGrpcClient::WatchRoutes(
              * but GoBGP does not set Path.best on watch notifications. */
             update.route.best = true;
             update.is_withdraw = path.is_withdraw();
+            update.route.is_from_external = path.is_from_external();
 
             if (callback) {
                 callback(update);

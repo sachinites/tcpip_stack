@@ -425,7 +425,8 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
             afi = AFI_IPV6;
             safi = SAFI_UNICAST;
         }
-        else if (parser_match_param(tlv, VPNV4_UNICAST_AF_STR) &&
+        else if ((parser_match_param(tlv, VPNV4_UNICAST_AF_STR) ||
+                  parser_match_param(tlv, "ipv4-vpn")) &&
             target_proto == RTM_PROTO_BGP) {
             afi = AFI_IPV4;
             safi = SAFI_MPLS_VPN;

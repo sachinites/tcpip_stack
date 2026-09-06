@@ -70,6 +70,16 @@ sf_gobgp_rpc_result_t sf_gobgp_disable_ipv4(sf_gobgp_grpc_client_t *client,
                                             uint32_t peer_asn,
                                             const char *local_address);
 
+sf_gobgp_rpc_result_t sf_gobgp_enable_ipv4_vpn(sf_gobgp_grpc_client_t *client,
+                                               const char *neighbor_address,
+                                               uint32_t peer_asn,
+                                               const char *local_address);
+
+sf_gobgp_rpc_result_t sf_gobgp_disable_ipv4_vpn(sf_gobgp_grpc_client_t *client,
+                                                const char *neighbor_address,
+                                                uint32_t peer_asn,
+                                                const char *local_address);
+
 sf_gobgp_rpc_result_t sf_gobgp_enable_evpn(sf_gobgp_grpc_client_t *client,
                                            const char *neighbor_address,
                                            uint32_t peer_asn,
@@ -80,6 +90,16 @@ sf_gobgp_rpc_result_t sf_gobgp_disable_evpn(sf_gobgp_grpc_client_t *client,
                                             uint32_t peer_asn,
                                             const char *local_address);
 
+sf_gobgp_rpc_result_t
+sf_gobgp_apply_neighbor_address_families(
+    sf_gobgp_grpc_client_t *client,
+    const char *neighbor_address,
+    uint32_t peer_asn,
+    const char *local_address,
+    bool ipv4_unicast,
+    bool ipv4_vpn,
+    bool evpn);
+
 typedef struct sf_gobgp_route_params {
     char prefix[64];
     char nexthop[64];
@@ -89,6 +109,8 @@ typedef struct sf_gobgp_route_params {
     uint32_t local_pref;
     bool med_present;
     bool local_pref_present;
+    uint32_t l3_vpn_label;
+    bool l3_vpn_label_present;
     int afi;
     int safi;
 } sf_gobgp_route_params_t;
@@ -102,9 +124,12 @@ typedef struct sf_gobgp_route_info {
     uint32_t local_pref;
     bool med_present;
     bool local_pref_present;
+    uint32_t l3_vpn_label;
+    bool l3_vpn_label_present;
     bool best;
     int afi;
     int safi;
+    bool is_from_external;
 } sf_gobgp_route_info_t;
 
 typedef int (*sf_gobgp_route_walk_cb)(const sf_gobgp_route_info_t *route,

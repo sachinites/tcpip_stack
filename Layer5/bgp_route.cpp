@@ -12,12 +12,15 @@
 #include "../router_init.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../RTM/rtm_nh.h"
+#include "../RTM/rtm_proto.h"
 #include "../RTM/rtm_priv_api.h"
 #include "../RTM/rtm_enums.h"
 #include "../RTM/rtm_error.h"
 #include "../Interface/InterfacEnums.h"
 #include "../tcpconst.h"
 #include "../vrf/vrf.h"
+#include "../net.h"
+#include "../libs/EventDispatcher/event_dispatcher.h"
 #include "bgp_config.h"
 #include "bgp_rtr.h"
 #include "bgp_enums.h"
@@ -74,11 +77,13 @@ bgp_route_parse_safi(const char *safi)
     if (!safi || strcmp(safi, "unicast") == 0) {
         return SAFI_UNICAST;
     }
-    if (strcmp(safi, "mpls-vpn") == 0 || strcmp(safi, "mpls_vpn") == 0) {
+    if (strcmp(safi, "vpn") == 0 ||
+        strcmp(safi, "mpls-vpn") == 0 ||
+        strcmp(safi, "mpls_vpn") == 0) {
         return SAFI_MPLS_VPN;
     }
     if (strcmp(safi, "evpn") == 0) {
-        return 70; /* SAFI_EVPN */
+        return SAFI_MPLS_EVPN; /* SAFI_EVPN */
     }
     return -1;
 }
@@ -98,6 +103,8 @@ bgp_route_to_sf_params(const bgp_route_params_t *params,
     out->local_pref = params->local_pref;
     out->med_present = params->med_present;
     out->local_pref_present = params->local_pref_present;
+    out->l3_vpn_label = params->l3_vpn_label;
+    out->l3_vpn_label_present = params->l3_vpn_label_present;
     out->afi = afi;
     out->safi = safi;
 }
@@ -184,6 +191,126 @@ bgp_route_is_reachable(rtm_nh *nh)
 }
 
 static bool
+bgp_route_parse_rt_string(const char *rt_str, rt_t *out)
+{
+    char left[64];
+    unsigned long right = 0;
+    const char *colon;
+    size_t left_len;
+
+    if (!rt_str || !out || rt_str[0] == '\0') {
+        return false;
+    }
+
+    colon = strchr(rt_str, ':');
+    if (!colon || colon == rt_str) {
+        return false;
+    }
+
+    left_len = (size_t)(colon - rt_str);
+    if (left_len >= sizeof(left)) {
+        return false;
+    }
+
+    memcpy(left, rt_str, left_len);
+    left[left_len] = '\0';
+    right = strtoul(colon + 1, NULL, 10);
+
+    memset(out, 0, sizeof(*out));
+    out->type = 1;
+    out->sub_type = 0;
+
+    if (strchr(left, '.')) {
+        out->rtr_id = tcp_ip_convert_ip_p_to_n(left);
+    } else {
+        out->rtr_id = (uint32_t)strtoul(left, NULL, 10);
+    }
+    out->vrf_id = (uint16_t)right;
+    return true;
+}
+
+static vrf_t *
+bgp_route_get_src_vrf(vrf_t *target_vrf, rt_advert_info_t *rt_advert)
+{
+    if (!target_vrf || !rt_advert) {
+        return NULL;
+    }
+
+    if (rt_advert->src_vrf_id == RTM_DEFAULT_VRF) {
+        return target_vrf;
+    }
+
+    return vrf_get_by_id(target_vrf->node, rt_advert->src_vrf_id);
+}
+
+static bool
+bgp_route_export_eligible(rt_advert_info_t *rt_advert, uint8_t safi)
+{
+    if (!rt_advert) {
+        return false;
+    }
+
+    if (safi == SAFI_MPLS_VPN) {
+        return rt_advert->src_vrf_id != RTM_DEFAULT_VRF;
+    }
+
+    if (safi == SAFI_UNICAST) {
+        return rt_advert->src_vrf_id == RTM_DEFAULT_VRF;
+    }
+
+    return false;
+}
+
+static const char *
+bgp_route_af_str_for_print(uint8_t afi, uint8_t safi)
+{
+    if (afi == AFI_IPV4 && safi == SAFI_UNICAST) {
+        return IPV4_UNICAST_AF_STR;
+    }
+    if (afi == AFI_IPV4 && safi == SAFI_MPLS_VPN) {
+        return VPNV4_UNICAST_AF_STR;
+    }
+    if (afi == AFI_IPV6 && safi == SAFI_UNICAST) {
+        return IPV6_UNICAST_AF_STR;
+    }
+    return "unknown";
+}
+
+static bool
+bgp_route_notif_parse_af(uint8_t wire_afi, uint8_t *afi_out)
+{
+    if (!afi_out) {
+        return false;
+    }
+
+    switch (wire_afi) {
+        case AFI_IPV4:
+        case AFI_IPV6:
+            *afi_out = wire_afi;
+            return true;
+        default:
+            return false;
+    }
+}
+
+static bool
+bgp_route_notif_parse_safi(uint8_t wire_safi, uint8_t *safi_out)
+{
+    if (!safi_out) {
+        return false;
+    }
+
+    switch (wire_safi) {
+        case SAFI_UNICAST:
+        case SAFI_MPLS_VPN:
+            *safi_out = wire_safi;
+            return true;
+        default:
+            return false;
+    }
+}
+
+static bool
 bgp_route_vrf_fill_rd_rt(vrf_t *vrf,
                          uint8_t safi,
                          bgp_route_params_t *params)
@@ -196,6 +323,8 @@ bgp_route_vrf_fill_rd_rt(vrf_t *vrf,
     if (safi != SAFI_MPLS_VPN) {
         params->rd[0] = '\0';
         params->rt[0] = '\0';
+        params->l3_vpn_label = 0;
+        params->l3_vpn_label_present = false;
         return true;
     }
 
@@ -205,11 +334,16 @@ bgp_route_vrf_fill_rd_rt(vrf_t *vrf,
     if (vrf->export_rt.rtr_id == 0 && vrf->export_rt.vrf_id == 0) {
         return false;
     }
+    if (!vrf->l3_vpn_label) {
+        return false;
+    }
 
     snprintf(params->rd, sizeof(params->rd), "%u:%u",
              vrf->rd.rtr_id, vrf->rd.vrf_id);
     snprintf(params->rt, sizeof(params->rt), "%u:%u",
              vrf->export_rt.rtr_id, vrf->export_rt.vrf_id);
+    params->l3_vpn_label = vrf->l3_vpn_label;
+    params->l3_vpn_label_present = true;
     return true;
 }
 
@@ -251,11 +385,13 @@ bgp_route_apply_to_gobgp(node_t *node,
 
     tracer(tr, TR_BGP_GRPC_TALK | TR_BGP_RT_EVENTS,
            "%s : %s RPC → prefix=%s nh=%s afi=%d safi=%d rd=%s rt=%s "
-           "med=%s%u lp=%s%u\n",
+           "label=%s%u med=%s%u lp=%s%u\n",
            BGP_RTM_TAG, op, sf_params.prefix, sf_params.nexthop,
            sf_params.afi, sf_params.safi,
            sf_params.rd[0] ? sf_params.rd : "-",
            sf_params.rt[0] ? sf_params.rt : "-",
+           sf_params.l3_vpn_label_present ? "" : "(none)",
+           sf_params.l3_vpn_label_present ? sf_params.l3_vpn_label : 0,
            sf_params.med_present ? "" : "(none)",
            sf_params.med_present ? sf_params.med : 0,
            sf_params.local_pref_present ? "" : "(none)",
@@ -304,8 +440,10 @@ bgp_route_walk_adapter(const sf_gobgp_route_info_t *route, void *userdata)
     strncpy(info.rt, route->rt, sizeof(info.rt) - 1);
     info.med = route->med;
     info.local_pref = route->local_pref;
+    info.l3_vpn_label = route->l3_vpn_label;
     info.med_present = route->med_present;
     info.local_pref_present = route->local_pref_present;
+    info.l3_vpn_label_present = route->l3_vpn_label_present;
     info.best = route->best;
 
     return ctx->callback(&info, ctx->userdata);
@@ -405,9 +543,12 @@ bgp_monitor_dispatch(bgp_monitor_ctx_t *mon,
         strncpy(info.rt, update->route.rt, sizeof(info.rt) - 1);
         info.med = update->route.med;
         info.local_pref = update->route.local_pref;
+        info.l3_vpn_label = update->route.l3_vpn_label;
         info.med_present = update->route.med_present;
         info.local_pref_present = update->route.local_pref_present;
+        info.l3_vpn_label_present = update->route.l3_vpn_label_present;
         info.best = update->route.best;
+        info.is_from_external = update->route.is_from_external;
 
         sub->callback(&info, update->is_withdraw, sub->userdata);
     }
@@ -578,18 +719,65 @@ bgp_node_monitor_subscribe(node_t *node,
     return 0;
 }
 
+int
+bgp_node_monitor_subscribe_af(node_t *node,
+                              int afi,
+                              int safi,
+                              bgp_route_update_notify_cb callback,
+                              void *userdata)
+{
+    bgp_node_config_t *cfg = bgp_route_config_get(node);
+    if (!cfg || !callback) {
+        return -1;
+    }
+
+    bgp_monitor_ctx_t *mon = &cfg->monitor;
+
+    pthread_mutex_lock(&mon->lock);
+
+    if (mon->num_subs >= BGP_MONITOR_MAX_SUBS) {
+        pthread_mutex_unlock(&mon->lock);
+        return -1;
+    }
+
+    bgp_monitor_sub_t *sub = &mon->subs[mon->num_subs++];
+    sub->afi = afi;
+    sub->safi = safi;
+    sub->callback = (bgp_monitor_notify_cb)callback;
+    sub->userdata = userdata;
+
+    pthread_mutex_unlock(&mon->lock);
+
+    return 0;
+}
+
 void
 bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
 
     char prefix_str[48];
     char bgp_nbr_str[48];
+    char label_buf[16] = "";
     bgp_route_params_t params;
     rtm_nh *nh;
     bgp_inst_t *bgp_inst;
     bgp_node_config_t *cfg;
     bool is_delete;
+    uint8_t afi;
+    uint8_t safi;
 
     if (!vrf || !rt_advert || !vrf->node) {
+        return;
+    }
+
+    if (!bgp_route_notif_parse_af(rt_advert->afi, &afi) ||
+        !bgp_route_notif_parse_safi(rt_advert->safi, &safi)) {
+        bgp_inst = bgp_get_instance(vrf->node);
+        if (bgp_inst) {
+            tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
+                   "%s : Unsupported addr-family afi=%u safi=%u for route %s, skip\n",
+                   BGP_RTM_TAG, rt_advert->afi, rt_advert->safi,
+                   cmn_prefix_to_string(&rt_advert->route, &prefix_str));
+        }
         return;
     }
 
@@ -601,11 +789,12 @@ bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
     cfg = &bgp_inst->bgp_config;
 
     tracer (bgp_inst->tr, TR_BGP_RT_EVENTS,
-             "%s : Route %s notification received for VRF %s, addr-family:%s, BGP Nbr:%s, code:%s\n",
+             "%s : Route %s notification received, Target-VRF:%s Src-VRF:%s addr-family:%s, BGP Nbr:%s, code:%s\n",
              BGP_RTM_TAG,
              cmn_prefix_to_string(&rt_advert->route, &prefix_str),
              vrf->vrf_name,
-             bgp_addr_family_str(rt_advert->afi, rt_advert->safi),
+             vrf->node->vrf[rt_advert->src_vrf_id]->vrf_name,
+             bgp_route_af_str_for_print(afi, safi),
              cmn_prefix_to_string(&rt_advert->bgp_nbr, &bgp_nbr_str),
              rt_advert->code == RTM_CLIENT_RT_ADD ? "Add" : "Del");
 
@@ -621,6 +810,28 @@ bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
                "%s : Route %s sourced by BGP, skip\n",
                BGP_RTM_TAG, prefix_str);
         return;
+    }
+
+    if (!bgp_route_export_eligible(rt_advert, safi)) {
+        tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
+               "%s : Route %s from src-VRF:%s not eligible for %s export, skip\n",
+               BGP_RTM_TAG, prefix_str, 
+               vrf->node->vrf[rt_advert->src_vrf_id]->vrf_name,
+               bgp_route_af_str_for_print(afi, safi));
+        return;
+    }
+
+    {
+        vrf_t *src_vrf = bgp_route_get_src_vrf(vrf, rt_advert);
+        if (!src_vrf) {
+            tracer(bgp_inst->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
+                "%s : Src-VRF:%s not found for route %s being exported into BGP\n",
+                BGP_RTM_TAG, 
+                vrf->node->vrf[rt_advert->src_vrf_id]->vrf_name,
+                prefix_str);
+            return;
+        }
+        vrf = src_vrf;
     }
 
     /* Advertise only if still present/reachable in RTM.
@@ -641,9 +852,9 @@ bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
     /* BGP nexthop-self: always advertise our router-id, never RTM GW. */
     strncpy(params.nexthop, cfg->router_id, sizeof(params.nexthop) - 1);
 
-    if (!bgp_route_vrf_fill_rd_rt(vrf, rt_advert->safi, &params)) {
+    if (!bgp_route_vrf_fill_rd_rt(vrf, safi, &params)) {
         tracer(bgp_inst->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
-               "%s : VRF %s missing RD/export-RT required for VPN advertise of %s\n",
+               "%s : Eror : VRF %s missing RD/export-RT/L3VPN label required for VPN advertise of %s\n",
                BGP_RTM_TAG, vrf->vrf_name, prefix_str);
         return;
     }
@@ -653,31 +864,35 @@ bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
         params.med_present = true;
     }
 
-    if (bgp_route_apply_to_gobgp(vrf->node, &params,
-                                 rt_advert->afi, rt_advert->safi,
-                                 is_delete) != 0) {
+    if (bgp_route_apply_to_gobgp(vrf->node, &params, afi, safi, is_delete) != 0) {
         tracer(bgp_inst->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
                "%s : Failed to %s route %s nh-self %s to GoBGP (%s) peer %s\n",
                BGP_RTM_TAG,
                is_delete ? "withdraw" : "advertise",
                prefix_str, params.nexthop,
-               bgp_addr_family_str(rt_advert->afi, rt_advert->safi),
+               bgp_route_af_str_for_print(afi, safi),
                bgp_nbr_str);
         return;
     }
 
+    if (params.l3_vpn_label_present) {
+        snprintf(label_buf, sizeof(label_buf), " label %u",
+                 params.l3_vpn_label);
+    }
+
     tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
            "%s : %s route %s nh-self %s to GoBGP (%s) peer %s"
-           "%s%s%s%s\n",
+           "%s%s%s%s%s\n",
            BGP_RTM_TAG,
            is_delete ? "Withdrew" : "Advertised",
            prefix_str, params.nexthop,
-           bgp_addr_family_str(rt_advert->afi, rt_advert->safi),
+           bgp_route_af_str_for_print(afi, safi),
            bgp_nbr_str,
            params.rd[0] ? " RD " : "",
            params.rd[0] ? params.rd : "",
            params.rt[0] ? " RT " : "",
-           params.rt[0] ? params.rt : "");
+           params.rt[0] ? params.rt : "",
+           label_buf);
 }
 
 /* ======================== BGP Remote routes installation==================== */
@@ -743,6 +958,40 @@ bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
      */
 
 
+static bool
+bgp_route_is_nh_self(node_t *node, const bgp_route_info_t *route)
+{
+    bgp_inst_t *bgp;
+    bgp_node_config_t *cfg;
+    char nh_addr[64];
+
+    if (!node || !route || route->nexthop[0] == '\0') {
+        return false;
+    }
+
+    bgp = bgp_get_instance(node);
+    if (!bgp) {
+        return false;
+    }
+
+    cfg = &bgp->bgp_config;
+    if (cfg->router_id[0] == '\0') {
+        return false;
+    }
+
+    /* Nexthop may be "a.b.c.d" or "a.b.c.d/32" from GoBGP. */
+    strncpy(nh_addr, route->nexthop, sizeof(nh_addr) - 1);
+    nh_addr[sizeof(nh_addr) - 1] = '\0';
+    {
+        char *slash = strchr(nh_addr, '/');
+        if (slash) {
+            *slash = '\0';
+        }
+    }
+
+    return strcmp(nh_addr, cfg->router_id) == 0;
+}
+
 /* We have recvd route ADD from GoBGP*/
 void
 bgp_rtm_route_install(node_t *node, const bgp_route_info_t *route)
@@ -778,6 +1027,13 @@ bgp_rtm_route_install(node_t *node, const bgp_route_info_t *route)
     if (!route->best) {
         tracer(bgp->tr, TR_BGP_RT_EVENTS,
                "%s : install skip %s — not best path\n",
+               BGP_RTM_TAG, route->prefix);
+        return;
+    }
+
+    if (bgp_route_is_nh_self(node, route)) {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS,
+               "%s : install skip %s — nh-self route (locally originated)\n",
                BGP_RTM_TAG, route->prefix);
         return;
     }
@@ -951,41 +1207,314 @@ bgp_rtm_route_uninstall(node_t *node, const bgp_route_info_t *route)
            route->nexthop[0] ? route->nexthop : "-");
 }
 
+static bool
+bgp_route_build_vpn_nh_template(const bgp_route_info_t *route,
+                                cp_nexthop_template_t *nh_template)
+{
+    char nh_cidr[72];
+    cmn_prefix_t gateway;
+    rt_t import_rt;
+    rtm_error_t rc;
+
+    if (!route || !nh_template) {
+        return false;
+    }
+
+    if (route->rd[0] == '\0') {
+        return false;
+    }
+
+    if (route->nexthop[0] == '\0') {
+        return false;
+    }
+
+    if (strchr(route->nexthop, '/')) {
+        strncpy(nh_cidr, route->nexthop, sizeof(nh_cidr) - 1);
+        nh_cidr[sizeof(nh_cidr) - 1] = '\0';
+    } else {
+        snprintf(nh_cidr, sizeof(nh_cidr), "%s/32", route->nexthop);
+    }
+
+    if (!cmn_parse_prefix_string(nh_cidr, &gateway) ||
+        gateway.afi != AF_IPV4) {
+        return false;
+    }
+
+    if (!bgp_route_parse_rt_string(route->rt, &import_rt)) {
+        return false;
+    }
+
+    memset(nh_template, 0, sizeof(*nh_template));
+    nh_template->is_indirect = true;
+    nh_template->is_resolved = false;
+    nh_template->proto = RTM_PROTO_BGP;
+    nh_template->sub_proto = RTM_PROTO_BGP_VPN;
+    nh_template->action = RTM_NH_ACTION_FORWARD;
+    nh_template->metric = route->med_present ? route->med : 0;
+    nh_template->import_rt = import_rt;
+    if (route->l3_vpn_label_present && route->l3_vpn_label) {
+        nh_template->l3_vpn_label = route->l3_vpn_label;
+    }
+    memcpy(&nh_template->gateway, &gateway, sizeof(gateway));
+
+    rc = rtm_nh_proto_info_create(
+            RTM_PROTO_BGP,
+            RTM_PROTO_BGP_VPN,
+            0,
+            RTM_DEFAULT_VRF,
+            &nh_template->rtm_nh_proto);
+    if (rc != RTM_SUCCESS) {
+        return false;
+    }
+
+    return true;
+}
+
+void
+bgp_rtm_vpn_route_install(node_t *node, const bgp_route_info_t *route)
+{
+    bgp_inst_t *bgp;
+    rtm_t *rtm;
+    cmn_prefix_t prefix;
+    cp_nexthop_template_t nh_template;
+    rtm_error_t rc;
+
+    if (!node || !route || route->prefix[0] == '\0') {
+        return;
+    }
+
+    bgp = bgp_get_instance(node);
+    if (!bgp) {
+        return;
+    }
+
+    if (route->rd[0] == '\0') {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS,
+               "%s : vpn install skip %s — missing RD\n",
+               BGP_RTM_TAG, route->prefix);
+        return;
+    }
+
+    if (!route->best) {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS,
+               "%s : vpn install skip %s — not best path\n",
+               BGP_RTM_TAG, route->prefix);
+        return;
+    }
+
+    if (bgp_route_is_nh_self(node, route)) {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS,
+               "%s : vpn install skip %s — nh-self route (locally originated)\n",
+               BGP_RTM_TAG, route->prefix);
+        return;
+    }
+
+    if (!cmn_parse_prefix_string(route->prefix, &prefix) ||
+        prefix.afi != AF_IPV4) {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
+               "%s : vpn install fail %s — invalid IPv4 prefix\n",
+               BGP_RTM_TAG, route->prefix);
+        return;
+    }
+
+    if (!bgp_route_build_vpn_nh_template(route, &nh_template)) {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
+               "%s : vpn install fail %s — invalid nexthop/RT\n",
+               BGP_RTM_TAG, route->prefix);
+        return;
+    }
+
+    rtm = NODE_DEF_VRF_MEMBER(node, l3vpnv4);
+    if (!rtm) {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
+               "%s : vpn install fail %s — bgp.l3vpn.0 not found\n",
+               BGP_RTM_TAG, route->prefix);
+        return;
+    }
+
+    rc = cp_rtm_install_route(rtm, &prefix, &nh_template);
+    rtm_nh_template_free_internals(&nh_template);
+    if (rc != RTM_SUCCESS) {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS,
+               "%s : vpn install FAILED %s nh %s rd %s rt %s into bgp.l3vpn.0 — %s\n",
+               BGP_RTM_TAG, route->prefix, route->nexthop,
+               route->rd, route->rt[0] ? route->rt : "-",
+               rtm_error_to_string(rc));
+        return;
+    }
+
+    tracer(bgp->tr, TR_BGP_RT_EVENTS,
+           "%s : vpn installed %s nh %s rd %s rt %s into bgp.l3vpn.0\n",
+           BGP_RTM_TAG, route->prefix, route->nexthop,
+           route->rd, route->rt[0] ? route->rt : "-");
+}
+
+void
+bgp_rtm_vpn_route_uninstall(node_t *node, const bgp_route_info_t *route)
+{
+    bgp_inst_t *bgp;
+    rtm_t *rtm;
+    cmn_prefix_t prefix;
+    cp_nexthop_template_t nh_template;
+    rtm_error_t rc;
+
+    if (!node || !route || route->prefix[0] == '\0') {
+        return;
+    }
+
+    bgp = bgp_get_instance(node);
+    if (!bgp) {
+        return;
+    }
+
+    if (route->rd[0] == '\0') {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS,
+               "%s : vpn uninstall skip %s — missing RD\n",
+               BGP_RTM_TAG, route->prefix);
+        return;
+    }
+
+    if (!cmn_parse_prefix_string(route->prefix, &prefix) ||
+        prefix.afi != AF_IPV4) {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
+               "%s : vpn uninstall fail %s — invalid IPv4 prefix\n",
+               BGP_RTM_TAG, route->prefix);
+        return;
+    }
+
+    rtm = NODE_DEF_VRF_MEMBER(node, l3vpnv4);
+    if (!rtm) {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
+               "%s : vpn uninstall fail %s — bgp.l3vpn.0 not found\n",
+               BGP_RTM_TAG, route->prefix);
+        return;
+    }
+
+    if (bgp_route_build_vpn_nh_template(route, &nh_template)) {
+        rc = cp_rtm_uninstall_route(rtm, &prefix, &nh_template);
+        rtm_nh_template_free_internals(&nh_template);
+        if (rc != RTM_SUCCESS) {
+            tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
+                   "%s : vpn uninstall FAILED %s from bgp.l3vpn.0 — %s\n",
+                   BGP_RTM_TAG, route->prefix, rtm_error_to_string(rc));
+            return;
+        }
+    } else {
+        (void)cp_rtm_uninstall_route_by_proto(
+                rtm, &prefix, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN);
+    }
+
+    tracer(bgp->tr, TR_BGP_RT_EVENTS,
+           "%s : vpn uninstalled %s nh %s from bgp.l3vpn.0\n",
+           BGP_RTM_TAG, route->prefix,
+           route->nexthop[0] ? route->nexthop : "-");
+}
+
 typedef struct bgp_route_processing_info_ {
 
     node_t *node;
     bgp_route_info_t *route;
     bool is_add;
-    glthread_t glue;
+    bool is_vpn;
 
 } bgp_route_processing_info_t;
-GLTHREAD_TO_STRUCT(glue_to_bgp_route_processing_info, bgp_route_processing_info_t, glue);
 
-static void 
-bgp_schedule_route_processing_job_cbk (event_dispatcher_t *ev_dis, 
-                                       void *arg, uint32_t arg_size) {
-
-    glthread_t *curr;
-    bgp_route_info_t *route;
+static void
+bgp_route_pkt_q_cbk(event_dispatcher_t *ev_dis,
+                      void *data,
+                      uint32_t data_size)
+{
     bgp_route_processing_info_t *info;
+    node_t *node = (node_t *)ev_dis->app_data;
+    bgp_inst_t *bgp_inst = BGP_INST(node);
 
-    bgp_inst_t *bgp_inst = (bgp_inst_t *)arg;
+    (void)data;
 
-    bgp_inst->recvd_route_processing_task = NULL;
+    if (!bgp_inst) {
+        return;
+    }
+
+    info = (bgp_route_processing_info_t *)task_get_next_pkt(ev_dis, &data_size);
+    if (!info) {
+        return;
+    }
 
     tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
-            "%s : Route processing job cbk invoked\n", BGP_RTM_TAG);
+           "%s : Route processing job cbk invoked\n", BGP_RTM_TAG);
 
-    while ((curr = dequeue_glthread_first (&bgp_inst->pending_routes_list.head))) {
+    for (; info;
+         info = (bgp_route_processing_info_t *)task_get_next_pkt(ev_dis,
+                                                                 &data_size)) {
+        if (info->is_vpn) {
+            info->is_add ? bgp_rtm_vpn_route_install(info->node, info->route) :
+                           bgp_rtm_vpn_route_uninstall(info->node, info->route);
+        } else {
+            info->is_add ? bgp_rtm_route_install(info->node, info->route) :
+                           bgp_rtm_route_uninstall(info->node, info->route);
+        }
 
-        info = glue_to_bgp_route_processing_info(curr);
-
-        info->is_add ? bgp_rtm_route_install (info->node, info->route) : \
-                       bgp_rtm_route_uninstall (info->node, info->route);
-
-        XFREE (info->route);
-        XFREE(info);        
+        XFREE(info->route);
+        XFREE(info);
     }
+}
+
+void
+bgp_route_processing_pkt_q_init(node_t *node, bgp_inst_t *bgp)
+{
+    if (!node || !bgp) {
+        return;
+    }
+
+    if (bgp->bgp_route_pkt_q.task) {
+        return;
+    }
+
+    init_pkt_q(EV(node), &bgp->bgp_route_pkt_q, bgp_route_pkt_q_cbk);
+}
+
+static void
+bgp_schedule_route_processing_job_common(node_t *node,
+                                         const bgp_route_info_t *route,
+                                         bool is_add,
+                                         bool is_vpn)
+{
+    bgp_inst_t *bgp_inst = BGP_INST(node);
+    bgp_route_processing_info_t *info;
+    bgp_route_info_t *route_cpy;
+
+    if (!bgp_inst) {
+        return;
+    }
+
+    if (!bgp_inst->bgp_route_pkt_q.task) {
+        bgp_route_processing_pkt_q_init(node, bgp_inst);
+    }
+
+    info = (bgp_route_processing_info_t *)
+        XCALLOC2(0, 1, bgp_route_processing_info_t);
+    route_cpy = (bgp_route_info_t *)XCALLOC2(0, 1, bgp_route_info_t);
+
+    memcpy(route_cpy, route, sizeof(*route_cpy));
+
+    info->node = node;
+    info->route = route_cpy;
+    info->is_add = is_add;
+    info->is_vpn = is_vpn;
+
+    if (!pkt_q_enqueue(EV(node),
+                       &bgp_inst->bgp_route_pkt_q,
+                       (char *)info,
+                       sizeof(*info))) {
+        tracer(bgp_inst->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
+               "%s : Route processing pkt_q full, dropped %s\n",
+               BGP_RTM_TAG, route->prefix);
+        XFREE(route_cpy);
+        XFREE(info);
+        return;
+    }
+
+    tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
+           "%s : Route processing job scheduled\n", BGP_RTM_TAG);
 }
 
 void 
@@ -993,40 +1522,13 @@ bgp_schedule_route_processing_job (node_t *node,
                                   const bgp_route_info_t *route, 
                                   bool is_add) 
 {
+    bgp_schedule_route_processing_job_common(node, route, is_add, false);
+}
 
-    bgp_inst_t *bgp_inst = BGP_INST(node);
-
-    if (!bgp_inst) return;
-
-    bgp_route_processing_info_t *info = (bgp_route_processing_info_t *)
-            XCALLOC2(0, 1, bgp_route_processing_info_t);
-
-    bgp_route_info_t *route_cpy = (bgp_route_info_t *)
-            XCALLOC2(0, 1, bgp_route_info_t);
-
-    memcpy (route_cpy, route, sizeof (*route_cpy));
-
-    info->node = node;
-    info->route = route_cpy;
-    info->is_add = is_add;
-    init_glthread(&info->glue);
-
-    Fglthread_add_last(&bgp_inst->pending_routes_list, &info->glue);
-
-    if (bgp_inst->recvd_route_processing_task) {
-
-        tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
-            "%s : Route processing job is already scheduled\n", BGP_RTM_TAG);
-
-        return;
-    }
-
-    bgp_inst->recvd_route_processing_task = 
-        task_create_new_job (EV(node), (void *)bgp_inst, 
-                             bgp_schedule_route_processing_job_cbk,
-                             TASK_ONE_SHOT,
-                             TASK_PRIORITY_LOW); // We are Queing the work, ok to have low prio
-
-    tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
-            "%s : Route processing job scheduled\n", BGP_RTM_TAG);
+void
+bgp_schedule_vpn_route_processing_job(node_t *node,
+                                      const bgp_route_info_t *route,
+                                      bool is_add)
+{
+    bgp_schedule_route_processing_job_common(node, route, is_add, true);
 }

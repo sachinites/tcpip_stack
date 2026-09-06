@@ -87,6 +87,20 @@ sf_gobgp_remove_peer(sf_gobgp_grpc_client_t *client __attribute__((unused)),
 
 __attribute__((weak))
 sf_gobgp_rpc_result_t
+sf_gobgp_apply_neighbor_address_families(
+    sf_gobgp_grpc_client_t *client __attribute__((unused)),
+    const char *neighbor_address __attribute__((unused)),
+    uint32_t peer_asn __attribute__((unused)),
+    const char *local_address __attribute__((unused)),
+    bool ipv4_unicast __attribute__((unused)),
+    bool ipv4_vpn __attribute__((unused)),
+    bool evpn __attribute__((unused)))
+{
+    return fake_result();
+}
+
+__attribute__((weak))
+sf_gobgp_rpc_result_t
 sf_gobgp_enable_ipv4(sf_gobgp_grpc_client_t *client __attribute__((unused)),
                      const char *neighbor_address __attribute__((unused)),
                      uint32_t peer_asn __attribute__((unused)),
@@ -101,6 +115,26 @@ sf_gobgp_disable_ipv4(sf_gobgp_grpc_client_t *client __attribute__((unused)),
                       const char *neighbor_address __attribute__((unused)),
                       uint32_t peer_asn __attribute__((unused)),
                       const char *local_address __attribute__((unused)))
+{
+    return fake_result();
+}
+
+__attribute__((weak))
+sf_gobgp_rpc_result_t
+sf_gobgp_enable_ipv4_vpn(sf_gobgp_grpc_client_t *client __attribute__((unused)),
+                         const char *neighbor_address __attribute__((unused)),
+                         uint32_t peer_asn __attribute__((unused)),
+                         const char *local_address __attribute__((unused)))
+{
+    return fake_result();
+}
+
+__attribute__((weak))
+sf_gobgp_rpc_result_t
+sf_gobgp_disable_ipv4_vpn(sf_gobgp_grpc_client_t *client __attribute__((unused)),
+                          const char *neighbor_address __attribute__((unused)),
+                          uint32_t peer_asn __attribute__((unused)),
+                          const char *local_address __attribute__((unused)))
 {
     return fake_result();
 }

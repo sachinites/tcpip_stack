@@ -1237,7 +1237,7 @@ Original Topo:
     event_dispatcher_run(&H1->purger_ev_dis, true, 0);
     event_dispatcher_run(&H2->purger_ev_dis, true, 0);
 
-#if 0
+#if 1
     /* launch GoBGP for each PE router  */
     system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:22000 --pprof-host=127.0.0.1:22001 --log-level=debug &");
     system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:23000 --pprof-host=127.0.0.1:23001 --log-level=debug &");
@@ -1880,7 +1880,169 @@ run node H1 ping 20.1.1.2
     return topo;
 }
 
+graph_t *
+bgp_vpn_v4_topology(void)
+{
 
+#if 0
+
+
+                                                                                +--------+-+
+                                                +---------+                    | R2       |
+                                            eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      
+                                    +-----------+122.1.1.1+--------------------+          +------------------+
+                                    |10.1.1.2/24|         |20.1.1.1/24     eth3|          |50.1.1.1/24       |
+                                    |           +---------+                    +-----+--+-+                  +
+                                    +                                         eth4/  |eth7                   |
+                                    |10.1.1.1/24                      30.1.1.1/24/   |40.1.1.2/24            |
+                                    |eth0                                       /    |                  eth9 |50.1.1.2/24
+                                +---+---+--+                                   /     |                  +----+-----+                    +-------+
+                                |          |                                  /      |                  |    R3    |eth1     192.168.0.1|       |
++------+192.168.0.1         eth1|   R0     |                                 /       |                  | 122.1.1.3+--------------------+       |
+|      +------------------------+122.1.1.0 |                                /        |                  |          |192.168.0.2     eth0|  CE2  |
+| CE1  | eth0        192.168.0.2|          |                               /         |                  +----+-----+                    |10.0.0.2|
+|10.0.0.1|                      +---+---+--|               ---------------/          |                       |eth10                     +---+---+
++--+---+                            |eth14                /                          |                       |60.1.1.1/24                   |eth1
+   |eth1                            |80.1.1.1/24         /                           |                       |                              |172.168.0.1/24
+   |172.168.0.1/24                  |                   /                            |                       |                              |
+   |                                |                  /                        eth6 |40.1.1.1/24            |                              |
+   |172.168.0.2/24                  |             eth5/30.1.1.2/24             +-----+----+                  |                              |172.168.0.2/24     
+ +-+-+                              |           +----/----+                    |   R4     |                  |                           +--+---+
+ +-H1|100.0.0.1                     |      eth15|   R5    |eth12    70.1.1.2/24|122.1.1.4 |eth11             |                           |  H2  |100.0.0.2
+ +---+                              +-----------+122.1.1.5|+-------------------+          +------------------+                           +------+
+                                     80.1.1.2/24|         |70.1.1.1/24    eth13|          |60.1.1.2/24                                
+                                                |+--------|                    |----------+
+
+
+#endif 
+
+    graph_t *topo = create_new_graph("BGP VPNv4 Topology"); 
+
+    node_t *R0 = Router_Create(topo, (const c_string)"R0");
+    node_t *R1 = Router_Create(topo, (const c_string)"R1");
+    node_t *R2 = Router_Create(topo, (const c_string)"R2");
+    node_t *R3 = Router_Create(topo, (const c_string)"R3");
+    node_t *R4 = Router_Create(topo, (const c_string)"R4");
+    node_t *R5 = Router_Create(topo, (const c_string)"R5");
+    node_t *CE1 = Router_Create(topo, (const c_string)"CE1");
+    node_t *CE2 = Router_Create(topo, (const c_string)"CE2");
+    node_t *H1 = Router_Create(topo, (const c_string)"H1");
+    node_t *H2 = Router_Create(topo, (const c_string)"H2");
+
+    insert_link_between_two_nodes(R0, R1, "eth0",  "eth1",  INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(R0, R5, "eth14", "eth15", INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(R1, R2, "eth2",  "eth3",  INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(R2, R3, "eth8",  "eth9",  INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(R2, R4, "eth7",  "eth6",  INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(R2, R5, "eth4",  "eth5",  INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(R3, R4, "eth10", "eth11", INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(R4, R5, "eth13", "eth12", INTF_METRIC_DEFAULT);    
+    insert_link_between_two_nodes(R0, CE1, "eth1", "eth0",  INTF_METRIC_DEFAULT);
+    insert_link_between_two_nodes(R3, CE2, "eth1", "eth0",  INTF_METRIC_DEFAULT); 
+    insert_link_between_two_nodes(CE1, H1, "eth1", "eth1",  INTF_METRIC_DEFAULT);    
+    insert_link_between_two_nodes(CE2, H2, "eth1", "eth1",  INTF_METRIC_DEFAULT);       
+
+
+    node_set_rtr_id(R0, "122.1.1.0");
+    node_set_rtr_id(R1, "122.1.1.1");
+    node_set_rtr_id(R2, "122.1.1.2");
+    node_set_rtr_id(R3, "122.1.1.3");
+    node_set_rtr_id(R4, "122.1.1.4");
+    node_set_rtr_id(R5, "122.1.1.5");
+    node_set_rtr_id(CE1, "10.0.0.1");
+    node_set_rtr_id(CE2, "10.0.0.2");
+    node_set_rtr_id(H1, "100.0.0.1");
+    node_set_rtr_id(H2, "100.0.0.2");
+
+    node_set_v6_rtr_id(R0, "2001::122:1:1:0");
+    node_set_v6_rtr_id(R1, "2001::122:1:1:1");
+    node_set_v6_rtr_id(R2, "2001::122:1:1:2");
+    node_set_v6_rtr_id(R3, "2001::122:1:1:3");
+    node_set_v6_rtr_id(R4, "2001::122:1:1:4");
+    node_set_v6_rtr_id(R5, "2001::122:1:1:5");   
+    
+    node_set_intf_ip_address(R0, "eth0", "10.1.1.1", 24);
+    node_set_intf_ip_address(R0, "eth14","80.1.1.1", 24);
+
+    node_set_intf_ip_address(R1, "eth1", "10.1.1.2", 24);
+    node_set_intf_ip_address(R1, "eth2", "20.1.1.1", 24); 
+    
+    node_set_intf_ip_address(R2, "eth3", "20.1.1.2", 24);
+    node_set_intf_ip_address(R2, "eth8", "50.1.1.1", 24);
+    node_set_intf_ip_address(R2, "eth4", "30.1.1.1", 24);
+    node_set_intf_ip_address(R2, "eth7", "40.1.1.2", 24);
+
+    node_set_intf_ip_address(R3, "eth9", "50.1.1.2", 24);
+    node_set_intf_ip_address(R3, "eth10","60.1.1.1", 24);
+
+    node_set_intf_ip_address(R4, "eth6", "40.1.1.1", 24);
+    node_set_intf_ip_address(R4, "eth11","60.1.1.2", 24);
+    node_set_intf_ip_address(R4, "eth13","70.1.1.2", 24);
+
+    node_set_intf_ip_address(R5, "eth5", "30.1.1.2", 24);
+    node_set_intf_ip_address(R5, "eth12","70.1.1.1", 24);
+    node_set_intf_ip_address(R5, "eth15","80.1.1.2", 24);
+
+    node_set_intf_ip_address(R0, "eth1","192.168.0.2", 24);
+    node_set_intf_ip_address(CE1, "eth0","192.168.0.1", 24);
+    node_set_intf_ip_address(CE1, "eth1","172.168.0.1", 24);
+    node_set_intf_ip_address(H1, "eth1","172.168.0.2", 24);
+
+    node_set_intf_ip_address(R3, "eth1","192.168.0.2", 24);
+    node_set_intf_ip_address(CE2, "eth0","192.168.0.1", 24);
+    node_set_intf_ip_address(CE2, "eth1","172.168.0.1", 24);
+    node_set_intf_ip_address(H2, "eth1","172.168.0.2", 24);
+
+    /* Run control plane schedulers in the end so as to avoid 
+    Race condition between main thread and CP-Schedulers since 
+    they are different threads */
+    event_dispatcher_run(&R0->ev_dis, true, 0);
+    event_dispatcher_run(&R1->ev_dis, true, 0);
+    event_dispatcher_run(&R2->ev_dis, true, 0);
+    event_dispatcher_run(&R3->ev_dis, true, 0);
+    event_dispatcher_run(&R4->ev_dis, true, 0);
+    event_dispatcher_run(&R5->ev_dis, true, 0);
+    event_dispatcher_run(&CE1->ev_dis, true, 0);
+    event_dispatcher_run(&CE2->ev_dis, true, 0);
+    event_dispatcher_run(&H1->ev_dis, true, 0);
+    event_dispatcher_run(&H2->ev_dis, true, 0);
+
+    event_dispatcher_run(&R0->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R3->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R4->purger_ev_dis, true, 0);
+    event_dispatcher_run(&R5->purger_ev_dis, true, 0);
+    event_dispatcher_run(&CE1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&CE2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H1->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H2->purger_ev_dis, true, 0);
+
+#if 1
+    /* launch GoBGP for each PE router  */
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:22000 --pprof-host=127.0.0.1:22001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp0.log 2>&1 &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:23000 --pprof-host=127.0.0.1:23001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp1.log 2>&1 &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:24000 --pprof-host=127.0.0.1:24001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp2.log 2>&1 &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:25000 --pprof-host=127.0.0.1:25001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp3.log 2>&1 &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:26000 --pprof-host=127.0.0.1:26001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp4.log 2>&1 &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:27000 --pprof-host=127.0.0.1:27001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp5.log 2>&1 &");
+
+    /* Create linux loop backs and set IPs because GoBGP needs them */
+    system("ip link add lo0 type dummy");
+    system("ip addr add 122.1.1.0/32 dev lo0");
+    system("ip addr add 122.1.1.1/32 dev lo0");
+    system("ip addr add 122.1.1.2/32 dev lo0");
+    system("ip addr add 122.1.1.3/32 dev lo0");
+    system("ip addr add 122.1.1.4/32 dev lo0");
+    system("ip addr add 122.1.1.5/32 dev lo0");
+
+#endif
+
+    // run ut Layer5/bgp_vpnv4.ut 0
+    // run node H1 ping 100.0.0.2 -c 10
+
+    return topo;
+}
 
 extern void LinuxLoadInterfaces (node_t *node) ;
 extern void DPDK_LoadInterfaces(node_t *node);

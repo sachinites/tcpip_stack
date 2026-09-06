@@ -28,7 +28,7 @@ extern graph_t *topo;
 /* config node <node-name> protocol bgp <local-asn> neighbor <addr> remote-as <asn> */
 #define CMDCODE_CONFIG_BGP_NEIGHBOR 2
 
-/* config node <node-name> protocol bgp <local-asn> neighbor <addr> remote-as <asn> address-family ipv4-unicast */
+/* config node <node-name> protocol bgp <local-asn> neighbor <addr> address-family ipv4-unicast */
 #define CMDCODE_CONFIG_BGP_NEIGHBOR_AF_IPV4 3
 
 /* show node <node-name> protocol bgp peers */
@@ -48,6 +48,8 @@ extern graph_t *topo;
 /* show node <node-name> protocol bgp running-config */
 #define CMDCODE_SHOW_BGP_RUNNING_CONFIG 11
 
+/* config node <node-name> protocol bgp <local-asn> neighbor <addr> address-family ipv4-vpn */
+#define CMDCODE_CONFIG_BGP_NEIGHBOR_AF_IPV4_VPN 12
 
 
 static sf_gobgp_grpc_client_t *
@@ -83,6 +85,22 @@ bgp_config_find_neighbor(bgp_node_config_t *cfg, const char *neighbor_addr)
         }
     }
     return NULL;
+}
+
+static sf_gobgp_rpc_result_t
+bgp_apply_neighbor_address_families(
+    sf_gobgp_grpc_client_t *client,
+    bgp_neighbor_config_t *nbr,
+    const char *local_address)
+{
+    return sf_gobgp_apply_neighbor_address_families(
+        client,
+        nbr->neighbor_address,
+        nbr->peer_asn,
+        local_address,
+        nbr->ipv4_unicast,
+        nbr->ipv4_vpn,
+        false);
 }
 
 static bgp_neighbor_config_t *
@@ -178,6 +196,11 @@ static void
 bgp_monitor_recv_route_processing_cbk(const bgp_route_info_t *route,
                               bool is_withdraw,
                               void *userdata);
+
+static void
+bgp_monitor_recv_vpn_route_processing_cbk(const bgp_route_info_t *route,
+                                         bool is_withdraw,
+                                         void *userdata);
 
 /* Before firing any BGP config, make sure goBGP gRPC Server is running 
     run this command in separate terminal : 
@@ -284,9 +307,9 @@ bgp_config_handler(int64_t cmdcode,
                         return -1;
                     }
                     bgp_config_store_global(cfg, local_asn, rid);
-                    bgp_node_monitor_subscribe(node, "ipv4", "unicast",
-                                               bgp_monitor_recv_route_processing_cbk,
-                                               node);
+                    bgp_node_monitor_subscribe_af(node, AFI_IPV4, SAFI_UNICAST,
+                                                  bgp_monitor_recv_route_processing_cbk,
+                                                  node);
                     assert (!bgp_node_monitor_start(node));
                     cprintf("BGP started: AS %u, router-id %s (listen %s:179)\n",
                             local_asn, rid, rid);
@@ -357,8 +380,7 @@ bgp_config_handler(int64_t cmdcode,
                             bgp_config_find_neighbor(cfg,
                                                      (const char *)neighbor_addr);
                         if (nbr && nbr->configured &&
-                            nbr->peer_asn == peer_asn &&
-                            nbr->ipv4_unicast) {
+                            nbr->peer_asn == peer_asn) {
                             cprintf("BGP neighbor %s AS %u already configured\n",
                                     neighbor_addr, peer_asn);
                             break;
@@ -368,7 +390,7 @@ bgp_config_handler(int64_t cmdcode,
                                                (const char *)neighbor_addr,
                                                peer_asn,
                                                (const char *)NODE_RTRID_ADDR(node),
-                                               true,
+                                               false,
                                                false);
                     if (!result.ok) {
                         bgp_print_rpc_error(node, "Add peer", &result);
@@ -384,7 +406,6 @@ bgp_config_handler(int64_t cmdcode,
                         }
                         nbr->peer_asn = peer_asn;
                         nbr->configured = true;
-                        nbr->ipv4_unicast = true;
                     }
                     cprintf("BGP neighbor %s AS %u added\n",
                             neighbor_addr, peer_asn);
@@ -454,15 +475,6 @@ bgp_config_handler(int64_t cmdcode,
                                 neighbor_addr);
                         break;
                     }
-                    result = sf_gobgp_enable_ipv4(client,
-                                                  (const char *)neighbor_addr,
-                                                  peer_asn,
-                                                  (const char *)NODE_RTRID_ADDR(node));
-                    if (!result.ok) {
-                        bgp_print_rpc_error(node, "Enable IPv4 unicast",
-                                            &result);
-                        return -1;
-                    }
                     nbr = bgp_config_add_neighbor(cfg,
                                                   (const char *)neighbor_addr);
                     if (!nbr) {
@@ -472,6 +484,13 @@ bgp_config_handler(int64_t cmdcode,
                     nbr->peer_asn = peer_asn;
                     nbr->configured = true;
                     nbr->ipv4_unicast = true;
+                    result = bgp_apply_neighbor_address_families(
+                        client, nbr, (const char *)NODE_RTRID_ADDR(node));
+                    if (!result.ok) {
+                        bgp_print_rpc_error(node, "Enable IPv4 unicast",
+                                            &result);
+                        return -1;
+                    }
                     cprintf("IPv4 unicast enabled for neighbor %s\n",
                             neighbor_addr);
                     break;
@@ -482,18 +501,111 @@ bgp_config_handler(int64_t cmdcode,
                                 neighbor_addr);
                         break;
                     }
-                    result = sf_gobgp_disable_ipv4(client,
-                                                   (const char *)neighbor_addr,
-                                                   peer_asn,
-                                                   (const char *)NODE_RTRID_ADDR(node));
+                    nbr->ipv4_unicast = false;
+                    result = bgp_apply_neighbor_address_families(
+                        client, nbr, (const char *)NODE_RTRID_ADDR(node));
                     if (!result.ok) {
                         bgp_print_rpc_error(node, "Disable IPv4 unicast",
                                             &result);
                         return -1;
                     }
-                    nbr->ipv4_unicast = false;
                     cprintf("IPv4 unicast disabled for neighbor %s\n",
                             neighbor_addr);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+        break;
+
+        case CMDCODE_CONFIG_BGP_NEIGHBOR_AF_IPV4_VPN:
+        {
+            bgp_neighbor_config_t *nbr;
+
+            if (!neighbor_addr) {
+                cprintf("Error : Neighbor address required\n");
+                return -1;
+            }
+
+            if (!BGP_INST(node)) {
+                cprintf("Error : BGP is not running\n");
+                return -1;
+            }
+
+            cfg = bgp_config_get(node);
+            client = bgp_get_grpc_client(node);
+
+            nbr = bgp_config_find_neighbor(cfg, (const char *)neighbor_addr);
+            if (!peer_asn_present) {
+                if (!nbr || !nbr->configured) {
+                    cprintf("Error : Neighbor %s is not configured; "
+                            "configure remote-as first\n",
+                            neighbor_addr);
+                    return -1;
+                }
+                peer_asn = nbr->peer_asn;
+            }
+
+            switch (enable_or_disable) {
+
+                case CONFIG_ENABLE:
+                    if (nbr && nbr->configured &&
+                        nbr->peer_asn == peer_asn &&
+                        nbr->ipv4_vpn) {
+                        cprintf("%s already enabled for neighbor %s\n",
+                                VPNV4_UNICAST_AF_STR, neighbor_addr);
+                        break;
+                    }
+                    nbr = bgp_config_add_neighbor(cfg,
+                                                  (const char *)neighbor_addr);
+                    if (!nbr) {
+                        cprintf("Error : BGP neighbor table full\n");
+                        return -1;
+                    }
+                    nbr->peer_asn = peer_asn;
+                    nbr->configured = true;
+                    nbr->ipv4_vpn = true;
+                    result = bgp_apply_neighbor_address_families(
+                        client, nbr, (const char *)NODE_RTRID_ADDR(node));
+                    if (!result.ok) {
+                        bgp_print_rpc_error(node, "Enable IPv4 VPN",
+                                            &result);
+                        return -1;
+                    }
+                    if (bgp_node_monitor_subscribe_af(
+                            node, AFI_IPV4, SAFI_MPLS_VPN,
+                            bgp_monitor_recv_vpn_route_processing_cbk,
+                            node) != 0) {
+                        cprintf("Error : Failed to register %s monitor callback\n",
+                                VPNV4_UNICAST_AF_STR);
+                        return -1;
+                    }
+                    if (!cfg->monitor.running &&
+                        bgp_node_monitor_start(node) != 0) {
+                        cprintf("Error : Failed to start BGP monitor\n");
+                        return -1;
+                    }
+                    cprintf("%s enabled for neighbor %s\n",
+                            VPNV4_UNICAST_AF_STR, neighbor_addr);
+                    break;
+
+                case CONFIG_DISABLE:
+                    if (!nbr || !nbr->configured || !nbr->ipv4_vpn) {
+                        cprintf("%s is not enabled for neighbor %s\n",
+                                VPNV4_UNICAST_AF_STR, neighbor_addr);
+                        break;
+                    }
+                    nbr->ipv4_vpn = false;
+                    result = bgp_apply_neighbor_address_families(
+                        client, nbr, (const char *)NODE_RTRID_ADDR(node));
+                    if (!result.ok) {
+                        bgp_print_rpc_error(node, "Disable IPv4 VPN",
+                                            &result);
+                        return -1;
+                    }
+                    cprintf("%s disabled for neighbor %s\n",
+                            VPNV4_UNICAST_AF_STR, neighbor_addr);
                     break;
 
                 default:
@@ -513,6 +625,7 @@ bgp_config_handler(int64_t cmdcode,
 typedef struct bgp_show_route_ctx_ {
     const char *afi;
     const char *safi;
+    bool show_label;
     int count;
 } bgp_show_route_ctx_t;
 
@@ -528,10 +641,21 @@ bgp_show_route_print_cb(const bgp_route_info_t *route, void *userdata)
 
     if (ctx->count == 0) {
         cprintf("\nBGP routes (%s %s):\n", ctx->afi, ctx->safi);
-        cprintf("%-22s %-16s %-14s %-14s %-6s %-10s %s\n",
-                "Prefix", "Nexthop", "RD", "RT", "MED", "LocalPref", "Best");
-        cprintf("%-22s %-16s %-14s %-14s %-6s %-10s %s\n",
-                "------", "-------", "--", "--", "---", "---------", "----");
+        if (ctx->show_label) {
+            cprintf("%-22s %-16s %-14s %-14s %-8s %-6s %-10s %s\n",
+                    "Prefix", "Nexthop", "RD", "RT", "Label",
+                    "MED", "LocalPref", "Best");
+            cprintf("%-22s %-16s %-14s %-14s %-8s %-6s %-10s %s\n",
+                    "------", "-------", "--", "--", "-----",
+                    "---", "---------", "----");
+        } else {
+            cprintf("%-22s %-16s %-14s %-14s %-6s %-10s %s\n",
+                    "Prefix", "Nexthop", "RD", "RT",
+                    "MED", "LocalPref", "Best");
+            cprintf("%-22s %-16s %-14s %-14s %-6s %-10s %s\n",
+                    "------", "-------", "--", "--",
+                    "---", "---------", "----");
+        }
     }
 
     cprintf("%-22s %-16s %-14s %-14s ",
@@ -539,6 +663,14 @@ bgp_show_route_print_cb(const bgp_route_info_t *route, void *userdata)
             route->nexthop[0] ? route->nexthop : dash,
             route->rd[0] ? route->rd : dash,
             route->rt[0] ? route->rt : dash);
+
+    if (ctx->show_label) {
+        if (route->l3_vpn_label_present) {
+            cprintf("%-8u ", route->l3_vpn_label);
+        } else {
+            cprintf("%-8s ", dash);
+        }
+    }
 
     if (route->med_present) {
         cprintf("%-6u ", route->med);
@@ -565,6 +697,7 @@ bgp_show_routes(node_t *node, const char *afi, const char *safi)
     memset(&ctx, 0, sizeof(ctx));
     ctx.afi = afi;
     ctx.safi = safi;
+    ctx.show_label = (safi && strcmp(safi, "vpn") == 0);
 
     if (bgp_node_walk_routes(node, afi, safi, bgp_show_route_print_cb, &ctx) != 0) {
         cprintf("ListPath RPC failed for %s %s\n", afi, safi);
@@ -585,6 +718,7 @@ bgp_show_running_config(node_t *node)
     bgp_node_config_t *cfg;
     int i;
     int af_ipv4_printed = 0;
+    int af_ipv4_vpn_printed = 0;
 
     cfg = bgp_config_get(node);
     if (!cfg || !cfg->started) {
@@ -622,6 +756,23 @@ bgp_show_running_config(node_t *node)
         cprintf("  neighbor %s activate\n", nbr->neighbor_address);
     }
     if (af_ipv4_printed) {
+        cprintf(" exit-address-family\n");
+    }
+
+    for (i = 0; i < cfg->num_neighbors; i++) {
+        bgp_neighbor_config_t *nbr = &cfg->neighbors[i];
+
+        if (!nbr->configured || !nbr->ipv4_vpn) {
+            continue;
+        }
+        if (!af_ipv4_vpn_printed) {
+            cprintf(" !\n");
+            cprintf(" address-family ipv4-vpn\n");
+            af_ipv4_vpn_printed = 1;
+        }
+        cprintf("  neighbor %s activate\n", nbr->neighbor_address);
+    }
+    if (af_ipv4_vpn_printed) {
         cprintf(" exit-address-family\n");
     }
 
@@ -750,7 +901,7 @@ bgp_show_handler(int64_t cmdcode,
             return bgp_show_routes(node, "ipv4", "unicast");
 
         case CMDCODE_SHOW_BGP_ROUTES_IPV4_MPLS_VPN:
-            return bgp_show_routes(node, "ipv4", "mpls-vpn");
+            return bgp_show_routes(node, "ipv4", "vpn");
 
         case CMDCODE_SHOW_BGP_ROUTES_IPV6_UNICAST:
             return bgp_show_routes(node, "ipv6", "unicast");
@@ -772,6 +923,16 @@ bgp_monitor_recv_route_processing_cbk(
 {
     node_t *node = (node_t *)userdata;
     bgp_schedule_route_processing_job (node, route, !is_withdraw);
+}
+
+static void
+bgp_monitor_recv_vpn_route_processing_cbk(
+                              const bgp_route_info_t *route,
+                              bool is_withdraw,
+                              void *userdata)
+{
+    node_t *node = (node_t *)userdata;
+    bgp_schedule_vpn_route_processing_job(node, route, !is_withdraw);
 }
 
 static int
@@ -931,6 +1092,21 @@ bgp_config_cli_tree(param_t *param)
                                 rtm_build_distribution_policy_cli_tree(&ipv4_uni, RTM_PROTO_BGP);
                             }
                         }
+                        {
+                            static param_t ipv4_vpn;
+                            init_param(&ipv4_vpn, CMD,
+                                       "ipv4-vpn",
+                                       bgp_config_handler,
+                                       0, INVALID, 0,
+                                       "IPv4 VPN AF");
+                            libcli_register_param(&af_kw, &ipv4_vpn);
+                            libcli_set_param_cmd_code(
+                                &ipv4_vpn,
+                                CMDCODE_CONFIG_BGP_NEIGHBOR_AF_IPV4_VPN);
+                            {
+                                rtm_build_distribution_policy_cli_tree(&ipv4_vpn, RTM_PROTO_BGP);
+                            }
+                        }
                     }
                 }
             }
@@ -999,9 +1175,9 @@ bgp_show_cli_tree(param_t *param)
                         &safi_unicast, CMDCODE_SHOW_BGP_ROUTES_IPV4_UNICAST);
 
                     static param_t safi_mpls_vpn;
-                    init_param(&safi_mpls_vpn, CMD, "mpls-vpn",
+                    init_param(&safi_mpls_vpn, CMD, "vpn",
                                bgp_show_handler, 0, INVALID, 0,
-                               "IPv4 MPLS-VPN routes");
+                               "IPv4 VPN routes");
                     libcli_register_param(&afi_ipv4, &safi_mpls_vpn);
                     libcli_set_param_cmd_code(
                         &safi_mpls_vpn,
@@ -1056,7 +1232,7 @@ bgp_run_cli_tree(param_t *param)
                     static param_t mon_safi;
                     init_param(&mon_safi, LEAF, NULL, bgp_monitor_handler,
                                0, STRING, "bgp-mon-safi",
-                               "Sub-address family (unicast|mpls-vpn|evpn)");
+                               "Sub-address family (unicast|vpn|evpn)");
                     libcli_register_param(&mon_afi, &mon_safi);
                     libcli_set_param_cmd_code(&mon_safi,
                                               CMDCODE_RUN_BGP_MONITOR);

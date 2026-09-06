@@ -632,7 +632,7 @@ cp_rtm_install_route (
     /* Handle L3VPN route propagation to customer VRFs */
     /* If this route is being installed in bgp.l3vpn.0, we need to */
     /* propagate it to all customer VRFs that have matching Import RT */
-    def_vrf_t *def_vrf = rtm->node->node_nw_prop.def_vrf;
+    def_vrf_t *def_vrf = (def_vrf_t *)rtm->node->vrf[0];
 
     if ((rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6)) {
 

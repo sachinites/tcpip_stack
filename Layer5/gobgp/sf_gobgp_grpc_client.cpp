@@ -144,6 +144,25 @@ sf_gobgp_remove_peer(sf_gobgp_grpc_client_t *client,
 }
 
 extern "C" sf_gobgp_rpc_result_t
+sf_gobgp_apply_neighbor_address_families(
+    sf_gobgp_grpc_client_t *client,
+    const char *neighbor_address,
+    uint32_t peer_asn,
+    const char *local_address,
+    bool ipv4_unicast,
+    bool ipv4_vpn,
+    bool evpn)
+{
+    if (client == nullptr || neighbor_address == nullptr) {
+        return {false, -1, "invalid arguments"};
+    }
+
+    const std::string local = (local_address != nullptr) ? local_address : "";
+    return to_c_result(client->client.ApplyNeighborAddressFamilies(
+        neighbor_address, peer_asn, local, ipv4_unicast, ipv4_vpn, evpn));
+}
+
+extern "C" sf_gobgp_rpc_result_t
 sf_gobgp_enable_ipv4(sf_gobgp_grpc_client_t *client,
                      const char *neighbor_address,
                      uint32_t peer_asn,
@@ -171,6 +190,36 @@ sf_gobgp_disable_ipv4(sf_gobgp_grpc_client_t *client,
     const std::string local = (local_address != nullptr) ? local_address : "";
     return to_c_result(
         client->client.DisableIpv4(neighbor_address, peer_asn, local));
+}
+
+extern "C" sf_gobgp_rpc_result_t
+sf_gobgp_enable_ipv4_vpn(sf_gobgp_grpc_client_t *client,
+                         const char *neighbor_address,
+                         uint32_t peer_asn,
+                         const char *local_address)
+{
+    if (client == nullptr || neighbor_address == nullptr) {
+        return {false, -1, "invalid arguments"};
+    }
+
+    const std::string local = (local_address != nullptr) ? local_address : "";
+    return to_c_result(
+        client->client.EnableIpv4Vpn(neighbor_address, peer_asn, local));
+}
+
+extern "C" sf_gobgp_rpc_result_t
+sf_gobgp_disable_ipv4_vpn(sf_gobgp_grpc_client_t *client,
+                          const char *neighbor_address,
+                          uint32_t peer_asn,
+                          const char *local_address)
+{
+    if (client == nullptr || neighbor_address == nullptr) {
+        return {false, -1, "invalid arguments"};
+    }
+
+    const std::string local = (local_address != nullptr) ? local_address : "";
+    return to_c_result(
+        client->client.DisableIpv4Vpn(neighbor_address, peer_asn, local));
 }
 
 extern "C" sf_gobgp_rpc_result_t
@@ -241,6 +290,8 @@ to_cpp_route_params(const sf_gobgp_route_params_t *params)
     out.local_pref = params->local_pref;
     out.med_present = params->med_present;
     out.local_pref_present = params->local_pref_present;
+    out.l3_vpn_label = params->l3_vpn_label;
+    out.l3_vpn_label_present = params->l3_vpn_label_present;
     out.afi = to_cpp_afi(params->afi);
     out.safi = to_cpp_safi(params->safi);
     return out;
@@ -263,7 +314,10 @@ to_c_route_info(const gobgp_client::BgpRouteInfo& in,
     out->local_pref = in.local_pref;
     out->med_present = in.med_present;
     out->local_pref_present = in.local_pref_present;
+    out->l3_vpn_label = in.l3_vpn_label;
+    out->l3_vpn_label_present = in.l3_vpn_label_present;
     out->best = in.best;
+    out->is_from_external = in.is_from_external;
     out->afi = (in.afi == gobgp_client::BgpAfi::kIpv6) ? 2 : 1;
     switch (in.safi) {
         case gobgp_client::BgpSafi::kMplsVpn:

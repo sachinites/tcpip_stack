@@ -26,6 +26,9 @@ config_interface_build_transport_svc_cli_tree (
 
 extern int validate_mask_value(Stack_t *tlv_stack, c_string mask_str);
 
+extern int 
+validate_vrf_existence(Stack_t *tlv_stack, unsigned char *leaf_value);
+
 void
 Interface_config_cli_common_subtree (param_t *if_name, 
     int (*cbk) (int64_t , Stack_t *, op_mode ), 
@@ -510,6 +513,11 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 cprintf ("Error : Interface do not exist\n");
                 return -1;
             }       
+
+            if (!interface->vrf) {
+                cprintf ("Error : Interface is not in any VRF\n");
+                return -1;
+            }
 
             uint32_t old_ip_addr; 
             uint8_t old_mask;
@@ -1139,7 +1147,7 @@ Interface_config_cli_common_subtree (param_t *if_name,
             {
                 /* config node <node-name> interface . . . <if-name> vrf <vrf-name> */
                 param_t *vrf_name = (param_t *)calloc (1, sizeof (param_t));
-                init_param(vrf_name, LEAF, 0, cbk, 0, STRING, "vrf-name", "VRF Name");
+                init_param(vrf_name, LEAF, 0, cbk, validate_vrf_existence, STRING, "vrf-name", "VRF Name");
                 libcli_register_param(vrf, vrf_name);
                 libcli_set_param_cmd_code(vrf_name, CMDCODE_CONF_INTF_VRF);
             }

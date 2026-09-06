@@ -1,6 +1,6 @@
-// config node <node-name> vrf vrf-name rd <rd-value> 
-// config node <node-name> vrf vrf-name import-rt <rt-value>
-// config node <node-name> vrf vrf-name export-rt <rt-value>
+// config node <node-name> vrf <vrf-name>
+// config node <node-name> vrf <vrf-name> import-rt <ipv4-address> <uint16>
+// config node <node-name> vrf <vrf-name> export-rt <ipv4-address> <uint16>
 
 #include "../CLIBuilder/cmdtlv.h"
 #include "../CLIBuilder/libcli.h"
@@ -88,6 +88,9 @@ show_vrf_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
     tlv_struct_t *tlv = NULL;
     c_string node_name = NULL;
 
+    (void)cmdcode;
+    (void)enable_or_disable;
+
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
         if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
@@ -100,52 +103,39 @@ show_vrf_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
     return 0;
 }
 
+/* Type-1 RT assigned number is a 16-bit integer. */
 static int
-validate_2B_4B_format(const char *str) {
-
-    char *colon;
+rt_type1_assigned_validator_cbk(Stack_t *tlv_stack, unsigned char *value)
+{
     char *endptr;
-    unsigned long v1, v2;
+    unsigned long v;
 
-    if (!str || !*str)
+    (void)tlv_stack;
+
+    if (!value || !*value) {
         return LEAF_VALIDATION_FAILED;
+    }
 
-    /* Exactly one ':' */
-    colon = (char *)strchr(str, ':');
-    if (!colon || strchr(colon + 1, ':'))
-        return LEAF_VALIDATION_FAILED;
-
-    /* Validate first part (2B) */
     errno = 0;
-    v1 = strtoul(str, &endptr, 10);
-    if (errno || endptr != colon)
+    v = strtoul((const char *)value, &endptr, 10);
+    if (errno || endptr == (const char *)value || *endptr != '\0') {
         return LEAF_VALIDATION_FAILED;
-
-    if (v1 > 0xFFFF)
+    }
+    if (v > 0xFFFFUL) {
         return LEAF_VALIDATION_FAILED;
-
-    /* Validate second part (4B) */
-    errno = 0;
-    v2 = strtoul(colon + 1, &endptr, 10);
-    if (errno || *endptr != '\0')
-        return LEAF_VALIDATION_FAILED;
-
-    if (v2 > 0xFFFFFFFFUL)
-        return LEAF_VALIDATION_FAILED;
+    }
 
     return LEAF_VALIDATION_SUCCESS;
 }
 
-static int
-rd_validator_cbk (Stack_t *tlv_stack, unsigned char *value) {
-
-    return validate_2B_4B_format((const char *)value);
-}
-
-static int
-rt_target_validator_cbk(Stack_t *tlv_stack, unsigned char *value) {
-
-    return validate_2B_4B_format((const char *)value);
+static void
+rt_type1_fill(rt_t *rt, uint32_t ipv4_admin, uint16_t assigned)
+{
+    memset(rt, 0, sizeof(*rt));
+    rt->type = 1;
+    rt->sub_type = 0;
+    rt->rtr_id = ipv4_admin;
+    rt->vrf_id = assigned;
 }
 
 static int 
@@ -153,13 +143,12 @@ vrf_config_handler (int64_t cmdcode,
                   Stack_t *tlv_stack,
                   op_mode enable_or_disable) {
 
-    char temp_str[64];
     node_t *node = NULL;
     tlv_struct_t *tlv = NULL;
     c_string node_name = NULL;
     c_string vrf_name = NULL;
-    c_string import_rt = NULL;
-    c_string export_rt = NULL;
+    c_string rt_ip = NULL;
+    c_string rt_assigned = NULL;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
@@ -167,10 +156,12 @@ vrf_config_handler (int64_t cmdcode,
         node_name = tlv->value;
     else if (parser_match_leaf_id(tlv->leaf_id, "vrf-name"))
         vrf_name = tlv->value;
-    else if (parser_match_leaf_id(tlv->leaf_id, "import-rt"))
-        import_rt = tlv->value;
-    else if (parser_match_leaf_id(tlv->leaf_id, "export-rt"))
-        export_rt = tlv->value;                         
+    else if (parser_match_leaf_id(tlv->leaf_id, "import-rt-ip") ||
+             parser_match_leaf_id(tlv->leaf_id, "export-rt-ip"))
+        rt_ip = tlv->value;
+    else if (parser_match_leaf_id(tlv->leaf_id, "import-rt-asn") ||
+             parser_match_leaf_id(tlv->leaf_id, "export-rt-asn"))
+        rt_assigned = tlv->value;
      } TLV_LOOP_END;
 
     node = node_get_node_by_name(topo, node_name);
@@ -180,8 +171,6 @@ vrf_config_handler (int64_t cmdcode,
         case CMD_CODE_CONFIG_VRF_CREATE:
         {
             rd_t rd;
-            char *endptr;
-            char *colon;
 
             vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
 
@@ -210,11 +199,10 @@ vrf_config_handler (int64_t cmdcode,
                     rd.vrf_id = (uint16_t)vrf_id;
                     vrf->rd = rd;
 
-                    /* Generate import/export RT*/
-                    vrf->import_rt.type = 1;
-                    vrf->import_rt.sub_type = 0;
-                    vrf->import_rt.rtr_id = NODE_RTR_ID_INT(node);
-                    vrf->import_rt.vrf_id = (uint16_t)vrf_id;
+                    /* Generate import/export RT (Type-1: IPv4:uint16) */
+                    rt_type1_fill(&vrf->import_rt,
+                                  0,
+                                  (uint16_t)vrf_id);
                     vrf->export_rt = vrf->import_rt;
 
                     if (!node_register_vrf(node, vrf))
@@ -241,6 +229,7 @@ vrf_config_handler (int64_t cmdcode,
         case CMD_CODE_CONFIG_VRF_IMPORT_RT:
         {
             vrf_t *vrf = vrf_get_by_name (node, (char *)vrf_name);
+            rt_t new_import_rt;
             
             if (!vrf) {
                 cprintf("Error : VRF %s not found\n", vrf_name);
@@ -252,33 +241,25 @@ vrf_config_handler (int64_t cmdcode,
                 return -1;
             }
 
+            if (!rt_ip || !rt_assigned) {
+                cprintf("Error : Type-1 import-rt requires "
+                        "<ipv4-address> <uint16>\n");
+                return -1;
+            }
+
+            rt_type1_fill(&new_import_rt,
+                          tcp_ip_convert_ip_p_to_n((char *)rt_ip),
+                          (uint16_t)strtoul((const char *)rt_assigned,
+                                            NULL, 10));
+
             switch (enable_or_disable) {
                 
                 case CONFIG_ENABLE:
                 {
-                    /* Parse the import RT value */
-                    rt_t new_import_rt;
-                    char *endptr;
-                    char *colon;
-                    
-                    strncpy(temp_str, (const char *)import_rt, sizeof(temp_str) - 1);
-                    temp_str[sizeof(temp_str) - 1] = '\0';
-                    
-                    colon = strchr(temp_str, ':');
-                    if (!colon) {
-                        cprintf("Error : Invalid import RT format\n");
-                        return -1;
-                    }
-                    
-                    unsigned long v1 = strtoul(temp_str, &endptr, 10);
-                    unsigned long v2 = strtoul(colon + 1, &endptr, 10);
-                    new_import_rt.rtr_id = (uint32_t)v1;
-                    new_import_rt.vrf_id = (uint16_t)v2;
-                    
                     /* Check if import RT has changed */
-                    if (vrf->import_rt.rtr_id== new_import_rt.rtr_id&& 
-                        vrf->import_rt.vrf_id == new_import_rt.vrf_id) {
-
+                    if (vrf->import_rt.rtr_id == new_import_rt.rtr_id &&
+                        vrf->import_rt.vrf_id == new_import_rt.vrf_id &&
+                        vrf->import_rt.type == new_import_rt.type) {
                         return 0;
                     }
                     
@@ -298,45 +279,26 @@ vrf_config_handler (int64_t cmdcode,
                 case CONFIG_DISABLE:
                 {
                     /* Check if import RT was configured */
-                    if (vrf->import_rt.rtr_id== 0 && vrf->import_rt.vrf_id == 0) {
+                    if (vrf->import_rt.rtr_id == 0 && vrf->import_rt.vrf_id == 0) {
                         return 0;
                     }
-                    
-                    /* Parse the import RT value */
-                    rt_t new_import_rt;
-                    char *endptr;
-                    char *colon;
-                    
-                    strncpy(temp_str, (const char *)import_rt, sizeof(temp_str) - 1);
-                    temp_str[sizeof(temp_str) - 1] = '\0';
-                    
-                    colon = strchr(temp_str, ':');
-                    if (!colon) {
-                        cprintf("Error : Invalid import RT format\n");
-                        return -1;
-                    }
-                    
-                    unsigned long v1 = strtoul(temp_str, &endptr, 10);
-                    unsigned long v2 = strtoul(colon + 1, &endptr, 10);
-                    new_import_rt.rtr_id= (uint16_t)v1;
-                    new_import_rt.vrf_id = (uint32_t)v2;
 
-                    if (new_import_rt.rtr_id!= vrf->import_rt.rtr_id|| 
-                            new_import_rt.vrf_id != vrf->import_rt.vrf_id) {
-
+                    if (new_import_rt.rtr_id != vrf->import_rt.rtr_id ||
+                        new_import_rt.vrf_id != vrf->import_rt.vrf_id) {
                         cprintf ("Error : Mis-matched Route Import value specified\n");
                         return -1;
                     }
                     
-                    /* Clear the import RT (set it to default) */
-                    vrf->import_rt.rtr_id= NODE_RTR_ID_INT(node);
-                    vrf->import_rt.vrf_id = vrf->vrf_id;
+                    /* Clear the import RT (restore default Type-1) */
+                    rt_type1_fill(&vrf->import_rt,
+                                  NODE_RTR_ID_INT(node),
+                                  vrf->vrf_id);
                     
                     /* Flush existing BGP VPN routes from VRF RIBs */
                     cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN, 0);
                     cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN, 0);
                     
-                    /* Re-import routes (will import nothing since RT is 0:0) */
+                    /* Re-import routes with restored import RT */
                     rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
                     rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
                 }
@@ -350,6 +312,7 @@ vrf_config_handler (int64_t cmdcode,
         case CMD_CODE_CONFIG_VRF_EXPORT_RT:
         {
             vrf_t *vrf = vrf_get_by_name (node, (char *)vrf_name);
+            rt_t new_export_rt;
             
             if (!vrf) {
                 cprintf("Error : VRF %s not found\n", vrf_name);
@@ -359,87 +322,59 @@ vrf_config_handler (int64_t cmdcode,
             if (vrf == node->vrf[0]) {
                 cprintf ("Error : Operation not allowed on Default vrf\n");
                 return -1;
-            }            
+            }
+
+            if (!rt_ip || !rt_assigned) {
+                cprintf("Error : Type-1 export-rt requires "
+                        "<ipv4-address> <uint16>\n");
+                return -1;
+            }
+
+            rt_type1_fill(&new_export_rt,
+                          tcp_ip_convert_ip_p_to_n((char *)rt_ip),
+                          (uint16_t)strtoul((const char *)rt_assigned,
+                                            NULL, 10));
 
             switch (enable_or_disable) {
                 
                 case CONFIG_ENABLE:
                 {
-                    /* Parse the export RT value */
-                    rt_t new_export_rt;
-                    char *endptr;
-                    char *colon;
-                    
-                    strncpy(temp_str, (const char *)export_rt, sizeof(temp_str) - 1);
-                    temp_str[sizeof(temp_str) - 1] = '\0';
-                    
-                    colon = strchr(temp_str, ':');
-                    if (!colon) {
-                        cprintf("Error : Invalid import RT format\n");
-                        return -1;
-                    }
-                    
-                    unsigned long v1 = strtoul(temp_str, &endptr, 10);
-                    unsigned long v2 = strtoul(colon + 1, &endptr, 10);
-                    new_export_rt.rtr_id = (uint32_t)v1;
-                    new_export_rt.vrf_id = (uint16_t)v2;
-                    
                     /* Check if export RT has changed */
-                    if (vrf->export_rt.rtr_id== new_export_rt.rtr_id&& 
-                        vrf->export_rt.vrf_id == new_export_rt.vrf_id) {
-
+                    if (vrf->export_rt.rtr_id == new_export_rt.rtr_id &&
+                        vrf->export_rt.vrf_id == new_export_rt.vrf_id &&
+                        vrf->export_rt.type == new_export_rt.type) {
                         return 0;
                     }
                     
                     /* Export RT has changed - update it */
                     vrf->export_rt = new_export_rt;
                     
-                    /* Flush existing BGP VPN routes from VRF RIBs */
-                    cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN, 0);
-                    cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN, 0);
-                    
-                    /* Re-import routes with new export RT */
-                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
-                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
+                    #if 0
+                        ToDo :
+                        Pull Soln : Ask BGP to flush all routes with this RD value, and re-export again
+                        since export RT of this VRF is changed
+                        Push Soln : Send Delete notif to BGP for all routes in this VRF with old RD as a key
+                        then push all routes again with new RD value.
+                    #endif
                 }
                 break;
                 
                 case CONFIG_DISABLE:
                 {
-                    /* Check if export RT was configured */
-                    if (vrf->import_rt.rtr_id== 0 && vrf->import_rt.vrf_id == 0) {
+                    if (vrf->export_rt.rtr_id == 0 && vrf->export_rt.vrf_id == 0) {
                         return 0;
                     }
-                    
-                    /* Parse the export RT value */
-                    rt_t new_export_rt;
-                    char *endptr;
-                    char *colon;
-                    
-                    strncpy(temp_str, (const char *)import_rt, sizeof(temp_str) - 1);
-                    temp_str[sizeof(temp_str) - 1] = '\0';
-                    
-                    colon = strchr(temp_str, ':');
-                    if (!colon) {
-                        cprintf("Error : Invalid import RT format\n");
-                        return -1;
-                    }
-                    
-                    unsigned long v1 = strtoul(temp_str, &endptr, 10);
-                    unsigned long v2 = strtoul(colon + 1, &endptr, 10);
-                    new_export_rt.rtr_id= (uint32_t)v1;
-                    new_export_rt.vrf_id = (uint16_t)v2;
 
-                    if (new_export_rt.rtr_id!= vrf->export_rt.rtr_id|| 
-                            new_export_rt.vrf_id != vrf->export_rt.vrf_id) {
-
+                    if (new_export_rt.rtr_id != vrf->export_rt.rtr_id ||
+                        new_export_rt.vrf_id != vrf->export_rt.vrf_id) {
                         cprintf ("Error : Mis-matched Route Export value specified\n");
                         return -1;
                     }
                     
-                    /* Clear the export RT (set it to default) */
-                    vrf->export_rt.rtr_id= NODE_RTR_ID_INT(node);
-                    vrf->export_rt.vrf_id = vrf->vrf_id;
+                    /* Clear the export RT (restore default Type-1) */
+                    rt_type1_fill(&vrf->export_rt,
+                                  NODE_RTR_ID_INT(node),
+                                  vrf->vrf_id);
                 
                     #if 0
                         ToDo : 
@@ -480,36 +415,59 @@ vrf_build_config_tree (param_t *node_name)
             vrf_param_ptr = &vrf_name;
 
             {
-                //config node <node-name> vrf vrf-name import-rt . . .
+                /* config node <node-name> vrf <vrf-name> import-rt
+                 *   <ipv4-address> <uint16> */
                 static param_t import_rt;
-                init_param(&import_rt, CMD, "import-rt", NULL, NULL, INVALID, NULL, "Import Route-Target");
+                init_param(&import_rt, CMD, "import-rt", NULL, NULL, INVALID, NULL,
+                           "Import Route-Target (Type-1)");
                 libcli_register_param(&vrf_name, &import_rt);
                 {
-                    //config node <node-name> vrf vrf-name import-rt <rt-value>
-                    static param_t import_rt_val;
-                    init_param(&import_rt_val, LEAF, NULL, vrf_config_handler, rt_target_validator_cbk, STRING, "import-rt", "RT value in : <2B:4B> fmt");
-                    libcli_register_param(&import_rt, &import_rt_val);
-                    libcli_set_param_cmd_code (&import_rt_val, CMD_CODE_CONFIG_VRF_IMPORT_RT);
-                }  
+                    static param_t import_rt_ip;
+                    init_param(&import_rt_ip, LEAF, NULL, 0, 0, IPV4,
+                               "import-rt-ip",
+                               "Type-1 RT administrator (IPv4 address)");
+                    libcli_register_param(&import_rt, &import_rt_ip);
+                    {
+                        static param_t import_rt_asn;
+                        init_param(&import_rt_asn, LEAF, NULL,
+                                   vrf_config_handler,
+                                   rt_type1_assigned_validator_cbk, INT,
+                                   "import-rt-asn",
+                                   "Type-1 RT assigned number (0-65535)");
+                        libcli_register_param(&import_rt_ip, &import_rt_asn);
+                        libcli_set_param_cmd_code(&import_rt_asn,
+                                                  CMD_CODE_CONFIG_VRF_IMPORT_RT);
+                    }
+                }
             }
 
             {
-                //config node <node-name> vrf vrf-name export-rt . . .
+                /* config node <node-name> vrf <vrf-name> export-rt
+                 *   <ipv4-address> <uint16> */
                 static param_t export_rt;
-                init_param(&export_rt, CMD, "export-rt", NULL, NULL, INVALID, NULL, "Export Route-Target");
+                init_param(&export_rt, CMD, "export-rt", NULL, NULL, INVALID, NULL,
+                           "Export Route-Target (Type-1)");
                 libcli_register_param(&vrf_name, &export_rt);
                 {
-                    //config node <node-name> vrf vrf-name export-rt <rt-value>
-                    static param_t export_rt_val;
-                    init_param(&export_rt_val, LEAF, NULL, vrf_config_handler, rt_target_validator_cbk, STRING, "export-rt", "RT value in : <2B:4B> fmt");
-                    libcli_register_param(&export_rt, &export_rt_val);
-                    libcli_set_param_cmd_code (&export_rt_val, CMD_CODE_CONFIG_VRF_EXPORT_RT);
-                }  
+                    static param_t export_rt_ip;
+                    init_param(&export_rt_ip, LEAF, NULL, 0, 0, IPV4,
+                               "export-rt-ip",
+                               "Type-1 RT administrator (IPv4 address)");
+                    libcli_register_param(&export_rt, &export_rt_ip);
+                    {
+                        static param_t export_rt_asn;
+                        init_param(&export_rt_asn, LEAF, NULL,
+                                   vrf_config_handler,
+                                   rt_type1_assigned_validator_cbk, INT,
+                                   "export-rt-asn",
+                                   "Type-1 RT assigned number (0-65535)");
+                        libcli_register_param(&export_rt_ip, &export_rt_asn);
+                        libcli_set_param_cmd_code(&export_rt_asn,
+                                                  CMD_CODE_CONFIG_VRF_EXPORT_RT);
+                    }
+                }
             }
         }
     }
     return vrf_param_ptr;
 }
-
-
-
