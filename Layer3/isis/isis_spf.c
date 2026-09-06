@@ -143,6 +143,7 @@ isis_rt_ipv6_route_add(
         RTM_PROTO_ISIS,
         RTM_PROTO_L1_ISIS_INT,
         0,
+        node_info->spf_no,
         action,
         metric,
         &rtm_gateway,
@@ -238,8 +239,8 @@ isis_spf_install_v6routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root)
                 vrf,
                 AF_IPV6, RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6);
 
-    cp_rtm_uninstall_routes_by_proto (rtm_v6, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
-    cp_rtm_uninstall_routes_by_proto (rtm_srv6, RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6, 0);
+    //cp_rtm_uninstall_routes_by_proto (rtm_v6, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+    //cp_rtm_uninstall_routes_by_proto (rtm_srv6, RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6, 0);
 
     /* Now iterate over result list and install routes for
      * loopback address of all routers*/
@@ -470,6 +471,7 @@ isis_rt_ipv4_route_add(
         RTM_PROTO_ISIS,
         RTM_PROTO_L1_ISIS_INT,
         0,
+        node_info->spf_no,
         action,
         metric,
         &rtm_gateway,
@@ -569,7 +571,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
 
     rtm = node_info->vrf->inet0;
 
-    cp_rtm_uninstall_routes_by_proto (rtm, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+    //cp_rtm_uninstall_routes_by_proto (rtm, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
 
     /* Now iterate over result list and install routes for
      * loopback address of all routers*/
@@ -592,36 +594,6 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
                         spf_result->node->node_name);
 
         if (spf_result->node->pn_no) continue;
-
-#if 0
-        /* Router ID */
-        if (isis_evaluate_policy(spf_root,
-                                 node_info->import_policy,
-                                 spf_result->node->rtr_id, 32) == PFX_LST_DENY) {
-
-            goto Exported_Prefixes;
-        }
-
-        for (i = 0; i < MAX_NXT_HOPS; i++){
-
-            nexthop = spf_result->nexthops[i];
-
-            if (!nexthop) continue;
-
-            tracer (ISIS_TR(node_info), TR_ISIS_ROUTE, "%s : Dest %s  : Route Add %s/%d\n", 
-                        ISIS_ROUTE,
-                        spf_result->node->node_name,
-                        tcp_ip_covert_ip_n_to_p(spf_result->node->rtr_id, ip_addr), 32);          
-
-            /* New RTM Route Install */
-            isis_rt_ipv4_route_add (spf_root,  spf_result->node->rtr_id, 32,
-                        tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
-                        nexthop->oif.get(),
-                        spf_result->spf_metric);   
-
-            count++;
-        }
-#endif 
 
         Exported_Prefixes:
 
@@ -801,7 +773,7 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
     }
 
     /* Full replace: flush then reinstall current SPF SR reachability */
-    isis_sr_mpls_flush_rtm_routes(node_info);
+    //isis_sr_mpls_flush_rtm_routes(node_info);
 
     rtm_inet3 = cp_rtm_get_route_target_rtm (vrf, AF_IPV4, RTM_PROTO_ISIS, RTM_SUB_PROTO_SR);
     rtm_mpls0 = cp_rtm_get_route_target_rtm (vrf, AF_LABEL, RTM_PROTO_ISIS, RTM_SUB_PROTO_SR);
@@ -904,8 +876,12 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
                             php ? "( PHP - No Label )" : "( Push Label )");
 
                     rc = cp_rtm_install_route_advanced (
-                        rtm_inet3, &rtm_prefix,
-                        RTM_PROTO_ISIS, RTM_SUB_PROTO_SR, 0,
+                        rtm_inet3, 
+                        &rtm_prefix,
+                        RTM_PROTO_ISIS, 
+                        RTM_SUB_PROTO_SR, 
+                        0, 
+                        node_info->spf_no,
                         RTM_NH_ACTION_FORWARD,
                         spf_result->spf_metric + ted_prefix->metric,
                         &rtm_gateway,
@@ -939,8 +915,12 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
                             php ? "( Pop )" : "( Swap )");
 
                     rc = cp_rtm_install_route_advanced (
-                        rtm_mpls0, &rtm_label_prefix,
-                        RTM_PROTO_ISIS, RTM_SUB_PROTO_SR, 0,
+                        rtm_mpls0, 
+                        &rtm_label_prefix,
+                        RTM_PROTO_ISIS, 
+                        RTM_SUB_PROTO_SR, 
+                        0,
+                        node_info->spf_no,
                         RTM_NH_ACTION_FORWARD,
                         spf_result->spf_metric + ted_prefix->metric,
                         &rtm_gateway,
@@ -1410,6 +1390,7 @@ isis_compute_spf (isis_node_info_t *node_info);
 void
 isis_compute_spf (isis_node_info_t *node_info){
 
+    rtm_t *rtm;
     ted_intf_t *oif;
     glthread_t *curr;
     uint32_t nxt_hop_ip;
@@ -1421,6 +1402,8 @@ isis_compute_spf (isis_node_info_t *node_info){
 
     if (!node_info) return;
     
+    node_info->spf_no++;
+
     node_t *spf_root = node_info->vrf->node;
 
     ted_spf_root = ted_lookup_node(
@@ -1516,20 +1499,60 @@ isis_compute_spf (isis_node_info_t *node_info){
     /*Step 7 : Begin*/ 
     /*Calculate final routing table from spf result of spf_root*/
     int count = isis_spf_install_routes(node_info, ted_spf_root);
+
+    /* Uninstall the obsolete routes */
+    uint32_t del_count = rtm_proto_seed_update (node_info->vrf->inet0, 
+                           RTM_PROTO_ISIS, 
+                           RTM_PROTO_L1_ISIS_INT, 0, node_info->spf_no);
     /*Step 7 : End*/
 
     tracer (ISIS_TR(node_info), TR_ISIS_SPF,
-        "%s : ipv4 Route Installation Count = %d\n", ISIS_SPF, count);
+        "%s : ipv4 Route Installation Count = %d, del-count = %u\n", 
+        ISIS_SPF, count, del_count);
 
      count = isis_spf_install_v6routes(node_info, ted_spf_root);
 
+     /* Delete Obsolete routes */
+     rtm = cp_rtm_get_route_target_rtm (node_info->vrf,
+                                AF_IPV6, 
+                                RTM_PROTO_ISIS, 
+                                RTM_PROTO_L1_ISIS_INT);
+
+     del_count = rtm_proto_seed_update (rtm, 
+                           RTM_PROTO_ISIS, 
+                           RTM_PROTO_L1_ISIS_INT, 0, node_info->spf_no);
+     
+     rtm = cp_rtm_get_route_target_rtm (node_info->vrf,
+                                AF_IPV6, 
+                                RTM_PROTO_ISIS, 
+                                RTM_SUB_PROTO_SRv6);
+
+     del_count += rtm_proto_seed_update (rtm, 
+                           RTM_PROTO_ISIS, 
+                           RTM_SUB_PROTO_SRv6, 0, node_info->spf_no);
+
     tracer (ISIS_TR(node_info), TR_ISIS_SPF,
-        "%s : ipv6 Route Installation Count = %d\n", ISIS_SPF, count);
+        "%s : ipv6 Route Installation Count = %d, del-count = %u\n", 
+        ISIS_SPF, count, del_count);
 
     count = isis_spf_install_srmpls_routes(node_info, ted_spf_root);
 
+    /* Delete Obsolete routes */
+     rtm = cp_rtm_get_route_target_rtm (node_info->vrf, AF_IPV4, RTM_PROTO_ISIS, RTM_SUB_PROTO_SR);
+
+     del_count = rtm_proto_seed_update (rtm, 
+                           RTM_PROTO_ISIS, 
+                           RTM_SUB_PROTO_SR, 0, node_info->spf_no);
+
+     rtm = cp_rtm_get_route_target_rtm (node_info->vrf, AF_LABEL, RTM_PROTO_ISIS, RTM_SUB_PROTO_SR);
+
+     del_count += rtm_proto_seed_update (rtm, 
+                           RTM_PROTO_ISIS, 
+                           RTM_SUB_PROTO_SR, 0, node_info->spf_no);
+
     tracer (ISIS_TR(node_info), TR_ISIS_SPF,
-        "%s : SR-MPLS Route Installation Count = %d\n", ISIS_SPF, count);
+        "%s : SR-MPLS Route Installation Count = %d, del-count = %u\n", 
+        ISIS_SPF, count, del_count);
 }
 
 void

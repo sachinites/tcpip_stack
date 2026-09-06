@@ -393,7 +393,8 @@ isis_init (vrf_t *vrf) {
     node_info->sys_id = {NODE_RTR_ID_INT(node), 0};
     node_info->lsp_flood_interval    = ISIS_LSP_DEFAULT_FLOOD_INTERVAL;
     node_info->lsp_lifetime_interval = ISIS_LSP_DEFAULT_LIFE_TIME_INTERVAL;
-
+    node_info->spf_no = 0;
+    
     avltree_init(&node_info->lspdb_avl_root, isis_compare_lspdb_lsp_pkt);
 
     isis_init_intf_group_avl_tree(&node_info->intf_grp_avl_root);

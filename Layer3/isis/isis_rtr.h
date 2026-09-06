@@ -78,6 +78,8 @@ typedef struct isis_node_info_ {
     uint64_t event_control_flags;
     /* self LSP flood time interval */
     uint32_t lsp_flood_interval; // in sec
+    /* SPF run number */
+    uint32_t spf_no;
     /* lsp pkt life time interval in lspdb */
     uint32_t lsp_lifetime_interval;
     /* No of times LSP is flooded by this node */

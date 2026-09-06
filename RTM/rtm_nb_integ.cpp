@@ -973,6 +973,7 @@ cp_rtm_install_route_advanced (
     RTM_PROTO_T proto,
     RTM_SUB_PROTO_T sub_proto,
     uint32_t instance_no,
+    uint32_t proto_seed,
     RTM_NH_ACTION_TYPE_T action,
     uint32_t metric,
     cmn_prefix_t *gateway,
@@ -1012,6 +1013,7 @@ cp_rtm_install_route_advanced (
 
     nh_template.proto = proto;
     nh_template.sub_proto = sub_proto;
+    nh_template.proto_seed = proto_seed;
     nh_template.action = action;
     nh_template.metric = metric;
     nh_template.l3_vpn_label = l3_vpn_label;
@@ -1116,6 +1118,7 @@ cp_rtm_install_route_advanced (
  * @param proto Protocol type
  * @param sub_proto Sub-protocol type
  * @param instance_no Protocol instance number
+ * @param uint32_t proto_seed
  * @param action Nexthop action
  * @param metric Route metric
  * @param gateway Gateway address
@@ -1614,7 +1617,7 @@ rtm_install_xconnect_vpnv4_route (vrf_t *vrf, bool install) {
                     &mpls_in_label,
                     RTM_PROTO_STATIC,
                     RTM_PROTO_BGP_VPN,
-                    0,
+                    0, 0,
                     RTM_NH_ACTION_FORWARD,
                     0,
                     &gateway,
@@ -1676,7 +1679,7 @@ rtm_install_mpls_xconnect_bd_evpn_local_route (Interface *intf, bool install) {
                         &mpls_in_label,
                         RTM_PROTO_STATIC,
                         RTM_PROTO_L2VPN_EVPN,
-                        0,
+                        0, 0,
                         RTM_NH_ACTION_FORWARD,
                         0,
                         &gateway,
@@ -1708,3 +1711,50 @@ rtm_install_mpls_xconnect_bd_evpn_local_route (Interface *intf, bool install) {
 
 }
 
+uint32_t
+rtm_proto_seed_update (rtm_t *rtm, 
+                      RTM_PROTO_T proto, 
+                      RTM_SUB_PROTO_T sub_proto, 
+                      uint32_t instance_no, 
+                      uint32_t seed_no) 
+{
+
+    rtm_nh *nh;
+    rtm_error_t rc;
+    char nh_str[128];
+    glthread_t *curr;
+    uint32_t count = 0;
+
+    ITERATE_GLTHREAD_BEGIN(&rtm->nhs_by_src[proto], curr) {
+
+        nh = src_glue_to_rtm_nh(curr);
+
+        if ((nh->sub_proto == sub_proto || 
+             nh->sub_proto ==  RTM_SUB_PROTO_NA) &&
+             nh->rtm_nh_proto->instance_no == instance_no) {
+
+            if (nh->proto_seed >= seed_no) continue;
+
+            /* Delete this nh */
+            rc = cp_rtm_uninstall_route_by_idx(rtm, nh->idx);
+
+            if (rc == RTM_SUCCESS) {
+
+                tracer(rtm->node->cptr, DRTM_DET,
+                    "RTM[%s] : Nexthop %s seed %u succeeded, deleted\n",
+                    rtm->name, rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)),
+                    seed_no);
+                count++;
+            }
+            else {
+                tracer(rtm->node->cptr, DRTM_DET,
+                    "RTM[%s] : Nexthop %s seed %u failed\n",
+                    rtm->name, rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)),
+                    seed_no);
+            }
+        }
+
+    } ITERATE_GLTHREAD_END(&rtm->nhs_by_src[proto], curr);
+
+    return count;
+}

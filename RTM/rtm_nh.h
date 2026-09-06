@@ -88,6 +88,7 @@ typedef struct rtm_nh_ {
         uint32_t idx;
         uint32_t rtm_flags;
         uint32_t fwd_flags;
+        uint32_t proto_seed;
         time_t pth_last_update_time;
 
         /* Owning protocol*/
@@ -259,4 +260,4 @@ void
 rtm_nh_avl_remove (rtm_t *rtm, rtm_nh *nh, 
         avltree_t *tree, avltree_node_t *avlnode);
 
-#endif 
+#endif

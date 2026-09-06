@@ -440,6 +440,7 @@ rtm_route_add_nh(rtm_t *rtm, rtm_route* route, rtm_nh* nh) {
         tracer(rtm->node->cptr, DRTM | DERR,
             "RTM[%s] : ERROR: NH:%s(%u) already exists for route %s\n",
             rtm->name, gw_str, existing->idx, prefix_str);
+        existing->proto_seed = nh->proto_seed;
         return RTM_ERROR_NEXTHOP_ALREADY_EXISTS;
     }  
     

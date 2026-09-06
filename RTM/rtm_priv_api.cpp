@@ -801,6 +801,7 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                 (RTM_PROTO_T)proto_id,
                 (RTM_SUB_PROTO_T)sub_proto_id,
                 instance_no,
+                0,
                 (RTM_NH_ACTION_TYPE_T)action_id,
                 metric,
                 gw_ip ? &gateway : NULL,
@@ -1239,6 +1240,7 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
     nh->fwd_flags = nh_template->fwd_flags;
     nh->proto = nh_template->proto;
     nh->sub_proto = nh_template->sub_proto;
+    nh->proto_seed = nh_template->proto_seed;
     nh->ad = rtm_get_admin_distance (nh->proto , nh->sub_proto);
     nh->metric = nh_template->metric;
     nh->action = nh_template->action;

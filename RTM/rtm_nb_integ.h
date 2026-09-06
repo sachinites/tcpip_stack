@@ -54,7 +54,7 @@ GLTHREAD_TO_STRUCT(redis_glue_to_rt_advert_info, rt_advert_info_t, redis_glue);
 typedef struct cp_nexthop_template_ {
 
     uint32_t idx;
-    
+    uint32_t proto_seed; // Exempted in nexthop comparison
     RTM_PROTO_T proto;
     RTM_SUB_PROTO_T sub_proto;
 
@@ -185,6 +185,7 @@ cp_rtm_install_route_advanced (
     RTM_PROTO_T proto,
     RTM_SUB_PROTO_T sub_proto,
     uint32_t instance_no,
+    uint32_t proto_seed,
     RTM_NH_ACTION_TYPE_T action,
     uint32_t metric,
     cmn_prefix_t *gateway,
@@ -262,5 +263,12 @@ rtm_install_xconnect_vpnv4_route (vrf_t *vrf, bool install);
 
 void
 rtm_install_mpls_xconnect_bd_evpn_local_route (Interface *intf, bool install) ;
+
+uint32_t
+rtm_proto_seed_update (rtm_t *rtm, 
+                      RTM_PROTO_T proto, 
+                      RTM_SUB_PROTO_T sub_proto, 
+                      uint32_t instance_no, 
+                      uint32_t seed_no);
 
 #endif 

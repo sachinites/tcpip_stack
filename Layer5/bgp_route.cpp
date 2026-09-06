@@ -1086,7 +1086,7 @@ bgp_rtm_route_install(node_t *node, const bgp_route_info_t *route)
             &prefix,
             RTM_PROTO_BGP,
             RTM_PROTO_BGP_INT,
-            0,
+            0, 0,
             RTM_NH_ACTION_FORWARD,
             metric,
             &gateway,
