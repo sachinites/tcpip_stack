@@ -49,6 +49,8 @@ Visit : www.csepracticals.com for more projects and courses.
 
 ## Project 21 : L2VPN EVPN Dataplane Implementation (Route Type 2,3,5 ) Over MPLS Transport in ISP core. 
 
+## Project 22 : GoBGP Integration
+
 #### After Doing These Projects, you shall be able to :
 
 Tell why you need Data link layer and Network Layer
