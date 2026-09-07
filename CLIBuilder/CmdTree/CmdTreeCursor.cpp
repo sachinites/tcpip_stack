@@ -635,18 +635,19 @@ cmdtc_find_common_intial_lcs_len (glthread_t *param_list, int start_index) {
 static int
 cmdtc_collect_all_matching_params (cmd_tree_cursor_t *cmdtc, unsigned char c, bool wildcard) {
 
-    int i, count = 0;
+    int count = 0;
     glthread_t *curr;
     param_t *child_param;
+    param_option_t *opt;
     glthread_t temp_list;
 
     if (IS_GLTHREAD_LIST_EMPTY (&cmdtc->matching_params_list)) {
 
         /* Iterarate over all direct children of cmdtc->curr_param, and append them to 
             list which matches c at cmdtc->icursor*/
-        for (i = CHILDREN_START_INDEX; i <= CHILDREN_END_INDEX; i++) {
+        FOR_EACH_PARAM_OPTION (cmdtc->curr_param, opt) {
 
-            child_param = cmdtc->curr_param->options[i];
+            child_param = opt->param;
             if (!child_param) continue;
 
             if (child_param->flags & PARAM_F_DISABLE_PARAM) continue;
@@ -1157,7 +1158,7 @@ bool
 cmdtc_is_cursor_at_bottom_mode_node (cmd_tree_cursor_t *cmdtc) {
 
     param_t *param = cmdtc->curr_param;
-    return (param->options[0] == NULL);
+    return (param->options == NULL);
 }
 
 Stack_t *
@@ -2052,7 +2053,7 @@ cmdtc_parse_full_command (cli_t *cli) {
 
     for (i= 0; i < token_cnt; i++) {
 
-        param = cmd_tree_find_matching_param(&param->options[0], *(tokens +i));
+        param = cmd_tree_find_matching_param(param, *(tokens +i));
 
         if (!param){
             attron(COLOR_PAIR(RED_ON_BLACK));

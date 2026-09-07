@@ -262,7 +262,6 @@ Router_Create(graph_t *graph, const c_string node_name){
     /* Turn on Default Logging */
     #if 1
     tracer_log_bit_set(node->cptr,  DRTM | DRTM_DET);
-    tracer_log_bit_set(node->cptr,  DSCHED | DSCHED_DET);
     tracer_log_bit_set(node->dp_ctx->dptr,  DFIB | DFIB_DET);
     tracer_log_bit_set(node->cptr,  DERR);
     tracer_log_bit_set(node->dp_ctx->dptr,  DERR);  

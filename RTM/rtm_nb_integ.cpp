@@ -955,6 +955,7 @@ cp_rtm_nh_template_set_oif(
  * @param proto Protocol type
  * @param sub_proto Sub-protocol type
  * @param instance_no Protocol instance number
+ * @param uint32_t proto_seed - used for deleting obsolete paths
  * @param action Nexthop action (FORWARD, LOCAL, DROP, etc.)
  * @param metric Route metric
  * @param gateway Gateway address (optional)
@@ -1748,9 +1749,9 @@ rtm_proto_seed_update (rtm_t *rtm,
             }
             else {
                 tracer(rtm->node->cptr, DRTM_DET,
-                    "RTM[%s] : Nexthop %s seed %u failed\n",
+                    "RTM[%s] : Nexthop %s seed %u failed, err-code:%s\n",
                     rtm->name, rtm_nh_one_liner_trace(nh, nh_str, sizeof(nh_str)),
-                    seed_no);
+                    seed_no, rtm_error_to_string(rc));
             }
         }
 

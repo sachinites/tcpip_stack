@@ -634,6 +634,8 @@ bgp_show_route_print_cb(const bgp_route_info_t *route, void *userdata)
 {
     bgp_show_route_ctx_t *ctx = (bgp_show_route_ctx_t *)userdata;
     const char *dash = "-";
+    char rd_fmt_buffer[48];
+    char rt_fmt_buffer[48];
 
     if (!route || !ctx) {
         return 0;
@@ -661,8 +663,8 @@ bgp_show_route_print_cb(const bgp_route_info_t *route, void *userdata)
     cprintf("%-22s %-16s %-14s %-14s ",
             route->prefix,
             route->nexthop[0] ? route->nexthop : dash,
-            route->rd[0] ? route->rd : dash,
-            route->rt[0] ? route->rt : dash);
+            route->rd[0] ? rd_type1_to_string(route->rd, rd_fmt_buffer, sizeof(rd_fmt_buffer)) : dash,
+            route->rt[0] ? rt_type1_to_string(route->rt, rt_fmt_buffer, sizeof(rt_fmt_buffer)) : dash);
 
     if (ctx->show_label) {
         if (route->l3_vpn_label_present) {

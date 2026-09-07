@@ -1212,7 +1212,7 @@ Interface_config_cli_tree (param_t *root) {
                 {
                     static param_t loname;
                     init_param(&loname, LEAF, 0, intf_config_handler, NULL, STRING, "if-name",
-                                "Loopback ifname (loN, or N → loN)");
+                                "Loopback ifname (loN, or N )");
                     libcli_register_param(&loopback, &loname);
                     libcli_set_param_cmd_code(&loname, CMDCODE_INTF_CONFIG_LOOPBACK_CREATE);
                     uint64_t unsupported_configs = 0;

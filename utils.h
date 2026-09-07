@@ -227,8 +227,19 @@ const char *
 rd_type1_to_str(rd_t *rd, char *buf, size_t buflen);
 
 const char *
+rd_type1_to_string(const char *rd_str,
+                   char *out_buf,
+                   size_t out_buf_len);
+
+const char *
 rt_type1_to_str(rt_t *rt,
                 char *buf,
                 size_t buflen);
 
+const char *
+rt_type1_to_string(const char *rt_str,
+                   char *out_buf,
+                   size_t out_buf_len);
+
+                   
 #endif /* __UTILS__ */

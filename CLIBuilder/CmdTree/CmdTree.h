@@ -36,12 +36,19 @@ typedef union _param_t{
     leaf_t *leaf;
 } _param_t;
 
+/* Singly-linked list node for a parent's children.
+ * Wrapper nodes allow the same child param to be multi-mounted. */
+typedef struct param_option_ {
+    struct _param_t_ *param;
+    struct param_option_ *next;
+} param_option_t;
+
 struct _param_t_{
     
     _param_t cmd_type;
     cmd_callback callback[CALLBACKS_N];
     char help[PARAM_HELP_STRING_SIZE];
-    struct _param_t_ *options[MAX_OPTION_SIZE];
+    param_option_t *options;   /* head of children SLL */
     struct _param_t_ *parent;
     display_possible_values_callback disp_callback;
     glthread_t glue;
@@ -52,6 +59,9 @@ struct _param_t_{
 
 } __attribute__((aligned(8))) ;
 GLTHREAD_TO_STRUCT (glue_to_param, param_t, glue);
+
+#define FOR_EACH_PARAM_OPTION(parent, opt) \
+    for ((opt) = ((parent) ? (parent)->options : NULL); (opt); (opt) = (opt)->next)
 
 #define GET_PARAM_CMD(param)    (param->cmd_type.cmd)
 #define GET_PARAM_LEAF(param)   (param->cmd_type.leaf)
@@ -134,7 +144,7 @@ bool
 cmd_tree_is_token_a_hook (char *token) ;
 
 param_t*
-cmd_tree_find_matching_param (param_t **options, const char *cmd_name);
+cmd_tree_find_matching_param (param_t *parent, const char *cmd_name);
 
 bool 
 cmd_tree_is_param_pipe (param_t *param);

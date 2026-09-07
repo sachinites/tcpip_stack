@@ -744,6 +744,7 @@ rtm_nh_duplicate (rtm_nh *nh) {
     nh_dup->pth_last_update_time = nh->pth_last_update_time;
     nh_dup->proto = nh->proto;
     nh_dup->sub_proto = nh->sub_proto;
+    nh_dup->proto_seed = nh->proto_seed;
     nh_dup->ad = nh->ad;
     nh_dup->metric = nh->metric;
     nh_dup->action = nh->action;

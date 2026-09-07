@@ -147,7 +147,7 @@ static cli_register_cb
 		//nmp_config_cli_tree,
         isis_config_cli_tree,
         srv6_build_global_config_cli_tree,
-        lfa_config_cli_tree,
+        //lfa_config_cli_tree,
         evpn_config_cli_tree,
         bgp_config_cli_tree,
 
@@ -164,7 +164,7 @@ static cli_register_cb
 		//nmp_show_cli_tree,
         isis_show_cli_tree,
         srv6_build_cli_show_tree,
-        lfa_show_cli_tree,
+        //lfa_show_cli_tree,
         bgp_show_cli_tree,
 
         /* Add more CB here */

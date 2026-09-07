@@ -533,6 +533,33 @@ rd_type1_to_str(rd_t *rd, char *buf, size_t buflen)
     return buf;
 }
 
+
+// Convert RD 2046886144:1 --> 122.0.0.0:1
+const char *
+rd_type1_to_string(const char *rd_str,
+                   char *out_buf,
+                   size_t out_buf_len)
+{
+    uint32_t ip;
+    unsigned int val;
+
+    if (!rd_str || !out_buf)
+        return NULL;
+
+    if (sscanf(rd_str, "%u:%u", &ip, &val) != 2)
+        return NULL;
+
+    snprintf(out_buf, out_buf_len,
+             "%u.%u.%u.%u:%u",
+             (ip >> 24) & 0xFF,
+             (ip >> 16) & 0xFF,
+             (ip >> 8)  & 0xFF,
+             ip & 0xFF,
+             val);
+
+    return out_buf;
+}
+
 const char *
 rt_type1_to_str(rt_t *rt,
                 char *buf,
@@ -549,6 +576,30 @@ rt_type1_to_str(rt_t *rt,
     return buf;
 }
 
+const char *
+rt_type1_to_string(const char *rt_str,
+                   char *out_buf,
+                   size_t out_buf_len)
+{
+    uint32_t ip;
+    unsigned int val;
+
+    if (!rt_str || !out_buf)
+        return NULL;
+
+    if (sscanf(rt_str, "%u:%u", &ip, &val) != 2)
+        return NULL;
+
+    snprintf(out_buf, out_buf_len,
+             "%u.%u.%u.%u:%u",
+             (ip >> 24) & 0xFF,
+             (ip >> 16) & 0xFF,
+             (ip >> 8)  & 0xFF,
+             ip & 0xFF,
+             val);
+
+    return out_buf;
+}
 
 #if 0
 
