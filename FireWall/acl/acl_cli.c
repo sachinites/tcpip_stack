@@ -53,11 +53,61 @@ acl_port_no_validation (Stack_t *tlv_stack, unsigned char *value) {
     return LEAF_VALIDATION_FAILED;
 }
 
+static int
+acl_mac_validation (Stack_t *tlv_stack, unsigned char *value) {
+
+    mac_addr_t mac_addr;
+
+    if (acl_parse_mac_string((const char *)value, &mac_addr)) {
+        return LEAF_VALIDATION_SUCCESS;
+    }
+
+    cprintf("Error : Invalid MAC address %s. Use aa:bb:cc:dd:ee:ff format\n", value);
+    return LEAF_VALIDATION_FAILED;
+}
+
+static int
+acl_ethertype_validation (Stack_t *tlv_stack, unsigned char *value) {
+
+    int64_t val_num = atoi((const char *)value);
+
+    if (val_num >= 0 && val_num <= 0xFFFF) {
+        return LEAF_VALIDATION_SUCCESS;
+    }
+
+    cprintf("Error : Invalid ethertype %s. Supported [0, 65535]\n", value);
+    return LEAF_VALIDATION_FAILED;
+}
+
+static int
+acl_vlan_validation (Stack_t *tlv_stack, unsigned char *value) {
+
+    int64_t val_num = atoi((const char *)value);
+
+    if (val_num >= 0 && val_num <= 4095) {
+        return LEAF_VALIDATION_SUCCESS;
+    }
+
+    cprintf("Error : Invalid VLAN id %s. Supported [0, 4095]\n", value);
+    return LEAF_VALIDATION_FAILED;
+}
+
+static void
+acl_register_proto_mount(param_t *parent, param_t *proto) {
+    libcli_register_param(parent, proto);
+}
+
 static bool
 acl_parse_ace_config_entries(
                              acl_entry_t *acl_entry,
                              uint32_t seq_no,
                              char *action_name,
+                             char *dst_mac_str,
+                             char *src_mac_str,
+                             bool ethertype_specified,
+                             uint16_t ethertype,
+                             bool vlan_specified,
+                             uint16_t vlan_id,
                              char *proto,
                              char *host_src_ip,
                              char *subnet_src_ip,
@@ -88,8 +138,56 @@ acl_parse_ace_config_entries(
         return false;
     }
 
+    /* L2 fields */
+    acl_entry->dst_mac_format = ACL_L2_FIELD_NOT_SPECIFIED;
+    acl_entry->src_mac_format = ACL_L2_FIELD_NOT_SPECIFIED;
+    acl_entry->ethertype_format = ACL_L2_FIELD_NOT_SPECIFIED;
+    acl_entry->vlan_format = ACL_L2_FIELD_NOT_SPECIFIED;
+
+    if (dst_mac_str) {
+        if (!acl_parse_mac_string(dst_mac_str, &acl_entry->dst_mac)) {
+            cprintf("Error : Failed to parse dst-mac %s\n", dst_mac_str);
+            return false;
+        }
+        acl_entry->dst_mac_format = ACL_L2_FIELD_SPECIFIED;
+    }
+
+    if (src_mac_str) {
+        if (!acl_parse_mac_string(src_mac_str, &acl_entry->src_mac)) {
+            cprintf("Error : Failed to parse src-mac %s\n", src_mac_str);
+            return false;
+        }
+        acl_entry->src_mac_format = ACL_L2_FIELD_SPECIFIED;
+    }
+
+    if (ethertype_specified) {
+        acl_entry->ethertype = ethertype;
+        acl_entry->ethertype_format = ACL_L2_FIELD_SPECIFIED;
+    }
+
+    if (vlan_specified) {
+        acl_entry->vlan_id = vlan_id;
+        acl_entry->vlan_format = ACL_L2_FIELD_SPECIFIED;
+    }
+
     /* Protocol */
-    acl_entry->proto = acl_string_to_proto(proto);
+    if (proto) {
+        acl_entry->proto = acl_string_to_proto(proto);
+        if (acl_entry->proto == ACL_PROTO_NONE) {
+            cprintf("Error : Bad ACL Protocol Name %s\n", proto);
+            return false;
+        }
+    }
+    else if (acl_entry->dst_mac_format == ACL_L2_FIELD_SPECIFIED ||
+             acl_entry->src_mac_format == ACL_L2_FIELD_SPECIFIED ||
+             acl_entry->ethertype_format == ACL_L2_FIELD_SPECIFIED ||
+             acl_entry->vlan_format == ACL_L2_FIELD_SPECIFIED) {
+        acl_entry->proto = ACL_PROTO_ANY;
+    }
+    else {
+        cprintf("Error : Protocol not specified\n");
+        return false;
+    }
 
     /* Src ip */
     acl_entry->src_addr.acl_addr_format = ACL_ADDR_NOT_SPECIFIED;
@@ -144,6 +242,12 @@ access_list_config (node_t *node,
                     char *access_list_name,
                     uint32_t seq_no,
                     char *action_name,
+                    char *dst_mac_str,
+                    char *src_mac_str,
+                    bool ethertype_specified,
+                    uint16_t ethertype,
+                    bool vlan_specified,
+                    uint16_t vlan_id,
                     char *proto,
                     char *host_src_ip,
                     char *subnet_src_ip,
@@ -164,6 +268,8 @@ access_list_config (node_t *node,
 
     if (!action_name &&
          !proto &&
+         !dst_mac_str && !src_mac_str &&
+         !ethertype_specified && !vlan_specified &&
          !host_src_ip && !subnet_src_ip && !subnet_src_mask && !obj_nw_src && !og_src &&
          !host_dst_ip && !subnet_dst_ip && !subnet_dst_mask && !obj_nw_dst && !og_dst) {
 
@@ -176,6 +282,12 @@ access_list_config (node_t *node,
                     acl_entry, 
                     seq_no,
                     action_name,
+                    dst_mac_str,
+                    src_mac_str,
+                    ethertype_specified,
+                    ethertype,
+                    vlan_specified,
+                    vlan_id,
                     proto,
                     host_src_ip,
                     subnet_src_ip,
@@ -314,6 +426,8 @@ acl_config_handler (int64_t cmdcode,
     char *access_list_name = NULL;
     char *obj_nw_name_src = NULL;
     char *obj_nw_name_dst = NULL;
+    char *dst_mac_str = NULL;
+    char *src_mac_str = NULL;
     object_group_t *obj_grp_src = NULL;
     object_group_t *obj_grp_dst = NULL;
     c_string obj_grp_name_src = NULL;
@@ -328,7 +442,12 @@ acl_config_handler (int64_t cmdcode,
                   dst_port_no_lt = 0,
                   dst_port_no_gt = 0,
                   dst_port_no1 = 0,
-                  dst_port_no2 = 0;
+                  dst_port_no2 = 0,
+                  ethertype = 0,
+                  vlan_id = 0;
+
+    bool ethertype_specified = false;
+    bool vlan_specified = false;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
@@ -340,6 +459,18 @@ acl_config_handler (int64_t cmdcode,
             seq_no = atoi((const char *)tlv->value);
         else if (parser_match_leaf_id(tlv->leaf_id, "permit|deny"))
             action_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "dst-mac-addr"))
+            dst_mac_str = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "src-mac-addr"))
+            src_mac_str = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "ethertype-val")) {
+            ethertype = (uint16_t)atoi((const char *)tlv->value);
+            ethertype_specified = true;
+        }
+        else if (parser_match_leaf_id(tlv->leaf_id, "vlan-id")) {
+            vlan_id = (uint16_t)atoi((const char *)tlv->value);
+            vlan_specified = true;
+        }
         else if (parser_match_leaf_id(tlv->leaf_id, "protocol"))
             proto = tlv->value;
         else if (parser_match_leaf_id(tlv->leaf_id, "host-src-ip"))
@@ -467,7 +598,7 @@ acl_config_handler (int64_t cmdcode,
     }    
 
     /* Sanity Checks */
-    if (  src_port_no_eq || 
+    if ((src_port_no_eq || 
            src_port_no_lt || 
            src_port_no_gt || 
            src_port_no1 || 
@@ -476,7 +607,7 @@ acl_config_handler (int64_t cmdcode,
            dst_port_no_lt || 
            dst_port_no_gt || 
            dst_port_no1 || 
-           dst_port_no2) {
+           dst_port_no2) && proto) {
 
         acl_proto_t protocol = acl_string_to_proto(proto);
         switch(protocol) {
@@ -534,6 +665,12 @@ acl_config_handler (int64_t cmdcode,
                                                          access_list_name,
                                                          seq_no,
                                                          action_name,
+                                                         dst_mac_str,
+                                                         src_mac_str,
+                                                         ethertype_specified,
+                                                         ethertype,
+                                                         vlan_specified,
+                                                         vlan_id,
                                                          proto,
                                                          host_src_ip,
                                                          subnet_src_ip,
@@ -629,6 +766,68 @@ acl_direction_validation(Stack_t *, unsigned char *leaf_value) {
          (string_compare(leaf_value, "out" , 3) == 0 && strlen(leaf_value) == 3))
         return LEAF_VALIDATION_SUCCESS;
     return LEAF_VALIDATION_FAILED;
+}
+
+static void
+acl_build_l2_optional_chain(param_t *action, param_t *proto) {
+
+    static param_t dst_mac_cmd;
+    static param_t dst_mac_addr;
+    static param_t src_mac_cmd;
+    static param_t src_mac_addr;
+    static param_t ethertype_cmd;
+    static param_t ethertype_val;
+    static param_t vlan_cmd;
+    static param_t vlan_id;
+    static bool initialized = false;
+
+    if (!initialized) {
+        init_param(&dst_mac_cmd, CMD, "dst-mac", 0, 0, INVALID, 0, "Destination MAC address");
+        init_param(&dst_mac_addr, LEAF, 0, acl_config_handler, acl_mac_validation, STRING, "dst-mac-addr", "Destination MAC address");
+        libcli_register_param(&dst_mac_cmd, &dst_mac_addr);
+
+        init_param(&src_mac_cmd, CMD, "src-mac", 0, 0, INVALID, 0, "Source MAC address");
+        init_param(&src_mac_addr, LEAF, 0, acl_config_handler, acl_mac_validation, STRING, "src-mac-addr", "Source MAC address");
+        libcli_register_param(&src_mac_cmd, &src_mac_addr);
+
+        init_param(&ethertype_cmd, CMD, "ethertype", 0, 0, INVALID, 0, "Ethernet type");
+        init_param(&ethertype_val, LEAF, 0, acl_config_handler, acl_ethertype_validation, INT, "ethertype-val", "Ethernet type value");
+        libcli_register_param(&ethertype_cmd, &ethertype_val);
+
+        init_param(&vlan_cmd, CMD, "vlan", 0, 0, INVALID, 0, "802.1Q VLAN id");
+        init_param(&vlan_id, LEAF, 0, acl_config_handler, acl_vlan_validation, INT, "vlan-id", "802.1Q VLAN id");
+        libcli_register_param(&vlan_cmd, &vlan_id);
+
+        libcli_register_param(&dst_mac_addr, &src_mac_cmd);
+        libcli_register_param(&src_mac_addr, &ethertype_cmd);
+        libcli_register_param(&ethertype_val, &vlan_cmd);
+
+        libcli_set_param_cmd_code(&dst_mac_addr, ACL_CMD_CONFIG);
+        libcli_set_param_cmd_code(&src_mac_addr, ACL_CMD_CONFIG);
+        libcli_set_param_cmd_code(&ethertype_val, ACL_CMD_CONFIG);
+        libcli_set_param_cmd_code(&vlan_id, ACL_CMD_CONFIG);
+        libcli_disable_batch_processing(&dst_mac_addr);
+        libcli_disable_batch_processing(&src_mac_addr);
+        libcli_disable_batch_processing(&ethertype_val);
+        libcli_disable_batch_processing(&vlan_id);
+
+        initialized = true;
+    }
+
+    libcli_register_param(action, &dst_mac_cmd);
+    libcli_register_param(action, &src_mac_cmd);
+    libcli_register_param(action, &ethertype_cmd);
+    libcli_register_param(action, &vlan_cmd);
+
+    acl_register_proto_mount(action, proto);
+    acl_register_proto_mount(&dst_mac_addr, proto);
+    acl_register_proto_mount(&src_mac_addr, proto);
+    acl_register_proto_mount(&ethertype_val, proto);
+    acl_register_proto_mount(&vlan_id, proto);
+
+    libcli_register_param(&dst_mac_addr, &ethertype_cmd);
+    libcli_register_param(&dst_mac_addr, &vlan_cmd);
+    libcli_register_param(&src_mac_addr, &vlan_cmd);
 }
 
 static void
@@ -973,7 +1172,7 @@ acl_build_config_cli(param_t *root) {
                      /* access-list <name> <seq-no> <action> <proto>*/
                     static param_t proto;
                     init_param(&proto, LEAF, 0, acl_config_handler, acl_proto_validation_cbk, STRING, "protocol", "specify protocol");
-                    libcli_register_param(&action, &proto);
+                    acl_build_l2_optional_chain(&action, &proto);
                     libcli_set_param_cmd_code(&proto, ACL_CMD_CONFIG);
 
                     {
@@ -1368,10 +1567,41 @@ acl_print (acl_entry_t *acl_entry) {
     c_string time_str;
     byte time_buff[HRS_MIN_SEC_FMT_TIME_LEN];
 
-    cprintf (" %u %s %s",
+    cprintf (" %u %s",
         acl_entry->seq_no,
-        acl_entry->action == ACL_PERMIT ? "permit" : "deny" , 
-        proto_id_str( acl_entry->proto));
+        acl_entry->action == ACL_PERMIT ? "permit" : "deny");
+
+    if (acl_entry->dst_mac_format == ACL_L2_FIELD_SPECIFIED) {
+        cprintf(" dst-mac %02x:%02x:%02x:%02x:%02x:%02x",
+            acl_entry->dst_mac.mac[0], acl_entry->dst_mac.mac[1],
+            acl_entry->dst_mac.mac[2], acl_entry->dst_mac.mac[3],
+            acl_entry->dst_mac.mac[4], acl_entry->dst_mac.mac[5]);
+    }
+
+    if (acl_entry->src_mac_format == ACL_L2_FIELD_SPECIFIED) {
+        cprintf(" src-mac %02x:%02x:%02x:%02x:%02x:%02x",
+            acl_entry->src_mac.mac[0], acl_entry->src_mac.mac[1],
+            acl_entry->src_mac.mac[2], acl_entry->src_mac.mac[3],
+            acl_entry->src_mac.mac[4], acl_entry->src_mac.mac[5]);
+    }
+
+    if (acl_entry->ethertype_format == ACL_L2_FIELD_SPECIFIED) {
+        cprintf(" ethertype %u", acl_entry->ethertype);
+    }
+
+    if (acl_entry->vlan_format == ACL_L2_FIELD_SPECIFIED) {
+        cprintf(" vlan %u", acl_entry->vlan_id);
+    }
+
+    if (!(acl_entry->proto == ACL_PROTO_ANY &&
+          (acl_entry->dst_mac_format == ACL_L2_FIELD_SPECIFIED ||
+           acl_entry->src_mac_format == ACL_L2_FIELD_SPECIFIED ||
+           acl_entry->ethertype_format == ACL_L2_FIELD_SPECIFIED ||
+           acl_entry->vlan_format == ACL_L2_FIELD_SPECIFIED) &&
+          acl_entry->src_addr.acl_addr_format == ACL_ADDR_NOT_SPECIFIED &&
+          acl_entry->dst_addr.acl_addr_format == ACL_ADDR_NOT_SPECIFIED)) {
+        cprintf(" %s", proto_id_str(acl_entry->proto));
+    }
 
     switch (acl_entry->src_addr.acl_addr_format)
     {
