@@ -80,6 +80,7 @@ export LIBS=${ISIS_LIB_PATH} \
 			-LLabelMgr -llabelmgr \
 			${DBMS_LIB_PATH} \
 			${MEXPR_LIB_PATH} \
+			${DBMS_LIB_PATH} \
 			-lpthread \
        		-lrt \
  			-lfl \
