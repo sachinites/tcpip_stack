@@ -1136,3 +1136,30 @@ dp2cp_convert_pkt_block (struct rte_mbuf *mbuf) {
     cp_pkt_block->hdr_type = pkt_mbuf_get_starting_hdr(mbuf);
     return cp_pkt_block;
 }
+
+void 
+cp2dp_enable_bd_lmac_learning_queue(BDInterface *bd_intf, bool enable) {
+
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_hdr_t *intf_msg;
+    dp_intf_bd_pkt_trap_q_t *trap_q;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size =
+        sizeof(dp_intf_cp2dp_msg_hdr_t) + sizeof(dp_intf_bd_pkt_trap_q_t);
+
+    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
+    intf_msg->port_id = bd_intf->ifindex;
+    intf_msg->iftype = (uint32_t)bd_intf->iftype;
+    memcpy (intf_msg->intf_name, bd_intf->if_name.c_str(), sizeof(intf_msg->intf_name));
+
+    intf_msg->update_code = CP2DP_CODE_BD_ENABLE_PKT_TRAP_Q;
+
+    trap_q = (dp_intf_bd_pkt_trap_q_t *)(intf_msg + 1);
+    trap_q->pkt_q_ptr = enable ? (uintptr_t)bd_intf->GetLmac_q() : 0;
+
+    cp2dp_submit(bd_intf->att_node, dp_msg, true);    
+}

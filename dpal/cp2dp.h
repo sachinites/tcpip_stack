@@ -209,6 +209,9 @@ cp2dp_ping_request(node_t *node, ping_ctx_t *pctx);
 struct rte_mbuf *
 cp2dp_convert_pkt_block (dp_ctx_t *dp_ctx, cp_pkt_block_t *cp_pkt_block);
 
+void 
+cp2dp_enable_bd_lmac_learning_queue(BDInterface *bd_intf, bool enable);
+
 /* Pkt Trap APIs to be used by Control plane */
 void
 cp2dp_install_pkt_trap_rule  (node_t *node,

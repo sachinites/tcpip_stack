@@ -185,6 +185,9 @@ task_cancel_job(event_dispatcher_t *ev_dis, task_t *task);
 void
 init_pkt_q(event_dispatcher_t *ev_dis, pkt_q_t *pkt_q, event_cbk cbk);
 
+void
+de_init_pkt_q(pkt_q_t *pkt_q);
+
 bool
 pkt_q_enqueue(event_dispatcher_t *ev_dis, 
 			   pkt_q_t *pkt_q,

@@ -963,7 +963,7 @@ run ut Layer3/isis/ut/isis_config_sample_cross_link_topology.ut 0
 config node R0 no protocol isis interface eth1
 config node R0 no interface ethernet eth1 ip-address 192.168.0.2 24
 config node R0 no interface ethernet eth1 vrf 0
-config node R0 vrf red route-distinguisher 1:1
+config node R0 vrf red
 config node R0 interface ethernet eth1 vrf red
 config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
 config node R0 vrf red protocol isis
@@ -977,7 +977,7 @@ config node R0 rtm-route prefix 100.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3 l3vpn 
 config node R3 no protocol isis interface eth1
 config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
 config node R3 no interface ethernet eth1 vrf 0
-config node R3 vrf red route-distinguisher 1:1
+config node R3 vrf red
 config node R3 interface ethernet eth1 vrf red
 config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
 config node R3 vrf red protocol isis

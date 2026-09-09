@@ -99,6 +99,7 @@ OBJS=     router_init.o   \
 		  Layer2/vxlan/cp/vlan_vni_mapping.o \
 		  Layer2/vxlan/cp/vxlan_cli.o \
 		  Layer2/BD/bd_cli.o \
+		  Layer2/BD/bd_api.o \
 		  Layer2/Evpn/evpn.o \
 		  Layer2/Evpn/evpn_cli.o \
 		  Layer2/Evpn/evpn_priv_api.o \
@@ -153,6 +154,9 @@ Layer2/vxlan/cp/vxlan_cli.o:Layer2/vxlan/cp/vxlan_cli.c
 
 Layer2/BD/bd_cli.o:Layer2/BD/bd_cli.cpp
 	${CC} ${CFLAGS} -c -I . Layer2/BD/bd_cli.cpp -o Layer2/BD/bd_cli.o
+
+Layer2/BD/bd_api.o:Layer2/BD/bd_api.cpp
+	${CC} ${CFLAGS} -c -I . Layer2/BD/bd_api.cpp -o Layer2/BD/bd_api.o
 
 Layer2/Evpn/evpn.o:Layer2/Evpn/evpn.cpp
 	${CC} ${CFLAGS} -c -I . Layer2/Evpn/evpn.cpp -o Layer2/Evpn/evpn.o

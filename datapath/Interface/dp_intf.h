@@ -31,6 +31,7 @@ typedef struct dp_ctx_ dp_ctx_t;
 typedef struct mtrie_ mtrie_t;
 typedef struct trap_rule_ trap_rule_t;
 typedef struct mac_table_ mac_table_t;
+typedef struct pkt_q_ pkt_q_t;
 
 #pragma pack(push, 8)
 
@@ -109,8 +110,10 @@ typedef struct dp_intf_ {
     /* If this is Virtual port, then overlay tunnel interface */
     struct dp_intf_ *olay_tunnel_intf;
 
-    /* If it is a BD interface, then it owns a mac table */
+    /* If it is a BD interface, then it owns a mac table and mac learning
+        queue */
     mac_table_t *mac_table;
+    pkt_q_t *lmac_queue;
 
     /* Logging */
     log_t log_info;

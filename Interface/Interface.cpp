@@ -2134,6 +2134,35 @@ BDInterface::InterfaceReleaseAllResources() {
         this->vpn_svc_label);   
 
     rtm_install_mpls_xconnect_bd_evpn_local_route((Interface *)this, false);
+
+    if (this->lmac_queue) {
+        this->disable_lmac_queue();
+    }
+
+}
+
+extern void 
+bd_recv_mac_learning_cbk(
+        event_dispatcher_t *ev_dis, 
+        void *arg, 
+        uint32_t arg_size);
+
+void 
+BDInterface::enable_lmac_queue()
+{
+    if (this->lmac_queue) return;
+    this->lmac_queue = (pkt_q_t *)XCALLOC2(0, 1, pkt_q_t);
+    init_pkt_q(EV(this->att_node), this->lmac_queue, bd_recv_mac_learning_cbk);
+}
+
+
+void 
+BDInterface::disable_lmac_queue()
+{
+    if (!this->lmac_queue) return;
+    de_init_pkt_q(this->lmac_queue);
+    XFREE(this->lmac_queue);
+    this->lmac_queue = NULL;
 }
 
 bool
@@ -2178,4 +2207,10 @@ BDInterface::FindMemberAC(Interface *phy) {
             return ac;
     }
     return nullptr;
+}
+
+pkt_q_t *
+BDInterface::GetLmac_q() {
+
+    return this->lmac_queue;
 }

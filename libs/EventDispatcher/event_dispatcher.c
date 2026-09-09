@@ -586,6 +586,23 @@ init_pkt_q(event_dispatcher_t *ev_dis,
 	pkt_q->ev_dis = ev_dis;
 }
 
+void
+de_init_pkt_q(pkt_q_t *pkt_q){
+
+#if 0
+	init_glthread(&pkt_q->q_head);
+	pthread_mutex_init(&pkt_q->q_mutex, NULL);
+	pkt_q->task = create_new_task((void *)pkt_q,
+								  sizeof(*pkt_q),
+								  cbk);
+	pkt_q->task->task_type = TASK_PKT_Q_JOB;
+	pkt_q->task->priority = TASK_PRIORITY_PKT_PROCESSING;
+	init_glthread(&pkt_q->glue);
+	glthread_add_next(&ev_dis->pkt_queue_head, &pkt_q->glue);
+	pkt_q->ev_dis = ev_dis;
+#endif
+}
+
 bool
 event_dispatcher_should_suspend (event_dispatcher_t *ev_dis) {
 

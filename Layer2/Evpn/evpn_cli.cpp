@@ -141,14 +141,14 @@ evpn_cli_get_instance (node_t *node, uint8_t evpn_id, bool create)
     return evpn_instance_init (node, evpn_id);
 }
 
-static Interface *
+static BDInterface *
 evpn_cli_lookup_bd (node_t *node, uint32_t bd_id)
 {
     char intf_name[IF_NAME_SIZE];
-    Interface *intf;
+    BDInterface *intf;
 
     snprintf (intf_name, IF_NAME_SIZE, "bd%u", bd_id);
-    intf = node_interface_lookup_by_name (node, intf_name);
+    intf = dynamic_cast<BDInterface *>(node_interface_lookup_by_name (node, intf_name));
 
     if (!intf || intf->iftype != INTF_TYPE_BD) {
         cprintf ("Error : Bridge-domain %u does not exist\n", bd_id);
@@ -193,7 +193,7 @@ evpn_debug_handler (int64_t cmdcode,
     uint32_t bd_id = 0;
     uint32_t labels[MAX_LBL_DEPTH];
     uint8_t label_count = 0;
-    Interface *bd_intf;
+    BDInterface *bd_intf;
     mac_addr_t mac_addr;
     mpls_lstack_t lstack;
 
@@ -419,7 +419,7 @@ evpn_config_handler (int64_t cmdcode,
 
         case CMDCODE_CONFIG_EVPN_CONNECT_BD:
         {
-            Interface *bd_intf;
+            BDInterface *bd_intf;
 
             switch (enable_or_disable) {
 
@@ -442,6 +442,8 @@ evpn_config_handler (int64_t cmdcode,
                     }
 
                     evpn_connect_bd (evpn_inst, bd_intf->ifindex);
+                    bd_intf->enable_lmac_queue();
+                    cp2dp_enable_bd_lmac_learning_queue(bd_intf, true);
                     break;
 
                 case CONFIG_DISABLE:
@@ -460,6 +462,8 @@ evpn_config_handler (int64_t cmdcode,
                                  evpn_id, bd_id);
                         return -1;
                     }
+                    bd_intf->disable_lmac_queue();
+                    cp2dp_enable_bd_lmac_learning_queue(bd_intf, false);
                     break;
 
                 default:

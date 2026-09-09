@@ -37,6 +37,7 @@ typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
 typedef struct pkt_block_ pkt_block_t;
 typedef struct intf_info_  isis_intf_info_t;
 typedef struct vrf_ vrf_t;
+typedef struct pkt_q_ pkt_q_t;
 
 class TransportService;
 
@@ -463,6 +464,7 @@ class BDInterface : public VirtualInterface {
 
     private:
         void InterfaceReleaseAllResources() ;
+        pkt_q_t *lmac_queue;
 
     protected:
 
@@ -486,6 +488,9 @@ class BDInterface : public VirtualInterface {
         bool AddMemberAC(ACInterfaceP ac);
         bool DelMemberAC(ACInterfaceP ac);
         ACInterfaceP FindMemberAC(Interface *phy);
+        void enable_lmac_queue();
+        void disable_lmac_queue();
+        pkt_q_t *GetLmac_q();
 
 } __attribute__((aligned(8)));
 

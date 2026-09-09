@@ -25,7 +25,7 @@
 #include "../Layer2/vxlan/vlan_vni_ht.h"
 #include "../Layer2/bridge-domain/bd.h"
 
-
+#include "../../dpcp_cmn.h"
 #include "../Vrfs/dp_vrf.h"
 
 #include "../Interface/dp_intf.h"
@@ -111,6 +111,24 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
                                 table_vlan,
                                 mac_update_msg->flags,
                                 &tmpl);
+
+             /* Trap to control plane */
+             if (dp_msg->component_type == BD_MAC_TABLE)
+             {
+                dp_intf_t *bd_intf = dp_ctx->intf_table[overlay_vlan];
+                pkt_q_t *lmac_q = bd_intf->lmac_queue;
+                if (!lmac_q) break;
+
+                bd_lmac_data_t *lmac_data = (bd_lmac_data_t *)XCALLOC2(0, 1, bd_lmac_data_t);
+                lmac_data->ac_ifindex = 0; // Not available here
+                lmac_data->ip_addr = 0; // Not available here
+                lmac_data->bd_ifindex = overlay_vlan;
+                lmac_data->add = true;
+                memcpy (&lmac_data->mac.mac, 
+                        &mac_update_msg->mac_addr, sizeof (lmac_data->mac.mac));
+                
+                dp_pkt_q_enqueue(dp_ctx, lmac_q, (char *)lmac_data, sizeof (*lmac_data));
+             }
             break;
             
         case DP_DEL:
@@ -119,6 +137,24 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
                                    mac_update_msg->mac_addr,
                                    table_vlan,
                                    &tmpl);
+            
+            if (dp_msg->component_type == BD_MAC_TABLE)
+             /* Trap to control plane */
+             {
+                dp_intf_t *bd_intf = dp_ctx->intf_table[overlay_vlan];
+                pkt_q_t *lmac_q = bd_intf->lmac_queue;
+                if (!lmac_q) break;
+
+                bd_lmac_data_t *lmac_data = (bd_lmac_data_t *)XCALLOC2(0, 1, bd_lmac_data_t);
+                lmac_data->ac_ifindex = 0; // Not available here
+                lmac_data->ip_addr = 0; // Not available here
+                lmac_data->bd_ifindex = overlay_vlan;
+                lmac_data->add = false;
+                memcpy (&lmac_data->mac.mac, 
+                        &mac_update_msg->mac_addr, sizeof (lmac_data->mac.mac));
+                
+                dp_pkt_q_enqueue(dp_ctx, lmac_q, (char *)lmac_data, sizeof (*lmac_data));
+             }
             break;
 
         case DP_UPDATE:
@@ -889,6 +925,22 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                 }
                 break;
 
+                case CP2DP_CODE_BD_ENABLE_PKT_TRAP_Q:
+                {
+                    assert (intf->if_type == DP_INTF_TYPE_BD);
+
+                    dp_intf_bd_pkt_trap_q_t *trap_q = 
+                        (dp_intf_bd_pkt_trap_q_t *)(msg + 1);
+                    if (trap_q->pkt_q_ptr) {
+                        assert (!intf->lmac_queue);
+                        intf->lmac_queue = (pkt_q_t *)trap_q->pkt_q_ptr;
+                    }
+                    else {
+                        assert (intf->lmac_queue);
+                        intf->lmac_queue = NULL;
+                    }
+                }
+                break;
 
                 default:
                     tracer(dp_ctx->dptr, DCONF, 
