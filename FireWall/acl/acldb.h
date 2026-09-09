@@ -8,7 +8,11 @@
 #include "../../libs/BitOp/bitmap.h"
 #include "../../tcpconst.h"
 #include "../../utils.h"
+#include "../../libs/common/cmn_struct.h"
 
+#define ACL_L2_TCAM_LEN_BITS    128   /* dst-mac(6) + src-mac(6) + type(2) + vlan(2) */
+#define ACL_L3L4_TCAM_LEN_BITS  128
+#define ACL_PREFIX_LEN          (ACL_L2_TCAM_LEN_BITS + ACL_L3L4_TCAM_LEN_BITS)
 
 typedef struct mtrie_ mtrie_t;
 typedef struct node_ node_t;
@@ -26,7 +30,6 @@ typedef struct vrf_ vrf_t;
 typedef struct acl_client_ acl_client_t;
 
 
-#define ACL_PREFIX_LEN  128
 #define ACCESS_LIST_MAX_NAMELEN 64
 #define ACL_MAX_PORTNO    0xFFFF
 
@@ -94,12 +97,37 @@ typedef enum acl_addr_format_ {
     ACL_ADDR_OBJECT_GROUP
 } acl_addr_format_t;
 
+typedef enum acl_l2_field_format_ {
+
+    ACL_L2_FIELD_NOT_SPECIFIED,
+    ACL_L2_FIELD_SPECIFIED
+} acl_l2_field_format_t;
+
 /* Stores the info as read from CLI */
 typedef struct acl_entry_{
 
     uint32_t seq_no;
     acl_action_t action;
     unsigned char *remark;
+
+    /* L2 match fields (Ethernet + 802.1Q VLAN ID) */
+    acl_l2_field_format_t dst_mac_format;
+    acl_l2_field_format_t src_mac_format;
+    acl_l2_field_format_t ethertype_format;
+    acl_l2_field_format_t vlan_format;
+    mac_addr_t dst_mac;
+    mac_addr_t src_mac;
+    uint16_t ethertype;
+    uint16_t vlan_id;
+
+    uint8_t tcam_dst_mac_prefix[MAC_ADDR_SIZE];
+    uint8_t tcam_dst_mac_wcard[MAC_ADDR_SIZE];
+    uint8_t tcam_src_mac_prefix[MAC_ADDR_SIZE];
+    uint8_t tcam_src_mac_wcard[MAC_ADDR_SIZE];
+    uint16_t tcam_ethertype_prefix;
+    uint16_t tcam_ethertype_wcard;
+    uint16_t tcam_vlan_prefix;
+    uint16_t tcam_vlan_wcard;
     
     acl_proto_t proto;
     uint16_t tcam_l4proto_prefix;
@@ -295,12 +323,19 @@ void access_list_reset_acl_counters (access_list_t *access_list);
 
 acl_action_t
 access_list_evaluate(mtrie_t *mtrie,
+                     const uint8_t *dst_mac,
+                     const uint8_t *src_mac,
+                     uint16_t ethertype,
+                     uint16_t vlan_id,
                      uint16_t l3proto,
-                     uint16_t l4roto,
+                     uint16_t l4proto,
                      uint32_t src_addr,
                      uint32_t dst_addr,
                      uint16_t src_port,
                      uint16_t dst_port);
+
+bool
+acl_parse_mac_string(const char *mac_str, mac_addr_t *mac_out);
 
 void access_list_reference(node_t *node, access_list_t *acc_lst);
 void access_list_dereference(node_t *node, access_list_t *acc_lst);

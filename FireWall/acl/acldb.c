@@ -381,6 +381,44 @@ acl_compile (acl_entry_t *acl_entry) {
     assert(!acl_entry->tcam_daddr_prefix);
     assert(!acl_entry->tcam_daddr_wcard);
 
+    /* L2 dst MAC */
+    if (acl_entry->dst_mac_format == ACL_L2_FIELD_SPECIFIED) {
+        memcpy(acl_entry->tcam_dst_mac_prefix,
+               acl_entry->dst_mac.mac, MAC_ADDR_SIZE);
+        memset(acl_entry->tcam_dst_mac_wcard, 0, MAC_ADDR_SIZE);
+    } else {
+        memset(acl_entry->tcam_dst_mac_prefix, 0, MAC_ADDR_SIZE);
+        memset(acl_entry->tcam_dst_mac_wcard, 0xFF, MAC_ADDR_SIZE);
+    }
+
+    /* L2 src MAC */
+    if (acl_entry->src_mac_format == ACL_L2_FIELD_SPECIFIED) {
+        memcpy(acl_entry->tcam_src_mac_prefix,
+               acl_entry->src_mac.mac, MAC_ADDR_SIZE);
+        memset(acl_entry->tcam_src_mac_wcard, 0, MAC_ADDR_SIZE);
+    } else {
+        memset(acl_entry->tcam_src_mac_prefix, 0, MAC_ADDR_SIZE);
+        memset(acl_entry->tcam_src_mac_wcard, 0xFF, MAC_ADDR_SIZE);
+    }
+
+    /* L2 ethertype */
+    if (acl_entry->ethertype_format == ACL_L2_FIELD_SPECIFIED) {
+        acl_entry->tcam_ethertype_prefix = htons(acl_entry->ethertype);
+        acl_entry->tcam_ethertype_wcard = 0;
+    } else {
+        acl_entry->tcam_ethertype_prefix = 0;
+        acl_entry->tcam_ethertype_wcard = 0xFFFF;
+    }
+
+    /* L2 VLAN ID */
+    if (acl_entry->vlan_format == ACL_L2_FIELD_SPECIFIED) {
+        acl_entry->tcam_vlan_prefix = htons(acl_entry->vlan_id);
+        acl_entry->tcam_vlan_wcard = 0;
+    } else {
+        acl_entry->tcam_vlan_prefix = 0;
+        acl_entry->tcam_vlan_wcard = 0xFFFF;
+    }
+
     if (acl_entry->proto == ACL_PROTO_ANY) {
         /* User has feed "any" in place of protocol in ACL */
         /* Fill L4 proto field and L3 proto field with Dont Care */
@@ -827,9 +865,26 @@ void access_list_dereference(node_t *node, access_list_t *acc_lst) {
 
 /* Evaluating the pkt/data against Access List */
 
+bool
+acl_parse_mac_string(const char *mac_str, mac_addr_t *mac_out) {
+
+    if (!mac_str || !mac_out) {
+        return false;
+    }
+
+    return (sscanf(mac_str,
+                  "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                  &mac_out->mac[0], &mac_out->mac[1], &mac_out->mac[2],
+                  &mac_out->mac[3], &mac_out->mac[4], &mac_out->mac[5]) == 6);
+}
+
 static void
 bitmap_fill_with_params(
         bitmap_t *bitmap,
+        const uint8_t *dst_mac,
+        const uint8_t *src_mac,
+        uint16_t ethertype,
+        uint16_t vlan_id,
         uint16_t l3proto,
         uint16_t l4proto,
         uint32_t src_addr,
@@ -837,7 +892,28 @@ bitmap_fill_with_params(
         uint16_t src_port,
         uint16_t dst_port) {
 
-        uint16_t *ptr2 = (uint16_t *)(bitmap->bits);
+        uint8_t *ptr = (uint8_t *)(bitmap->bits);
+
+        if (dst_mac) {
+            memcpy(ptr, dst_mac, MAC_ADDR_SIZE);
+        } else {
+            memset(ptr, 0, MAC_ADDR_SIZE);
+        }
+        ptr += MAC_ADDR_SIZE;
+
+        if (src_mac) {
+            memcpy(ptr, src_mac, MAC_ADDR_SIZE);
+        } else {
+            memset(ptr, 0, MAC_ADDR_SIZE);
+        }
+        ptr += MAC_ADDR_SIZE;
+
+        uint16_t *ptr2 = (uint16_t *)ptr;
+        *ptr2 = htons(ethertype);
+        ptr2++;
+
+        *ptr2 = htons(vlan_id);
+        ptr2++;
 
         /* Transport Protocol 2 B*/
         *ptr2 = htons(l4proto);
@@ -862,12 +938,14 @@ bitmap_fill_with_params(
 
         ptr2 = (uint16_t *)ptr4;
         *ptr2 = htons(dst_port);
-
-        /* 128 bit ACL entry size is supported today */
 }
 
 acl_action_t
 access_list_evaluate(mtrie_t *mtrie,
+                     const uint8_t *dst_mac,
+                     const uint8_t *src_mac,
+                     uint16_t ethertype,
+                     uint16_t vlan_id,
                      uint16_t l3proto,
                      uint16_t l4proto,
                      uint32_t src_addr,
@@ -883,7 +961,17 @@ access_list_evaluate(mtrie_t *mtrie,
     bitmap_t input;
     bitmap_init(&input, ACL_PREFIX_LEN);
 
-    bitmap_fill_with_params(&input, l3proto, l4proto, src_addr, dst_addr, src_port, dst_port);
+    bitmap_fill_with_params(&input,
+                            dst_mac,
+                            src_mac,
+                            ethertype,
+                            vlan_id,
+                            l3proto,
+                            l4proto,
+                            src_addr,
+                            dst_addr,
+                            src_port,
+                            dst_port);
 
     hit_node = mtrie_longest_prefix_match_search(
                             mtrie, &input);
@@ -911,6 +999,7 @@ access_list_evaluate_mbuf (mtrie_t *mtrie, struct rte_mbuf *mbuf) {
     pkt_size_t pkt_size;
     ip_hdr_t *ip_hdr = NULL;
     ethernet_hdr_t *eth_hdr = NULL;
+    vlan_8021q_hdr_t *vlan_hdr = NULL;
 
     gen_proto_id_t starting_hdr = pkt_mbuf_get_starting_hdr(mbuf);
 
@@ -920,16 +1009,32 @@ access_list_evaluate_mbuf (mtrie_t *mtrie, struct rte_mbuf *mbuf) {
                  
     uint16_t src_port = 0,
              dst_port = 0;
+    uint16_t ethertype = 0;
+    uint16_t vlan_id = 0;
+    const uint8_t *dst_mac = NULL;
+    const uint8_t *src_mac = NULL;
 
     switch (starting_hdr)
     {
     case ETHERNET_HEADER:
     {
         eth_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+        dst_mac = eth_hdr->dst_mac.mac;
+        src_mac = eth_hdr->src_mac.mac;
 
-        if (eth_hdr->type == htons(ETH_TYPE_IPv4))
+        vlan_hdr = is_pkt_vlan_tagged(eth_hdr);
+        if (vlan_hdr) {
+            vlan_id = (uint16_t)GET_802_1Q_VLAN_ID(vlan_hdr);
+            ethertype = ntohs(((vlan_ethernet_hdr_t *)eth_hdr)->type);
+        } else {
+            ethertype = ntohs(eth_hdr->type);
+        }
+
+        if (ethertype == ETH_TYPE_IPv4)
         {
-            ip_hdr = (ip_hdr_t *)(eth_hdr->payload);
+            ip_hdr = (ip_hdr_t *)(vlan_hdr ?
+                ((vlan_ethernet_hdr_t *)eth_hdr)->payload :
+                eth_hdr->payload);
             src_ip = ntohl(ip_hdr->src_ip);
             dst_ip = ntohl(ip_hdr->dst_ip);
             l4proto = ip_hdr->protocol;
@@ -948,6 +1053,10 @@ access_list_evaluate_mbuf (mtrie_t *mtrie, struct rte_mbuf *mbuf) {
             }
 
             return access_list_evaluate(mtrie,
+                                        dst_mac,
+                                        src_mac,
+                                        ethertype,
+                                        vlan_id,
                                         ETH_TYPE_IPv4,
                                         l4proto,
                                         src_ip,
@@ -955,6 +1064,18 @@ access_list_evaluate_mbuf (mtrie_t *mtrie, struct rte_mbuf *mbuf) {
                                         src_port,
                                         dst_port);
         }
+
+        return access_list_evaluate(mtrie,
+                                    dst_mac,
+                                    src_mac,
+                                    ethertype,
+                                    vlan_id,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0);
     }
     break;
     case IP_PROTO_IP_IN_IP:
@@ -978,6 +1099,10 @@ access_list_evaluate_mbuf (mtrie_t *mtrie, struct rte_mbuf *mbuf) {
             }
 
             return access_list_evaluate(mtrie,
+                                        NULL,
+                                        NULL,
+                                        0,
+                                        0,
                                         ETH_TYPE_IPv4,
                                         l4proto,
                                         src_ip,
@@ -1029,6 +1154,10 @@ access_list_evaluate_ip_packet(node_t *node,
     }
 
     return access_list_evaluate(access_list->mtrie,
+                                NULL,
+                                NULL,
+                                0,
+                                0,
                                 IP_PROTO_IP_IN_IP,
                                 l4proto,
                                 src_ip,
@@ -1044,7 +1173,39 @@ access_list_evaluate_ethernet_packet(node_t *node,
                                      bool ingress)
 {
 
-    return ACL_PERMIT;
+    ethernet_hdr_t *eth_hdr = NULL;
+    vlan_8021q_hdr_t *vlan_hdr = NULL;
+    access_list_t *access_list;
+    uint16_t ethertype = 0;
+    uint16_t vlan_id = 0;
+
+    access_list = ingress ? intf->l2_ingress_acc_lst :
+                            intf->l2_egress_acc_lst;
+
+    if (!access_list) return ACL_PERMIT;
+
+    eth_hdr = (ethernet_hdr_t *)cp_pkt_block_get_pkt((cp_pkt_block_t *)pkt_block, NULL);
+    if (!eth_hdr) return ACL_PERMIT;
+
+    vlan_hdr = is_pkt_vlan_tagged(eth_hdr);
+    if (vlan_hdr) {
+        vlan_id = (uint16_t)GET_802_1Q_VLAN_ID(vlan_hdr);
+        ethertype = ntohs(((vlan_ethernet_hdr_t *)eth_hdr)->type);
+    } else {
+        ethertype = ntohs(eth_hdr->type);
+    }
+
+    return access_list_evaluate(access_list->mtrie,
+                                eth_hdr->dst_mac.mac,
+                                eth_hdr->src_mac.mac,
+                                ethertype,
+                                vlan_id,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0);
 }
 
 /* Access Group Mgmt APIs */
@@ -1153,10 +1314,41 @@ acl_get_member_tcam_entry (
     bitmap_t *prefix = &tcam_entry->prefix;
     bitmap_t *mask = &tcam_entry->mask;
 
-    uint16_t *prefix_ptr2 = (uint16_t *)prefix->bits;
-    uint32_t *prefix_ptr4 = (uint32_t *)prefix->bits;
-    uint16_t *mask_ptr2 = (uint16_t *)mask->bits;
-    uint32_t *mask_ptr4 = (uint32_t *)mask->bits;
+    uint8_t *prefix_ptr = (uint8_t *)prefix->bits;
+    uint8_t *mask_ptr = (uint8_t *)mask->bits;
+
+    /* L2 dst MAC */
+    memcpy(prefix_ptr, acl_entry->tcam_dst_mac_prefix, MAC_ADDR_SIZE);
+    memcpy(mask_ptr, acl_entry->tcam_dst_mac_wcard, MAC_ADDR_SIZE);
+    prefix_ptr += MAC_ADDR_SIZE;
+    mask_ptr += MAC_ADDR_SIZE;
+    bytes_copied += MAC_ADDR_SIZE;
+
+    /* L2 src MAC */
+    memcpy(prefix_ptr, acl_entry->tcam_src_mac_prefix, MAC_ADDR_SIZE);
+    memcpy(mask_ptr, acl_entry->tcam_src_mac_wcard, MAC_ADDR_SIZE);
+    prefix_ptr += MAC_ADDR_SIZE;
+    mask_ptr += MAC_ADDR_SIZE;
+    bytes_copied += MAC_ADDR_SIZE;
+
+    /* L2 ethertype */
+    memcpy(prefix_ptr, &acl_entry->tcam_ethertype_prefix, sizeof(uint16_t));
+    memcpy(mask_ptr, &acl_entry->tcam_ethertype_wcard, sizeof(uint16_t));
+    prefix_ptr += sizeof(uint16_t);
+    mask_ptr += sizeof(uint16_t);
+    bytes_copied += sizeof(uint16_t);
+
+    /* L2 VLAN ID */
+    memcpy(prefix_ptr, &acl_entry->tcam_vlan_prefix, sizeof(uint16_t));
+    memcpy(mask_ptr, &acl_entry->tcam_vlan_wcard, sizeof(uint16_t));
+    prefix_ptr += sizeof(uint16_t);
+    mask_ptr += sizeof(uint16_t);
+    bytes_copied += sizeof(uint16_t);
+
+    uint16_t *prefix_ptr2 = (uint16_t *)prefix_ptr;
+    uint32_t *prefix_ptr4 = (uint32_t *)prefix_ptr;
+    uint16_t *mask_ptr2 = (uint16_t *)mask_ptr;
+    uint32_t *mask_ptr4 = (uint32_t *)mask_ptr;
 
     /* L4 Protocol */
     memcpy(prefix_ptr2, &acl_entry->tcam_l4proto_prefix, sizeof(*prefix_ptr2));
