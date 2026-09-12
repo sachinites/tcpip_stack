@@ -40,6 +40,9 @@ struct BgpRouteParams {
     bool local_pref_present = false;
     std::uint32_t l3_vpn_label = 0;
     bool l3_vpn_label_present = false;
+    std::string mac_addr;
+    std::uint32_t evpn_label = 0;
+    bool evpn_label_present = false;
     BgpAfi afi = BgpAfi::kIpv4;
     BgpSafi safi = BgpSafi::kUnicast;
 };
@@ -164,6 +167,10 @@ public:
     RpcResult AddRoute(const BgpRouteParams& params);
 
     RpcResult DeleteRoute(const BgpRouteParams& params);
+
+    RpcResult IsAddressFamilyEnabledOnAnyPeer(BgpAfi afi,
+                                              BgpSafi safi,
+                                              bool* enabled);
 
     RpcResult WalkRoutes(BgpAfi afi,
                          BgpSafi safi,

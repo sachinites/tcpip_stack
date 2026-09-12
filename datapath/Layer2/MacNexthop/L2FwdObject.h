@@ -39,6 +39,8 @@ struct MacFwdObject_ {
 
     /* Non-Comparable fields */
     uint32_t ref_count;
+    uint32_t _pad;
+    uint64_t hit_count;   /* packets forwarded via this object (8B aligned) */
     avltree_node_t glue;
     
     union {
@@ -55,8 +57,12 @@ struct MacFwdObject_ {
 
         }l2_flood;
 
-        /* Only MPLs Label Stack */
-        mpls_lstack_t *lbl_stk;
+        /* MPLS tunnel: label stack + underlay OIF + nexthop */
+        struct {
+            mpls_lstack_t *lbl_stk;
+            uint32_t oif_ifindex;
+            uint32_t nh_ip;
+        } mpls_tunnel;
 
         /* VxLAN */
         struct {
@@ -66,11 +72,13 @@ struct MacFwdObject_ {
 
         } vxlan;
 
-        /* SRv6 Segment List */
+        /* SRv6 Segment List + underlay OIF + nexthop */
         struct {
 
             uint8_t seg_lst_cnt;
             uint8_t (*seg_lst)[][16];
+            uint32_t oif_ifindex;
+            uint32_t nh_ip;
 
         } srv6;
 
@@ -164,6 +172,8 @@ struct mac_fwd_object_spec_ {
 
         struct {
             mpls_lstack_t label_stack;
+            uint32_t oif_ifindex;
+            uint32_t nh_ip;
         } mpls_tunnel;
 
     } u;
@@ -180,8 +190,10 @@ mac_fwd_object_spec_from_ifindex (mac_fwd_object_spec_t *spec,
                                   uint32_t vlan_bd_ifindex);
 
 void
-mac_fwd_object_spec_from_mpls_stack (mac_fwd_object_spec_t *spec,
-                                     const mpls_lstack_t *label_stack);
+mac_fwd_object_spec_from_mpls_tunnel (mac_fwd_object_spec_t *spec,
+                                      const mpls_lstack_t *label_stack,
+                                      uint32_t oif_ifindex,
+                                      uint32_t nh_ip);
 
 /* Build a lookup/insert template from a wire spec. overlay_vlan is used
  * for VxLAN VNI lookup when spec does not carry l2vni. */

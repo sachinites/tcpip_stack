@@ -20,6 +20,14 @@
 #include "../../dp-program/dp-prog-struct.h"
 #include "../../Layer3/layer3.h"
 #include "../../Layer3/ipv6/ipv6-fwd.h"
+
+extern void
+dp_demote_pkt_to_layer2(dp_ctx_t *dp_ctx,
+                        dp_vrf_t *vrf,
+                        uint32_t next_hop_ip,
+                        dp_intf_t *oif,
+                        struct rte_mbuf *mbuf,
+                        gen_proto_id_t hdr_type);
 #include "../../Layer3/SRv6/srv6-endpoint.h"
 #include "../../../libs/common/ipv6_hdrs.h"
 
@@ -89,14 +97,19 @@ l2_mpls_tunnel_forwarding (dp_ctx_t *dp_ctx,
     char wire_buf[128];
 
     assert (fwd_obj->fwd_type == L2_FWD_MPLS_TUNNEL);
-    assert (fwd_obj->u.lbl_stk);
+    assert (fwd_obj->u.mpls_tunnel.lbl_stk);
 
     hdr_type = pkt_mbuf_get_starting_hdr(mbuf);
     pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
-    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD,
-        "L2 MPLS tunnel: enter start_hdr=%u size=%u\n",
-        (unsigned)hdr_type, (unsigned)pkt_size);
+    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET,
+        "L2 MPLS tunnel: enter start_hdr=%u size=%u oif=%u nh=%u.%u.%u.%u\n",
+        (unsigned)hdr_type, (unsigned)pkt_size,
+        fwd_obj->u.mpls_tunnel.oif_ifindex,
+        (fwd_obj->u.mpls_tunnel.nh_ip >> 24) & 0xFF,
+        (fwd_obj->u.mpls_tunnel.nh_ip >> 16) & 0xFF,
+        (fwd_obj->u.mpls_tunnel.nh_ip >> 8) & 0xFF,
+        fwd_obj->u.mpls_tunnel.nh_ip & 0xFF);
 
     /* Prevent Split horizon, if the pkt is recvd from the same MPLS
         Overlay, do not pump back it again to MPLS Overlay again */
@@ -113,22 +126,22 @@ l2_mpls_tunnel_forwarding (dp_ctx_t *dp_ctx,
 
     pkt_mbuf_clear_ingress_intf(mbuf);
 
-    lstack = fwd_obj->u.lbl_stk;
+    lstack = fwd_obj->u.mpls_tunnel.lbl_stk;
     if (mpls_lstack_is_empty(lstack)) {
-        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET | DERR,
             "L2 MPLS tunnel: empty label stack, dropping\n");
         dp_ctx->pkt_dropped++;
         return;
     }
 
     mpls_format_lstack(lstack, ops_buf, sizeof(ops_buf));
-    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET | DL2FWD_DET,
+    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET,
         "L2 MPLS tunnel: configured nh_ops=[%s] (index 0=BoS)\n", ops_buf);
 
     /* Merge into existing MPLS header or impose a new stack on the L2 payload. */
     top_hdr_is_mpls = mpls_apply_nh_label_stack(dp_ctx, mbuf, lstack);
     if (!top_hdr_is_mpls) {
-        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DERR,
+        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET | DERR,
             "L2 MPLS tunnel: label stack did not produce MPLS header, dropping\n");
         dp_ctx->pkt_dropped++;
         return;
@@ -139,14 +152,38 @@ l2_mpls_tunnel_forwarding (dp_ctx_t *dp_ctx,
         mpls_label_wire_t *pkt_label =
             (mpls_label_wire_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
         mpls_format_wire_stack(pkt_label, (size_t)pkt_size, wire_buf, sizeof(wire_buf));
-        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD,
+        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET,
             "L2 MPLS tunnel: imposed label stack [outer->inner]: [%s] size=%u\n",
             wire_buf, (unsigned)pkt_size);
     }
     
     pkt_mbuf_update_new_hdr_type(mbuf, IP_PROTO_MPLS_IN_IP);
 
-    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS | DL2FWD,
+    /* If fwd Object is already resolved, then pass it down to L2 Layer,
+        if not resolved (actually partially resolved, which is only possible) 
+        is you install the Type 2 EVPN route statically) then do run time 
+        resolution by passing it to  LFIB for forwarding */
+    if (fwd_obj->u.mpls_tunnel.nh_ip &&
+        fwd_obj->u.mpls_tunnel.oif_ifindex) {
+
+        dp_intf_t *oif =
+            dp_ctx->intf_table[fwd_obj->u.mpls_tunnel.oif_ifindex];
+
+        pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET,
+                "L2 MPLS tunnel: direct L2 encap OIF %s nh %u.%u.%u.%u\n",
+                oif->if_name,
+                (fwd_obj->u.mpls_tunnel.nh_ip >> 24) & 0xFF,
+                (fwd_obj->u.mpls_tunnel.nh_ip >> 16) & 0xFF,
+                (fwd_obj->u.mpls_tunnel.nh_ip >> 8) & 0xFF,
+                fwd_obj->u.mpls_tunnel.nh_ip & 0xFF);
+
+        dp_demote_pkt_to_layer2(dp_ctx, dp_ctx->default_vrf,
+                                    fwd_obj->u.mpls_tunnel.nh_ip,
+                                    oif, mbuf, IP_PROTO_MPLS_IN_IP);
+        return;
+    }
+
+    pkt_tracer(mbuf, dp_ctx->dptr, DMPLS_DET,
         "L2 MPLS tunnel: handing to LFIB (dp_mpls_fwd_pkt) in default VRF\n");
 
     dp_mpls_fwd_pkt(dp_ctx, dp_ctx->default_vrf, NULL, mbuf);
@@ -448,6 +485,7 @@ dp_l2fwd (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj, struct rte_mbuf *mbuf) {
     pkt_tracer(mbuf, dp_ctx->dptr, DL2FWD_DET,
         "dp_l2fwd: dispatch fwd_type=%u\n", (unsigned)fwd_obj->fwd_type);
 
+    fwd_obj->hit_count++;
     (l2_fwding[fwd_obj->fwd_type])(dp_ctx, fwd_obj, mbuf);
 }
 
@@ -486,19 +524,38 @@ L2_forward_object_comp_fb (
             return l2_fwd_cmp_u32(o1->u.l2_flood.vlan_bd_port,
                                   o2->u.l2_flood.vlan_bd_port);
 
-        case L2_FWD_MPLS_TUNNEL:
-            if (!o1->u.lbl_stk && !o2->u.lbl_stk)
+        case L2_FWD_MPLS_TUNNEL: {
+            int rc_oif = l2_fwd_cmp_u32(o1->u.mpls_tunnel.oif_ifindex,
+                                        o2->u.mpls_tunnel.oif_ifindex);
+            int rc_nh = l2_fwd_cmp_u32(o1->u.mpls_tunnel.nh_ip,
+                                       o2->u.mpls_tunnel.nh_ip);
+            if (rc_oif)
+                return rc_oif;
+            if (rc_nh)
+                return rc_nh;
+            if (!o1->u.mpls_tunnel.lbl_stk && !o2->u.mpls_tunnel.lbl_stk)
                 return 0;
-            if (!o1->u.lbl_stk || !o2->u.lbl_stk)
-                return o1->u.lbl_stk ? 1 : -1;
-            return mpls_lstack_compare(o1->u.lbl_stk, o2->u.lbl_stk) ? 0 : -1;
+            if (!o1->u.mpls_tunnel.lbl_stk || !o2->u.mpls_tunnel.lbl_stk)
+                return o1->u.mpls_tunnel.lbl_stk ? 1 : -1;
+            return mpls_lstack_compare(o1->u.mpls_tunnel.lbl_stk,
+                                      o2->u.mpls_tunnel.lbl_stk) ? 0 : -1;
+        }
 
-        case L2_FWD_SRv6_TUNNEL:
+        case L2_FWD_SRv6_TUNNEL: {
+            int rc_oif = l2_fwd_cmp_u32(o1->u.srv6.oif_ifindex,
+                                        o2->u.srv6.oif_ifindex);
+            int rc_nh = l2_fwd_cmp_u32(o1->u.srv6.nh_ip,
+                                       o2->u.srv6.nh_ip);
+            if (rc_oif)
+                return rc_oif;
+            if (rc_nh)
+                return rc_nh;
             rc = l2_fwd_cmp_u32(o1->u.srv6.seg_lst_cnt,
                                 o2->u.srv6.seg_lst_cnt);
             if (rc)
                 return rc;
             return l2_fwd_cmp_ptr(o1->u.srv6.seg_lst, o2->u.srv6.seg_lst);
+        }
 
         case L2_FWD_VxLAN:
             rc = l2_fwd_cmp_u32(o1->u.vxlan.l2vni, o2->u.vxlan.l2vni);
@@ -588,15 +645,21 @@ mac_fwd_object_copy_union (mac_fwd_object_t *dst, mac_fwd_object_t *src)
             break;
 
         case L2_FWD_MPLS_TUNNEL:
-            dst->u.lbl_stk = NULL;
-            if (src->u.lbl_stk) {
-                dst->u.lbl_stk = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
-                memcpy(dst->u.lbl_stk, src->u.lbl_stk, sizeof(mpls_lstack_t));
+            dst->u.mpls_tunnel.oif_ifindex = src->u.mpls_tunnel.oif_ifindex;
+            dst->u.mpls_tunnel.nh_ip = src->u.mpls_tunnel.nh_ip;
+            dst->u.mpls_tunnel.lbl_stk = NULL;
+            if (src->u.mpls_tunnel.lbl_stk) {
+                dst->u.mpls_tunnel.lbl_stk =
+                    (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
+                memcpy(dst->u.mpls_tunnel.lbl_stk, src->u.mpls_tunnel.lbl_stk,
+                       sizeof(mpls_lstack_t));
             }
             break;
 
         case L2_FWD_SRv6_TUNNEL:
             dst->u.srv6.seg_lst_cnt = src->u.srv6.seg_lst_cnt;
+            dst->u.srv6.oif_ifindex = src->u.srv6.oif_ifindex;
+            dst->u.srv6.nh_ip = src->u.srv6.nh_ip;
             dst->u.srv6.seg_lst = NULL;
             if (src->u.srv6.seg_lst && src->u.srv6.seg_lst_cnt) {
                 size_t nbytes = (size_t)src->u.srv6.seg_lst_cnt * 16;
@@ -629,10 +692,12 @@ mac_fwd_object_free_owned (mac_fwd_object_t *fwd_obj)
     switch (fwd_obj->fwd_type) {
 
         case L2_FWD_MPLS_TUNNEL:
-            if (fwd_obj->u.lbl_stk) {
-                XFREE(fwd_obj->u.lbl_stk);
-                fwd_obj->u.lbl_stk = NULL;
+            if (fwd_obj->u.mpls_tunnel.lbl_stk) {
+                XFREE(fwd_obj->u.mpls_tunnel.lbl_stk);
+                fwd_obj->u.mpls_tunnel.lbl_stk = NULL;
             }
+            fwd_obj->u.mpls_tunnel.oif_ifindex = 0;
+            fwd_obj->u.mpls_tunnel.nh_ip = 0;
             break;
 
         case L2_FWD_SRv6_TUNNEL:
@@ -640,6 +705,9 @@ mac_fwd_object_free_owned (mac_fwd_object_t *fwd_obj)
                 XFREE(fwd_obj->u.srv6.seg_lst);
                 fwd_obj->u.srv6.seg_lst = NULL;
             }
+            fwd_obj->u.srv6.seg_lst_cnt = 0;
+            fwd_obj->u.srv6.oif_ifindex = 0;
+            fwd_obj->u.srv6.nh_ip = 0;
             break;
 
         default:
@@ -658,6 +726,7 @@ mac_fwd_object_clone (mac_fwd_object_t *fwd_obj_src, mac_fwd_object_t *fwd_obj_d
 
     memcpy(fwd_obj_dst, fwd_obj_src, sizeof(*fwd_obj_src));
     fwd_obj_dst->ref_count = 0;
+    fwd_obj_dst->hit_count = 0;
     avltree_node_init(&fwd_obj_dst->glue);
     memset(&fwd_obj_dst->u, 0, sizeof(fwd_obj_dst->u));
     mac_fwd_object_copy_union(fwd_obj_dst, fwd_obj_src);
@@ -726,11 +795,15 @@ mac_fwd_object_spec_from_ifindex (mac_fwd_object_spec_t *spec,
 }
 
 void
-mac_fwd_object_spec_from_mpls_stack (mac_fwd_object_spec_t *spec,
-                                     const mpls_lstack_t *label_stack)
+mac_fwd_object_spec_from_mpls_tunnel (mac_fwd_object_spec_t *spec,
+                                      const mpls_lstack_t *label_stack,
+                                      uint32_t oif_ifindex,
+                                      uint32_t nh_ip)
 {
     mac_fwd_object_spec_init(spec);
     spec->fwd_type = L2_FWD_MPLS_TUNNEL;
+    spec->u.mpls_tunnel.oif_ifindex = oif_ifindex;
+    spec->u.mpls_tunnel.nh_ip = nh_ip;
 
     if (label_stack)
         memcpy(&spec->u.mpls_tunnel.label_stack, label_stack,
@@ -786,9 +859,13 @@ dp_mac_fwd_object_init_from_spec (dp_ctx_t *dp_ctx,
             break;
 
         case L2_FWD_MPLS_TUNNEL:
-            tmpl->u.lbl_stk = (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
-            memcpy(tmpl->u.lbl_stk, &spec->u.mpls_tunnel.label_stack,
-                   sizeof(*tmpl->u.lbl_stk));
+            tmpl->u.mpls_tunnel.oif_ifindex = spec->u.mpls_tunnel.oif_ifindex;
+            tmpl->u.mpls_tunnel.nh_ip = spec->u.mpls_tunnel.nh_ip;
+            tmpl->u.mpls_tunnel.lbl_stk =
+                (mpls_lstack_t *)XCALLOC2(0, 1, mpls_lstack_t);
+            memcpy(tmpl->u.mpls_tunnel.lbl_stk,
+                   &spec->u.mpls_tunnel.label_stack,
+                   sizeof(*tmpl->u.mpls_tunnel.lbl_stk));
             break;
 
         case L2_FWD_SRv6_TUNNEL:

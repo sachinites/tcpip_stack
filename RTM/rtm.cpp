@@ -246,12 +246,10 @@ rtm_check_and_delete (rtm_t *rtm, bool free_rtm) {
     assert (rtm->advt_job == NULL);
     assert (rtm->gc_job == NULL);
 
-    /* Destroy LPM tree */
-    assert (mtrie_is_leaf_node(rtm->lpm_rt_tree->root));
+    if (rtm->lpm_rt_tree) assert (mtrie_is_leaf_node(rtm->lpm_rt_tree->root));
     assert (avltree_is_empty (&rtm->ppt_db_route_tree));
-
+    
     assert (Fglthread_list_is_empty(&rtm->gc_queue) );
-
     assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_resolved_routes));
     assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_unresolved_routes));
     assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_resolved_nhs));

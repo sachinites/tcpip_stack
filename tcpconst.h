@@ -139,8 +139,8 @@ tcpip_protocol_classification(uint16_t proto) {
 
 
 /* Addr Families */
-#define IPV4_UNICAST_AF_STR "ipv4-unicast"
-#define IPV6_UNICAST_AF_STR "ipv6-unicast"
+#define IPV4_UNICAST_AF_STR  "ipv4-unicast"
+#define IPV6_UNICAST_AF_STR  "ipv6-unicast"
 #define VPNV4_UNICAST_AF_STR "vpnv4-unicast"
 #define L2VPN_EVPN_AF_STR    "l2vpn-evpn"
 
@@ -151,7 +151,7 @@ tcpip_protocol_classification(uint16_t proto) {
 #define SAFI_UNICAST 1
 #define SAFI_MULTICAST 2
 #define SAFI_MPLS_VPN 128
-#define SAFI_MPLS_EVPN 75
+#define SAFI_MPLS_EVPN 70
 
 
 #endif /* __TCPCONST__ */

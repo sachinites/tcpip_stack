@@ -249,12 +249,15 @@ void
 cp2dp_bd_mac_table_entry_add_mpls(node_t *node,
                                   uint8_t *mac_addr,
                                   uint32_t bd_ifindex,
-                                  const mpls_lstack_t *label_stack,
+                                  const mac_fwd_object_spec_t *fwd_spec,
                                   uint16_t flags,
                                   bool async)
 {
     dp_msg_t *dp_msg;
     mac_update_msg_t *mac_update_msg;
+
+    assert(fwd_spec);
+    assert(fwd_spec->fwd_type == L2_FWD_MPLS_TUNNEL);
 
     dp_msg = cp2dp_msg_alloc();
     dp_msg->component_type = BD_MAC_TABLE;
@@ -267,7 +270,7 @@ cp2dp_bd_mac_table_entry_add_mpls(node_t *node,
     mac_update_msg->table_vlan_id = DEFAULT_VLAN_ID;
     mac_update_msg->bd_ifindex = bd_ifindex;
     mac_update_msg->flags = flags;
-    mac_fwd_object_spec_from_mpls_stack(&mac_update_msg->fwd, label_stack);
+    mac_update_msg->fwd = *fwd_spec;
 
     cp2dp_submit(node, dp_msg, async);
 }
@@ -276,11 +279,14 @@ void
 cp2dp_bd_mac_table_entry_del_mpls(node_t *node,
                                   uint8_t *mac_addr,
                                   uint32_t bd_ifindex,
-                                  const mpls_lstack_t *label_stack,
+                                  const mac_fwd_object_spec_t *fwd_spec,
                                   bool async)
 {
     dp_msg_t *dp_msg;
     mac_update_msg_t *mac_update_msg;
+
+    assert(fwd_spec);
+    assert(fwd_spec->fwd_type == L2_FWD_MPLS_TUNNEL);
 
     dp_msg = cp2dp_msg_alloc();
     dp_msg->component_type = BD_MAC_TABLE;
@@ -293,7 +299,28 @@ cp2dp_bd_mac_table_entry_del_mpls(node_t *node,
     mac_update_msg->table_vlan_id = DEFAULT_VLAN_ID;
     mac_update_msg->bd_ifindex = bd_ifindex;
     mac_update_msg->flags = 0;
-    mac_fwd_object_spec_from_mpls_stack(&mac_update_msg->fwd, label_stack);
+    mac_update_msg->fwd = *fwd_spec;
+
+    cp2dp_submit(node, dp_msg, async);
+}
+
+void
+cp2dp_bd_mac_table_clear(node_t *node,
+                         uint32_t bd_ifindex,
+                         bool async)
+{
+    dp_msg_t *dp_msg;
+    mac_update_msg_t *mac_update_msg;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = BD_MAC_TABLE;
+    dp_msg->opr_type = DP_CLEAR;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(mac_update_msg_t);
+    mac_update_msg = (mac_update_msg_t *)dp_msg->data;
+
+    memset(mac_update_msg, 0, sizeof(*mac_update_msg));
+    mac_update_msg->bd_ifindex = bd_ifindex;
 
     cp2dp_submit(node, dp_msg, async);
 }

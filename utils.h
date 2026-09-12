@@ -241,5 +241,7 @@ rt_type1_to_string(const char *rt_str,
                    char *out_buf,
                    size_t out_buf_len);
 
-                   
+void 
+rt_type1_fill(rt_t *rt, uint32_t ipv4_admin, uint16_t assigned);
+
 #endif /* __UTILS__ */

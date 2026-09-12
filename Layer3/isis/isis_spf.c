@@ -149,7 +149,7 @@ isis_rt_ipv6_route_add(
         &rtm_gateway,
         oif->ifindex,
         oif->iftype,
-        NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
+        NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN, 0);
 }
 
 static void
@@ -204,7 +204,7 @@ isis_rt_ipv6_route_del(
             &rtm_gateway,
             oif ? oif->ifindex : 0,
             oif ? oif->iftype : INTF_TYPE_UNKNOWN,
-            NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
+            NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN, 0);
         
             return;
     }
@@ -477,7 +477,7 @@ isis_rt_ipv4_route_add(
         &rtm_gateway,
         oif->ifindex,
         oif->iftype,
-        NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
+        NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN, 0);
 }
 
 static void
@@ -539,7 +539,7 @@ isis_rt_ipv4_route_del(
             &rtm_gateway,
             oif ? oif->ifindex : 0,
             oif ? oif->iftype : INTF_TYPE_UNKNOWN,
-            NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN);
+            NULL, 0, 0, MPLS_OP_STACK_OPS_UNKNOWN, 0);
         return;
     }
 
@@ -888,7 +888,7 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
                         nexthop->ifindex,
                         nexthop->oif ? nexthop->oif->iftype : INTF_TYPE_UNKNOWN,
                         label_stack_count ? label_stack : NULL, label_stack_count, 0,
-                        MPLS_OP_STACK_OPS_UNKNOWN);
+                        MPLS_OP_STACK_OPS_UNKNOWN, 0);
 
                     if (rc != RTM_SUCCESS) {
                         tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS | DERR,
@@ -927,7 +927,7 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
                         nexthop->ifindex,
                         nexthop->oif ? nexthop->oif->iftype : INTF_TYPE_UNKNOWN,
                         label_stack_count ? label_stack : NULL, label_stack_count, 0,
-                        php ? MPLS_OP_POP : MPLS_OP_STACK_OPS_UNKNOWN);
+                        php ? MPLS_OP_POP : MPLS_OP_STACK_OPS_UNKNOWN, 0);
 
                     if (rc != RTM_SUCCESS) {
                         tracer (ISIS_TR(node_info), TR_ISIS_SR_MPLS | DERR,

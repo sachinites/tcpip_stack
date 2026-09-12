@@ -23,6 +23,9 @@
  *    reader that fetched the pointer just before deletion can finish safely.
  *  - All functions that mutate the table assert that they run on dp_ev_dis.
  *  - Each MAC entry stores interned mac_fwd_object_t pointers directly.
+ *  - Unicast entries with multiple MacFwdObjects use per-entry nh_index for
+ *    ECMP round-robin (hash key remains MAC only).  Broadcast MAC entries
+ *    flood on all MacFwdObjects.
  */
 
 /* Forward declarations */
@@ -48,7 +51,8 @@ typedef struct mac_table_entry_ {
     mac_addr_t mac;
     uint16_t flags;
     uint16_t vlan_id;
-    char padding[4];
+    uint8_t nh_index;   /* round-robin ECMP index — not part of hash key */
+    uint8_t _pad[3];
     /* last_used: wall-clock seconds written by forwarding threads via
      * mac_table_entry_touch().  Read by the GC scan on dp_ev_dis.
      * Dynamic entries are stamped at creation and refreshed on both source
@@ -72,11 +76,44 @@ void init_mac_table(mac_table_t **mac_table, const char *ctx_name,
                     const char *suffix);
 void destroy_mac_table(dp_ctx_t *dp_ctx, mac_table_t *mac_table);
 
+/* Deferred destroy of an entire MAC table (hash + all entries). */
+void mac_table_schedule_gc(dp_ctx_t *dp_ctx, mac_table_t *mac_table);
+
+/* Notify CP of a BD MAC learn/unlearn via the BD lmac_queue (if enabled). */
+void
+dp_bd_mac_notify_cp(dp_ctx_t *dp_ctx,
+                    uint32_t bd_ifindex,
+                    const uint8_t *mac_addr,
+                    bool add);
+
+/* Build a fresh MAC table containing only static entries from old_table.
+ * Dynamic entries are not copied; CP is notified of each discard via
+ * dp_bd_mac_notify_cp(). Must run on dp_ev_dis. */
+mac_table_t *
+mac_table_clear_retain_static(dp_ctx_t *dp_ctx,
+                              mac_table_t *old_table,
+                              uint32_t bd_ifindex,
+                              const char *ctx_name,
+                              const char *suffix);
+
 /* -------------------------------------------------------------------------
  * Read path — lock-free, callable from any thread (DPDK workers included)
  * ---------------------------------------------------------------------- */
 mac_table_entry_t *mac_table_lookup(mac_table_t *mac_table,
                                     uint16_t vlan, uint8_t *mac);
+
+static inline bool
+mac_table_entry_is_broadcast(const mac_table_entry_t *entry)
+{
+    if (!entry)
+        return false;
+    return IS_MAC_BROADCAST_ADDR(entry->mac.mac);
+}
+
+/* ECMP: select one MacFwdObject for unicast entries (round-robin nh_index).
+ * Returns NULL for broadcast MAC entries or when no valid nexthop exists. */
+mac_fwd_object_t *
+mac_table_get_forwarding_nh(mac_table_entry_t *entry);
 
 /* Called by the forwarding data path on each frame forwarded through this
  * entry.  Replaces the expensive per-frame cancel+reinit timer pair with a

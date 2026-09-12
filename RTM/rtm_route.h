@@ -122,7 +122,6 @@ rtm_error_t rtm_route_add(rtm_t *rtm, rtm_route *route);
 
 /* Nexthop Mgmt*/
 rtm_nh *rtm_route_lookup_nh(rtm_route *route, rtm_nh *nh_template);
-rtm_nh *rtm_route_lookup_nh_with_same_fwding_behavior(rtm_route *route, rtm_nh *nh_template);
 rtm_error_t rtm_route_add_nh(rtm_t *rtm, rtm_route *route, rtm_nh *nh);
 rtm_error_t rtm_route_delete_nh (rtm_t *rtm, rtm_route* route, rtm_nh* nh);
 rtm_error_t rtm_route_delete (rtm_t *rtm, rtm_route* route) ;

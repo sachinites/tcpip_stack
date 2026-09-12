@@ -16,6 +16,7 @@
 #include <time.h>
 #include <ncurses.h>
 #include <pthread.h>
+#include <arpa/inet.h>
 
 #include <rte_hash.h>
 #include <rte_jhash.h>
@@ -31,8 +32,12 @@
 #include "../../../libs/gluethread/glthread.h"
 #include "../../dp_uapi.h"
 #include "../MacNexthop/L2FwdObject.h"
+#include "../../../dpcp_cmn.h"
+#include "../../dp_const.h"
 
 extern int cprintf(const char *format, ...);
+
+static uint32_t mac_table_hash_seq;
 
 /* -------------------------------------------------------------------------
  * Write-thread assertion: all mutations must happen on dp_ev_dis.
@@ -80,11 +85,13 @@ init_mac_table(mac_table_t **mac_table, const char *ctx_name,
     /* DPDK rte_hash names are process-global.  Global L2 MAC table uses
      * mac_<ctx>; per-BD tables use mac_<ctx>_<suffix> (e.g. bd10). */
     char hash_name[RTE_HASH_NAMESIZE];
+    uint32_t seq = ++mac_table_hash_seq;
+
     if (suffix && suffix[0]) {
-        snprintf(hash_name, sizeof(hash_name), "mac_%.13s_%.13s",
-                 ctx_name, suffix);
+        snprintf(hash_name, sizeof(hash_name), "mac_%.10s_%.10s_%u",
+                 ctx_name, suffix, seq);
     } else {
-        snprintf(hash_name, sizeof(hash_name), "mac_%.27s", ctx_name);
+        snprintf(hash_name, sizeof(hash_name), "mac_%.20s_%u", ctx_name, seq);
     }
 
     struct rte_hash_parameters params = {};
@@ -150,6 +157,7 @@ mac_table_lookup(mac_table_t *mac_table, uint16_t vlan, uint8_t *mac)
 /* Forward declaration — defined in the write-path section below. */
 static void mac_entry_remove(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                               mac_table_entry_t *entry, mac_table_key_t *key);
+static bool mac_table_entry_grow_oifs(mac_table_entry_t *mac_entry);
 
 /* GC delete — called from the periodic GC scan on dp_ev_dis.
  * Removes the entry from the hash and schedules deferred memory free. */
@@ -200,6 +208,7 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     entry->oifs = NULL;
     entry->oif_count = 0;
     entry->oif_cap = 0;
+    entry->nh_index = 0;
     mac_table_entry_attach_fwd(dp_ctx, entry, fwd_tmpl);
 
     mac_table_key_t key = { .vlan_id = vlan_id };
@@ -284,6 +293,145 @@ mac_table_entry_delete2(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
     mac_entry_remove(dp_ctx, mac_table, entry, &key);
 }
 
+static mac_table_entry_t *
+mac_table_entry_clone_static(const mac_table_entry_t *src)
+{
+    mac_table_entry_t *dst;
+    uint16_t i;
+
+    dst = (mac_table_entry_t *)XCALLOC2(0, 1, mac_table_entry_t);
+    dst->vlan_id = src->vlan_id;
+    dst->flags = src->flags;
+    dst->last_used = src->last_used;
+    dst->nh_index = 0;
+    memcpy(dst->mac.mac, src->mac.mac, sizeof(dst->mac.mac));
+
+    for (i = 0; i < src->oif_count; i++) {
+        if (!src->oifs[i])
+            continue;
+
+        if (dst->oif_count >= dst->oif_cap &&
+            !mac_table_entry_grow_oifs(dst)) {
+            break;
+        }
+
+        mac_fwd_object_reference(src->oifs[i]);
+        dst->oifs[dst->oif_count++] = src->oifs[i];
+    }
+
+    return dst;
+}
+
+static void
+mac_table_gc_free_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
+{
+    mac_table_t *mac_table = (mac_table_t *)arg;
+    dp_ctx_t *dp_ctx = (dp_ctx_t *)ev_dis->app_data;
+
+    destroy_mac_table(dp_ctx, mac_table);
+}
+
+void
+mac_table_schedule_gc(dp_ctx_t *dp_ctx, mac_table_t *mac_table)
+{
+    if (!mac_table)
+        return;
+
+    timer_register_app_event(DP_TIMER(dp_ctx),
+                             mac_table_gc_free_cbk,
+                             (void *)mac_table,
+                             sizeof(*mac_table),
+                             DP_TABLE_GC_DELAY_MS,
+                             0);
+}
+
+void
+dp_bd_mac_notify_cp(dp_ctx_t *dp_ctx,
+                    uint32_t bd_ifindex,
+                    const uint8_t *mac_addr,
+                    bool add)
+{
+    dp_intf_t *bd_intf;
+    pkt_q_t *lmac_q;
+    bd_lmac_data_t *lmac_data;
+
+    if (!dp_ctx || !mac_addr || bd_ifindex >= DP_MAX_INTF)
+        return;
+
+    bd_intf = dp_ctx->intf_table[bd_ifindex];
+    if (!bd_intf)
+        return;
+
+    lmac_q = bd_intf->lmac_queue;
+    if (!lmac_q)
+        return;
+
+    lmac_data = (bd_lmac_data_t *)XCALLOC2(0, 1, bd_lmac_data_t);
+    lmac_data->ac_ifindex = 0;
+    lmac_data->ip_addr = 0;
+    lmac_data->bd_ifindex = bd_ifindex;
+    lmac_data->add = add;
+    memcpy(lmac_data->mac.mac, mac_addr, sizeof(lmac_data->mac.mac));
+
+    tracer (dp_ctx->dptr, DL2SW_DET,
+            "MAC Table Entry [%s %02x:%02x:%02x:%02x:%02x:%02x] %s\n",
+            bd_intf->if_name,
+            mac_addr[0], mac_addr[1], mac_addr[2],
+            mac_addr[3], mac_addr[4], mac_addr[5],
+            add ? "added" : "deleted");
+
+    dp_pkt_q_enqueue(dp_ctx, lmac_q, (char *)lmac_data, sizeof(*lmac_data));
+}
+
+mac_table_t *
+mac_table_clear_retain_static(dp_ctx_t *dp_ctx,
+                              mac_table_t *old_table,
+                              uint32_t bd_ifindex,
+                              const char *ctx_name,
+                              const char *suffix)
+{
+    mac_table_t *new_table;
+    uint32_t next = 0;
+    const void *key;
+    void *data;
+
+    ASSERT_ON_DP_EV_DIS(dp_ctx);
+
+    if (!old_table || !old_table->hash)
+        return NULL;
+
+    init_mac_table(&new_table, ctx_name, suffix);
+    if (!new_table || !new_table->hash) {
+        if (new_table)
+            XFREE(new_table);
+        return NULL;
+    }
+
+    while (rte_hash_iterate(old_table->hash, &key, &data, &next) >= 0) {
+        mac_table_entry_t *src = (mac_table_entry_t *)data;
+        mac_table_entry_t *dst;
+        mac_table_key_t entry_key;
+
+        if (!src)
+            continue;
+
+        if (!(src->flags & MAC_STATIC)) {
+            /* Discard dynamic entry — notify CP of the unlearn. */
+            dp_bd_mac_notify_cp(dp_ctx, bd_ifindex, src->mac.mac, false);
+            continue;
+        }
+
+        dst = mac_table_entry_clone_static(src);
+        entry_key.vlan_id = dst->vlan_id;
+        memcpy(entry_key.mac, dst->mac.mac, sizeof(entry_key.mac));
+
+        assert(rte_hash_add_key_data(new_table->hash, &entry_key, dst) >= 0);
+        new_table->entry_count++;
+    }
+
+    return new_table;
+}
+
 void
 mac_table_delete_all_dynamic(dp_ctx_t *dp_ctx, mac_table_t *mac_table)
 {
@@ -313,6 +461,38 @@ mac_table_delete_all_dynamic(dp_ctx_t *dp_ctx, mac_table_t *mac_table)
         for (int i = 0; i < n; i++)
             mac_table_gc_delete_entry(dp_ctx, mac_table, batch[i]);
     }
+}
+
+mac_fwd_object_t *
+mac_table_get_forwarding_nh(mac_table_entry_t *entry)
+{
+    uint16_t i;
+    uint16_t start_idx;
+    mac_fwd_object_t *fwd_obj;
+
+    if (!entry || !entry->oif_count)
+        return NULL;
+
+    if (mac_table_entry_is_broadcast(entry))
+        return NULL;
+
+    if (entry->oif_count == 1)
+        return entry->oifs[0];
+
+    start_idx = (uint16_t)((entry->nh_index + 1) % entry->oif_count);
+
+    for (i = 0; i < entry->oif_count; i++) {
+        uint16_t cur = (start_idx + i) % entry->oif_count;
+
+        fwd_obj = entry->oifs[cur];
+        if (!fwd_obj)
+            continue;
+
+        entry->nh_index = (uint8_t)cur;
+        return fwd_obj;
+    }
+
+    return NULL;
 }
 
 /* -------------------------------------------------------------------------
@@ -372,13 +552,29 @@ mac_table_fmt_one_oif(dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
 
         case L2_FWD_MPLS_TUNNEL:
         {
-            mpls_lstack_t *st = fwd_obj->u.lbl_stk;
+            mpls_lstack_t *st = fwd_obj->u.mpls_tunnel.lbl_stk;
             int off = 0;
 
             if (!st || st->curr_index < 0) {
-                len = snprintf(buffer, buff_size, "mpls()");
+                len = snprintf(buffer, buff_size,
+                               "mpls(oif=%s nh=%u.%u.%u.%u)",
+                               dp_ctx->intf_table[fwd_obj->u.mpls_tunnel.oif_ifindex] ?
+                               dp_ctx->intf_table[fwd_obj->u.mpls_tunnel.oif_ifindex]->if_name : "-",
+                               (fwd_obj->u.mpls_tunnel.nh_ip >> 24) & 0xFF,
+                               (fwd_obj->u.mpls_tunnel.nh_ip >> 16) & 0xFF,
+                               (fwd_obj->u.mpls_tunnel.nh_ip >> 8) & 0xFF,
+                               fwd_obj->u.mpls_tunnel.nh_ip & 0xFF);
                 break;
             }
+
+            off += snprintf(buffer, buff_size,
+                            "mpls(oif=%s nh=%u.%u.%u.%u labels=",
+                            dp_ctx->intf_table[fwd_obj->u.mpls_tunnel.oif_ifindex] ?
+                            dp_ctx->intf_table[fwd_obj->u.mpls_tunnel.oif_ifindex]->if_name : "-",
+                            (fwd_obj->u.mpls_tunnel.nh_ip >> 24) & 0xFF,
+                            (fwd_obj->u.mpls_tunnel.nh_ip >> 16) & 0xFF,
+                            (fwd_obj->u.mpls_tunnel.nh_ip >> 8) & 0xFF,
+                            fwd_obj->u.mpls_tunnel.nh_ip & 0xFF);
 
             for (int i = 0; i <= st->curr_index; i++) {
                 off += snprintf(buffer + off, buff_size - off, "%s%u",
@@ -387,6 +583,59 @@ mac_table_fmt_one_oif(dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
                 if (off >= buff_size)
                     break;
             }
+            if (off < buff_size)
+                off += snprintf(buffer + off, buff_size - off, ")");
+            len = off;
+            break;
+        }
+        case L2_FWD_SRv6_TUNNEL:
+        {
+            uint8_t seg_cnt = fwd_obj->u.srv6.seg_lst_cnt;
+            int off = 0;
+            const char *oif_name = "-";
+
+            if (fwd_obj->u.srv6.oif_ifindex < DP_MAX_INTF &&
+                dp_ctx->intf_table[fwd_obj->u.srv6.oif_ifindex])
+                oif_name = dp_ctx->intf_table[fwd_obj->u.srv6.oif_ifindex]->if_name;
+
+            off += snprintf(buffer, buff_size, "srv6(");
+
+            if (fwd_obj->u.srv6.oif_ifindex) {
+                off += snprintf(buffer + off, buff_size - off,
+                                "oif=%s", oif_name);
+            }
+
+            if (fwd_obj->u.srv6.nh_ip) {
+                off += snprintf(buffer + off, buff_size - off,
+                                "%snh=%u.%u.%u.%u",
+                                fwd_obj->u.srv6.oif_ifindex ? " " : "",
+                                (fwd_obj->u.srv6.nh_ip >> 24) & 0xFF,
+                                (fwd_obj->u.srv6.nh_ip >> 16) & 0xFF,
+                                (fwd_obj->u.srv6.nh_ip >> 8) & 0xFF,
+                                fwd_obj->u.srv6.nh_ip & 0xFF);
+            }
+
+            if (fwd_obj->u.srv6.seg_lst && seg_cnt) {
+                off += snprintf(buffer + off, buff_size - off,
+                                "%ssegs=",
+                                (fwd_obj->u.srv6.oif_ifindex ||
+                                 fwd_obj->u.srv6.nh_ip) ? " " : "");
+                for (uint8_t i = 0; i < seg_cnt; i++) {
+                    char sid[INET6_ADDRSTRLEN];
+
+                    if (!inet_ntop(AF_INET6, (*fwd_obj->u.srv6.seg_lst)[i],
+                                   sid, sizeof(sid)))
+                        snprintf(sid, sizeof(sid), "?");
+
+                    off += snprintf(buffer + off, buff_size - off, "%s%s",
+                                    i ? "," : "", sid);
+                    if (off >= buff_size)
+                        break;
+                }
+            }
+
+            if (off < buff_size)
+                off += snprintf(buffer + off, buff_size - off, ")");
             len = off;
             break;
         }
@@ -415,10 +664,12 @@ mac_table_entry_print_oifs(dp_ctx_t *dp_ctx, mac_table_entry_t *entry)
             continue;
 
         if (first) {
-            cprintf("       Ports: %s\n", buffer);
+            cprintf("       Ports: %s  hits=%llu\n", buffer,
+                    (unsigned long long)fwd_obj->hit_count);
             first = false;
         } else {
-            cprintf("              %s\n", buffer);
+            cprintf("              %s  hits=%llu\n", buffer,
+                    (unsigned long long)fwd_obj->hit_count);
         }
     }
 
@@ -541,6 +792,8 @@ mac_table_entry_detach_fwd(dp_ctx_t *dp_ctx,
         mac_fwd_object_dereference(dp_ctx, fwd_obj);
         mac_entry->oifs[i] = mac_entry->oifs[mac_entry->oif_count - 1];
         mac_entry->oif_count--;
+        if (mac_entry->nh_index >= mac_entry->oif_count)
+            mac_entry->nh_index = 0;
         return true;
     }
 

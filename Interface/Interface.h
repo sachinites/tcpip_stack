@@ -472,8 +472,10 @@ class BDInterface : public VirtualInterface {
         uint32_t ip_addr;
         uint32_t vpn_svc_label;
         uint16_t bd_id;
+        uint8_t evi_id;
         uint8_t mask;
-        char _pad[5];
+        char _pad[4];
+        
         BDInterface(std::string ifname, InterfaceType_t iftype, node_t *node);
         virtual ~BDInterface();
         bool IsCrossReferenced() final;

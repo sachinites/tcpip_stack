@@ -42,6 +42,9 @@ extern graph_t *topo;
 #define CMDCODE_SHOW_BGP_ROUTES_IPV4_MPLS_VPN 8
 #define CMDCODE_SHOW_BGP_ROUTES_IPV6_UNICAST 9
 
+/* show node <node-name> protocol bgp routes l2vpn-evpn mac */
+#define CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_MAC 14
+
 /* run node <node-name> protocol bgp monitor <afi> <safi> */
 #define CMDCODE_RUN_BGP_MONITOR 10
 
@@ -50,6 +53,9 @@ extern graph_t *topo;
 
 /* config node <node-name> protocol bgp <local-asn> neighbor <addr> address-family ipv4-vpn */
 #define CMDCODE_CONFIG_BGP_NEIGHBOR_AF_IPV4_VPN 12
+
+/* config node <node-name> protocol bgp <local-asn> neighbor <addr> address-family l2vpn-evpn */
+#define CMDCODE_CONFIG_BGP_NEIGHBOR_AF_L2VPN_EVPN 13
 
 
 static sf_gobgp_grpc_client_t *
@@ -100,7 +106,15 @@ bgp_apply_neighbor_address_families(
         local_address,
         nbr->ipv4_unicast,
         nbr->ipv4_vpn,
-        false);
+        nbr->l2vpn_evpn);
+}
+
+static void
+bgp_on_neighbor_af_disabled(node_t *node, int afi, int safi)
+{
+    if (!bgp_route_is_af_enabled_on_any_neighbor(node, afi, safi)) {
+        bgp_route_withdraw_originated_routes(node, afi, safi);
+    }
 }
 
 static bgp_neighbor_config_t *
@@ -201,6 +215,11 @@ static void
 bgp_monitor_recv_vpn_route_processing_cbk(const bgp_route_info_t *route,
                                          bool is_withdraw,
                                          void *userdata);
+
+static void
+bgp_monitor_recv_evpn_route_processing_cbk(const bgp_route_info_t *route,
+                                           bool is_withdraw,
+                                           void *userdata);
 
 /* Before firing any BGP config, make sure goBGP gRPC Server is running 
     run this command in separate terminal : 
@@ -509,6 +528,7 @@ bgp_config_handler(int64_t cmdcode,
                                             &result);
                         return -1;
                     }
+                    bgp_on_neighbor_af_disabled(node, AFI_IPV4, SAFI_UNICAST);
                     cprintf("IPv4 unicast disabled for neighbor %s\n",
                             neighbor_addr);
                     break;
@@ -604,8 +624,106 @@ bgp_config_handler(int64_t cmdcode,
                                             &result);
                         return -1;
                     }
+                    bgp_on_neighbor_af_disabled(node, AFI_IPV4, SAFI_MPLS_VPN);
                     cprintf("%s disabled for neighbor %s\n",
                             VPNV4_UNICAST_AF_STR, neighbor_addr);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+        break;
+
+        case CMDCODE_CONFIG_BGP_NEIGHBOR_AF_L2VPN_EVPN:
+        {
+            bgp_neighbor_config_t *nbr;
+
+            if (!neighbor_addr) {
+                cprintf("Error : Neighbor address required\n");
+                return -1;
+            }
+
+            if (!BGP_INST(node)) {
+                cprintf("Error : BGP is not running\n");
+                return -1;
+            }
+
+            cfg = bgp_config_get(node);
+            client = bgp_get_grpc_client(node);
+
+            nbr = bgp_config_find_neighbor(cfg, (const char *)neighbor_addr);
+            if (!peer_asn_present) {
+                if (!nbr || !nbr->configured) {
+                    cprintf("Error : Neighbor %s is not configured; "
+                            "configure remote-as first\n",
+                            neighbor_addr);
+                    return -1;
+                }
+                peer_asn = nbr->peer_asn;
+            }
+
+            switch (enable_or_disable) {
+
+                case CONFIG_ENABLE:
+                    if (nbr && nbr->configured &&
+                        nbr->peer_asn == peer_asn &&
+                        nbr->l2vpn_evpn) {
+                        cprintf("%s already enabled for neighbor %s\n",
+                                L2VPN_EVPN_AF_STR, neighbor_addr);
+                        break;
+                    }
+                    nbr = bgp_config_add_neighbor(cfg,
+                                                  (const char *)neighbor_addr);
+                    if (!nbr) {
+                        cprintf("Error : BGP neighbor table full\n");
+                        return -1;
+                    }
+                    nbr->peer_asn = peer_asn;
+                    nbr->configured = true;
+                    nbr->l2vpn_evpn = true;
+                    result = bgp_apply_neighbor_address_families(
+                        client, nbr, (const char *)NODE_RTRID_ADDR(node));
+                    if (!result.ok) {
+                        bgp_print_rpc_error(node, "Enable L2VPN EVPN",
+                                            &result);
+                        return -1;
+                    }
+                    if (bgp_node_monitor_subscribe_af(
+                            node, AFI_L2VPN, SAFI_MPLS_EVPN,
+                            bgp_monitor_recv_evpn_route_processing_cbk,
+                            node) != 0) {
+                        cprintf("Error : Failed to register %s monitor callback\n",
+                                L2VPN_EVPN_AF_STR);
+                        return -1;
+                    }
+                    if (!cfg->monitor.running &&
+                        bgp_node_monitor_start(node) != 0) {
+                        cprintf("Error : Failed to start BGP monitor\n");
+                        return -1;
+                    }
+                    cprintf("%s enabled for neighbor %s\n",
+                            L2VPN_EVPN_AF_STR, neighbor_addr);
+                    break;
+
+                case CONFIG_DISABLE:
+                    if (!nbr || !nbr->configured || !nbr->l2vpn_evpn) {
+                        cprintf("%s is not enabled for neighbor %s\n",
+                                L2VPN_EVPN_AF_STR, neighbor_addr);
+                        break;
+                    }
+                    nbr->l2vpn_evpn = false;
+                    result = bgp_apply_neighbor_address_families(
+                        client, nbr, (const char *)NODE_RTRID_ADDR(node));
+                    if (!result.ok) {
+                        bgp_print_rpc_error(node, "Disable L2VPN EVPN",
+                                            &result);
+                        return -1;
+                    }
+                    bgp_on_neighbor_af_disabled(node, AFI_L2VPN,
+                                               SAFI_MPLS_EVPN);
+                    cprintf("%s disabled for neighbor %s\n",
+                            L2VPN_EVPN_AF_STR, neighbor_addr);
                     break;
 
                 default:
@@ -626,8 +744,86 @@ typedef struct bgp_show_route_ctx_ {
     const char *afi;
     const char *safi;
     bool show_label;
+    bool evpn_mac;
     int count;
 } bgp_show_route_ctx_t;
+
+/* GoBGP may return RD/RT already as "a.b.c.d:N", or as numeric "N:N".
+ * Only convert the numeric form; never pass NULL to %s. */
+static const char *
+bgp_show_format_rd_rt(const char *value,
+                      bool is_rd,
+                      char *buf,
+                      size_t buflen,
+                      const char *dash)
+{
+    const char *converted;
+
+    if (!value || value[0] == '\0') {
+        return dash;
+    }
+
+    if (strchr(value, '.')) {
+        return value;
+    }
+
+    converted = is_rd ? rd_type1_to_string(value, buf, buflen)
+                      : rt_type1_to_string(value, buf, buflen);
+    return converted ? converted : value;
+}
+
+static int
+bgp_show_evpn_mac_route_print_cb(const bgp_route_info_t *route, void *userdata)
+{
+    bgp_show_route_ctx_t *ctx = (bgp_show_route_ctx_t *)userdata;
+    const char *dash = "-";
+    char rd_fmt_buffer[48];
+    char rt_fmt_buffer[48];
+
+    if (!route || !ctx) {
+        return 0;
+    }
+
+    if (ctx->count == 0) {
+        cprintf("\nBGP routes (%s %s):\n", ctx->afi, ctx->safi);
+        cprintf("%-20s %-14s %-14s %-16s %-8s %-6s %-10s %s\n",
+                "MAC", "RD", "RT", "Nexthop", "Label",
+                "MED", "LocalPref", "Best");
+        cprintf("%-20s %-14s %-14s %-16s %-8s %-6s %-10s %s\n",
+                "---", "--", "--", "-------", "-----",
+                "---", "---------", "----");
+    }
+
+    cprintf("%-20s %-14s %-14s %-16s ",
+            route->prefix[0] ? route->prefix : dash,
+            bgp_show_format_rd_rt(route->rd, true, rd_fmt_buffer,
+                                  sizeof(rd_fmt_buffer), dash),
+            bgp_show_format_rd_rt(route->rt, false, rt_fmt_buffer,
+                                  sizeof(rt_fmt_buffer), dash),
+            route->nexthop[0] ? route->nexthop : dash);
+
+    if (route->l3_vpn_label_present) {
+        cprintf("%-8u ", route->l3_vpn_label);
+    } else {
+        cprintf("%-8s ", dash);
+    }
+
+    if (route->med_present) {
+        cprintf("%-6u ", route->med);
+    } else {
+        cprintf("%-6s ", dash);
+    }
+
+    if (route->local_pref_present) {
+        cprintf("%-10u ", route->local_pref);
+    } else {
+        cprintf("%-10s ", dash);
+    }
+
+    cprintf("%s\n", route->best ? "*" : "");
+    ctx->count++;
+    return 0;
+}
 
 static int
 bgp_show_route_print_cb(const bgp_route_info_t *route, void *userdata)
@@ -639,6 +835,10 @@ bgp_show_route_print_cb(const bgp_route_info_t *route, void *userdata)
 
     if (!route || !ctx) {
         return 0;
+    }
+
+    if (ctx->evpn_mac) {
+        return bgp_show_evpn_mac_route_print_cb(route, userdata);
     }
 
     if (ctx->count == 0) {
@@ -663,8 +863,10 @@ bgp_show_route_print_cb(const bgp_route_info_t *route, void *userdata)
     cprintf("%-22s %-16s %-14s %-14s ",
             route->prefix,
             route->nexthop[0] ? route->nexthop : dash,
-            route->rd[0] ? rd_type1_to_string(route->rd, rd_fmt_buffer, sizeof(rd_fmt_buffer)) : dash,
-            route->rt[0] ? rt_type1_to_string(route->rt, rt_fmt_buffer, sizeof(rt_fmt_buffer)) : dash);
+            bgp_show_format_rd_rt(route->rd, true, rd_fmt_buffer,
+                                  sizeof(rd_fmt_buffer), dash),
+            bgp_show_format_rd_rt(route->rt, false, rt_fmt_buffer,
+                                  sizeof(rt_fmt_buffer), dash));
 
     if (ctx->show_label) {
         if (route->l3_vpn_label_present) {
@@ -700,6 +902,8 @@ bgp_show_routes(node_t *node, const char *afi, const char *safi)
     ctx.afi = afi;
     ctx.safi = safi;
     ctx.show_label = (safi && strcmp(safi, "vpn") == 0);
+    ctx.evpn_mac = (afi && strcmp(afi, "l2vpn-evpn") == 0 &&
+                    safi && strcmp(safi, "mac") == 0);
 
     if (bgp_node_walk_routes(node, afi, safi, bgp_show_route_print_cb, &ctx) != 0) {
         cprintf("ListPath RPC failed for %s %s\n", afi, safi);
@@ -721,6 +925,7 @@ bgp_show_running_config(node_t *node)
     int i;
     int af_ipv4_printed = 0;
     int af_ipv4_vpn_printed = 0;
+    int af_l2vpn_evpn_printed = 0;
 
     cfg = bgp_config_get(node);
     if (!cfg || !cfg->started) {
@@ -775,6 +980,23 @@ bgp_show_running_config(node_t *node)
         cprintf("  neighbor %s activate\n", nbr->neighbor_address);
     }
     if (af_ipv4_vpn_printed) {
+        cprintf(" exit-address-family\n");
+    }
+
+    for (i = 0; i < cfg->num_neighbors; i++) {
+        bgp_neighbor_config_t *nbr = &cfg->neighbors[i];
+
+        if (!nbr->configured || !nbr->l2vpn_evpn) {
+            continue;
+        }
+        if (!af_l2vpn_evpn_printed) {
+            cprintf(" !\n");
+            cprintf(" address-family %s\n", L2VPN_EVPN_AF_STR);
+            af_l2vpn_evpn_printed = 1;
+        }
+        cprintf("  neighbor %s activate\n", nbr->neighbor_address);
+    }
+    if (af_l2vpn_evpn_printed) {
         cprintf(" exit-address-family\n");
     }
 
@@ -908,6 +1130,9 @@ bgp_show_handler(int64_t cmdcode,
         case CMDCODE_SHOW_BGP_ROUTES_IPV6_UNICAST:
             return bgp_show_routes(node, "ipv6", "unicast");
 
+        case CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_MAC:
+            return bgp_show_routes(node, "l2vpn-evpn", "mac");
+
         default:
             break;
     }
@@ -935,6 +1160,16 @@ bgp_monitor_recv_vpn_route_processing_cbk(
 {
     node_t *node = (node_t *)userdata;
     bgp_schedule_vpn_route_processing_job(node, route, !is_withdraw);
+}
+
+static void
+bgp_monitor_recv_evpn_route_processing_cbk(
+                              const bgp_route_info_t *route,
+                              bool is_withdraw,
+                              void *userdata)
+{
+    node_t *node = (node_t *)userdata;
+    bgp_schedule_evpn_route_processing_job(node, route, !is_withdraw);
 }
 
 static int
@@ -1109,6 +1344,19 @@ bgp_config_cli_tree(param_t *param)
                                 rtm_build_distribution_policy_cli_tree(&ipv4_vpn, RTM_PROTO_BGP);
                             }
                         }
+
+                        {
+                            static param_t l2vpn_evpn;
+                            init_param(&l2vpn_evpn, CMD,
+                                       "l2vpn-evpn",
+                                       bgp_config_handler,
+                                       0, INVALID, 0,
+                                       "L2VPN EVPN AF");
+                            libcli_register_param(&af_kw, &l2vpn_evpn);
+                            libcli_set_param_cmd_code(
+                                &l2vpn_evpn,
+                                CMDCODE_CONFIG_BGP_NEIGHBOR_AF_L2VPN_EVPN);
+                        }                        
                     }
                 }
             }
@@ -1123,6 +1371,7 @@ bgp_config_cli_tree(param_t *param)
  * show node <node-name> protocol bgp summary
  * show node <node-name> protocol bgp running-config
  * show node <node-name> protocol bgp routes <afi> <safi>
+ * show node <node-name> protocol bgp routes l2vpn-evpn mac
  */
 int
 bgp_show_cli_tree(param_t *param)
@@ -1199,6 +1448,21 @@ bgp_show_cli_tree(param_t *param)
                     libcli_set_param_cmd_code(
                         &safi_unicast6,
                         CMDCODE_SHOW_BGP_ROUTES_IPV6_UNICAST);
+                }
+
+                static param_t afi_l2vpn_evpn;
+                init_param(&afi_l2vpn_evpn, CMD, "l2vpn-evpn", 0, 0,
+                           INVALID, 0, "L2VPN EVPN routes");
+                libcli_register_param(&routes, &afi_l2vpn_evpn);
+                {
+                    static param_t safi_mac;
+                    init_param(&safi_mac, CMD, "mac", bgp_show_handler,
+                               0, INVALID, 0,
+                               "EVPN Type-2 MAC routes");
+                    libcli_register_param(&afi_l2vpn_evpn, &safi_mac);
+                    libcli_set_param_cmd_code(
+                        &safi_mac,
+                        CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_MAC);
                 }
             }
         }

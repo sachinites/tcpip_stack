@@ -162,14 +162,6 @@ dp_delete_interface (dp_ctx_t *dp_ctx, dp_intf_t *intf) {
         mac_table_t *mac_table = intf->mac_table;
         assert(mac_table);
         intf->mac_table = NULL;
-
-        mac_table_delete_all_dynamic(dp_ctx, mac_table);
-
-        mac_addr_t flood_mac;
-        layer2_fill_with_broadcast_mac(flood_mac.mac);
-        mac_table_entry_delete2(dp_ctx, mac_table,
-                                DEFAULT_VLAN_ID, flood_mac.mac);
-        assert(mac_table->entry_count == 0);
         destroy_mac_table(dp_ctx, mac_table);
     }
 

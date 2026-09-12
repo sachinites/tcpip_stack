@@ -103,6 +103,7 @@ OBJS=     router_init.o   \
 		  Layer2/Evpn/evpn.o \
 		  Layer2/Evpn/evpn_cli.o \
 		  Layer2/Evpn/evpn_priv_api.o \
+		  Layer2/Evpn/evpn_rt.o \
 		  Layer3/layer3.o  \
 		  Layer3/gre-tunneling/grecli.o \
 		  Layer3/gre-tunneling/gre.o \
@@ -130,6 +131,7 @@ OBJS=     router_init.o   \
 		  RTM/rtm_nb_integ.o \
 		  vrf/vrf_cli.o \
 		  vrf/vrf.o \
+		  vrf/mac_vrf.o \
 		  Layer3/SegmentRouting/SR-MPLS/srgb.o \
 		  ips_pub_sub_init.o \
 		  dpcp_cmn.o \
@@ -166,6 +168,9 @@ Layer2/Evpn/evpn_cli.o:Layer2/Evpn/evpn_cli.cpp
 
 Layer2/Evpn/evpn_priv_api.o:Layer2/Evpn/evpn_priv_api.cpp
 	${CC} ${CFLAGS} -c -I . Layer2/Evpn/evpn_priv_api.cpp -o Layer2/Evpn/evpn_priv_api.o
+
+Layer2/Evpn/evpn_rt.o:Layer2/Evpn/evpn_rt.cpp
+	${CC} ${CFLAGS} -c -I . Layer2/Evpn/evpn_rt.cpp -o Layer2/Evpn/evpn_rt.o
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
@@ -298,6 +303,8 @@ vrf/vrf_cli.o:vrf/vrf_cli.cpp
 	${CC} ${CFLAGS} -c vrf/vrf_cli.cpp -o vrf/vrf_cli.o 
 vrf/vrf.o:vrf/vrf.cpp
 	${CC} ${CFLAGS} -c vrf/vrf.cpp -o vrf/vrf.o 
+vrf/mac_vrf.o:vrf/mac_vrf.cpp
+	${CC} ${CFLAGS} -c vrf/mac_vrf.cpp -o vrf/mac_vrf.o
 
 sql_exec.o:sql_exec.cpp
 	${CC} ${CFLAGS} -c sql_exec.cpp -o sql_exec.o

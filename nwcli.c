@@ -166,6 +166,7 @@ static cli_register_cb
         srv6_build_cli_show_tree,
         //lfa_show_cli_tree,
         bgp_show_cli_tree,
+        evpn_show_cli_tree,
 
         /* Add more CB here */
 
@@ -1135,6 +1136,8 @@ nw_init_cli(){
                     libcli_set_param_cmd_code(&rib_name, CMDCODE_CLEAR_RT_TABLE);
                 }
             }
+
+            bd_clear_cli_tree(&node_name);
         }
     }
 

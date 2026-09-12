@@ -128,16 +128,6 @@ rt_type1_assigned_validator_cbk(Stack_t *tlv_stack, unsigned char *value)
     return LEAF_VALIDATION_SUCCESS;
 }
 
-static void
-rt_type1_fill(rt_t *rt, uint32_t ipv4_admin, uint16_t assigned)
-{
-    memset(rt, 0, sizeof(*rt));
-    rt->type = 1;
-    rt->sub_type = 0;
-    rt->rtr_id = ipv4_admin;
-    rt->vrf_id = assigned;
-}
-
 static int 
 vrf_config_handler (int64_t cmdcode,
                   Stack_t *tlv_stack,
@@ -331,7 +321,7 @@ vrf_config_handler (int64_t cmdcode,
             }
 
             rt_type1_fill(&new_export_rt,
-                          tcp_ip_convert_ip_p_to_n((char *)rt_ip),
+                          tcp_ip_convert_ip_p_to_n((c_string)rt_ip),
                           (uint16_t)strtoul((const char *)rt_assigned,
                                             NULL, 10));
 

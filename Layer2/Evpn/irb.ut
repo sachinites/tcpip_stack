@@ -1,0 +1,218 @@
+
+:PRINT:
+:PRINT:
+:PRINT:                                                                               +--------+-+
+:PRINT:                                                +---------+                    | R2       |
+:PRINT:                                            eth1| R1      |eth2     20.1.1.2/24|122.1.1.2 |eth8      
+:PRINT:                                    +-----------+122.1.1.1+--------------------+          +-------------------+
+:PRINT:                                    |10.1.1.2/24|         |20.1.1.1/24     eth3|          |50.1.1.1/24        |
+:PRINT:                                    |           +---------+                    +-----+--+-+                   +
+:PRINT:                                    +                                          eth4/  |eth7                   |
+:PRINT:                                    |10.1.1.1/24                       30.1.1.1/24/   |40.1.1.2/24            |
+:PRINT:                                    |eth0                                        /    |                  eth9 |50.1.1.2/24
+:PRINT:                                 +---+---+--+                                   /     |                  +----+-----+                    +-------+
+:PRINT:                                 |          |                                  /      |                  |    R3    |eth1      v20(Trunk)|       |
+:PRINT: +------+v10(Trunk)          eth1|   R0     |                                 /       |                  | 122.1.1.3+--------------------+       |
+:PRINT: |      |+------------------------+122.1.1.0 |                               /        |                  |          |AC-v20          eth0|  CE2  |
+:PRINT: | CE1  | eth0             AC-v10|          |                               /         |                  +----+-----+                    |10.0.0.2|
+:PRINT: |10.0.0.1|                      +---+---+--|               ---------------/          |                       |eth10                     +---+---+
+:PRINT: +--+---+                            |eth14                /                          |                       |60.1.1.1/24                   |eth1
+:PRINT:    |eth1                            |80.1.1.1/24         /                           |                       |                              |v20
+:PRINT:    |v10                             |                   /                            |                       |                              |
+:PRINT:    |                                |                  /                        eth6 |40.1.1.1/24            |                              |
+:PRINT:    |172.168.0.1/24                  |             eth5/30.1.1.2/24             +-----+----+                  |                              |182.168.0.1/24     
+:PRINT:    +-+-+                            |           +----/----+                    |   R4     |                  |                           +--+---+
+:PRINT:    +-H1|                            |      eth15|   R5    |eth12    70.1.1.2/24|122.1.1.4 |eth11             |                           |  H2  |
+:PRINT:    +---+                            +-----------+122.1.1.5|+-------------------+          +------------------+                           +------+
+:PRINT:                                      80.1.1.2/24|         |70.1.1.1/24    eth13|          |60.1.1.2/24                                
+:PRINT:                                                 |+--------|                    |----------|
+:PRINT:
+
+:CMD: config node R0 interface loopback lo0
+:CMD: config node R0 router-id 122.1.1.0
+:CMD: config node R0 interface loopback lo0 ip-address 122.1.1.0 32
+:CMD: config node R0 protocol isis interface all
+:CMD: config node R0 protocol isis source-packet-routing mpls
+:CMD: config node R0 protocol isis source-packet-routing mpls node-sid 1000
+:CMD: config node R0 protocol isis redistribute connected
+
+:CMD: config node R1 interface loopback lo0
+:CMD: config node R1 router-id 122.1.1.1
+:CMD: config node R1 interface loopback lo0 ip-address 122.1.1.1 32
+:CMD: config node R1 protocol isis interface all
+:CMD: config node R1 protocol isis source-packet-routing mpls
+:CMD: config node R1 protocol isis source-packet-routing mpls node-sid 1001
+:CMD: config node R1 protocol isis redistribute connected
+
+:CMD: config node R2 interface loopback lo0
+:CMD: config node R2 router-id 122.1.1.2
+:CMD: config node R2 interface loopback lo0 ip-address 122.1.1.2 32
+:CMD: config node R2 protocol isis interface all
+:CMD: config node R2 protocol isis source-packet-routing mpls
+:CMD: config node R2 protocol isis source-packet-routing mpls node-sid 1002
+:CMD: config node R2 protocol isis redistribute connected
+
+:CMD: config node R3 interface loopback lo0
+:CMD: config node R3 router-id 122.1.1.3
+:CMD: config node R3 interface loopback lo0 ip-address 122.1.1.3 32
+:CMD: config node R3 protocol isis interface all
+:CMD: config node R3 protocol isis source-packet-routing mpls
+:CMD: config node R3 protocol isis source-packet-routing mpls node-sid 1003
+:CMD: config node R3 protocol isis redistribute connected
+
+:CMD: config node R4 interface loopback lo0
+:CMD: config node R4 router-id 122.1.1.4
+:CMD: config node R4 interface loopback lo0 ip-address 122.1.1.4 32
+:CMD: config node R4 protocol isis interface all
+:CMD: config node R4 protocol isis source-packet-routing mpls
+:CMD: config node R4 protocol isis source-packet-routing mpls node-sid 1004
+:CMD: config node R4 protocol isis redistribute connected
+
+:CMD: config node R5 interface loopback lo0
+:CMD: config node R5 router-id 122.1.1.5
+:CMD: config node R5 interface loopback lo0 ip-address 122.1.1.5 32
+:CMD: config node R5 protocol isis interface all
+:CMD: config node R5 protocol isis source-packet-routing mpls
+:CMD: config node R5 protocol isis source-packet-routing mpls node-sid 1005
+:CMD: config node R5 protocol isis redistribute connected
+
+:INFO: Base Config done
+
+:CMD: config node R0 no protocol isis interface eth1
+:CMD: config node R0 no interface ethernet eth1 ip-address 192.168.0.2 24
+:CMD: config node R0 no interface ethernet eth1 vrf 0
+:CMD: config node R0 vrf red
+:CMD: config node R0 interface ethernet eth1 vrf red
+:CMD: config node R0 interface ethernet eth1 ip-address 192.168.0.2 24
+:CMD: config node R0 vrf red protocol isis
+:CMD: config node R0 vrf red protocol isis interface eth1
+:CMD: config node R0 vrf red protocol isis redistribute bgp
+:CMD: config node R0 distributed-anycast-gateway 00:02:00:02:00:02
+
+:CMD: config node R0 rtm-route prefix 10.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3 l3vpn 16
+:CMD: config node R0 rtm-route prefix 100.0.0.2/32 3 7 0 2 10 gateway 122.1.1.3 l3vpn 16
+
+:CMD: config node R3 no protocol isis interface eth1
+:CMD: config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
+:CMD: config node R3 no interface ethernet eth1 vrf 0
+:CMD: config node R3 vrf red
+:CMD: config node R3 interface ethernet eth1 vrf red
+:CMD: config node R3 interface ethernet eth1 ip-address 192.168.0.2 24
+:CMD: config node R3 vrf red protocol isis
+:CMD: config node R3 vrf red protocol isis interface eth1
+:CMD: config node R3 vrf red protocol isis redistribute bgp
+:CMD: config node R3 distributed-anycast-gateway 00:02:00:02:00:02
+
+:CMD: config node R3 rtm-route prefix 10.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0 l3vpn 16
+:CMD: config node R3 rtm-route prefix 100.0.0.1/32 3 7 0 2 10 gateway 122.1.1.0 l3vpn 16
+
+:CMD: config node CE1 interface loopback 0
+:CMD: config node CE1 interface loopback 0 up
+:CMD: config node CE1 interface loopback 0 ip-address 10.0.0.1 32
+:CMD: config node CE1 protocol isis
+:CMD: config node CE1 protocol isis interface lo0
+:CMD: config node CE1 protocol isis interface eth1
+:CMD: config node CE1 protocol isis interface eth0
+
+:CMD: config node CE2 interface loopback 0
+:CMD: config node CE2 interface loopback 0 up
+:CMD: config node CE2 interface loopback 0 ip-address 10.0.0.2 32
+:CMD: config node CE2 protocol isis
+:CMD: config node CE2 protocol isis interface lo0
+:CMD: config node CE2 protocol isis interface eth1
+:CMD: config node CE2 protocol isis interface eth0
+
+:CMD: config node H1 interface loopback 0
+:CMD: config node H1 interface loopback 0 up
+:CMD: config node H1 interface loopback 0 ip-address 100.0.0.1 32
+:CMD: config node H1 protocol isis
+:CMD: config node H1 protocol isis interface lo0
+:CMD: config node H1 protocol isis interface eth1
+
+:CMD: config node H2 interface loopback 0
+:CMD: config node H2 interface loopback 0 up
+:CMD: config node H2 interface loopback 0 ip-address 100.0.0.2 32
+:CMD: config node H2 protocol isis
+:CMD: config node H2 protocol isis interface lo0
+:CMD: config node H2 protocol isis interface eth1
+
+:CMD: config node H1 no protocol isis
+:CMD: config node H1 no interface ethernet eth1 ip-address 172.168.0.2 24
+:CMD: config node H1 interface ethernet eth1 ip-address 172.168.0.1 24
+:CMD: config node H1 rtm-route prefix 0.0.0.0/0 0 0 0 2 0 gateway 172.168.0.254 interface eth1
+:CMD: config node H1 no interface loopback 0 ip-address 100.0.0.1 32
+:CMD: config node H1 interface loopback 0 ip-address 172.168.0.10 24
+:CMD: config node H1 no router-id 100.0.0.1
+:CMD: config node H1 router-id 172.168.0.10
+
+:CMD: config node CE1 no protocol isis
+:CMD: config node CE1 no interface ethernet eth1 ip-address 172.168.0.1 24
+:CMD: config node CE1 no interface ethernet eth1 vrf 0
+:CMD: config node CE1 interface ethernet eth1 switchport
+:CMD: config node CE1 interface vlan 10
+:CMD: config node CE1 interface ethernet eth1 vlan 10
+:CMD: config node CE1 no interface ethernet eth0 ip-address 192.168.0.1 24
+:CMD: config node CE1 no interface ethernet eth0 vrf 0
+:CMD: config node CE1 interface ethernet eth0 switchport
+:CMD: config node CE1 transport-service-profile tsp10
+:CMD: config node CE1 transport-service-profile tsp10 vlan 10
+:CMD: config node CE1 interface ethernet eth0 transport-service-profile tsp10
+
+:CMD: config node R0 no protocol isis interface eth1
+:CMD: config node R0 no interface ethernet eth1 ip-address 192.168.0.2 24
+:CMD: config node R0 no interface ethernet eth1 vrf red
+:CMD: config node R0 bridge-domain 10
+:CMD: config node R0 interface ethernet eth1 switchport
+:CMD: config node R0 bridge-domain 10 member eth1 encapsulation dot1q 10
+:CMD: config node R0 interface bridge-domain 10 ip-address 172.168.0.254 24
+:CMD: config node R0 bridge-domain 20
+:CMD: config node R0 interface bridge-domain 20 ip-address 182.168.0.254 24
+
+:CMD: config node H2 no protocol isis
+:CMD: config node H2 no interface ethernet eth1 ip-address 172.168.0.2 24
+:CMD: config node H2 interface ethernet eth1 ip-address 182.168.0.1 24
+:CMD: config node H2 rtm-route prefix 0.0.0.0/0 0 0 0 2 0 gateway 182.168.0.254 interface eth1
+:CMD: config node H2 no interface loopback 0 ip-address 100.0.0.2 32
+:CMD: config node H2 interface loopback 0 ip-address 182.168.0.10 24
+:CMD: config node H2 no router-id 100.0.0.2
+:CMD: config node H2 router-id 182.168.0.10
+
+:CMD: config node CE2 no protocol isis
+:CMD: config node CE2 no interface ethernet eth1 ip-address 172.168.0.1 24
+:CMD: config node CE2 no interface ethernet eth1 vrf 0
+:CMD: config node CE2 interface ethernet eth1 switchport
+:CMD: config node CE2 interface vlan 20
+:CMD: config node CE2 interface ethernet eth1 vlan 20
+:CMD: config node CE2 no interface ethernet eth0 ip-address 192.168.0.1 24
+:CMD: config node CE2 no interface ethernet eth0 vrf 0
+:CMD: config node CE2 interface ethernet eth0 switchport
+:CMD: config node CE2 transport-service-profile tsp20
+:CMD: config node CE2 transport-service-profile tsp20 vlan 20
+:CMD: config node CE2 interface ethernet eth0 transport-service-profile tsp20
+
+:CMD: config node R3 no protocol isis interface eth1
+:CMD: config node R3 no interface ethernet eth1 ip-address 192.168.0.2 24
+:CMD: config node R3 no interface ethernet eth1 vrf red
+
+:CMD: config node R3 bridge-domain 10
+:CMD: config node R3 interface bridge-domain 10 ip-address 172.168.0.254 24
+:CMD: config node R3 bridge-domain 20
+:CMD: config node R3 interface ethernet eth1 switchport
+:CMD: config node R3 bridge-domain 20 member eth1 encapsulation dot1q 20
+:CMD: config node R3 interface bridge-domain 20 ip-address 182.168.0.254 24
+
+:CMD: debug node R0 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17003
+:CMD: debug node R0 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpls-label 273 17003
+:CMD: debug node R3 protocol evpn install bridge-domain 20 route ff:ff:ff:ff:ff:ff mpls-label 273 17000
+:CMD: debug node R3 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 272 17000
+
+
+:INFO: install MAC-only routes ( if you want to replace Unknown Unicast flooding in ISP core with Unicast forwarding )
+:INFO: debug node R3 protocol evpn install bridge-domain 10 route 7e:f2:93:4b:2d:fc mpls-label 272 17000
+:INFO: debug node R0 protocol evpn install bridge-domain 20 route c0:cc:c4:81:7a:66 mpls-label 273 17003
+
+:INFO: Test : 
+:INFO: run node H1 ping source-address 172.168.0.1 182.168.0.1
+:INFO: Ping must succeed.
+
+

@@ -292,6 +292,9 @@ to_cpp_route_params(const sf_gobgp_route_params_t *params)
     out.local_pref_present = params->local_pref_present;
     out.l3_vpn_label = params->l3_vpn_label;
     out.l3_vpn_label_present = params->l3_vpn_label_present;
+    out.mac_addr = params->mac_addr;
+    out.evpn_label = params->evpn_label;
+    out.evpn_label_present = params->evpn_label_present;
     out.afi = to_cpp_afi(params->afi);
     out.safi = to_cpp_safi(params->safi);
     return out;
@@ -318,15 +321,17 @@ to_c_route_info(const gobgp_client::BgpRouteInfo& in,
     out->l3_vpn_label_present = in.l3_vpn_label_present;
     out->best = in.best;
     out->is_from_external = in.is_from_external;
-    out->afi = (in.afi == gobgp_client::BgpAfi::kIpv6) ? 2 : 1;
     switch (in.safi) {
         case gobgp_client::BgpSafi::kMplsVpn:
+            out->afi = 1;
             out->safi = 128;
             break;
         case gobgp_client::BgpSafi::kEvpn:
+            out->afi = 25;
             out->safi = 70;
             break;
         default:
+            out->afi = (in.afi == gobgp_client::BgpAfi::kIpv6) ? 2 : 1;
             out->safi = 1;
             break;
     }
@@ -336,7 +341,14 @@ extern "C" sf_gobgp_rpc_result_t
 sf_gobgp_add_route(sf_gobgp_grpc_client_t *client,
                    const sf_gobgp_route_params_t *params)
 {
-    if (client == nullptr || params == nullptr || params->prefix[0] == '\0') {
+    if (client == nullptr || params == nullptr) {
+        return {false, -1, "invalid arguments"};
+    }
+    if (params->safi == 70) {
+        if (params->mac_addr[0] == '\0') {
+            return {false, -1, "invalid arguments"};
+        }
+    } else if (params->prefix[0] == '\0') {
         return {false, -1, "invalid arguments"};
     }
 
@@ -345,10 +357,32 @@ sf_gobgp_add_route(sf_gobgp_grpc_client_t *client,
 }
 
 extern "C" sf_gobgp_rpc_result_t
+sf_gobgp_is_address_family_enabled(sf_gobgp_grpc_client_t *client,
+                                   int afi,
+                                   int safi,
+                                   bool *enabled_out)
+{
+    if (client == nullptr || enabled_out == nullptr) {
+        return {false, -1, "invalid arguments"};
+    }
+
+    *enabled_out = false;
+    return to_c_result(client->client.IsAddressFamilyEnabledOnAnyPeer(
+        to_cpp_afi(afi), to_cpp_safi(safi), enabled_out));
+}
+
+extern "C" sf_gobgp_rpc_result_t
 sf_gobgp_delete_route(sf_gobgp_grpc_client_t *client,
                       const sf_gobgp_route_params_t *params)
 {
-    if (client == nullptr || params == nullptr || params->prefix[0] == '\0') {
+    if (client == nullptr || params == nullptr) {
+        return {false, -1, "invalid arguments"};
+    }
+    if (params->safi == 70) {
+        if (params->mac_addr[0] == '\0') {
+            return {false, -1, "invalid arguments"};
+        }
+    } else if (params->prefix[0] == '\0') {
         return {false, -1, "invalid arguments"};
     }
 

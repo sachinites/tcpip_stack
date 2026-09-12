@@ -63,6 +63,9 @@ typedef struct cp_nexthop_template_ {
     uint32_t fwd_flags;
 
     uint32_t metric;
+    
+    /* Applicable only for MAC L2 VPN routes */
+    uint32_t mac_table_id;
 
     RTM_NH_ACTION_TYPE_T action;
 
@@ -71,8 +74,8 @@ typedef struct cp_nexthop_template_ {
     bool is_indirect;
     bool is_resolved;
 
-    /* If this is L3 VPN BGP INH, then it should have vpn service label also */
-    mpls_label_val_t l3_vpn_label;
+    /* If this is L3/L2 VPN BGP INH, then it should have vpn service label also */
+    mpls_label_val_t vpn_label;
     rt_t import_rt;
 
     union {
@@ -194,7 +197,8 @@ cp_rtm_install_route_advanced (
     uint32_t *label_stack,
     uint8_t label_stack_count,
     mpls_label_val_t l3_vpn_label,
-    mpls_opr_t out_label_op);
+    mpls_opr_t out_label_op,
+    uint32_t mac_table_id);
 
 rtm_error_t
 cp_rtm_uninstall_route_advanced (
@@ -211,23 +215,8 @@ cp_rtm_uninstall_route_advanced (
     uint32_t *label_stack,
     uint8_t label_stack_count,
     mpls_label_val_t l3_vpn_label,
-    mpls_opr_t out_label_op);
-
-
-/* Protocol Subscribing to RTM */
-bool
-cp_rtm_protocol_register (rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, uint8_t vrf_id);
-
-bool
-cp_rtm_protocol_unregister (rtm_t *rtm, RTM_PROTO_T proto, uint32_t instance_no, uint8_t vrf_id);
-
-rtm_error_t
-cp_rtm_subscribe(rtm_t *rtm, 
-                 uint8_t src_vrf, uint8_t src_instance_no, RTM_PROTO_T src_proto, 
-                 rtm_rt_subscription_t *sub_template) ;
-
-rtm_error_t 
-cp_rtm_unsubscribe (rtm_t *rtm, rtm_rt_subscription_t *sub_template);
+    mpls_opr_t out_label_op,
+    uint32_t mac_table_id);
 
 rtm_t *
 cp_rtm_get_route_target_rtm(

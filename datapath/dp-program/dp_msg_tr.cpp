@@ -15,8 +15,9 @@
 static const char *
 dp_component_type_str (DP_COMPONENT_TYPE_T t) {
     switch (t) {
-        case MAC_TABLE:   return "MAC_TABLE";
-        case PKT_BLOCK:   return "PKT_BLOCK";
+        case MAC_TABLE:     return "MAC_TABLE";
+        case BD_MAC_TABLE:  return "BD_MAC_TABLE";
+        case PKT_BLOCK:     return "PKT_BLOCK";
         case FIB_TABLE:   return "FIB_TABLE";
         case INTF_TABLE:  return "INTF_TABLE";
         case VRF_TABLE:   return "VRF_TABLE";
@@ -34,7 +35,8 @@ dp_opr_type_str (DP_OPR_TYPE_T t) {
         case DP_UPDATE:         return "DP_UPDATE";
         case DP_READ:           return "DP_READ";
         case DP_L3_NORTHBOUND_IN: return "DP_L3_NORTHBOUND_IN";
-        default:                return "UNKNOWN";
+        case DP_CLEAR:            return "DP_CLEAR";
+        default:                  return "UNKNOWN";
     }
 }
 

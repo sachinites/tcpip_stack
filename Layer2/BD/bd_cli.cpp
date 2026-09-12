@@ -10,6 +10,7 @@
 #include "../../cp_limits.h"
 #include "../../LabelMgr/label_mgr.h"
 #include "../../RTM/rtm_nb_integ.h"
+#include "../../vrf/mac_vrf.h"
 
 extern graph_t *topo;
 
@@ -21,6 +22,8 @@ extern graph_t *topo;
 #define CMD_CODE_BD_SHOW 3
 /* config node <node-name> [no] bridge-domain x member <if> encapsulation dot1q <vlan-id> */
 #define CMD_CODE_BD_AC_ENCAP_8021Q 4
+/* clear node <node-name> bridge-domain <bd-id> mac-address */
+#define CMD_CODE_BD_MAC_CLEAR 5
 
 
 static int
@@ -72,6 +75,12 @@ bd_config_handler(int64_t cmdcode,
                         return -1;
                     }
 
+                    if (bd_id > (MAX_BD_SUPPORT - 1)) {
+                        cprintf("Error : BD ID must be [0, %u]\n",
+                                MAX_BD_SUPPORT - 1);
+                        return -1;
+                    }
+
                     std::shared_ptr<BDInterface> bdP =
                         std::make_shared<BDInterface>(std::string(intf_name),
                                                       INTF_TYPE_BD, node);
@@ -97,9 +106,8 @@ bd_config_handler(int64_t cmdcode,
                     /* Assign Service L2 VPN label to BD */
                     assert (label_mgr_block_alloc_label(
                         node->l2vpn_lbl_block, &bdP->vpn_svc_label) == LABEL_MGR_OK);
-                    /* Install the Service VPN label in 0.mpls.0 with Xconnect to BD*/
+                    /* Install the Service L2 EVPN label in 0.mpls.0 with Xconnect to BD*/
                     rtm_install_mpls_xconnect_bd_evpn_local_route (bdP.get(), true);
-                    
                 }
                 break;
 
@@ -152,6 +160,7 @@ bd_config_handler(int64_t cmdcode,
                         intf, &intf_prop_changed, if_change_flags);
 
                     node_global_intf_map_delete_by_ifindex(node, intf->ifindex);
+
                 }
                 break;
 
@@ -585,6 +594,79 @@ bd_show_handler(int64_t cmdcode,
     }
 
     return 0;
+}
+
+static int
+bd_clear_handler(int64_t cmdcode,
+                 Stack_t *tlv_stack,
+                 op_mode enable_or_disable)
+{
+    node_t *node = NULL;
+    c_string node_name = NULL;
+    uint16_t bd_id = 0;
+    tlv_struct_t *tlv;
+    char intf_name[IF_NAME_SIZE];
+
+    (void)enable_or_disable;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
+
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "bd-id"))
+            bd_id = (uint16_t)atoi((const char *)tlv->value);
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    if (!node) {
+        cprintf("Error : Node not found\n");
+        return -1;
+    }
+
+    snprintf(intf_name, IF_NAME_SIZE, "bd%u", bd_id);
+
+    switch (cmdcode) {
+
+        case CMD_CODE_BD_MAC_CLEAR:
+        {
+            Interface *intf = node_interface_lookup_by_name(node, intf_name);
+
+            if (!intf || intf->iftype != INTF_TYPE_BD) {
+                cprintf("Error : Bridge-domain %s does not exist\n", intf_name);
+                return -1;
+            }
+
+            cp2dp_bd_mac_table_clear(node, intf->ifindex, true);
+        }
+        break;
+
+        default:
+            break;
+    }
+
+    return 0;
+}
+
+void
+bd_clear_cli_tree(param_t *mount_point)
+{
+    static param_t bd;
+    init_param(&bd, CMD, "bridge-domain", 0, 0, INVALID, 0, "bridge-domain");
+    libcli_register_param(mount_point, &bd);
+    {
+        static param_t bd_id;
+        init_param(&bd_id, LEAF, NULL, 0, 0, INT, "bd-id",
+                   "bridge-domain id");
+        libcli_register_param(&bd, &bd_id);
+        {
+            static param_t mac_address;
+            init_param(&mac_address, CMD, "mac-address", bd_clear_handler, 0, INVALID, 0,
+                       "Clear dynamic MAC addresses (retain static)");
+            libcli_register_param(&bd_id, &mac_address);
+            libcli_set_param_cmd_code(&mac_address, CMD_CODE_BD_MAC_CLEAR);
+        }
+    }
 }
 
 void

@@ -197,7 +197,8 @@ typedef enum DP_OPR_TYPE_ {
     DP_DEL,
     DP_UPDATE,
     DP_READ,
-    DP_L3_NORTHBOUND_IN
+    DP_L3_NORTHBOUND_IN,
+    DP_CLEAR
     
 } DP_OPR_TYPE_T;
 

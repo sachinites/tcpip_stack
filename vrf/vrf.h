@@ -20,6 +20,8 @@ typedef struct isis_node_info_ isis_node_info_t;
 typedef struct srv6_node_info_ srv6_node_info_t ;
 typedef struct srv6_sid_pools_ srv6_sid_pools_t;
 typedef struct bgp_inst_ bgp_inst_t;
+typedef struct mac_vrf_ mac_vrf_t;
+
 
 #define MAX_VRF_PER_NODE    MAX_VRF_SUPPORTED
 
@@ -72,6 +74,9 @@ typedef struct vrf_ {
     /* Device level SRV6 info */
     srv6_node_info_t *srv6_node_info;
 
+    /* MAC VRFs under this L3 VRF*/
+    mac_vrf_t *mac_vrf[MAX_BD_SUPPORT];
+
 } vrf_t;
 
 typedef struct def_vrf_ {
@@ -82,6 +87,10 @@ typedef struct def_vrf_ {
     rtm_t *mpls0;
     rtm_t *l3vpnv4;
     rtm_t *l3vpnv6;
+
+    /* EVPN Type 5 routes will go here, will be distributed 
+        to Customer VRFs (exactly like vpnv4 routes ) */
+    rtm_t *l3evpnv4;
 
     bgp_inst_t *bgp_inst;
 

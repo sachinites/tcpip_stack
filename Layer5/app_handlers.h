@@ -57,6 +57,9 @@ int
 evpn_config_cli_tree(param_t *param);
 
 int
+evpn_show_cli_tree(param_t *param);
+
+int
 evpn_debug_cli_tree(param_t *param);
 
 int
@@ -79,5 +82,7 @@ sql_query_processing_cli_hander(int64_t cmdcode,
                                 Stack_t *tlv_stack, 
                                 op_mode enable_or_disable);
 
+void 
+bd_clear_cli_tree (param_t *node_name) ;
 
 #endif /* __APP_HANDLERS__ */

@@ -258,9 +258,9 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
         /* Display L3 VPN label if present (for BGP-VPN routes) */
         if (nh->proto == RTM_PROTO_BGP && 
             nh->sub_proto == RTM_PROTO_BGP_VPN && 
-            nh->l3_vpn_label != 0) {
+            nh->vpn_label != 0) {
 
-            cprintf("    L3 VPN Label   : %u\n", nh->l3_vpn_label);
+            cprintf("    L3 VPN Label   : %u\n", nh->vpn_label);
         }
         
         /* Display resolution information for indirect nexthops */
@@ -800,9 +800,7 @@ void rtm_show_rib_detail(rtm_t *rtm, const char *prefix_filter) {
     /* No filter - display all routes */
     cprintf("VRF: %s, AFI: %s, Table ID: %u\n\n",
            vrf_name(rtm->node, rtm->vrf),
-           (rtm->afi == AF_IPV4) ? "IPv4" :
-           (rtm->afi == AF_IPV6) ? "IPv6" :
-           (rtm->afi == AF_LABEL) ? "MPLS" : "Unknown",
+           afi_to_string(rtm->afi),
            rtm->rtm_id);
     
     /* Iterate through all routes */
@@ -1007,7 +1005,9 @@ void rtm_show_unresolvable_routes(rtm_t *rtm) {
         /* Get the route prefix from the owner route */
         char route_prefix_str[128] = "N/A";
         if (indirect_nh->owner_route) {
-            rtm_format_prefix(&indirect_nh->owner_route->prefix, route_prefix_str, sizeof(route_prefix_str));
+            rtm_format_prefix(&indirect_nh->owner_route->prefix, 
+                route_prefix_str, 
+                sizeof(route_prefix_str));
         }
 
         /* Format gateway/nexthop */

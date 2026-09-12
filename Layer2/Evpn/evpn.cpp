@@ -4,6 +4,7 @@
 #include "../../LabelMgr/label_mgr.h"
 
 #include "../../router_init.h"
+#include "../../Interface/InterfaceUApi.h"
 
 #include "evpn.h"
 #include "evpn_priv_api.h"
@@ -11,13 +12,6 @@
 #include "../../RTM/rtm.h"
 
 extern int cprintf (const char* format, ...);
-
-static mac_vrf_t *
-evpn_inst_mac_vrf (evpn_inst_t *evpn_inst)
-{
-    assert (evpn_inst && evpn_inst->node);
-    return (mac_vrf_t *)evpn_inst->node->vrf[evpn_inst->mac_vrf_id];
-}
 
 evpn_inst_t *
 evpn_instance_init (node_t *node, uint8_t evpn_id) {
@@ -33,207 +27,126 @@ evpn_instance_init (node_t *node, uint8_t evpn_id) {
         return node->evpn[evpn_id];
     }
 
-    int mac_vrf_id = vrf_alloc_new_vrf_id (node);
-
-    if (mac_vrf_id < 0) {
-
-        cprintf("Error : Cannot create EVPN instance, VRF IDs exhausted\n");
-        return NULL;
-    }
-
     evpn_inst = (evpn_inst_t *)XCALLOC2 (0, 1 , evpn_inst_t);
     evpn_inst->evi = evpn_id;
-    evpn_inst->mac_vrf_id = (uint8_t)mac_vrf_id;
-    evpn_inst->node = node;
-
-    mac_vrf_t *mac_vrf = (mac_vrf_t *)XCALLOC2(0, 1, mac_vrf_t);
-
-    /* Link VRF and the owning Router */
-    node->vrf[evpn_inst->mac_vrf_id] = &mac_vrf->vrf;
-    mac_vrf->vrf.node = node;
-    mac_vrf->vrf.vrf_id = evpn_inst->mac_vrf_id;
-
-    /* Mac VRF Name : evpn-<evpn-id> */
-    snprintf (mac_vrf->vrf.vrf_name, sizeof (mac_vrf->vrf.vrf_name), 
-        "evpn-%d", evpn_inst->evi);
-
-    /* Initialize RIB */
-    mac_vrf->mac_rib = rtm_initialize(node, evpn_inst->mac_vrf_id, mac_vrf->vrf.vrf_name, AF_MAC, 0);
-
-    /* initialize VRF Interface DBs*/
-    mac_vrf->vrf.intf_by_name = new std::unordered_map<std::string, InterfaceP>();
-    mac_vrf->vrf.intf_by_ifindex = new std::unordered_map<uint32_t, InterfaceP>();
-
-    /* Allocate L2VPN EVPN service label to this MAC VRF */
-    assert (label_mgr_block_alloc_label(
-            node->l2vpn_lbl_block, &mac_vrf->l2vpn_evpn_uc_lbl) == LABEL_MGR_OK);
-
-    assert (label_mgr_block_alloc_label(
-            node->l2vpn_lbl_block, &mac_vrf->l2vpn_evpn_mc_lbl) == LABEL_MGR_OK);
-
     node->evpn[evpn_id] = evpn_inst;
+    evpn_inst->node = node;
+    evpn_inst->bd_intf = nullptr;
 
+    /* Allocate default RD/RT, RD RT will be derived when BD will be
+        connected to evpn instance, for now leave then 0 */  
+    
     return evpn_inst;
 }
 
 void
-evpn_instance_deinit (evpn_inst_t **evpn_inst)
+evpn_instance_deinit (evpn_inst_t **_evpn_inst)
 {
-    evpn_inst_t *inst;
-    mac_vrf_t *mac_vrf;
+    evpn_inst_t *evpn_inst;
     node_t *node;
 
-    if (!evpn_inst || !*evpn_inst)
-        return;
+    evpn_inst = *_evpn_inst;
+    node = evpn_inst->node;
 
-    inst = *evpn_inst;
-    node = inst->node;
+    /* BD should be disconnected from EVI*/
+    assert (evpn_inst->bd_intf == nullptr);
+    assert (node->evpn[evpn_inst->evi] == evpn_inst);
 
-    if (inst->bd_index)
-        evpn_disconnect_bd (inst, inst->bd_index);
+    node->evpn[evpn_inst->evi] = NULL;
+    evpn_inst->node = NULL;
 
-    mac_vrf = evpn_inst_mac_vrf (inst);
-
-    if (mac_vrf) {
-        if (mac_vrf->mac_rib) {
-            rtm_stop (mac_vrf->mac_rib);
-            rtm_check_and_delete (mac_vrf->mac_rib, true);
-            mac_vrf->mac_rib = NULL;
-        }
-
-        if (mac_vrf->l2vpn_evpn_uc_lbl)
-            label_mgr_block_release_label (node->l2vpn_lbl_block,
-                                           mac_vrf->l2vpn_evpn_uc_lbl);
-        if (mac_vrf->l2vpn_evpn_mc_lbl)
-            label_mgr_block_release_label (node->l2vpn_lbl_block,
-                                           mac_vrf->l2vpn_evpn_mc_lbl);
-
-        if (mac_vrf->vrf.intf_by_name) {
-            delete mac_vrf->vrf.intf_by_name;
-            mac_vrf->vrf.intf_by_name = nullptr;
-        }
-        if (mac_vrf->vrf.intf_by_ifindex) {
-            delete mac_vrf->vrf.intf_by_ifindex;
-            mac_vrf->vrf.intf_by_ifindex = nullptr;
-        }
-
-        node->vrf[inst->mac_vrf_id] = NULL;
-        XFREE (mac_vrf);
-    }
-
-    node->evpn[inst->evi] = NULL;
-    XFREE (inst);
-    *evpn_inst = NULL;
+    XFREE(evpn_inst);
 }
+
 
 bool 
 evpn_config_rd (evpn_inst_t *evpn_inst, rd_t rd)
 {
-    mac_vrf_t *mac_vrf = evpn_inst_mac_vrf (evpn_inst);
-
-    if (!mac_vrf)
+    if (!evpn_inst->bd_intf) {
         return false;
+    }
 
-    mac_vrf->vrf.rd = rd;
-    return true;
+    evpn_inst->rd = rd;
 }
 
 bool 
 evpn_unconfig_rd (evpn_inst_t *evpn_inst, rd_t rd)
 {
-    mac_vrf_t *mac_vrf = evpn_inst_mac_vrf (evpn_inst);
-
-    if (!mac_vrf)
-        return false;
-
-    if (mac_vrf->vrf.rd.rtr_id != rd.rtr_id ||
-        mac_vrf->vrf.rd.vrf_id != rd.vrf_id)
-        return false;
-
-    mac_vrf->vrf.rd.rtr_id = 0;
-    mac_vrf->vrf.rd.vrf_id = 0;
+    evpn_inst->rd.rtr_id = 0;
+    evpn_inst->rd.vrf_id = 0;
     return true;
 }
 
 bool 
 evpn_config_rt (evpn_inst_t *evpn_inst, rt_t rt, bool import)
 {
-    mac_vrf_t *mac_vrf = evpn_inst_mac_vrf (evpn_inst);
-    rt_t *tgt;
-
-    if (!mac_vrf)
+    if (!evpn_inst->bd_intf) {
         return false;
+    }
 
-    tgt = import ? &mac_vrf->vrf.import_rt : &mac_vrf->vrf.export_rt;
-    *tgt = rt;
+    if (import) {
+        evpn_inst->import_rt = rt;
+    }
+    else {
+        evpn_inst->export_rt = rt;
+    }
     return true;
 }
 
 bool 
 evpn_unconfig_rt (evpn_inst_t *evpn_inst, rt_t rt, bool import)
 {
-    mac_vrf_t *mac_vrf = evpn_inst_mac_vrf (evpn_inst);
-    rt_t *tgt;
-
-    if (!mac_vrf)
-        return false;
-
-    tgt = import ? &mac_vrf->vrf.import_rt : &mac_vrf->vrf.export_rt;
-
-    if (tgt->rtr_id != rt.rtr_id || tgt->vrf_id != rt.vrf_id)
-        return false;
-
-    tgt->rtr_id = 0;
-    tgt->vrf_id = 0;
+    if (import) {
+        evpn_inst->import_rt.rtr_id = 0;
+        evpn_inst->import_rt.sub_type = 0;
+        evpn_inst->import_rt.vrf_id = 0;
+    }
+    else {
+        evpn_inst->export_rt.rtr_id = 0;
+        evpn_inst->export_rt.sub_type = 0;
+        evpn_inst->export_rt.vrf_id = 0;
+    }
     return true;
 }
 
 void
-evpn_connect_bd (evpn_inst_t *evpn_inst, uint32_t bd_index) {
+evpn_connect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf) {
 
-    node_t *node;
-    mac_vrf_t *mac_vrf;
+    assert (!evpn_inst->bd_intf);
+    assert (!bd_intf->evi_id);
+    assert (bd_intf->vrf);
 
-    assert (evpn_inst->bd_index == 0);
-    evpn_inst->bd_index = bd_index;
+    evpn_inst->bd_intf =
+        std::dynamic_pointer_cast<BDInterface>(bd_intf->GetSharedPtr());
+    bd_intf->evi_id = evpn_inst->evi;
 
-    node = evpn_inst->node;
+    /* Now Assign RD/RT to evpn since evpn now has a soul (BD ) */
+     /* Auto generate RD/RT, should be overridden by user config */
+    evpn_inst->rd.type = 1;
+    evpn_inst->rd.rtr_id = NODE_RTR_ID_INT(bd_intf->vrf->node);
+    evpn_inst->rd.vrf_id = bd_intf->bd_id;
 
-    /* Install EVPN labels for UC/MC for this evpn instance in LFIB */
-    mac_vrf = (mac_vrf_t *)node->vrf[evpn_inst->mac_vrf_id];
-    assert (mac_vrf->rtm_local_bd_uc_rt_mpls_idx == 0);
-    assert (mac_vrf->rtm_local_bd_mc_rt_mpls_idx == 0);
+    /* Generate import/export RT (Type-1: IPv4:uint16) */
+    rt_type1_fill(&evpn_inst->import_rt,
+                  0,
+                  bd_intf->bd_id);
 
-    if (mac_vrf->l2vpn_evpn_uc_lbl)
-        mac_vrf->rtm_local_bd_uc_rt_mpls_idx = 
-            evpn_bd_install_local_label (mac_vrf->mac_rib, mac_vrf->l2vpn_evpn_uc_lbl);
-
-    if (mac_vrf->l2vpn_evpn_mc_lbl)
-        mac_vrf->rtm_local_bd_mc_rt_mpls_idx = 
-            evpn_bd_install_local_label (mac_vrf->mac_rib, mac_vrf->l2vpn_evpn_mc_lbl);
+    evpn_inst->export_rt = evpn_inst->import_rt;
 }
 
 bool 
-evpn_disconnect_bd (evpn_inst_t *evpn_inst, uint32_t bd_index)
+evpn_disconnect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf)
 {
-    mac_vrf_t *mac_vrf;
+    assert (evpn_inst->bd_intf.get() == bd_intf);
 
-    if (!evpn_inst || evpn_inst->bd_index != bd_index)
-        return false;
+    bd_intf->evi_id = 0;
+    evpn_inst->bd_intf = nullptr;
 
-    mac_vrf = evpn_inst_mac_vrf (evpn_inst);
+    /* Reset RT */
+    evpn_inst->export_rt.rtr_id = 0;
+    evpn_inst->export_rt.sub_type = 0;
+    evpn_inst->export_rt.vrf_id = 0;
+    evpn_inst->import_rt = evpn_inst->export_rt;
 
-    if (mac_vrf) {
-        if (mac_vrf->l2vpn_evpn_uc_lbl && mac_vrf->rtm_local_bd_uc_rt_mpls_idx) {
-            evpn_bd_uninstall_local_label (mac_vrf->mac_rib, mac_vrf->l2vpn_evpn_uc_lbl);
-            mac_vrf->rtm_local_bd_uc_rt_mpls_idx = 0;
-        }
-        if (mac_vrf->l2vpn_evpn_mc_lbl && mac_vrf->rtm_local_bd_mc_rt_mpls_idx) {
-            evpn_bd_uninstall_local_label (mac_vrf->mac_rib, mac_vrf->l2vpn_evpn_mc_lbl);
-            mac_vrf->rtm_local_bd_mc_rt_mpls_idx = 0;
-        }
-    }
-
-    evpn_inst->bd_index = 0;
     return true;
 }

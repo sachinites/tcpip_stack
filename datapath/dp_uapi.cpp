@@ -171,7 +171,7 @@ dp_post_mac_learn_job(dp_ctx_t *dp_ctx,
     memcpy(m->mac_addr, mac_addr, 6);
     m->table_vlan_id = vlan_id;
     m->bd_ifindex = 0;
-    m->flags         = MAC_DYNAMIC;
+    m->flags         = MAC_DATA_PLANE;
     vlan_intf = dp_look_up_interface_by_vlan_id(dp_ctx->dp_vlan_intf_ht, vlan_id);
     vlan_bd_ifindex = vlan_intf ? vlan_intf->port_id : 0;
     mac_fwd_object_spec_from_ifindex(&m->fwd, oif_ifindex, src_ip, vlan_bd_ifindex);
@@ -197,7 +197,7 @@ dp_post_bd_mac_learn_job(dp_ctx_t *dp_ctx,
     memcpy(m->mac_addr, mac_addr, 6);
     m->table_vlan_id = DEFAULT_VLAN_ID;
     m->bd_ifindex    = bd_ifindex;
-    m->flags         = MAC_DYNAMIC;
+    m->flags         = MAC_DATA_PLANE;
     mac_fwd_object_spec_from_ifindex(&m->fwd, oif_ifindex, 0, bd_ifindex);
 
     task_create_new_job(EV_DP(dp_ctx), (void *)dp_msg,

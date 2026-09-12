@@ -18,6 +18,7 @@ typedef struct bgp_neighbor_config_ {
     bool configured;
     bool ipv4_unicast;
     bool ipv4_vpn;
+    bool l2vpn_evpn;
 } bgp_neighbor_config_t;
 
 typedef void (*bgp_monitor_notify_cb)(const void *route_info,

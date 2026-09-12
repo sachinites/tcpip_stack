@@ -51,6 +51,19 @@ bool LooksLikeIpv4(const std::string& value)
     return value.find('.') != std::string::npos;
 }
 
+void SetDefaultEthernetSegmentIdentifier(
+    api::EthernetSegmentIdentifier* esi)
+{
+    if (!esi) {
+        return;
+    }
+
+    /* Single-homed / non-ES route: type-0 ESI with 9 zero bytes.
+     * GoBGP AddPath dereferences esi unconditionally. */
+    esi->set_type(0);
+    esi->set_value(std::string(9, '\0'));
+}
+
 void SetRouteDistinguisher(const std::string& rd_str,
                            api::RouteDistinguisher* rd)
 {
@@ -317,6 +330,77 @@ RpcResult GoBgpGrpcClient::ListPeers(std::vector<PeerInfo>* peers)
     return FromStatus(reader->Finish());
 }
 
+namespace {
+
+bool
+GrpcFamilyMatches(BgpAfi afi, BgpSafi safi, const api::Family& family)
+{
+    if (safi == BgpSafi::kEvpn) {
+        return family.afi() == api::Family::AFI_L2VPN &&
+               family.safi() == api::Family::SAFI_EVPN;
+    }
+
+    if (safi == BgpSafi::kMplsVpn) {
+        return family.afi() == api::Family::AFI_IP &&
+               family.safi() == api::Family::SAFI_MPLS_VPN;
+    }
+
+    if (afi == BgpAfi::kIpv6) {
+        return family.afi() == api::Family::AFI_IP6 &&
+               family.safi() == api::Family::SAFI_UNICAST;
+    }
+
+    return family.afi() == api::Family::AFI_IP &&
+           family.safi() == api::Family::SAFI_UNICAST;
+}
+
+}  // namespace
+
+RpcResult GoBgpGrpcClient::IsAddressFamilyEnabledOnAnyPeer(
+    BgpAfi afi,
+    BgpSafi safi,
+    bool* enabled)
+{
+    api::ListPeerRequest request;
+    request.set_enable_advertised(false);
+
+    if (enabled) {
+        *enabled = false;
+    }
+
+    grpc::ClientContext context;
+    SetDeadline(&context);
+
+    std::unique_ptr<grpc::ClientReader<api::ListPeerResponse>> reader(
+        stub_->ListPeer(&context, request));
+
+    api::ListPeerResponse response;
+    while (reader->Read(&response)) {
+        if (!response.has_peer()) {
+            continue;
+        }
+
+        const api::Peer& peer = response.peer();
+        for (int i = 0; i < peer.afi_safis_size(); ++i) {
+            const api::AfiSafi& afi_safi = peer.afi_safis(i);
+            if (!afi_safi.has_config() || !afi_safi.config().enabled()) {
+                continue;
+            }
+            if (!afi_safi.config().has_family()) {
+                continue;
+            }
+            if (GrpcFamilyMatches(afi, safi, afi_safi.config().family())) {
+                if (enabled) {
+                    *enabled = true;
+                }
+                return FromStatus(grpc::Status::OK);
+            }
+        }
+    }
+
+    return FromStatus(reader->Finish());
+}
+
 RpcResult GoBgpGrpcClient::AddPeer(
     const std::string& neighbor_address,
     std::uint32_t peer_asn,
@@ -406,15 +490,11 @@ RpcResult GoBgpGrpcClient::ApplyNeighborAddressFamilies(
     api::Peer* peer = request.mutable_peer();
     PopulateBasePeer(peer, neighbor_address, peer_asn, local_address);
 
-    if (ipv4_unicast) {
-        AppendFamily(peer, AddressFamily::kIpv4Unicast, true);
-    }
-    if (ipv4_vpn) {
-        AppendFamily(peer, AddressFamily::kIpv4Vpn, true);
-    }
-    if (evpn) {
-        AppendFamily(peer, AddressFamily::kEvpn, true);
-    }
+    /* Always send explicit enable/disable for every AF so GoBGP withdraws
+     * routes on disable (soft-reset-in) and emits WatchEvent withdrawals. */
+    AppendFamily(peer, AddressFamily::kIpv4Unicast, ipv4_unicast);
+    AppendFamily(peer, AddressFamily::kIpv4Vpn, ipv4_vpn);
+    AppendFamily(peer, AddressFamily::kEvpn, evpn);
 
     request.set_do_soft_reset_in(true);
 
@@ -481,7 +561,9 @@ void GoBgpGrpcClient::SetFamily(api::Family* family,
                                 BgpAfi afi,
                                 BgpSafi safi)
 {
-    if (afi == BgpAfi::kIpv6) {
+    if (safi == BgpSafi::kEvpn) {
+        family->set_afi(api::Family::AFI_L2VPN);
+    } else if (afi == BgpAfi::kIpv6) {
         family->set_afi(api::Family::AFI_IP6);
     } else {
         family->set_afi(api::Family::AFI_IP);
@@ -506,8 +588,13 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
     api::Path path;
     std::string addr;
     std::uint32_t prefix_len = 0;
+    bool has_prefix = ParsePrefixCidr(params.prefix, &addr, &prefix_len);
 
-    if (!ParsePrefixCidr(params.prefix, &addr, &prefix_len)) {
+    if (params.safi == BgpSafi::kEvpn) {
+        if (params.mac_addr.empty()) {
+            return path;
+        }
+    } else if (!has_prefix) {
         return path;
     }
 
@@ -518,7 +605,20 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
     SetFamily(path.mutable_family(), params.afi, params.safi);
 
     api::NLRI* nlri = path.mutable_nlri();
-    if (!params.rd.empty() || params.safi == BgpSafi::kMplsVpn) {
+    if (params.safi == BgpSafi::kEvpn) {
+        api::EVPNMACIPAdvertisementRoute* evpn =
+            nlri->mutable_evpn_macadv();
+        if (!params.rd.empty()) {
+            SetRouteDistinguisher(params.rd, evpn->mutable_rd());
+        }
+        SetDefaultEthernetSegmentIdentifier(evpn->mutable_esi());
+        evpn->set_ethernet_tag(0);
+        evpn->set_mac_address(params.mac_addr);
+        evpn->clear_ip_address();
+        if (params.evpn_label_present) {
+            evpn->add_labels(params.evpn_label);
+        }
+    } else if (!params.rd.empty() || params.safi == BgpSafi::kMplsVpn) {
         api::LabeledVPNIPAddressPrefix* vpn =
             nlri->mutable_labeled_vpn_ip_prefix();
         if (!params.rd.empty()) {
@@ -542,7 +642,8 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
         origin_attr->mutable_origin()->set_origin(0);
 
         if (!params.nexthop.empty()) {
-            if (params.safi == BgpSafi::kMplsVpn) {
+            if (params.safi == BgpSafi::kMplsVpn ||
+                params.safi == BgpSafi::kEvpn) {
                 api::Attribute* mp_attr = path.add_pattrs();
                 api::MpReachNLRIAttribute* mp =
                     mp_attr->mutable_mp_reach();
@@ -607,6 +708,17 @@ void GoBgpGrpcClient::FillRouteInfo(const api::Path& path,
             }
             if (vpn.labels_size() > 0) {
                 info->l3_vpn_label = vpn.labels(0);
+                info->l3_vpn_label_present = true;
+            }
+        } else if (nlri.has_evpn_macadv()) {
+            const api::EVPNMACIPAdvertisementRoute& evpn =
+                nlri.evpn_macadv();
+            info->prefix = evpn.mac_address();
+            if (evpn.has_rd()) {
+                info->rd = FormatRouteDistinguisher(evpn.rd());
+            }
+            if (evpn.labels_size() > 0) {
+                info->l3_vpn_label = evpn.labels(0);
                 info->l3_vpn_label_present = true;
             }
         }

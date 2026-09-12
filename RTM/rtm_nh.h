@@ -114,6 +114,9 @@ typedef struct rtm_nh_ {
         /* Metric */
         uint32_t metric;
 
+        /* Applicable only for MAC L2 VPN routes */
+        uint32_t mac_table_id;
+
         /* Action */
         RTM_NH_ACTION_TYPE_T action;
 
@@ -141,7 +144,7 @@ typedef struct rtm_nh_ {
         bool is_active;
 
         /* L3 VPN properties */
-        mpls_label_val_t l3_vpn_label;
+        mpls_label_val_t vpn_label;
         rt_t import_rt;
         rt_t export_rt;
         

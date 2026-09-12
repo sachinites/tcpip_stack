@@ -387,8 +387,9 @@ l2_fwd_type_str(L2_FWD_TYPE_T fwd_type)
 static void
 dp_print_l2_fwd_object(dp_ctx_t *dp_ctx, mac_fwd_object_t *obj)
 {
-    cprintf("  obj=%p  idx=%u  ref=%u  ",
-            (void *)obj, obj->idx, obj->ref_count);
+    cprintf("  obj=%p  idx=%u  ref=%u  hits=%llu  ",
+            (void *)obj, obj->idx, obj->ref_count,
+            (unsigned long long)obj->hit_count);
 
     switch (obj->fwd_type) {
 
@@ -419,8 +420,14 @@ dp_print_l2_fwd_object(dp_ctx_t *dp_ctx, mac_fwd_object_t *obj)
         }
 
         case L2_FWD_MPLS_TUNNEL: {
-            mpls_lstack_t *st = obj->u.lbl_stk;
-            cprintf("lbl_stk=%p", (void *)st);
+            mpls_lstack_t *st = obj->u.mpls_tunnel.lbl_stk;
+            cprintf("oif=%u  nh=%u.%u.%u.%u  lbl_stk=%p",
+                    obj->u.mpls_tunnel.oif_ifindex,
+                    (obj->u.mpls_tunnel.nh_ip >> 24) & 0xFF,
+                    (obj->u.mpls_tunnel.nh_ip >> 16) & 0xFF,
+                    (obj->u.mpls_tunnel.nh_ip >> 8) & 0xFF,
+                    obj->u.mpls_tunnel.nh_ip & 0xFF,
+                    (void *)st);
             if (st && st->curr_index >= 0) {
                 cprintf("  labels=");
                 for (int i = 0; i <= st->curr_index; i++) {
@@ -434,7 +441,13 @@ dp_print_l2_fwd_object(dp_ctx_t *dp_ctx, mac_fwd_object_t *obj)
         }
 
         case L2_FWD_SRv6_TUNNEL: {
-            cprintf("seg_cnt=%u", obj->u.srv6.seg_lst_cnt);
+            cprintf("oif=%u  nh=%u.%u.%u.%u  seg_cnt=%u",
+                    obj->u.srv6.oif_ifindex,
+                    (obj->u.srv6.nh_ip >> 24) & 0xFF,
+                    (obj->u.srv6.nh_ip >> 16) & 0xFF,
+                    (obj->u.srv6.nh_ip >> 8) & 0xFF,
+                    obj->u.srv6.nh_ip & 0xFF,
+                    obj->u.srv6.seg_lst_cnt);
             if (obj->u.srv6.seg_lst) {
                 for (uint8_t i = 0; i < obj->u.srv6.seg_lst_cnt; i++) {
                     char sid[INET6_ADDRSTRLEN];

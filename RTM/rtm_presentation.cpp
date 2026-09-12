@@ -79,7 +79,11 @@ typedef struct dist_mgr_ dist_mgr_t;
 extern void 
 rtm_distribution_manager_update (dist_mgr_t *dist_mgr, 
                                  rtm_presentation_data_t *presentation_data);
-                                 
+        
+extern char * (*rtm_get_intf_name) 
+    (void *ctx, uint32_t ifindex, char *buffer);
+
+
 #define RTM_ADVT_COUNT_PREEMPTION_LIMIT 100
 
 /* ========================================================================
@@ -1297,6 +1301,28 @@ rtm_check_and_delete_presentation_data (rtm_t *rtm,
     XFREE(presentation_data);
 }
 
+static void 
+rtm_distribute_presentation_data (rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
+
+    switch (presentation_data->route.afi) {
+
+        case AF_IPV4:
+        case AF_IPV6:
+        case AF_LABEL:
+
+             /* Update FIB */
+            rtm_fib_update(rtm, presentation_data);
+            /* Now Advertise it to Routing Protocols */
+            rtm_distribution_manager_update (rtm->node->dist_mgr, presentation_data);        
+
+            break;
+
+        case AF_MAC:
+            rtm_l2_fib_update(rtm, presentation_data);
+            break;
+    }
+}
+
 static void
 rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)), 
             void *arg, 
@@ -1315,8 +1341,6 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
     uint32_t total_queued = 0;
     for (uint8_t p = RTM_PROTO_STATIC; p < RTM_PROTO_MAX; p++)
         total_queued += get_glthread_list_count(&rtm->advt_nhs[p].head);
-    tracer (rtm->node->cptr, DRTM, "RTM[%s] : total_queued=%u\n",
-            rtm->name, total_queued);
 
     rtm_presentation_data_t *presentation_data = NULL;
     
@@ -1338,12 +1362,8 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
                     presentation_data->nh_idx, 
                     presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : \
                     (presentation_data->operation == RTM_PPT_OP_UPDATE) ? "Update" : "Delete");
-                    
-            /* Update FIB */
-            rtm_fib_update(rtm, presentation_data);
 
-            /* Now Advertise it to Routing Protocols */
-            rtm_distribution_manager_update (rtm->node->dist_mgr, presentation_data);
+            rtm_distribute_presentation_data(rtm, presentation_data);
 
             rtm_check_and_delete_presentation_data(rtm, presentation_data);
             
@@ -1356,7 +1376,6 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
             }
         }ITERATE_GLTHREAD_END(&rtm->advt_nhs[proto].head, curr);
     }
-    tracer (rtm->node->cptr, DRTM, "RTM[%s] : dispatched=%u\n", rtm->name, count);
 }
 
 void 
@@ -1492,8 +1511,10 @@ rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx) {
     ppt_route->nhidx_list_count = 0;
     avltree_insert(&ppt_route->route_glue, &rtm->ppt_db_route_tree);
 
-    tracer (rtm->node->cptr, DRTM, "RTM[%s] : Route %s : Successfully Registered with PPT-DB\n",
-            rtm->name, rtm_format_prefix(prefix, prefix_str, sizeof (prefix_str)));
+    tracer (rtm->node->cptr, DRTM, 
+        "RTM[%s] : Route %s : Successfully Registered with PPT-DB\n",
+        rtm->name, 
+        rtm_format_prefix(prefix, prefix_str, sizeof (prefix_str)));
 }
 
 /* Should be called by RTM core when route is permanently deleted. 
@@ -1516,7 +1537,8 @@ rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx) {
 
     if (!node) {
         tracer (rtm->node->cptr, DRTM, 
-            "RTM[%s] : Route %s : PPT-DB Unregistration failed : Route not found in PPT-DB. "
+            "RTM[%s] : Route %s : PPT-DB Unregistration failed : "
+            "Route not found in PPT-DB. "
             "This is Expected for Unresolved routes\n",
             rtm->name, rtm_format_prefix(prefix, prefix_str, sizeof (prefix_str)));
         return;
@@ -1529,5 +1551,47 @@ rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx) {
     rtm_ppt_route_check_and_delete (rtm, ppt_route);
 
     tracer (rtm->node->cptr, DRTM, "RTM[%s] : Route %s : Successfully UnRegistered with PPT-DB\n",
-            rtm->name, rtm_format_prefix(prefix, prefix_str, sizeof (prefix_str)));
+        rtm->name, 
+        rtm_format_prefix(prefix, prefix_str, sizeof (prefix_str)));
+}
+
+void 
+rtm_presentation_data_trace(rtm_t *rtm, rtm_presentation_data_t *presentation_data)
+{
+    char rt_str[48];
+    char gw_str[48];
+    char nh_str[128];
+    char pe_lbl_str[96];
+    char if_name_str[IF_NAME_SIZE];
+    rtm_nh *inh = presentation_data->inh;
+    rtm_nh *nh = presentation_data->nh;
+    size_t off = 0;
+
+    pe_lbl_str[0] = '\0';
+    if (nh && nh->label_stack && nh->label_stack->curr_index >= 0)
+    {
+        for (int i = 0; i <= nh->label_stack->curr_index; i++)
+        {
+            mpls_label_t *label = &nh->label_stack->labels[i];
+            off += snprintf(pe_lbl_str + off,
+                            sizeof(pe_lbl_str) - off,
+                            "%s%u",
+                            (i == 0) ? "" : ",",
+                            mpls_label_get_value(label->label_val));
+        }
+    }
+
+    tracer(rtm->node->cptr, DRTM_DET,
+           "RTM[%s] : L2 FIB MAC entry params — "
+           "bd=%u prefix=%s evpn_svc_label=%u pe_label=[%s] "
+           "gateway=%s oif=%s\n",
+           rtm->name,
+           inh ? inh->mac_table_id : 0,
+           rt_str,
+           inh ? (unsigned)inh->vpn_label : 0,
+           pe_lbl_str[0] ? pe_lbl_str : "-",
+           (nh && !cmn_prefix_is_null(&nh->prefix))
+               ? rtm_format_prefix(&nh->prefix, gw_str, sizeof(gw_str))
+               : "-",
+           nh ? rtm_get_intf_name(rtm->node, nh->oif, if_name_str) : "-");
 }

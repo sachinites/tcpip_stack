@@ -225,6 +225,11 @@ rtm_nh_is_equal(rtm_nh* nh1, rtm_nh* nh2) {
         return (nh1->metric < nh2->metric) ? -1 : 1;
     }
 
+    // Compare mac table id
+    if (nh1->mac_table_id != nh2->mac_table_id) {
+        return (nh1->mac_table_id < nh2->mac_table_id) ? -1 : 1;
+    }
+
     // Compare action
     if (nh1->action != nh2->action) {
         return (nh1->action < nh2->action) ? -1 : 1;
@@ -259,41 +264,6 @@ rtm_nh_is_equal(rtm_nh* nh1, rtm_nh* nh2) {
     return memcmp (nh1->label_stack, nh2->label_stack, sizeof(*nh1->label_stack));
 }
 
-int8_t 
-rtm_nh_is_equal_in_data_plane(rtm_nh *nh1, rtm_nh *nh2) {
-
-    if (nh1->action != nh2->action) {
-        return (nh1->action < nh2->action) ? -1 : 1;
-    }
-
-    // Compare outgoing interface
-    if (nh1->oif != nh2->oif) {
-        return (nh1->oif < nh2->oif) ? -1 : 1;
-    }
-    
-    // Compare prefix
-    int prefix_cmp = cmn_prefix_compare(&nh1->prefix, &nh2->prefix);
-    if (prefix_cmp != 0) {
-        return prefix_cmp;
-    }
-
-    if (!nh1->label_stack && nh2->label_stack) {
-        return 1;
-    }
-    if (nh1->label_stack && !nh2->label_stack) {
-        return -1;
-    }
-
-    if (!nh1->label_stack && !nh2->label_stack) {
-        return 0;
-    }
-
-    if (!mpls_lstack_compare (nh1->label_stack, nh2->label_stack)) return -1;
-
-    return 0;
-    // Copare SRv6 .. Later ...
-}
-
 /* Insert nexthop in route path list as per below rules : 
     1. lowest admin distance wins
     2. if admin distance is same, lowest Action wins
@@ -323,6 +293,10 @@ rtm_nh_compare (rtm_nh *nh1, rtm_nh *nh2) {
     // Rule 3: If action is same, lowest cost (metric) wins
     if (nh1->metric != nh2->metric) {
         return (nh1->metric < nh2->metric) ? -1 : 1;
+    }
+
+    if (nh1->mac_table_id != nh2->mac_table_id) {
+        return (nh1->mac_table_id < nh2->mac_table_id) ? -1 : 1;
     }
     
     // Rule 4: If both paths are BGP, then compare BGP attributes (TODO)
@@ -752,7 +726,7 @@ rtm_nh_duplicate (rtm_nh *nh) {
     nh_dup->oif = nh->oif;
     nh_dup->is_indirect = nh->is_indirect;
     nh_dup->is_active = nh->is_active;
-    nh_dup->l3_vpn_label = nh->l3_vpn_label;
+    nh_dup->vpn_label = nh->vpn_label;
     nh_dup->install_time = time(NULL);
 
     /* Deep copy rtm_nh_proto if present */

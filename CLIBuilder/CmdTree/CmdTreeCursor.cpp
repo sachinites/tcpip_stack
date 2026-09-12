@@ -652,6 +652,11 @@ cmdtc_collect_all_matching_params (cmd_tree_cursor_t *cmdtc, unsigned char c, bo
 
             if (child_param->flags & PARAM_F_DISABLE_PARAM) continue;
 
+            if (cmd_tree_is_param_pipe (child_param) &&
+                    !cmdtc->curr_param->callback[0]) {
+                continue;
+            }
+
             if (IS_PARAM_NO_CMD(child_param) &&
                     cmdtc->is_negate) continue;
 

@@ -90,24 +90,48 @@ l2_switch_perform_mac_learning(dp_ctx_t *dp_ctx,
 
 static void 
 mac_table_entry_xmit_frame (dp_ctx_t *dp_ctx,
-                            dp_intf_t *vlan_bd_intf,
                             mac_table_entry_t *mac_entry, 
-                            struct rte_mbuf *mbuf, 
-                            dp_intf_t *recv_intf) 
+                            struct rte_mbuf *mbuf) 
 {
     struct rte_mbuf *mbuf2;
     mac_fwd_object_t *fwd_obj;
     uint16_t i;
+    uint16_t remaining;
 
-    for (i = 0; i < mac_entry->oif_count; i++) {
+    if (mac_table_entry_is_broadcast(mac_entry)) {
 
-        fwd_obj = mac_entry->oifs[i];
-        if (!fwd_obj) continue;
-        mbuf2 = PKT_MBUF_DUP(mbuf);
-        dp_l2fwd(dp_ctx, fwd_obj, mbuf2);
-        pkt_mbuf_dereference(mbuf2);
+        remaining = 0;
+        for (i = 0; i < mac_entry->oif_count; i++) {
+            if (mac_entry->oifs[i])
+                remaining++;
+        }
+
+        for (i = 0; i < mac_entry->oif_count; i++) {
+
+            fwd_obj = mac_entry->oifs[i];
+            if (!fwd_obj)
+                continue;
+
+            remaining--;
+            if (remaining > 0) {
+                /* Still more ports after this — must clone. */
+                mbuf2 = PKT_MBUF_DUP(mbuf);
+                dp_l2fwd(dp_ctx, fwd_obj, mbuf2);
+                pkt_mbuf_dereference(mbuf2);
+            } else {
+                /* Last (or only) MacFwdObject — send original. */
+                dp_l2fwd(dp_ctx, fwd_obj, mbuf);
+            }
+        }
+        return;
     }
 
+    /* Unicast: one ECMP path — no clone needed. */
+    fwd_obj = mac_table_get_forwarding_nh(mac_entry);
+    if (!fwd_obj)
+        return;
+
+    dp_l2fwd(dp_ctx, fwd_obj, mbuf);
 }
 
 static void
@@ -121,6 +145,8 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
 
     vlan_8021q_hdr_t *vlan_8021q_hdr;
     mac_table_entry_t *mac_flood_entry = NULL;
+
+    (void)exempted_intf;
 
     bool bd_processing = (vlan_bd_intf && (vlan_bd_intf->if_type == DP_INTF_TYPE_BD)) ;
 
@@ -148,7 +174,7 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
             pkt_mbuf_str (mbuf), vlan_bd_intf->if_name);
     }
 
-    mac_table_entry_xmit_frame (dp_ctx, vlan_bd_intf, mac_flood_entry, mbuf, exempted_intf);
+    mac_table_entry_xmit_frame (dp_ctx, mac_flood_entry, mbuf);
 }
 
 void
@@ -197,7 +223,7 @@ l2_switch_forward_frame(
 
     if (mac_table_entry) {
 
-        mac_table_entry_xmit_frame (dp_ctx, vlan_bd_intf, mac_table_entry, mbuf, recv_intf);
+        mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf);
 
         if (!(mac_table_entry->flags & MAC_STATIC))
             mac_table_entry_touch(mac_table_entry); /* cheap timestamp store */
@@ -213,7 +239,7 @@ l2_switch_forward_frame(
                                         BROADCAST_MAC);
 
             if (mac_table_entry) {
-                mac_table_entry_xmit_frame (dp_ctx, vlan_bd_intf, mac_table_entry, mbuf, recv_intf);
+                mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf);
                 return;
             }        
 
@@ -226,7 +252,7 @@ l2_switch_forward_frame(
                 return;
             }
        
-            mac_table_entry_xmit_frame (dp_ctx, vlan_bd_intf, mac_table_entry, mbuf, recv_intf);
+            mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf);
             return;
     }
 
@@ -246,7 +272,7 @@ l2_switch_forward_frame(
             return;
         }
 
-        mac_table_entry_xmit_frame (dp_ctx, vlan_bd_intf, mac_table_entry, mbuf, recv_intf);
+        mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf);
         return;
     }
 

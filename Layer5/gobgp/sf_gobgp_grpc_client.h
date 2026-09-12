@@ -111,6 +111,9 @@ typedef struct sf_gobgp_route_params {
     bool local_pref_present;
     uint32_t l3_vpn_label;
     bool l3_vpn_label_present;
+    char mac_addr[32];
+    uint32_t evpn_label;
+    bool evpn_label_present;
     int afi;
     int safi;
 } sf_gobgp_route_params_t;
@@ -140,6 +143,12 @@ sf_gobgp_rpc_result_t sf_gobgp_add_route(sf_gobgp_grpc_client_t *client,
 
 sf_gobgp_rpc_result_t sf_gobgp_delete_route(sf_gobgp_grpc_client_t *client,
                                             const sf_gobgp_route_params_t *params);
+
+sf_gobgp_rpc_result_t
+sf_gobgp_is_address_family_enabled(sf_gobgp_grpc_client_t *client,
+                                   int afi,
+                                   int safi,
+                                   bool *enabled_out);
 
 sf_gobgp_rpc_result_t sf_gobgp_walk_routes(sf_gobgp_grpc_client_t *client,
                                            int afi,

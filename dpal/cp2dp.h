@@ -24,6 +24,7 @@ class TransportService;
 #include "../RTM/rtm_fib_common.h"
 #include "../RTM/rtm_nh.h"
 #include "../Interface/InterfacEnums.h"
+#include "../datapath/Layer2/MacNexthop/L2FwdObject.h"
 
 void 
 cp2dp_submit (node_t *node, dp_msg_t *dp_msg, bool async);
@@ -92,7 +93,7 @@ void
 cp2dp_bd_mac_table_entry_add_mpls(node_t *node,
                                   uint8_t *mac_addr,
                                   uint32_t bd_ifindex,
-                                  const mpls_lstack_t *label_stack,
+                                  const mac_fwd_object_spec_t *fwd_spec,
                                   uint16_t flags,
                                   bool async);
 
@@ -100,8 +101,13 @@ void
 cp2dp_bd_mac_table_entry_del_mpls(node_t *node,
                                   uint8_t *mac_addr,
                                   uint32_t bd_ifindex,
-                                  const mpls_lstack_t *label_stack,
+                                  const mac_fwd_object_spec_t *fwd_spec,
                                   bool async);
+
+void
+cp2dp_bd_mac_table_clear(node_t *node,
+                         uint32_t bd_ifindex,
+                         bool async);
 
 void
 cp2dp_fib_update (

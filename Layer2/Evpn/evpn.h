@@ -6,6 +6,7 @@
 
 typedef struct rtm_ rtm_t;
 typedef struct node_ node_t;
+class BDInterface ;
 
 
 #if 0
@@ -43,22 +44,27 @@ EVPN L2RIBs
 
 */
 
+#pragma pack(push, 8)
+
 typedef struct evpn_inst_ {
+
+    /* Owning Rtr*/
+    node_t *node;
+
+    /* EVPN is a control plane wrapper over BD Mgmt */
+    BDInterfaceP bd_intf;    
+
+    rd_t rd;
+    rt_t import_rt;    
+    rt_t export_rt;    
+
 
     /*EVPN Instance identifier */
     uint8_t evi;
 
-    /* EVPN is a control plane wrapper over BD Mgmt */
-    uint32_t bd_index; 
-
-    /* Underlying mac vrf */
-    uint8_t mac_vrf_id;
-
-    /* Owning router */
-    node_t *node;
-
 } evpn_inst_t;
 
+#pragma pack(pop)
 
 evpn_inst_t *
 evpn_instance_init (node_t *node, uint8_t evpn_id) ;
@@ -79,10 +85,9 @@ bool
 evpn_unconfig_rt (evpn_inst_t *evpn_inst, rt_t rt, bool import);
 
 void
-evpn_connect_bd (evpn_inst_t *evpn_inst, uint32_t bd_index);
+evpn_connect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf);
 
 bool 
-evpn_disconnect_bd (evpn_inst_t *evpn_inst, uint32_t bd_index);
-
+evpn_disconnect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf);
 
 #endif 

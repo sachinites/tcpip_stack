@@ -318,14 +318,15 @@ rtm_format_prefix(cmn_prefix_t *prefix, char *buffer, size_t buflen) {
             snprintf(buffer, buflen, "%s/%u", addr_buf, prefix->prefix_len);
             break;
         case AF_LABEL:
-            snprintf(buffer, buflen, "%u",
-                    mpls_label_get_value(prefix->u.mpls_label));
+            snprintf(buffer, buflen, "%u/%u",
+                    mpls_label_get_value(prefix->u.mpls_label), prefix->prefix_len);
             break;
         case AF_MAC:
-            snprintf(buffer, buflen, "%02x:%02x:%02x:%02x:%02x:%02x",
+            snprintf(buffer, buflen, "%02x:%02x:%02x:%02x:%02x:%02x/%u",
                     prefix->u.mac_addr[0], prefix->u.mac_addr[1], 
                     prefix->u.mac_addr[2], prefix->u.mac_addr[3],
-                    prefix->u.mac_addr[4], prefix->u.mac_addr[5]);
+                    prefix->u.mac_addr[4], prefix->u.mac_addr[5], 
+                    prefix->prefix_len);
             break;
         default:
             snprintf(buffer, buflen, "Unknown");
@@ -810,7 +811,8 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                 label_stack_count > 0 ? label_stack : NULL,
                 label_stack_count,
                 l3_vpn_label,
-                MPLS_OP_STACK_OPS_UNKNOWN);
+                MPLS_OP_STACK_OPS_UNKNOWN,
+                0);
 
             if (rc != RTM_SUCCESS) {
                 cprintf("Error: Failed to install route: %s\n", rtm_error_to_string(rc));
@@ -1120,8 +1122,8 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                 label_stack_count > 0 ? label_stack : NULL,
                 label_stack_count,
                 l3_vpn_label,
-                MPLS_OP_STACK_OPS_UNKNOWN
-            );
+                MPLS_OP_STACK_OPS_UNKNOWN,
+                0);
 
             if (rc != RTM_SUCCESS) {
                 cprintf("Error: Failed to uninstall route: %s\n", rtm_error_to_string(rc));
@@ -1243,13 +1245,14 @@ rtm_nh_create_from_nh_template (cp_nexthop_template_t *nh_template) {
     nh->proto_seed = nh_template->proto_seed;
     nh->ad = rtm_get_admin_distance (nh->proto , nh->sub_proto);
     nh->metric = nh_template->metric;
+    nh->mac_table_id = nh_template->mac_table_id;
     nh->action = nh_template->action;
     nh->prefix = nh_template->gateway;
     nh->oif = nh_template->oif;
     nh->is_indirect = nh_template->is_indirect;
     nh->is_active = false;
     nh->ref_count = 0;
-    nh->l3_vpn_label = nh_template->l3_vpn_label;
+    nh->vpn_label = nh_template->vpn_label;
 
     if (IS_BIT_SET (nh_template->fwd_flags, FIB_NH_FWD_F_MPLS_LBL_STCK)) {
 

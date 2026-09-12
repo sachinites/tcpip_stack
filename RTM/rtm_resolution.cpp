@@ -450,7 +450,7 @@ rtm_nh_resolver_job_cbk(event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
 
 void 
 rtm_schedule_nh_resolution_worker (rtm_t *rtm) {
-
+    
     if (rtm->nh_resolution_job) {
 
         tracer(rtm->node->cptr, DRTM_DET,
@@ -1004,14 +1004,12 @@ rtm_get_resolver_route (rtm_t *rtm, rtm_nh *inh) {
 rtm_t *
 rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
 
-    /* Rule 1 : If the route is BGP VPN route installed in 
-        Customer VPN RIBs, resolve it in default 0.inet.3 table*/
-
     if (
         (indirect_nh->proto == RTM_PROTO_BGP ||
             indirect_nh->proto == RTM_PROTO_STATIC)
         &&
-        indirect_nh->sub_proto == RTM_PROTO_BGP_VPN 
+        (indirect_nh->sub_proto == RTM_PROTO_BGP_VPN ||
+            indirect_nh->sub_proto == RTM_PROTO_L2VPN_EVPN)
         &&
         indirect_nh->rtm->vrf != DEFAULT_VRF) {
 
@@ -1032,7 +1030,6 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
     }
 
     /* Add more Rules here */
-
 
     /* Default Rules */
     if (indirect_nh->prefix.afi == AF_IPV4) return NODE_DEF_VRF_VRF_MEMBER(node, inet0);

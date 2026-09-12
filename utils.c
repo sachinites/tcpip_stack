@@ -601,6 +601,16 @@ rt_type1_to_string(const char *rt_str,
     return out_buf;
 }
 
+void
+rt_type1_fill(rt_t *rt, uint32_t ipv4_admin, uint16_t assigned)
+{
+    memset(rt, 0, sizeof(*rt));
+    rt->type = 1;
+    rt->sub_type = 0;
+    rt->rtr_id = ipv4_admin;
+    rt->vrf_id = assigned;
+}
+
 #if 0
 
 int 

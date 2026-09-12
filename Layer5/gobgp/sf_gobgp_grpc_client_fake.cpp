@@ -161,6 +161,20 @@ sf_gobgp_disable_evpn(sf_gobgp_grpc_client_t *client __attribute__((unused)),
 
 __attribute__((weak))
 sf_gobgp_rpc_result_t
+sf_gobgp_is_address_family_enabled(sf_gobgp_grpc_client_t *client
+                                   __attribute__((unused)),
+                                   int afi __attribute__((unused)),
+                                   int safi __attribute__((unused)),
+                                   bool *enabled_out)
+{
+    if (enabled_out) {
+        *enabled_out = false;
+    }
+    return fake_result();
+}
+
+__attribute__((weak))
+sf_gobgp_rpc_result_t
 sf_gobgp_add_route(sf_gobgp_grpc_client_t *client __attribute__((unused)),
                    const sf_gobgp_route_params_t *params __attribute__((unused)))
 {

@@ -2061,7 +2061,9 @@ BDInterface::BDInterface(std::string ifname, InterfaceType_t iftype, node_t *nod
       bd_id(0),
       ip_addr(0),
       mask(0),
-      vpn_svc_label(0)
+      vpn_svc_label(0),
+      evi_id(0),
+      lmac_queue(0)
 {
     if (node) {
         this->init_router_mac();

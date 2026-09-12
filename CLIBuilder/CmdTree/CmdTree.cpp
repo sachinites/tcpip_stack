@@ -204,7 +204,7 @@ libcli_register_param(param_t *parent, param_t *child) {
 void 
 libcli_set_param_cmd_code(param_t *param, int64_t cmd_code) {
 
-    if (param->callback == NULL) assert(0);
+    if (!param->callback[0]) assert(0);
     param->CMDCODE = cmd_code;
 }
 
@@ -859,7 +859,7 @@ libcli_augment_cmd_tree_with_filters (param_t *param) {
         libcli_augment_cmd_tree_with_filters (opt->param);
     }
 
-    if (param->callback) {
+    if (param->callback[0]) {
         libcli_register_param (param, &pipe);
     }
 }

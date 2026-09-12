@@ -13,6 +13,7 @@
 #include "../net.h"
 #include "../dpal/cp2dp.h"
 #include "../LabelMgr/label_mgr.h"
+#include "mac_vrf.h"
 
 /* Initialize Default VRF */
 def_vrf_t* vrf_def_init(node_t *node) {

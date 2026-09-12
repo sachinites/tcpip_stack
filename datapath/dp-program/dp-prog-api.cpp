@@ -67,6 +67,40 @@ cp2dp_msg_free (dp_msg_t *dp_msg){
     free (dp_msg);
 }
 
+static void
+dp_bd_mac_table_clear(dp_ctx_t *dp_ctx, uint32_t bd_ifindex)
+{
+    dp_intf_t *bd_intf;
+    mac_table_t *old_table;
+    mac_table_t *new_table;
+
+    if (bd_ifindex >= DP_MAX_INTF)
+        return;
+
+    bd_intf = dp_ctx->intf_table[bd_ifindex];
+    
+    if (!bd_intf || bd_intf->if_type != DP_INTF_TYPE_BD || !bd_intf->mac_table)
+        return;
+
+    old_table = bd_intf->mac_table;
+    new_table = mac_table_clear_retain_static(dp_ctx, old_table,
+                                              bd_ifindex,
+                                              dp_ctx->ctx_name,
+                                              bd_intf->if_name);
+    if (!new_table)
+        return;
+
+    bd_intf->mac_table = new_table;
+    mac_table_schedule_gc(dp_ctx, old_table);
+
+    tracer(dp_ctx->dptr, DL2SW,
+           "BD %s : MAC table cleared — retained %u static entries, "
+           "discarded %u dynamic entries\n",
+           bd_intf->if_name,
+           new_table->entry_count,
+           old_table->entry_count - new_table->entry_count);
+}
+
 /* Mac Table Updates*/
 void
 dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
@@ -104,6 +138,10 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
 
     switch (dp_msg->opr_type) {
         
+        case DP_CLEAR:
+            dp_bd_mac_table_clear(dp_ctx, mac_update_msg->bd_ifindex);
+        break;
+
         case DP_CREATE:
             
             mac_table_entry_add(dp_ctx, mac_table,
@@ -114,21 +152,8 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
 
              /* Trap to control plane */
              if (dp_msg->component_type == BD_MAC_TABLE)
-             {
-                dp_intf_t *bd_intf = dp_ctx->intf_table[overlay_vlan];
-                pkt_q_t *lmac_q = bd_intf->lmac_queue;
-                if (!lmac_q) break;
-
-                bd_lmac_data_t *lmac_data = (bd_lmac_data_t *)XCALLOC2(0, 1, bd_lmac_data_t);
-                lmac_data->ac_ifindex = 0; // Not available here
-                lmac_data->ip_addr = 0; // Not available here
-                lmac_data->bd_ifindex = overlay_vlan;
-                lmac_data->add = true;
-                memcpy (&lmac_data->mac.mac, 
-                        &mac_update_msg->mac_addr, sizeof (lmac_data->mac.mac));
-                
-                dp_pkt_q_enqueue(dp_ctx, lmac_q, (char *)lmac_data, sizeof (*lmac_data));
-             }
+                 dp_bd_mac_notify_cp(dp_ctx, overlay_vlan,
+                                    mac_update_msg->mac_addr, true);
             break;
             
         case DP_DEL:
@@ -139,22 +164,8 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
                                    &tmpl);
             
             if (dp_msg->component_type == BD_MAC_TABLE)
-             /* Trap to control plane */
-             {
-                dp_intf_t *bd_intf = dp_ctx->intf_table[overlay_vlan];
-                pkt_q_t *lmac_q = bd_intf->lmac_queue;
-                if (!lmac_q) break;
-
-                bd_lmac_data_t *lmac_data = (bd_lmac_data_t *)XCALLOC2(0, 1, bd_lmac_data_t);
-                lmac_data->ac_ifindex = 0; // Not available here
-                lmac_data->ip_addr = 0; // Not available here
-                lmac_data->bd_ifindex = overlay_vlan;
-                lmac_data->add = false;
-                memcpy (&lmac_data->mac.mac, 
-                        &mac_update_msg->mac_addr, sizeof (lmac_data->mac.mac));
-                
-                dp_pkt_q_enqueue(dp_ctx, lmac_q, (char *)lmac_data, sizeof (*lmac_data));
-             }
+                dp_bd_mac_notify_cp(dp_ctx, overlay_vlan,
+                                   mac_update_msg->mac_addr, false);
             break;
 
         case DP_UPDATE:
@@ -931,13 +942,17 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
 
                     dp_intf_bd_pkt_trap_q_t *trap_q = 
                         (dp_intf_bd_pkt_trap_q_t *)(msg + 1);
+
                     if (trap_q->pkt_q_ptr) {
                         assert (!intf->lmac_queue);
                         intf->lmac_queue = (pkt_q_t *)trap_q->pkt_q_ptr;
+                        tracer(dp_ctx->dptr, DCONF, "Trap Q %p Enabled for BD:%s\n",
+                            (void *)intf->lmac_queue, intf->if_name);
                     }
                     else {
                         assert (intf->lmac_queue);
                         intf->lmac_queue = NULL;
+                        tracer(dp_ctx->dptr, DCONF, "Trap Q Disabled for BD:%s\n", intf->if_name);
                     }
                 }
                 break;

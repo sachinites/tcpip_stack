@@ -193,5 +193,6 @@ void rtm_ppt_db_destroy (rtm_t *rtm);
 void rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx);
 void rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx);
 void rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route);
+void rtm_presentation_data_trace (rtm_t *rtm, rtm_presentation_data_t *presentation_data);
 
 #endif 

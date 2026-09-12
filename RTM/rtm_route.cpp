@@ -327,27 +327,6 @@ rtm_route_lookup_nh(rtm_route* route, rtm_nh* nh_template) {
     return NULL;
 }
 
-rtm_nh *
-rtm_route_lookup_nh_with_same_fwding_behavior(
-    rtm_route *route, rtm_nh *nh_template)
-{
-
-    rtm_nh *nh;
-    glthread_t *curr;
-    
-    ITERATE_GLTHREAD_BEGIN(&route->path_list, curr) {
-        
-        nh = route_glue_to_rtm_nh(curr);
-        
-        if (rtm_nh_is_equal_in_data_plane (nh, nh_template) == 0) {
-            return nh;
-        }
-        
-    } ITERATE_GLTHREAD_END(&route->path_list, curr);
-    
-    return NULL;
-}
-
 bool 
 rtm_route_is_local (rtm_route* route) {
 
