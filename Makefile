@@ -57,6 +57,8 @@ SRV6_LIB_PATH=-LLayer3/SegmentRouting/SRv6 -lsrv6
 # proto Libs
 LFA_LIB=Layer3/LFA/liblfa.a
 LFA_LIB_PATH=-LLayer3/LFA -llfa
+BGP_RIB_LIB=Layer5/bgp_rib/libbgp_rib.a
+BGP_RIB_LIB_PATH=-LLayer5/bgp_rib -lbgp_rib
 
 #MATH Expr Lib / DBMS Lib (built via libs/Makefile)
 MEXPR_LIB_PATH=-Llibs/MathExpressionParser -lMexpr
@@ -72,6 +74,7 @@ export LIBS=${ISIS_LIB_PATH} \
 			${DPDK_LIBS} \
 			${SRV6_LIB_PATH} \
 			${LFA_LIB_PATH} \
+			${BGP_RIB_LIB_PATH} \
 			-LCLIBuilder -lclibuilder \
 			-LFireWall -lasa \
 			-Ldatapath -ldp \
@@ -197,7 +200,7 @@ pkt_gen.exe:pkt_gen.o utils.o
 pkt_gen.o:pkt_gen.c
 	${CC} ${CFLAGS} -c pkt_gen.c -o pkt_gen.o
 
-tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a LabelMgr/liblabelmgr.a $(if $(filter 1,$(GOBGP_GRPC)),Layer5/gobgp/gobgp-grpc/libgrpc_wrapper.a)
+tcpstack.exe:main.o ${OBJS} ${ISIS_LIB} ${SRV6_LIB} ${LFA_LIB} ${BGP_RIB_LIB} CLIBuilder/clibuilder.a FireWall/libasa.a RTM/librtm.a datapath/libdp.a libs/libstd.a LabelMgr/liblabelmgr.a $(if $(filter 1,$(GOBGP_GRPC)),Layer5/gobgp/gobgp-grpc/libgrpc_wrapper.a)
 	${CC} ${CFLAGS} main.o ${OBJS} ${LIBS} ${DPDK} -o tcpstack.exe
 	@echo "tcpstack.exe Build Finished"
 
@@ -343,6 +346,8 @@ libs/libstd.a:
 	(cd libs; make)
 LabelMgr/liblabelmgr.a:
 	(cd LabelMgr; make)
+${BGP_RIB_LIB}:
+	(cd Layer5/bgp_rib; make)
 clean:
 	rm -f *.o *.d
 	rm -f *exe
@@ -371,7 +376,7 @@ clean:
 	rm -f Layer3/SegmentRouting/SR-MPLS/*.o
 	rm -f dpal/*.o
 	
-all: TARGET
+all: TARGET ${BGP_RIB_LIB}
 	
 cleanall:
 	make clean
@@ -381,6 +386,7 @@ cleanall:
 	(cd datapath; make clean)
 	(cd libs; make clean)
 	(cd LabelMgr; make clean)
+	(cd Layer5/bgp_rib; make clean)
 	@if [ "$(GOBGP_GRPC)" = "1" ]; then cd Layer5/gobgp/gobgp-grpc && make clean; fi
 
 # Auto-generated header dependencies (-MMD -MP); only .o members of OBJS

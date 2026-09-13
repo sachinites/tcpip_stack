@@ -238,6 +238,7 @@ mac_vrf_evpn_route_type2_remote_import(
     mac_addr_t *key;
     evpn_rt_t *evpn_rt;
     evpn_rt_t *existing;
+    char ip_addr_str[16];
     char mac_str[MAC_VRF_MAC_STR_LEN];
 
     node_t *node = mac_vrf->vrf->node;
@@ -250,7 +251,7 @@ mac_vrf_evpn_route_type2_remote_import(
 
     tracer(node->cptr, DEVPN,
            "EVPN Type-2 remote import route %s VTEP %s label %u mac-vrf %u\n",
-           mac_str, tcp_ip_covert_ip_n_to_p(vtep_ip, 0),
+           mac_str, ip_ntop(vtep_ip, (c_string)ip_addr_str),
            label, mac_vrf->mac_vrf_id);
 
     existing = (evpn_rt_t *)hashtable_search(mac_vrf->type2_rib, mac_addr);

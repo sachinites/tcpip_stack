@@ -26,7 +26,9 @@ def_vrf_t* vrf_def_init(node_t *node) {
     def_vrf->mpls0       = rtm_initialize(node, RTM_DEFAULT_VRF, DEF_VRF_NAME, AF_LABEL, 0);   // mpls.0
     def_vrf->l3vpnv4     = rtm_initialize(node, RTM_DEFAULT_VRF, DEF_VRF_NAME, AF_IPV4, 128);  // bgp.l3vpn.0 (v4)
     def_vrf->l3vpnv6     = rtm_initialize(node, RTM_DEFAULT_VRF, DEF_VRF_NAME, AF_IPV6, 128);  // bgp.l3vpn.0 (v6)
-    
+    def_vrf->l3evpnv4    = rtm_initialize(node, RTM_DEFAULT_VRF, DEF_VRF_NAME, AF_IPV4, 70);  // 0.inet.70
+    def_vrf->type2_evpn  = rtm_initialize(node, RTM_DEFAULT_VRF, DEF_VRF_NAME, AF_MAC, 70);
+
     return def_vrf;
 }
 
