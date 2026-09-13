@@ -18,6 +18,7 @@
 
 #include "mac_vrf.h"
 #include "../Layer2/Evpn/evpn_rt.h"
+#include "../Layer2/Evpn/evpn_bgp.h"
 #include "../Layer2/Evpn/evpn.h"
 
 extern int cprintf(const char *format, ...);

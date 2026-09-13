@@ -29,6 +29,11 @@ bgp_vpnv4_nlri_format_compact(const bgp_nlri_key_t *key,
                               size_t buflen);
 
 int
+bgp_vpnv4_nlri_format_bracket(const bgp_nlri_key_t *key,
+                              char *buf,
+                              size_t buflen);
+
+int
 bgp_vpnv4_ipv4_unicast_format_compact(const bgp_nlri_key_t *key,
                                        const bgp_rib_attrs_t *attrs,
                                        char *buf,

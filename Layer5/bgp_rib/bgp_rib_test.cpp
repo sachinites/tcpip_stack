@@ -89,6 +89,16 @@ test_vpnv4_rib(void)
     assert(bgp_vpnv4_rib_route_add(rib, &nlri, &attrs) == BGP_RIB_OK);
     assert(bgp_vpnv4_rib_route_lookup(rib, &nlri) != NULL);
 
+    {
+        bgp_nlri_key_t key;
+        bgp_vpnv4_nlri_t decoded;
+
+        assert(bgp_vpnv4_nlri_encode(&nlri, &key) == BGP_RIB_OK);
+        assert(bgp_vpnv4_nlri_decode(&key, &decoded) == BGP_RIB_OK);
+        assert(decoded.label_present);
+        assert(decoded.label == 1000);
+    }
+
     printf("VPNv4 RIB routes:\n");
     bgp_rib_print_routes(rib, stdout);
 

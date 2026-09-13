@@ -19,21 +19,35 @@ encode_rd_type1(const rd_t *rd, uint8_t out[8])
 }
 
 static bgp_rib_err_t
-decode_rd_type1(const uint8_t in[8], rd_t *rd_out)
+decode_rd_wire(const uint8_t in[8], rd_t *rd_out)
 {
     uint16_t rd_type = (uint16_t)((in[0] << 8) | in[1]);
 
-    if (rd_type != 0x0001) {
+    memset(rd_out, 0, sizeof(*rd_out));
+    rd_out->type = rd_type;
+
+    switch (rd_type) {
+    case 0x0000:
+        rd_out->rtr_id = (uint32_t)((in[2] << 8) | in[3]);
+        rd_out->vrf_id = (uint16_t)((in[6] << 8) | in[7]);
+        return BGP_RIB_OK;
+    case 0x0001:
+        rd_out->rtr_id = ((uint32_t)in[2] << 24) |
+                         ((uint32_t)in[3] << 16) |
+                         ((uint32_t)in[4] << 8) |
+                         (uint32_t)in[5];
+        rd_out->vrf_id = (uint16_t)((in[6] << 8) | in[7]);
+        return BGP_RIB_OK;
+    case 0x0002:
+        rd_out->rtr_id = ((uint32_t)in[2] << 24) |
+                         ((uint32_t)in[3] << 16) |
+                         ((uint32_t)in[4] << 8) |
+                         (uint32_t)in[5];
+        rd_out->vrf_id = (uint16_t)((in[6] << 8) | in[7]);
+        return BGP_RIB_OK;
+    default:
         return BGP_RIB_ERR_DECODE;
     }
-
-    rd_out->type = 1;
-    rd_out->rtr_id = ((uint32_t)in[2] << 24) |
-                     ((uint32_t)in[3] << 16) |
-                     ((uint32_t)in[4] << 8) |
-                     (uint32_t)in[5];
-    rd_out->vrf_id = (uint16_t)((in[6] << 8) | in[7]);
-    return BGP_RIB_OK;
 }
 
 static void
@@ -91,11 +105,12 @@ bgp_evpn_nlri_encode(const bgp_evpn_nlri_t *nlri,
     }
 
     if (nlri->label_present) {
-        uint32_t label = nlri->label & 0xfffff;
+        /* RFC 8277: 20-bit label in high-order bits of 3 octets; BoS in LSB. */
+        uint32_t entry = ((nlri->label & 0xfffff) << 4) | 0x1;
 
-        key_out->wire[offset++] = (uint8_t)((label >> 16) & 0xff);
-        key_out->wire[offset++] = (uint8_t)((label >> 8) & 0xff);
-        key_out->wire[offset++] = (uint8_t)((label & 0xff) | 0x01);
+        key_out->wire[offset++] = (uint8_t)((entry >> 16) & 0xff);
+        key_out->wire[offset++] = (uint8_t)((entry >> 8) & 0xff);
+        key_out->wire[offset++] = (uint8_t)(entry & 0xff);
     }
 
     key_out->wire_len = offset;
@@ -116,7 +131,7 @@ bgp_evpn_nlri_decode(const bgp_nlri_key_t *key,
 
     nlri_out->route_type = key->wire[offset++];
 
-    if (decode_rd_type1(&key->wire[offset], &nlri_out->rd) != BGP_RIB_OK) {
+    if (decode_rd_wire(&key->wire[offset], &nlri_out->rd) != BGP_RIB_OK) {
         return BGP_RIB_ERR_DECODE;
     }
     offset += 8;
@@ -165,6 +180,63 @@ bgp_evpn_nlri_decode(const bgp_nlri_key_t *key,
     }
 
     return BGP_RIB_OK;
+}
+
+int
+bgp_evpn_nlri_format_bracket(const bgp_nlri_key_t *key,
+                             char *buf,
+                             size_t buflen)
+{
+    bgp_evpn_nlri_t nlri;
+    char rd_str[32];
+    char mac_hex[13];
+    char ip_str[32];
+
+    if (!key || !buf || buflen == 0) {
+        return -1;
+    }
+
+    if (bgp_evpn_nlri_decode(key, &nlri) != BGP_RIB_OK) {
+        return -1;
+    }
+
+    bgp_rd_wire_to_str(&key->wire[1], rd_str, sizeof(rd_str));
+    snprintf(mac_hex, sizeof(mac_hex),
+             "%02x%02x%02x%02x%02x%02x",
+             nlri.mac.mac[0], nlri.mac.mac[1], nlri.mac.mac[2],
+             nlri.mac.mac[3], nlri.mac.mac[4], nlri.mac.mac[5]);
+
+    if (nlri.ip_len == 32) {
+        format_ipv4(nlri.ip_addr, ip_str, sizeof(ip_str));
+    }
+
+    /*
+     * Length in bits of the EVPN NLRI key fields, excluding the
+     * trailing MPLS label (shown separately as Label1).
+     */
+    {
+        uint16_t bit_len = bgp_nlri_key_bit_length(key);
+
+        if (nlri.label_present && bit_len >= 24) {
+            bit_len = (uint16_t)(bit_len - 24);
+        }
+
+        if (nlri.ip_len == 32) {
+            snprintf(buf, buflen,
+                     "[%u][%s][%u][%u][%s][%u][%s]/%u",
+                     nlri.route_type, rd_str, nlri.eth_tag_id,
+                     nlri.mac_len, mac_hex, nlri.ip_len, ip_str,
+                     bit_len);
+        } else {
+            snprintf(buf, buflen,
+                     "[%u][%s][%u][%u][%s][%u][*]/%u",
+                     nlri.route_type, rd_str, nlri.eth_tag_id,
+                     nlri.mac_len, mac_hex, nlri.ip_len,
+                     bit_len);
+        }
+    }
+
+    return 0;
 }
 
 int

@@ -1,6 +1,8 @@
 #include "gobgp_grpc.h"
 
+#include <arpa/inet.h>
 #include <chrono>
+#include <cstring>
 #include <cstdlib>
 #include <sstream>
 
@@ -49,6 +51,241 @@ bool ParseColonSeparatedValue(const std::string& value,
 bool LooksLikeIpv4(const std::string& value)
 {
     return value.find('.') != std::string::npos;
+}
+
+bool ParseIpv4Address(const std::string& addr, std::uint8_t out[4])
+{
+    struct in_addr in {};
+
+    if (addr.empty() || ::inet_pton(AF_INET, addr.c_str(), &in) != 1) {
+        return false;
+    }
+
+    const char* bytes = reinterpret_cast<const char*>(&in.s_addr);
+    out[0] = static_cast<std::uint8_t>(bytes[0]);
+    out[1] = static_cast<std::uint8_t>(bytes[1]);
+    out[2] = static_cast<std::uint8_t>(bytes[2]);
+    out[3] = static_cast<std::uint8_t>(bytes[3]);
+    return true;
+}
+
+bool ParseMacAddress(const std::string& mac, std::uint8_t out[6])
+{
+    unsigned int b[6];
+
+    if (mac.empty()) {
+        return false;
+    }
+
+    if (std::sscanf(mac.c_str(),
+                    "%x:%x:%x:%x:%x:%x",
+                    &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]) != 6) {
+        return false;
+    }
+
+    for (int i = 0; i < 6; ++i) {
+        out[i] = static_cast<std::uint8_t>(b[i]);
+    }
+    return true;
+}
+
+std::uint8_t Ipv4PrefixByteCount(std::uint32_t prefix_len)
+{
+    return static_cast<std::uint8_t>((prefix_len + 7U) / 8U);
+}
+
+bool EncodeRouteDistinguisherWire(const api::RouteDistinguisher& rd,
+                                  std::uint8_t out[8])
+{
+    if (rd.has_two_octet_asn()) {
+        const api::RouteDistinguisherTwoOctetASN& asn = rd.two_octet_asn();
+        out[0] = 0x00;
+        out[1] = 0x00;
+        out[2] = static_cast<std::uint8_t>((asn.admin() >> 8) & 0xff);
+        out[3] = static_cast<std::uint8_t>(asn.admin() & 0xff);
+        out[4] = static_cast<std::uint8_t>((asn.assigned() >> 24) & 0xff);
+        out[5] = static_cast<std::uint8_t>((asn.assigned() >> 16) & 0xff);
+        out[6] = static_cast<std::uint8_t>((asn.assigned() >> 8) & 0xff);
+        out[7] = static_cast<std::uint8_t>(asn.assigned() & 0xff);
+        return true;
+    }
+
+    if (rd.has_ip_address()) {
+        const api::RouteDistinguisherIPAddress& ip = rd.ip_address();
+        std::uint8_t addr[4] = {};
+
+        if (!ParseIpv4Address(ip.admin(), addr)) {
+            return false;
+        }
+
+        out[0] = 0x00;
+        out[1] = 0x01;
+        out[2] = addr[0];
+        out[3] = addr[1];
+        out[4] = addr[2];
+        out[5] = addr[3];
+        out[6] = static_cast<std::uint8_t>((ip.assigned() >> 8) & 0xff);
+        out[7] = static_cast<std::uint8_t>(ip.assigned() & 0xff);
+        return true;
+    }
+
+    if (rd.has_four_octet_asn()) {
+        const api::RouteDistinguisherFourOctetASN& asn = rd.four_octet_asn();
+        out[0] = 0x00;
+        out[1] = 0x02;
+        out[2] = static_cast<std::uint8_t>((asn.admin() >> 24) & 0xff);
+        out[3] = static_cast<std::uint8_t>((asn.admin() >> 16) & 0xff);
+        out[4] = static_cast<std::uint8_t>((asn.admin() >> 8) & 0xff);
+        out[5] = static_cast<std::uint8_t>(asn.admin() & 0xff);
+        out[6] = static_cast<std::uint8_t>((asn.assigned() >> 8) & 0xff);
+        out[7] = static_cast<std::uint8_t>(asn.assigned() & 0xff);
+        return true;
+    }
+
+    return false;
+}
+
+void AppendMplsLabel(std::uint32_t label,
+                     std::uint8_t* wire,
+                     std::uint16_t* offset)
+{
+    /* RFC 8277: 20-bit label in high-order bits of 3 octets; BoS in LSB. */
+    const std::uint32_t entry = ((label & 0xfffffU) << 4) | 0x1U;
+
+    wire[*offset] = static_cast<std::uint8_t>((entry >> 16) & 0xff);
+    (*offset)++;
+    wire[*offset] = static_cast<std::uint8_t>((entry >> 8) & 0xff);
+    (*offset)++;
+    wire[*offset] = static_cast<std::uint8_t>(entry & 0xff);
+    (*offset)++;
+}
+
+bool ExtractNlriWire(const api::NLRI& nlri,
+                     BgpSafi safi,
+                     BgpRouteInfo* info)
+{
+    std::uint16_t offset = 0;
+
+    if (!info) {
+        return false;
+    }
+
+    info->nlri_wire_len = 0;
+
+    if (nlri.has_prefix()) {
+        const api::IPAddressPrefix& prefix = nlri.prefix();
+        std::uint8_t addr[4] = {};
+        const std::uint32_t prefix_len = prefix.prefix_len();
+        const std::uint8_t prefix_bytes = Ipv4PrefixByteCount(prefix_len);
+
+        if (!ParseIpv4Address(prefix.prefix(), addr)) {
+            return false;
+        }
+
+        info->nlri_wire[offset++] = static_cast<std::uint8_t>(prefix_len);
+        for (std::uint8_t i = 0; i < prefix_bytes; ++i) {
+            info->nlri_wire[offset++] = addr[i];
+        }
+        info->nlri_wire_len = offset;
+        return true;
+    }
+
+    if (nlri.has_labeled_vpn_ip_prefix()) {
+        const api::LabeledVPNIPAddressPrefix& vpn =
+            nlri.labeled_vpn_ip_prefix();
+        std::uint8_t addr[4] = {};
+        const std::uint32_t prefix_len = vpn.prefix_len();
+        const std::uint8_t prefix_bytes = Ipv4PrefixByteCount(prefix_len);
+
+        if (!vpn.has_rd() ||
+            !EncodeRouteDistinguisherWire(vpn.rd(), &info->nlri_wire[offset])) {
+            return false;
+        }
+        offset += 8;
+
+        if (!ParseIpv4Address(vpn.prefix(), addr)) {
+            return false;
+        }
+
+        info->nlri_wire[offset++] = static_cast<std::uint8_t>(prefix_len);
+        for (std::uint8_t i = 0; i < prefix_bytes; ++i) {
+            info->nlri_wire[offset++] = addr[i];
+        }
+
+        if (vpn.labels_size() > 0) {
+            AppendMplsLabel(vpn.labels(0), info->nlri_wire, &offset);
+        }
+
+        info->nlri_wire_len = offset;
+        return true;
+    }
+
+    if (nlri.has_evpn_macadv()) {
+        const api::EVPNMACIPAdvertisementRoute& evpn = nlri.evpn_macadv();
+        std::uint8_t mac[6] = {};
+
+        info->nlri_wire[offset++] = 2;
+
+        if (!evpn.has_rd() ||
+            !EncodeRouteDistinguisherWire(evpn.rd(), &info->nlri_wire[offset])) {
+            return false;
+        }
+        offset += 8;
+
+        if (evpn.has_esi()) {
+            const api::EthernetSegmentIdentifier& esi = evpn.esi();
+            info->nlri_wire[offset++] = static_cast<std::uint8_t>(esi.type());
+            const std::string& value = esi.value();
+            const std::size_t copy_len = std::min<std::size_t>(value.size(), 9);
+            if (copy_len > 0) {
+                std::memcpy(&info->nlri_wire[offset], value.data(), copy_len);
+            }
+            offset += 9;
+        } else {
+            std::memset(&info->nlri_wire[offset], 0, 10);
+            offset += 10;
+        }
+
+        const std::uint32_t eth_tag = evpn.ethernet_tag();
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>((eth_tag >> 24) & 0xff);
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>((eth_tag >> 16) & 0xff);
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>((eth_tag >> 8) & 0xff);
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>(eth_tag & 0xff);
+
+        if (!ParseMacAddress(evpn.mac_address(), mac)) {
+            return false;
+        }
+
+        info->nlri_wire[offset++] = 48;
+        std::memcpy(&info->nlri_wire[offset], mac, 6);
+        offset += 6;
+
+        if (!evpn.ip_address().empty()) {
+            std::uint8_t ip[4] = {};
+            if (!ParseIpv4Address(evpn.ip_address(), ip)) {
+                return false;
+            }
+            info->nlri_wire[offset++] = 32;
+            std::memcpy(&info->nlri_wire[offset], ip, 4);
+            offset += 4;
+        } else {
+            info->nlri_wire[offset++] = 0;
+        }
+
+        if (evpn.labels_size() > 0) {
+            AppendMplsLabel(evpn.labels(0), info->nlri_wire, &offset);
+        }
+
+        info->nlri_wire_len = offset;
+        return true;
+    }
+
+    (void)safi;
+    return false;
 }
 
 void SetDefaultEthernetSegmentIdentifier(
@@ -150,36 +387,168 @@ std::string FormatRouteDistinguisher(const api::RouteDistinguisher& rd)
     return "";
 }
 
-std::string FormatRouteTargetCommunity(
-    const api::ExtendedCommunity& community)
+std::uint16_t
+EcTypeField(bool transitive, std::uint32_t sub_type, std::uint8_t transitive_high)
 {
+    const std::uint8_t high =
+        transitive ? transitive_high
+                   : static_cast<std::uint8_t>(transitive_high | 0x40);
+    return static_cast<std::uint16_t>(
+        (static_cast<std::uint16_t>(high) << 8) |
+        static_cast<std::uint16_t>(sub_type & 0xff));
+}
+
+const char *
+TunnelEncapTypeName(std::uint32_t tunnel_type)
+{
+    switch (tunnel_type) {
+    case 2:
+        return "GRE";
+    case 8:
+        return "VXLAN";
+    case 10:
+        return "MPLS";
+    case 12:
+        return "MPLS-in-GRE";
+    default:
+        return "Unknown";
+    }
+}
+
+bool
+AppendExtendedCommunity(const api::ExtendedCommunity& community,
+                        BgpRouteInfo* info)
+{
+    BgpExtCommunityEntry entry{};
+
+    if (!info || info->ext_comm_count >= 16) {
+        return false;
+    }
+
     if (community.has_two_octet_as_specific()) {
-        const api::TwoOctetAsSpecificExtended& rt =
+        const api::TwoOctetAsSpecificExtended& ec =
             community.two_octet_as_specific();
-        if (rt.sub_type() != kEcSubtypeRouteTarget) {
-            return "";
+        entry.type = EcTypeField(ec.is_transitive(), ec.sub_type(), 0x00);
+        entry.subtype = static_cast<std::uint16_t>(ec.sub_type());
+        if (ec.sub_type() == kEcSubtypeRouteTarget) {
+            snprintf(entry.text, sizeof(entry.text), "RT:%u:%u",
+                     ec.asn(), ec.local_admin());
+            if (info->rt.empty()) {
+                info->rt = std::to_string(ec.asn()) + ":" +
+                           std::to_string(ec.local_admin());
+            }
+        } else {
+            snprintf(entry.text, sizeof(entry.text),
+                     "2-octet-AS:%u:%u", ec.asn(), ec.local_admin());
         }
-        return std::to_string(rt.asn()) + ":" +
-               std::to_string(rt.local_admin());
-    }
-    if (community.has_ipv4_address_specific()) {
-        const api::IPv4AddressSpecificExtended& rt =
+    } else if (community.has_ipv4_address_specific()) {
+        const api::IPv4AddressSpecificExtended& ec =
             community.ipv4_address_specific();
-        if (rt.sub_type() != kEcSubtypeRouteTarget) {
-            return "";
+        entry.type = EcTypeField(ec.is_transitive(), ec.sub_type(), 0x01);
+        entry.subtype = static_cast<std::uint16_t>(ec.sub_type());
+        if (ec.sub_type() == kEcSubtypeRouteTarget) {
+            snprintf(entry.text, sizeof(entry.text), "RT:%s:%u",
+                     ec.address().c_str(), ec.local_admin());
+            if (info->rt.empty()) {
+                info->rt = ec.address() + ":" +
+                           std::to_string(ec.local_admin());
+            }
+        } else {
+            snprintf(entry.text, sizeof(entry.text), "IPv4:%s:%u",
+                     ec.address().c_str(), ec.local_admin());
         }
-        return rt.address() + ":" + std::to_string(rt.local_admin());
-    }
-    if (community.has_four_octet_as_specific()) {
-        const api::FourOctetAsSpecificExtended& rt =
+    } else if (community.has_four_octet_as_specific()) {
+        const api::FourOctetAsSpecificExtended& ec =
             community.four_octet_as_specific();
-        if (rt.sub_type() != kEcSubtypeRouteTarget) {
-            return "";
+        entry.type = EcTypeField(ec.is_transitive(), ec.sub_type(), 0x02);
+        entry.subtype = static_cast<std::uint16_t>(ec.sub_type());
+        if (ec.sub_type() == kEcSubtypeRouteTarget) {
+            snprintf(entry.text, sizeof(entry.text), "RT:%u:%u",
+                     ec.asn(), ec.local_admin());
+            if (info->rt.empty()) {
+                info->rt = std::to_string(ec.asn()) + ":" +
+                           std::to_string(ec.local_admin());
+            }
+        } else {
+            snprintf(entry.text, sizeof(entry.text), "4-octet-AS:%u:%u",
+                     ec.asn(), ec.local_admin());
         }
-        return std::to_string(rt.asn()) + ":" +
-               std::to_string(rt.local_admin());
+    } else if (community.has_encap()) {
+        const api::EncapExtended& ec = community.encap();
+        entry.type = 0x030c;
+        entry.subtype = 0x000c;
+        snprintf(entry.text, sizeof(entry.text), "Tunnel-Encap:%s",
+                 TunnelEncapTypeName(ec.tunnel_type()));
+        info->tunnel_encap_type =
+            static_cast<std::uint16_t>(ec.tunnel_type());
+        info->tunnel_encap_present = true;
+    } else if (community.has_esi_label()) {
+        const api::ESILabelExtended& ec = community.esi_label();
+        entry.type = 0x0601;
+        entry.subtype = 0x0001;
+        snprintf(entry.text, sizeof(entry.text), "ESI-Label:%u",
+                 ec.label());
+        info->evpn_label1 = ec.label();
+        info->evpn_label1_present = true;
+        info->evpn_label1_from_ext_comm = true;
+    } else if (community.has_router_mac()) {
+        const api::RouterMacExtended& ec = community.router_mac();
+        entry.type = 0x0603;
+        entry.subtype = 0x0003;
+        snprintf(entry.text, sizeof(entry.text), "Router-MAC:%s",
+                 ec.mac().c_str());
+    } else if (community.has_es_import()) {
+        const api::ESImportRouteTarget& ec = community.es_import();
+        entry.type = 0x0602;
+        entry.subtype = 0x0002;
+        snprintf(entry.text, sizeof(entry.text), "ES-Import:%s",
+                 ec.es_import().c_str());
+    } else if (community.has_mac_mobility()) {
+        const api::MacMobilityExtended& ec = community.mac_mobility();
+        entry.type = 0x0600;
+        entry.subtype = 0x0000;
+        snprintf(entry.text, sizeof(entry.text), "MAC-Mobility:seq:%u",
+                 ec.sequence_num());
+    } else if (community.has_opaque()) {
+        const api::OpaqueExtended& ec = community.opaque();
+        entry.type = ec.is_transitive() ? 0x0303 : 0x4303;
+        entry.subtype = 0x0003;
+        snprintf(entry.text, sizeof(entry.text), "Opaque:%s",
+                 ec.value().c_str());
+    } else {
+        snprintf(entry.text, sizeof(entry.text), "Unknown");
     }
-    return "";
+
+    info->ext_comms[info->ext_comm_count++] = entry;
+    return true;
+}
+
+void
+FillExtendedCommunities(const api::Path& path, BgpRouteInfo* info)
+{
+    if (!info) {
+        return;
+    }
+
+    info->ext_comm_count = 0;
+    info->evpn_label1 = 0;
+    info->evpn_label1_present = false;
+    info->evpn_label1_from_ext_comm = false;
+    info->tunnel_encap_type = 0;
+    info->tunnel_encap_present = false;
+
+    for (int i = 0; i < path.pattrs_size(); ++i) {
+        const api::Attribute& attr = path.pattrs(i);
+        if (attr.attr_case() != api::Attribute::kExtendedCommunities) {
+            continue;
+        }
+
+        const api::ExtendedCommunitiesAttribute& ecs =
+            attr.extended_communities();
+        for (int j = 0; j < ecs.communities_size(); ++j) {
+            AppendExtendedCommunity(ecs.communities(j), info);
+        }
+    }
 }
 }  // namespace
 
@@ -747,22 +1116,15 @@ void GoBgpGrpcClient::FillRouteInfo(const api::Path& path,
                 info->local_pref = attr.local_pref().local_pref();
                 info->local_pref_present = true;
                 break;
-            case api::Attribute::kExtendedCommunities:
-                if (info->rt.empty()) {
-                    const api::ExtendedCommunitiesAttribute& ecs =
-                        attr.extended_communities();
-                    for (int j = 0; j < ecs.communities_size(); ++j) {
-                        info->rt =
-                            FormatRouteTargetCommunity(ecs.communities(j));
-                        if (!info->rt.empty()) {
-                            break;
-                        }
-                    }
-                }
-                break;
             default:
                 break;
         }
+    }
+
+    FillExtendedCommunities(path, info);
+
+    if (path.has_nlri()) {
+        ExtractNlriWire(path.nlri(), safi, info);
     }
 }
 

@@ -26,6 +26,7 @@ typedef struct bgp_inst_ {
     pkt_q_t bgp_route_pkt_q;
 
     /* BGP Global RIBS (imported a local copy from GoBGP ) */
+    bgp_rib_t *ipv4_unicast_rib;
     bgp_rib_t *vpnv4_rib;
     bgp_rib_t *evpn_rib;
 

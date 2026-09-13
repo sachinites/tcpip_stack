@@ -9,9 +9,16 @@
 #include "../tcpconst.h"
 #include "../RTM/rtm_enums.h"
 #include "bgp_config.h"
+#include "bgp_global_rib.h"
+#include "bgp_rib/bgp_nlri_wire.h"
+#include "bgp_rib/bgp_rib.h"
+#include "bgp_rib/bgp_rib_evpn.h"
+#include "bgp_rib/bgp_rib_vpnv4.h"
 #include "bgp_route.h"
 #include "bgp_rtr.h"
 #include "gobgp/sf_gobgp_grpc_client.h"
+#include "../Layer2/Evpn/evpn_bgp.h"
+#include "../Layer3/vpnv4/vpnv4_bgp.h"
 
 extern void
 rtm_build_distribution_policy_cli_tree(
@@ -44,6 +51,10 @@ extern graph_t *topo;
 
 /* show node <node-name> protocol bgp routes l2vpn-evpn mac */
 #define CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_MAC 14
+
+/* show node <node-name> protocol bgp global-rib <ipv4-vpn|l2vpn-evpn> */
+#define CMDCODE_SHOW_BGP_GLOBAL_RIB_IPV4_VPN 15
+#define CMDCODE_SHOW_BGP_GLOBAL_RIB_L2VPN_EVPN 16
 
 /* run node <node-name> protocol bgp monitor <afi> <safi> */
 #define CMDCODE_RUN_BGP_MONITOR 10
@@ -114,6 +125,7 @@ bgp_on_neighbor_af_disabled(node_t *node, int afi, int safi)
 {
     if (!bgp_route_is_af_enabled_on_any_neighbor(node, afi, safi)) {
         bgp_route_withdraw_originated_routes(node, afi, safi);
+        bgp_global_rib_af_disable(node, afi, safi);
     }
 }
 
@@ -329,6 +341,11 @@ bgp_config_handler(int64_t cmdcode,
                     bgp_node_monitor_subscribe_af(node, AFI_IPV4, SAFI_UNICAST,
                                                   bgp_monitor_recv_route_processing_cbk,
                                                   node);
+                    if (bgp_global_rib_af_enable(node, AFI_IPV4,
+                                                 SAFI_UNICAST) != 0) {
+                        cprintf("Error : Failed to initialize IPv4 unicast global RIB\n");
+                        return -1;
+                    }
                     assert (!bgp_node_monitor_start(node));
                     cprintf("BGP started: AS %u, router-id %s (listen %s:179)\n",
                             local_asn, rid, rid);
@@ -360,6 +377,7 @@ bgp_config_handler(int64_t cmdcode,
                         sf_gobgp_grpc_client_destroy(client);
                     }
 
+                    bgp_deinit(BGP_INST(node));
                     free(BGP_INST(node));
                     BGP_INST(node) = nullptr;
                     cprintf("BGP stopped\n");
@@ -510,6 +528,11 @@ bgp_config_handler(int64_t cmdcode,
                                             &result);
                         return -1;
                     }
+                    if (bgp_global_rib_af_enable(node, AFI_IPV4,
+                                                 SAFI_UNICAST) != 0) {
+                        cprintf("Error : Failed to initialize IPv4 unicast global RIB\n");
+                        return -1;
+                    }
                     cprintf("IPv4 unicast enabled for neighbor %s\n",
                             neighbor_addr);
                     break;
@@ -598,6 +621,12 @@ bgp_config_handler(int64_t cmdcode,
                             bgp_monitor_recv_vpn_route_processing_cbk,
                             node) != 0) {
                         cprintf("Error : Failed to register %s monitor callback\n",
+                                VPNV4_UNICAST_AF_STR);
+                        return -1;
+                    }
+                    if (bgp_global_rib_af_enable(node, AFI_IPV4,
+                                                 SAFI_MPLS_VPN) != 0) {
+                        cprintf("Error : Failed to initialize %s global RIB\n",
                                 VPNV4_UNICAST_AF_STR);
                         return -1;
                     }
@@ -694,6 +723,12 @@ bgp_config_handler(int64_t cmdcode,
                             bgp_monitor_recv_evpn_route_processing_cbk,
                             node) != 0) {
                         cprintf("Error : Failed to register %s monitor callback\n",
+                                L2VPN_EVPN_AF_STR);
+                        return -1;
+                    }
+                    if (bgp_global_rib_af_enable(node, AFI_L2VPN,
+                                                 SAFI_MPLS_EVPN) != 0) {
+                        cprintf("Error : Failed to initialize %s global RIB\n",
                                 L2VPN_EVPN_AF_STR);
                         return -1;
                     }
@@ -893,6 +928,229 @@ bgp_show_route_print_cb(const bgp_route_info_t *route, void *userdata)
     return 0;
 }
 
+typedef struct bgp_show_global_rib_ctx_ {
+    uint8_t afi;
+    uint8_t safi;
+    const char *af_label;
+    int count;
+} bgp_show_global_rib_ctx_t;
+
+static const char *
+bgp_tunnel_encap_type_str(uint16_t tunnel_type)
+{
+    switch (tunnel_type) {
+    case 2:
+        return "GRE";
+    case 8:
+        return "VXLAN";
+    case 10:
+        return "MPLS";
+    case 12:
+        return "MPLS-in-GRE";
+    default:
+        return "Unknown";
+    }
+}
+
+static void
+bgp_show_global_rib_print_evpn_detail(const bgp_nlri_key_t *key,
+                                      const bgp_rib_attrs_t *attrs)
+{
+    bgp_evpn_nlri_t nlri;
+    char esi_hex[21];
+    uint8_t i;
+    uint32_t label1 = 0;
+    bool label1_present = false;
+
+    if (!key || !attrs ||
+        bgp_evpn_nlri_decode(key, &nlri) != BGP_RIB_OK) {
+        return;
+    }
+
+    for (i = 0; i < 10; i++) {
+        snprintf(esi_hex + (i * 2), 3, "%02x", nlri.esi[i]);
+    }
+
+    if (attrs->evpn_label1_present && attrs->evpn_label1_from_ext_comm) {
+        label1 = attrs->evpn_label1;
+        label1_present = true;
+    } else if (nlri.label_present) {
+        label1 = nlri.label;
+        label1_present = true;
+    }
+
+    if (label1_present) {
+        cprintf("      EVPN ESI: %s, Label1 %u\n", esi_hex, label1);
+    } else {
+        cprintf("      EVPN ESI: %s\n", esi_hex);
+    }
+
+    if (attrs->tunnel_encap_present) {
+        cprintf("      Tunnel Type: %s (%u)\n",
+                bgp_tunnel_encap_type_str(attrs->tunnel_encap_type),
+                attrs->tunnel_encap_type);
+    }
+}
+
+static void
+bgp_show_global_rib_print_vpn_detail(const bgp_nlri_key_t *key,
+                                     const bgp_rib_attrs_t *attrs)
+{
+    bgp_vpnv4_nlri_t nlri;
+
+    if (!key) {
+        return;
+    }
+
+    if (bgp_vpnv4_nlri_decode(key, &nlri) == BGP_RIB_OK &&
+        nlri.label_present) {
+        cprintf("      Label: %u\n", nlri.label);
+    }
+
+    if (attrs && attrs->tunnel_encap_present) {
+        cprintf("      Tunnel Type: %s (%u)\n",
+                bgp_tunnel_encap_type_str(attrs->tunnel_encap_type),
+                attrs->tunnel_encap_type);
+    }
+}
+
+static void
+bgp_show_global_rib_print_ext_comms(const bgp_rib_attrs_t *attrs)
+{
+    uint8_t i;
+
+    if (!attrs) {
+        return;
+    }
+
+    for (i = 0; i < attrs->ext_comm_count; i++) {
+        const bgp_rib_ext_comm_t *ec = &attrs->ext_comms[i];
+
+        cprintf("      Extended Community: %s (type 0x%04x subtype 0x%04x)\n",
+                ec->text[0] ? ec->text : "-",
+                ec->type, ec->subtype);
+    }
+}
+
+static void
+bgp_show_global_rib_strip_nh_mask(char *nh, size_t nhlen)
+{
+    char *slash;
+
+    if (!nh || nhlen == 0) {
+        return;
+    }
+
+    slash = strchr(nh, '/');
+    if (slash) {
+        *slash = '\0';
+    }
+}
+
+static int
+bgp_show_global_rib_print_cb(const bgp_nlri_key_t *key,
+                             const bgp_rib_attrs_t *attrs,
+                             void *userdata)
+{
+    bgp_show_global_rib_ctx_t *ctx =
+        (bgp_show_global_rib_ctx_t *)userdata;
+    char network[256];
+    char nexthop[64];
+    uint32_t metric = 0;
+    uint32_t local_pref = 0;
+    const char *path = "?";
+
+    if (!key || !ctx) {
+        return 0;
+    }
+
+    if (ctx->count == 0) {
+        cprintf("\nBGP global RIB (%s):\n", ctx->af_label);
+        /* Two-line route layout: Network alone, then NH/attrs indented. */
+        cprintf("    %-17s %-20s %6s %6s %6s %s\n",
+                "Network", "Next Hop", "Metric", "LocPrf", "Weight", "Path");
+    } else {
+        cprintf("\n");
+    }
+
+    if (bgp_nlri_wire_format_network(ctx->afi, ctx->safi,
+                                     key, network, sizeof(network)) != 0) {
+        snprintf(network, sizeof(network), "<format-error>");
+    }
+
+    nexthop[0] = '\0';
+    if (attrs && attrs->nexthop[0] != '\0') {
+        strncpy(nexthop, attrs->nexthop, sizeof(nexthop) - 1);
+        bgp_show_global_rib_strip_nh_mask(nexthop, sizeof(nexthop));
+    }
+
+    if (attrs) {
+        if (attrs->med_present) {
+            metric = attrs->med;
+        }
+        if (attrs->local_pref_present) {
+            local_pref = attrs->local_pref;
+        }
+        if (!attrs->is_from_external) {
+            path = "i";
+        }
+    }
+
+    cprintf("  %s\n", network);
+    cprintf("                      %-20s %6u %6u %6u %s\n",
+            nexthop[0] ? nexthop : "-",
+            metric, local_pref, 0U, path);
+
+    if (attrs) {
+        if (ctx->safi == SAFI_MPLS_EVPN) {
+            bgp_show_global_rib_print_evpn_detail(key, attrs);
+        } else if (ctx->safi == SAFI_MPLS_VPN) {
+            bgp_show_global_rib_print_vpn_detail(key, attrs);
+        } else if (attrs->tunnel_encap_present) {
+            cprintf("      Tunnel Type: %s (%u)\n",
+                    bgp_tunnel_encap_type_str(attrs->tunnel_encap_type),
+                    attrs->tunnel_encap_type);
+        }
+        bgp_show_global_rib_print_ext_comms(attrs);
+    }
+
+    ctx->count++;
+    return 0;
+}
+
+static int
+bgp_show_global_rib(node_t *node, int afi, int safi, const char *af_label)
+{
+    bgp_rib_t *rib;
+    bgp_show_global_rib_ctx_t ctx;
+
+    if (!BGP_INST(node)) {
+        cprintf("Error : BGP is not running on %s\n", node->node_name);
+        return -1;
+    }
+
+    rib = bgp_global_rib_get(node, afi, safi);
+    if (!rib) {
+        cprintf("BGP global RIB for %s is not initialized\n", af_label);
+        return 0;
+    }
+
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.afi = (uint8_t)afi;
+    ctx.safi = (uint8_t)safi;
+    ctx.af_label = af_label;
+
+    bgp_rib_route_walk(rib, bgp_show_global_rib_print_cb, &ctx);
+
+    if (ctx.count == 0) {
+        cprintf("No routes in BGP global RIB for %s\n", af_label);
+    } else {
+        cprintf("\nTotal routes: %u\n", bgp_rib_route_count(rib));
+    }
+
+    return 0;
+}
+
 static int
 bgp_show_routes(node_t *node, const char *afi, const char *safi)
 {
@@ -1030,6 +1288,19 @@ bgp_show_handler(int64_t cmdcode,
     if (cmdcode == CMDCODE_SHOW_BGP_RUNNING_CONFIG) {
         bgp_show_running_config(node);
         return 0;
+    }
+
+    switch (cmdcode) {
+        case CMDCODE_SHOW_BGP_GLOBAL_RIB_IPV4_VPN:
+            return bgp_show_global_rib(node, AFI_IPV4, SAFI_MPLS_VPN,
+                                       "ipv4-vpn");
+
+        case CMDCODE_SHOW_BGP_GLOBAL_RIB_L2VPN_EVPN:
+            return bgp_show_global_rib(node, AFI_L2VPN, SAFI_MPLS_EVPN,
+                                       "l2vpn-evpn");
+
+        default:
+            break;
     }
 
     sf_gobgp_grpc_client_t *client = bgp_get_grpc_client(node);
@@ -1171,69 +1442,6 @@ bgp_monitor_recv_evpn_route_processing_cbk(
     node_t *node = (node_t *)userdata;
     bgp_schedule_evpn_route_processing_job(node, route, !is_withdraw);
 }
-
-static int
-bgp_monitor_handler(int64_t cmdcode,
-                    Stack_t *tlv_stack,
-                    op_mode enable_or_disable)
-{
-    node_t *node = NULL;
-    c_string node_name = NULL;
-    c_string afi_str = NULL;
-    c_string safi_str = NULL;
-    tlv_struct_t *tlv = NULL;
-
-    (void)cmdcode;
-
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
-
-        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-        else if (parser_match_leaf_id(tlv->leaf_id, "bgp-mon-afi"))
-            afi_str = tlv->value;
-        else if (parser_match_leaf_id(tlv->leaf_id, "bgp-mon-safi"))
-            safi_str = tlv->value;
-
-    } TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-    if (!node) {
-        cprintf("Error : Node not found\n");
-        return -1;
-    }
-
-    if (enable_or_disable == CONFIG_ENABLE) {
-
-        if (bgp_node_monitor_subscribe(node,
-                                        afi_str ? (const char *)afi_str : NULL,
-                                        safi_str ? (const char *)safi_str : NULL,
-                                        bgp_monitor_recv_route_processing_cbk,
-                                        node) != 0) {
-            cprintf("Error : Failed to register monitor callback\n");
-            return -1;
-        }
-
-        if (bgp_node_monitor_start(node) != 0) {
-            cprintf("Error : Failed to start BGP monitor\n");
-            return -1;
-        }
-
-        cprintf("BGP monitor started on %s (%s/%s)\n",
-                node->node_name,
-                afi_str ? (const char *)afi_str : "any",
-                safi_str ? (const char *)safi_str : "any");
-        return 0;
-    }
-
-    if (bgp_node_monitor_stop(node) != 0) {
-        cprintf("Error : Failed to stop BGP monitor\n");
-        return -1;
-    }
-
-    cprintf("BGP monitor stopped on %s\n", node->node_name);
-    return 0;
-}
-
 /*
  * config node <node-name> protocol bgp <local-asn> [router-id <router-id>]
  * config node <node-name> protocol bgp <local-asn> neighbor <neighbor-addr> remote-as <peer-asn>
@@ -1372,6 +1580,7 @@ bgp_config_cli_tree(param_t *param)
  * show node <node-name> protocol bgp running-config
  * show node <node-name> protocol bgp routes <afi> <safi>
  * show node <node-name> protocol bgp routes l2vpn-evpn mac
+ * show node <node-name> protocol bgp global-rib <ipv4-vpn|l2vpn-evpn>
  */
 int
 bgp_show_cli_tree(param_t *param)
@@ -1466,6 +1675,28 @@ bgp_show_cli_tree(param_t *param)
                 }
             }
         }
+        {
+            /* show node <node-name> protocol bgp global-rib <af> */
+            static param_t global_rib;
+            init_param(&global_rib, CMD, "global-rib", 0, 0, INVALID, 0,
+                       "Show local BGP global RIB");
+            libcli_register_param(&bgp, &global_rib);
+            {
+                static param_t ipv4_vpn;
+                init_param(&ipv4_vpn, CMD, "ipv4-vpn", bgp_show_handler,
+                           0, INVALID, 0, "IPv4 VPN global RIB");
+                libcli_register_param(&global_rib, &ipv4_vpn);
+                libcli_set_param_cmd_code(
+                    &ipv4_vpn, CMDCODE_SHOW_BGP_GLOBAL_RIB_IPV4_VPN);
+
+                static param_t l2vpn_evpn;
+                init_param(&l2vpn_evpn, CMD, "l2vpn-evpn", bgp_show_handler,
+                           0, INVALID, 0, "L2VPN EVPN global RIB");
+                libcli_register_param(&global_rib, &l2vpn_evpn);
+                libcli_set_param_cmd_code(
+                    &l2vpn_evpn, CMDCODE_SHOW_BGP_GLOBAL_RIB_L2VPN_EVPN);
+            }
+        }
     }
 
     return 0;
@@ -1473,39 +1704,9 @@ bgp_show_cli_tree(param_t *param)
 
 /*
  * run node <node-name> protocol bgp monitor <afi> <safi>
- * [no] run node <node-name> protocol bgp monitor
  */
 int
 bgp_run_cli_tree(param_t *param)
 {
-    {
-        static param_t bgp;
-        init_param(&bgp, CMD, "bgp", 0, 0, INVALID, 0, "BGP protocol");
-        libcli_register_param(param, &bgp);
-        {
-            static param_t monitor;
-            init_param(&monitor, CMD, "monitor", bgp_monitor_handler,
-                       0, INVALID, 0, "BGP route monitor");
-            libcli_register_param(&bgp, &monitor);
-            libcli_set_param_cmd_code(&monitor, CMDCODE_RUN_BGP_MONITOR);
-            {
-                static param_t mon_afi;
-                init_param(&mon_afi, LEAF, NULL, 0, 0, STRING,
-                           "bgp-mon-afi",
-                           "Address family (ipv4|ipv6)");
-                libcli_register_param(&monitor, &mon_afi);
-                {
-                    static param_t mon_safi;
-                    init_param(&mon_safi, LEAF, NULL, bgp_monitor_handler,
-                               0, STRING, "bgp-mon-safi",
-                               "Sub-address family (unicast|vpn|evpn)");
-                    libcli_register_param(&mon_afi, &mon_safi);
-                    libcli_set_param_cmd_code(&mon_safi,
-                                              CMDCODE_RUN_BGP_MONITOR);
-                }
-            }
-        }
-    }
-
     return 0;
 }

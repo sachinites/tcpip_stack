@@ -118,6 +118,16 @@ typedef struct sf_gobgp_route_params {
     int safi;
 } sf_gobgp_route_params_t;
 
+#define SF_GOBGP_NLRI_WIRE_MAX 256
+#define SF_GOBGP_EXT_COMM_MAX 16
+#define SF_GOBGP_EXT_COMM_TEXT_MAX 80
+
+typedef struct sf_gobgp_ext_comm {
+    uint16_t type;
+    uint16_t subtype;
+    char text[SF_GOBGP_EXT_COMM_TEXT_MAX];
+} sf_gobgp_ext_comm_t;
+
 typedef struct sf_gobgp_route_info {
     char prefix[64];
     char nexthop[64];
@@ -133,6 +143,15 @@ typedef struct sf_gobgp_route_info {
     int afi;
     int safi;
     bool is_from_external;
+    uint16_t nlri_wire_len;
+    uint8_t nlri_wire[SF_GOBGP_NLRI_WIRE_MAX];
+    uint8_t ext_comm_count;
+    sf_gobgp_ext_comm_t ext_comms[SF_GOBGP_EXT_COMM_MAX];
+    uint32_t evpn_label1;
+    bool evpn_label1_present;
+    bool evpn_label1_from_ext_comm;
+    uint16_t tunnel_encap_type;
+    bool tunnel_encap_present;
 } sf_gobgp_route_info_t;
 
 typedef int (*sf_gobgp_route_walk_cb)(const sf_gobgp_route_info_t *route,

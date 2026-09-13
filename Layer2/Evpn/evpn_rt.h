@@ -47,17 +47,9 @@ typedef struct evpn_rt_ {
 
 } evpn_rt_t;
 
-
 #pragma pack(pop)
 
 
 typedef struct node_ node_t;
-
-void
-evpn_route_export_to_bgp(node_t *node,
-                         rd_t *rd,
-                         rt_t *export_rt,
-                         evpn_rt_t *evpn_rt,
-                         bool is_delete);
 
 #endif

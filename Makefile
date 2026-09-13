@@ -107,11 +107,13 @@ OBJS=     router_init.o   \
 		  Layer2/Evpn/evpn_cli.o \
 		  Layer2/Evpn/evpn_priv_api.o \
 		  Layer2/Evpn/evpn_rt.o \
+		  Layer2/Evpn/evpn_bgp.o \
 		  Layer3/layer3.o  \
 		  Layer3/gre-tunneling/grecli.o \
 		  Layer3/gre-tunneling/gre.o \
 		  Layer3/netfilter.o \
 		  Layer3/ipv6/ipv6cli.o \
+		  Layer3/vpnv4/vpnv4_bgp.o \
 		  Layer4/layer4.o  \
 		  Layer4/udp.o  \
 		  Layer5/layer5.o  \
@@ -143,6 +145,7 @@ OBJS=     router_init.o   \
 		  Layer5/bgp_rtr.o \
 		  Layer5/bgp_cli.o \
 		  Layer5/bgp_route.o \
+		  Layer5/bgp_global_rib.o \
 
 ifeq ($(GOBGP_GRPC),1)
 OBJS += Layer5/gobgp/sf_gobgp_grpc_client.o
@@ -174,6 +177,12 @@ Layer2/Evpn/evpn_priv_api.o:Layer2/Evpn/evpn_priv_api.cpp
 
 Layer2/Evpn/evpn_rt.o:Layer2/Evpn/evpn_rt.cpp
 	${CC} ${CFLAGS} -c -I . Layer2/Evpn/evpn_rt.cpp -o Layer2/Evpn/evpn_rt.o
+
+Layer2/Evpn/evpn_bgp.o:Layer2/Evpn/evpn_bgp.cpp
+	${CC} ${CFLAGS} -c -I . -I Layer5/gobgp Layer2/Evpn/evpn_bgp.cpp -o Layer2/Evpn/evpn_bgp.o
+
+Layer3/vpnv4/vpnv4_bgp.o:Layer3/vpnv4/vpnv4_bgp.cpp
+	${CC} ${CFLAGS} -c -I . -I Layer5/gobgp Layer3/vpnv4/vpnv4_bgp.cpp -o Layer3/vpnv4/vpnv4_bgp.o
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
@@ -268,6 +277,9 @@ Layer5/bgp_rtr.o:Layer5/bgp_rtr.cpp
 Layer5/bgp_route.o:Layer5/bgp_route.cpp
 	${CC} ${CFLAGS} -c -I . -I Layer5/gobgp Layer5/bgp_route.cpp -o Layer5/bgp_route.o
 
+Layer5/bgp_global_rib.o:Layer5/bgp_global_rib.cpp
+	${CC} ${CFLAGS} -c -I . -I Layer5/gobgp Layer5/bgp_global_rib.cpp -o Layer5/bgp_global_rib.o
+
 Layer5/gobgp/sf_gobgp_grpc_client_fake.o:Layer5/gobgp/sf_gobgp_grpc_client_fake.cpp
 	${CC} ${CFLAGS} -c -I Layer5/gobgp Layer5/gobgp/sf_gobgp_grpc_client_fake.cpp -o Layer5/gobgp/sf_gobgp_grpc_client_fake.o
 
@@ -358,6 +370,7 @@ clean:
 	rm -f Layer2/vxlan/cp/*.o
 	rm -f Layer2/Evpn/*.o
 	rm -f Layer3/*.o
+	rm -f Layer3/vpnv4/*.o
 	rm -f Layer3/rt_table/*.o
 	rm -f Layer4/*.o
 	rm -f Layer5/*.o

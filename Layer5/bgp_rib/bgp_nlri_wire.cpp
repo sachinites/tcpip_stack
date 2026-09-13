@@ -75,12 +75,11 @@ bgp_rd_wire_to_str(const uint8_t rd_wire[8],
         break;
     }
     case 0x0002: {
-        uint32_t admin = ((uint32_t)rd_wire[2] << 24) |
-                         ((uint32_t)rd_wire[3] << 16) |
-                         ((uint32_t)rd_wire[4] << 8) |
-                         (uint32_t)rd_wire[5];
-        uint16_t assigned = (uint16_t)((rd_wire[6] << 8) | rd_wire[7]);
-        snprintf(buf, buflen, "%u:%u", admin, assigned);
+        /* This codebase uses router-id based RDs; print admin as IPv4. */
+        snprintf(buf, buflen,
+                 "%u.%u.%u.%u:%u",
+                 rd_wire[2], rd_wire[3], rd_wire[4], rd_wire[5],
+                 (uint16_t)((rd_wire[6] << 8) | rd_wire[7]));
         break;
     }
     default:
@@ -93,6 +92,28 @@ bgp_rd_wire_to_str(const uint8_t rd_wire[8],
     }
 
     return 0;
+}
+
+int
+bgp_nlri_wire_format_network(uint8_t afi,
+                             uint8_t safi,
+                             const bgp_nlri_key_t *key,
+                             char *buf,
+                             size_t buflen)
+{
+    if (!key || !buf || buflen == 0) {
+        return -1;
+    }
+
+    if (safi == SAFI_MPLS_EVPN) {
+        return bgp_evpn_nlri_format_bracket(key, buf, buflen);
+    }
+
+    if (safi == SAFI_MPLS_VPN) {
+        return bgp_vpnv4_nlri_format_bracket(key, buf, buflen);
+    }
+
+    return bgp_nlri_wire_format_compact(afi, safi, key, NULL, buf, buflen);
 }
 
 int

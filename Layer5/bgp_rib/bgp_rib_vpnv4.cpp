@@ -35,21 +35,35 @@ encode_rd_type1(const rd_t *rd, uint8_t out[8])
 }
 
 static bgp_rib_err_t
-decode_rd_type1(const uint8_t in[8], rd_t *rd_out)
+decode_rd_wire(const uint8_t in[8], rd_t *rd_out)
 {
     uint16_t rd_type = (uint16_t)((in[0] << 8) | in[1]);
 
-    if (rd_type != 0x0001) {
+    memset(rd_out, 0, sizeof(*rd_out));
+    rd_out->type = rd_type;
+
+    switch (rd_type) {
+    case 0x0000: /* 2-octet ASN : 4-octet assigned */
+        rd_out->rtr_id = (uint32_t)((in[2] << 8) | in[3]);
+        rd_out->vrf_id = (uint16_t)((in[6] << 8) | in[7]);
+        return BGP_RIB_OK;
+    case 0x0001: /* IPv4 : 2-octet assigned */
+        rd_out->rtr_id = ((uint32_t)in[2] << 24) |
+                         ((uint32_t)in[3] << 16) |
+                         ((uint32_t)in[4] << 8) |
+                         (uint32_t)in[5];
+        rd_out->vrf_id = (uint16_t)((in[6] << 8) | in[7]);
+        return BGP_RIB_OK;
+    case 0x0002: /* 4-octet ASN : 2-octet assigned */
+        rd_out->rtr_id = ((uint32_t)in[2] << 24) |
+                         ((uint32_t)in[3] << 16) |
+                         ((uint32_t)in[4] << 8) |
+                         (uint32_t)in[5];
+        rd_out->vrf_id = (uint16_t)((in[6] << 8) | in[7]);
+        return BGP_RIB_OK;
+    default:
         return BGP_RIB_ERR_DECODE;
     }
-
-    rd_out->type = 1;
-    rd_out->rtr_id = ((uint32_t)in[2] << 24) |
-                     ((uint32_t)in[3] << 16) |
-                     ((uint32_t)in[4] << 8) |
-                     (uint32_t)in[5];
-    rd_out->vrf_id = (uint16_t)((in[6] << 8) | in[7]);
-    return BGP_RIB_OK;
 }
 
 bgp_rib_err_t
@@ -82,11 +96,12 @@ bgp_vpnv4_nlri_encode(const bgp_vpnv4_nlri_t *nlri,
     }
 
     if (nlri->label_present) {
-        uint32_t label = nlri->label & 0xfffff;
+        /* RFC 8277: 20-bit label in high-order bits of 3 octets; BoS in LSB. */
+        uint32_t entry = ((nlri->label & 0xfffff) << 4) | 0x1;
 
-        key_out->wire[offset++] = (uint8_t)((label >> 16) & 0xff);
-        key_out->wire[offset++] = (uint8_t)((label >> 8) & 0xff);
-        key_out->wire[offset++] = (uint8_t)((label & 0xff) | 0x01);
+        key_out->wire[offset++] = (uint8_t)((entry >> 16) & 0xff);
+        key_out->wire[offset++] = (uint8_t)((entry >> 8) & 0xff);
+        key_out->wire[offset++] = (uint8_t)(entry & 0xff);
     }
 
     key_out->wire_len = offset;
@@ -107,7 +122,7 @@ bgp_vpnv4_nlri_decode(const bgp_nlri_key_t *key,
 
     memset(nlri_out, 0, sizeof(*nlri_out));
 
-    if (decode_rd_type1(&key->wire[offset], &nlri_out->rd) != BGP_RIB_OK) {
+    if (decode_rd_wire(&key->wire[offset], &nlri_out->rd) != BGP_RIB_OK) {
         return BGP_RIB_ERR_DECODE;
     }
     offset += 8;
@@ -138,6 +153,63 @@ bgp_vpnv4_nlri_decode(const bgp_nlri_key_t *key,
     }
 
     return BGP_RIB_OK;
+}
+
+int
+bgp_vpnv4_nlri_format_bracket(const bgp_nlri_key_t *key,
+                              char *buf,
+                              size_t buflen)
+{
+    char rd_str[48];
+    char prefix_str[32];
+    uint8_t prefix_len;
+    uint8_t prefix_bytes;
+    uint16_t offset;
+    uint32_t prefix = 0;
+    uint8_t i;
+
+    if (!key || !buf || buflen == 0 || key->wire_len < 9) {
+        return -1;
+    }
+
+    /* RD may be type 0/1/2 from GoBGP; do not require type-1-only decode. */
+    if (bgp_rd_wire_to_str(&key->wire[0], rd_str, sizeof(rd_str)) != 0) {
+        return -1;
+    }
+
+    offset = 8;
+    prefix_len = key->wire[offset++];
+    if (prefix_len > 32) {
+        return -1;
+    }
+
+    prefix_bytes = ipv4_prefix_byte_count(prefix_len);
+    if (key->wire_len < offset + prefix_bytes) {
+        return -1;
+    }
+
+    for (i = 0; i < prefix_bytes; i++) {
+        prefix = (prefix << 8) | key->wire[offset + i];
+    }
+    if (prefix_len < 32) {
+        prefix <<= (32 - prefix_len);
+    }
+
+    format_ipv4(prefix, prefix_str, sizeof(prefix_str));
+    {
+        size_t used = strlen(prefix_str);
+        snprintf(prefix_str + used, sizeof(prefix_str) - used,
+                 "/%u", prefix_len);
+    }
+
+    /*
+     * Display length = RD (64 bits) + IPv4 prefix length.
+     * Do not use raw wire_len (includes prefix-len byte and MPLS label).
+     * Example: host route → 64 + 32 = 96.
+     */
+    snprintf(buf, buflen, "[%s][%s]/%u",
+             rd_str, prefix_str, (unsigned)(64 + prefix_len));
+    return 0;
 }
 
 int

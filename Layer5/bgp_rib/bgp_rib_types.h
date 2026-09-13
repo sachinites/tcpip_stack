@@ -5,7 +5,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define BGP_NLRI_WIRE_MAX  256
+#define BGP_NLRI_WIRE_MAX      256
+#define BGP_RIB_EXT_COMM_MAX   16
+#define BGP_RIB_EXT_COMM_TEXT_MAX 80
 
 typedef enum bgp_rib_err_ {
     BGP_RIB_OK = 0,
@@ -23,6 +25,12 @@ typedef struct bgp_nlri_key_ {
     uint8_t  wire[BGP_NLRI_WIRE_MAX];
 } bgp_nlri_key_t;
 
+typedef struct bgp_rib_ext_comm_ {
+    uint16_t type;
+    uint16_t subtype;
+    char     text[BGP_RIB_EXT_COMM_TEXT_MAX];
+} bgp_rib_ext_comm_t;
+
 typedef struct bgp_rib_attrs_ {
     char     nexthop[46];
     uint8_t  origin;
@@ -35,6 +43,13 @@ typedef struct bgp_rib_attrs_ {
     bool     rt_present;
     bool     best;
     bool     is_from_external;
+    uint8_t  ext_comm_count;
+    bgp_rib_ext_comm_t ext_comms[BGP_RIB_EXT_COMM_MAX];
+    uint32_t evpn_label1;
+    bool     evpn_label1_present;
+    bool     evpn_label1_from_ext_comm;
+    uint16_t tunnel_encap_type;
+    bool     tunnel_encap_present;
 } bgp_rib_attrs_t;
 
 const char *

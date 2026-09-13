@@ -47,6 +47,12 @@ struct BgpRouteParams {
     BgpSafi safi = BgpSafi::kUnicast;
 };
 
+struct BgpExtCommunityEntry {
+    std::uint16_t type = 0;
+    std::uint16_t subtype = 0;
+    char text[80] = {};
+};
+
 struct BgpRouteInfo {
     std::string prefix;
     std::string nexthop;
@@ -62,6 +68,15 @@ struct BgpRouteInfo {
     bool is_from_external = false;
     BgpAfi afi = BgpAfi::kIpv4;
     BgpSafi safi = BgpSafi::kUnicast;
+    std::uint16_t nlri_wire_len = 0;
+    std::uint8_t nlri_wire[256] = {};
+    std::uint8_t ext_comm_count = 0;
+    BgpExtCommunityEntry ext_comms[16];
+    std::uint32_t evpn_label1 = 0;
+    bool evpn_label1_present = false;
+    bool evpn_label1_from_ext_comm = false;
+    std::uint16_t tunnel_encap_type = 0;
+    bool tunnel_encap_present = false;
 };
 
 using BgpRouteWalkCallback =

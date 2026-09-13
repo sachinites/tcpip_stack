@@ -7,6 +7,7 @@
 #include "../vrf/vrf.h"
 #include "../router_init.h"
 
+#include "bgp_global_rib.h"
 #include "bgp_rtr.h"
 #include "bgp_route.h"
 
@@ -48,6 +49,7 @@ bgp_init(node_t *node) {
 void 
 bgp_deinit (bgp_inst_t *bgp_inst) {
 
+    bgp_global_rib_deinit(bgp_inst);
 }
 
 bgp_inst_t *

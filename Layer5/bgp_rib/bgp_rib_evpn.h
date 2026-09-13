@@ -35,6 +35,11 @@ bgp_evpn_nlri_format_compact(const bgp_nlri_key_t *key,
                              char *buf,
                              size_t buflen);
 
+int
+bgp_evpn_nlri_format_bracket(const bgp_nlri_key_t *key,
+                             char *buf,
+                             size_t buflen);
+
 bgp_rib_err_t
 bgp_evpn_nlri_to_evpn_rt(const bgp_evpn_nlri_t *nlri,
                          uint32_t vtep_ip,

@@ -321,6 +321,22 @@ to_c_route_info(const gobgp_client::BgpRouteInfo& in,
     out->l3_vpn_label_present = in.l3_vpn_label_present;
     out->best = in.best;
     out->is_from_external = in.is_from_external;
+    out->nlri_wire_len = in.nlri_wire_len;
+    if (in.nlri_wire_len > 0) {
+        std::memcpy(out->nlri_wire, in.nlri_wire, in.nlri_wire_len);
+    }
+    out->ext_comm_count = in.ext_comm_count;
+    for (std::uint8_t i = 0; i < in.ext_comm_count; ++i) {
+        out->ext_comms[i].type = in.ext_comms[i].type;
+        out->ext_comms[i].subtype = in.ext_comms[i].subtype;
+        std::strncpy(out->ext_comms[i].text, in.ext_comms[i].text,
+                     sizeof(out->ext_comms[i].text) - 1);
+    }
+    out->evpn_label1 = in.evpn_label1;
+    out->evpn_label1_present = in.evpn_label1_present;
+    out->evpn_label1_from_ext_comm = in.evpn_label1_from_ext_comm;
+    out->tunnel_encap_type = in.tunnel_encap_type;
+    out->tunnel_encap_present = in.tunnel_encap_present;
     switch (in.safi) {
         case gobgp_client::BgpSafi::kMplsVpn:
             out->afi = 1;
