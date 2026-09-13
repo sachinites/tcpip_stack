@@ -739,6 +739,11 @@ void tcp_ip_show_log_status(node_t *node){
     else 
         cprintf ("\t  DREDIS     :     OFF\n" );
 
+    if (tracer_is_bit_set (cptr, DEVPN | DEVPN_DET)) 
+        cprintf ("\t  DEVPN     :     ON\n" );
+    else 
+        cprintf ("\t  DEVPN     :     OFF\n" );
+
     if (tracer_is_bit_set (dptr, DACL | DACL_DET) ||
             tracer_is_bit_set (cptr, DACL | DACL_DET)) 
         cprintf ("\t  DACL     :     ON\n" );
@@ -1237,6 +1242,19 @@ tcp_ip_debug_handler(int64_t cmdcode,
         }
         break;
 
+        /* Only : CP */
+        case DEVPN:
+        case DEVPN_DET:
+        switch (enable_or_disable) {
+            case CONFIG_ENABLE:
+		        tracer_log_bit_set(node->cptr, cmdcode);
+            break;
+            case CONFIG_DISABLE:
+	    	    tracer_log_bit_unset(node->cptr, cmdcode);
+            break;
+        }
+        break;
+
         case DREDIS:
         case DREDIS_DET:
         switch (enable_or_disable) {
@@ -1427,6 +1445,15 @@ tcp_ip_build_debug_cli_tree (param_t *root) {
         }
 
         {
+            /* config node <node-name> [no] debug evpn [detail]*/
+            static param_t evpn;
+            init_param(&evpn, CMD, "evpn", tcp_ip_debug_handler, 0, INVALID, 0, "evpn");
+            libcli_register_param(&debug, &evpn);
+            libcli_set_param_cmd_code(&evpn, DEVPN);
+            libcli_register_param_detail (&evpn, tcp_ip_debug_handler, DEVPN_DET);
+        }        
+
+        {
             /* config node <node-name> [no] debug always-flush*/
             static param_t flush;
             init_param(&flush, CMD, "always-flush", tcp_ip_debug_handler, 0, INVALID, 0, "Set log file always-flush");
@@ -1558,6 +1585,12 @@ debug_infra_tracer_bits_to_str (char *buffer, uint64_t bits) {
         strcat (buffer, "DTIMER ");
         rc += 7;
     }
+
+    if (bits & DEVPN) {
+        strcat (buffer, "DEVPN ");
+        rc += 6;
+    }
+
     if (bits & DTIMER_DET) {
         strcat (buffer, "DTIMER_DET ");
         rc += 11;

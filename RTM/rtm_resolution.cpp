@@ -67,6 +67,8 @@
 #include "rtm_route.h"
 #include "rtm_presentation.h"
 #include "rtm_priv_api.h"
+#include "../vrf/mac_vrf.h"
+#include "../Layer2/Evpn/evpn.h"
 
 void  
 rtm_schedule_nh_resolution_worker (rtm_t *rtm);
@@ -526,6 +528,24 @@ rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
             rtm_schedule_nh_resolution_worker (vpn_cust_vrf_rib_inet);
         }
     }
+
+    /* If RTM is 0.inet.3 , then resolve all MAC VRF RTMs , irrespective
+        of their L3 VRF */
+    if (rtm == NODE_DEF_VRF_VRF_MEMBER(node, inet3))
+    {
+        for (i = 0; i < MAX_EVPN_INDEX; i++)
+        {
+            evpn_inst_t *evpn_inst = node->evpn[i];
+            if (!evpn_inst) continue;
+
+            mac_vrf_t *mac_vrf = evpn_inst->mac_vrf;
+
+            if (!mac_vrf || !mac_vrf->mac_rtm) continue;
+
+            SET_BIT(mac_vrf->mac_rtm->flags, RTM_F_INHS_RE_RESOLVE);
+            rtm_schedule_nh_resolution_worker(mac_vrf->mac_rtm);
+        }
+    }
 }
 
 static void 
@@ -538,9 +558,7 @@ rtm_rt_resolver_job_cbk (event_dispatcher_t *ev, void *arg, uint32_t arg_size) {
 
     rtm->nh_resolution_job = NULL;
     
-    tracer(rtm->node->cptr, DRTM,
-        "RTM[%s] : Route Propogation Worker Started\n",
-        rtm->name);
+    tracer(rtm->node->cptr, DRTM, "RTM[%s] : Route Propogation Worker Started\n", rtm->name);
 
     ITERATE_GLTHREAD_BEGIN(&rtm->resolved_unpropogated_routes.head, curr) {
 
@@ -1008,8 +1026,7 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
         (indirect_nh->proto == RTM_PROTO_BGP ||
             indirect_nh->proto == RTM_PROTO_STATIC)
         &&
-        (indirect_nh->sub_proto == RTM_PROTO_BGP_VPN ||
-            indirect_nh->sub_proto == RTM_PROTO_L2VPN_EVPN)
+        indirect_nh->sub_proto == RTM_PROTO_BGP_VPN
         &&
         indirect_nh->rtm->vrf != DEFAULT_VRF) {
 
@@ -1028,6 +1045,28 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
 
         assert(0);
     }
+
+    if (
+        (indirect_nh->proto == RTM_PROTO_BGP)
+        &&
+        (indirect_nh->sub_proto == RTM_PROTO_L2VPN_EVPN) ) {
+
+            if (indirect_nh->prefix.afi == AF_IPV4) {
+                
+                return NODE_DEF_VRF_VRF_MEMBER(node, inet3);
+            }
+            else if (indirect_nh->prefix.afi == AF_IPV6) {
+
+                /* VPNv4 routes with SRv6 Transport are resolved in inet6.0*/
+                if (IS_BIT_SET(indirect_nh->fwd_flags, FIB_NH_FWD_F_SRv6_FORWARD))
+                    return NODE_DEF_VRF_VRF_MEMBER(node, inet6);
+
+                return NODE_DEF_VRF_VRF_MEMBER(node, inet63);
+            }
+
+        assert(0);
+    }    
+
 
     /* Add more Rules here */
 

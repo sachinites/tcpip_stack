@@ -5,6 +5,7 @@
 
 #include "../../router_init.h"
 #include "../../Interface/InterfaceUApi.h"
+#include "../../dpal/cp2dp.h"
 
 #include "evpn.h"
 #include "evpn_priv_api.h"
@@ -132,6 +133,11 @@ evpn_connect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf) {
                   bd_intf->bd_id);
 
     evpn_inst->export_rt = evpn_inst->import_rt;
+
+    bd_intf->enable_lmac_queue();
+    cp2dp_enable_bd_lmac_learning_queue(bd_intf, true);
+    evpn_inst->mac_vrf =  mac_vrf_create(bd_intf->vrf, bd_intf->bd_id);
+    evpn_inst->mac_vrf->evpn_inst = evpn_inst;
 }
 
 bool 
@@ -139,14 +145,19 @@ evpn_disconnect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf)
 {
     assert (evpn_inst->bd_intf.get() == bd_intf);
 
-    bd_intf->evi_id = 0;
-    evpn_inst->bd_intf = nullptr;
-
     /* Reset RT */
     evpn_inst->export_rt.rtr_id = 0;
     evpn_inst->export_rt.sub_type = 0;
     evpn_inst->export_rt.vrf_id = 0;
     evpn_inst->import_rt = evpn_inst->export_rt;
 
+    bd_intf->disable_lmac_queue();
+    cp2dp_enable_bd_lmac_learning_queue(bd_intf, false);
+    mac_vrf_destroy(evpn_inst->mac_vrf);
+
+    evpn_inst->mac_vrf = NULL;
+    bd_intf->evi_id = 0;
+    evpn_inst->bd_intf = nullptr;
+    
     return true;
 }

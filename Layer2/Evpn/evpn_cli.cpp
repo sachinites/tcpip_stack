@@ -326,6 +326,11 @@ evpn_config_handler (int64_t cmdcode,
         return -1;
     }
 
+    if (evpn_id == 0) {
+        cprintf ("Error : EVPN instance id 0 is not allowed\n");
+        return -1;
+    }
+
     switch (cmdcode) {
 
         case CMDCODE_CONFIG_EVPN_CREATE:
@@ -456,10 +461,12 @@ evpn_config_handler (int64_t cmdcode,
                         return -1;
                     }
 
+                    if (!bd_intf->vrf) {
+                        cprintf ("Error : Bridge-domain %u does not have a VRF\n", bd_id);
+                        return -1;
+                    }
+
                     evpn_connect_bd (evpn_inst, bd_intf);
-                    bd_intf->enable_lmac_queue();
-                    cp2dp_enable_bd_lmac_learning_queue(bd_intf, true);
-                    mac_vrf_create(bd_intf->vrf, bd_intf->bd_id, evpn_inst);
                     break;
 
                 case CONFIG_DISABLE:
@@ -478,9 +485,7 @@ evpn_config_handler (int64_t cmdcode,
                                  evpn_id, bd_id);
                         return -1;
                     }
-                    bd_intf->disable_lmac_queue();
-                    cp2dp_enable_bd_lmac_learning_queue(bd_intf, false);
-                    mac_vrf_destroy(bd_intf->vrf, bd_intf->bd_id);
+
                     break;
 
                 default:
@@ -748,7 +753,8 @@ evpn_show_mac_routes (evpn_inst_t *evpn_inst, mac_addr_t *mac_filter)
         return;
     }
 
-    mac_vrf = bd_intf->vrf->mac_vrf[bd_intf->bd_id];
+    mac_vrf = evpn_inst->mac_vrf;
+    
     if (!mac_vrf || !mac_vrf->type2_rib) {
         cprintf ("EVPN instance %u BD %u : MAC VRF not present\n",
                  evpn_inst->evi, bd_intf->bd_id);

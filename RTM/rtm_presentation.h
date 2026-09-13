@@ -106,12 +106,8 @@ typedef struct rtm_presentation_data_ {
     uint8_t vrf;
     /* Pointer to Direct nexthop being added, if deleted it would be NULL*/
     rtm_nh *nh; 
-    /* nh_idx of DNH being added or deleted. Clients must use this if nh ptr is NULL*/
-    uint32_t nh_idx;     
     /*Indirect Nexthop being resolved by nh, if deleted it would be NULL*/            
-    rtm_nh *inh;
-    /* inh_idx of INH being added or deleted. Clients must use this if inh ptr is NULL*/
-    uint32_t inh_idx;    
+    rtm_nh *inh; 
     /* Nexthop Entire Src Proto info */
     rtm_nh_proto_t *rtm_nh_proto;
     /* Nh Addr*/

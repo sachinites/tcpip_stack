@@ -49,7 +49,7 @@ typedef struct mac_table_entry_ {
     uint16_t oif_count;
     uint16_t oif_cap;
     mac_addr_t mac;
-    uint16_t flags;
+    uint16_t flags;     /* aging only: MAC_STATIC bit; origin type is on oifs[] */
     uint16_t vlan_id;
     uint8_t nh_index;   /* round-robin ECMP index — not part of hash key */
     uint8_t _pad[3];

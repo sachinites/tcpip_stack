@@ -263,8 +263,8 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
             "RTM[%s] : Route %s, NH %s(%u) not allowed to downloaded to FIB\n",
             rtm->name, 
             rtm_format_prefix(&presentation_data->route, rt_str, sizeof(rt_str)),
-            presentation_data->nh ? rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "",
-            presentation_data->nh_idx);
+            rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)),
+            presentation_data->nh->idx);
         return;
     }
 
@@ -272,9 +272,8 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
         "RTM[%s] : Updating FIB : Route %s, NH %s(%u), Operation %s\n",
         rtm->name,
         rtm_format_prefix(&presentation_data->route, rt_str, sizeof(rt_str)),
-        presentation_data->operation == RTM_PPT_OP_ADD ? \
-        rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "deleted",
-        presentation_data->nh_idx,
+        rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)),
+        presentation_data->nh->idx,
         presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
         presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
 
@@ -301,9 +300,8 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
             "RTM[%s] : FIB location failed for Route %s, NH %s(%u), Operation %s\n",
                 rtm->name,
                 rt_str,
-                presentation_data->operation == RTM_PPT_OP_ADD ? \
-                rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "deleted",
-                presentation_data->nh_idx,
+                rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)),
+                presentation_data->nh->idx,
                 presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
                 presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
 
@@ -326,9 +324,8 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
                 "RTM[%s] : FIB Update Failed : Could not create FWD info for Route %s, NH %s(%u), Operation %s\n",
                 rtm->name,
                 rt_str,
-                presentation_data->operation == RTM_PPT_OP_ADD ? \
-                rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "deleted",
-                presentation_data->nh_idx,
+                rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)),
+                presentation_data->nh->idx,
                 presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
                 presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
             return;
@@ -339,7 +336,7 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
             rtm->name, rt_str,
             presentation_data->operation == RTM_PPT_OP_ADD ? "ADD" :
             presentation_data->operation == RTM_PPT_OP_UPDATE ? "UPD" : "DEL",
-            presentation_data->nh_idx, (unsigned)target_fib_vrf_out, (unsigned)target_fib_afi);
+            presentation_data->nh->idx, (unsigned)target_fib_vrf_out, (unsigned)target_fib_afi);
 
     /* Update FIB based on operation */
     cp2dp_fib_update (
@@ -347,38 +344,11 @@ rtm_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
             target_fib_vrf_out,
             target_fib_afi,
             &presentation_data->route, 
-            presentation_data->nh_idx,
-            presentation_data->inh_idx,
+            presentation_data->nh->idx,
+            presentation_data->inh ? presentation_data->inh->idx : 0,
             presentation_data->operation != RTM_PPT_OP_DELETE ? &fwd_info : NULL,
             rtm_to_fib_map_opn(presentation_data->operation));
 }
-
-void 
-rtm_l2_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
-
-    char rt_str[48];
-    char nh_str[128];
-
-    tracer (rtm->node->cptr, DRTM,
-        "RTM[%s] : Updating L2 FIB : Route %s, NH %s(%u), L2 Table ID:%u, Operation %s\n",
-        rtm->name,
-        rtm_format_prefix(&presentation_data->route, rt_str, sizeof(rt_str)),
-        presentation_data->operation == RTM_PPT_OP_ADD ? \
-        rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "deleted",
-        presentation_data->nh_idx,
-        presentation_data->inh ? presentation_data->inh->mac_table_id : 0,
-        presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
-        presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");   
-        
-    /* Info required to add an entry into Mac table (L2 FIB )*/
-    // bridge-domain ifindex : presentation_data->inh->mac_table_id
-    // prefix : presentation_data->route
-    // evpn service label : presentation_data->inh->vpn_label
-    // Remote PE label : presentation_data->nh->label_stack
-    // Gateway : presentation_data->nh->prefix
-    // OIF : presentation_data->nh->oif
-
-    rtm_presentation_data_trace(rtm, presentation_data);
 
     /* Algorithm :
     1. Build a new mpls label stack in which presentation_data->inh->vpn_label is
@@ -392,124 +362,139 @@ rtm_l2_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
 
     4. For delete, call cp2dp_bd_mac_table_entry_del_mpls with the same spec.
     */
+
+void 
+rtm_l2_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
+
+    char rt_str[48];
+    char nh_str[128];
+
+    rtm_nh *inh = presentation_data->inh;
+    rtm_nh *nh = presentation_data->nh;
+    mpls_lstack_t lstack;
+    mpls_label_t label;
+    mac_fwd_object_spec_t fwd_spec;
+    uint32_t bd_ifindex;
+    uint32_t oif_ifindex;
+    uint32_t nh_ip;
+    int i;
+
+    if (presentation_data->route.afi != AF_MAC)
     {
-        rtm_nh *inh = presentation_data->inh;
-        rtm_nh *nh = presentation_data->nh;
-        mpls_lstack_t lstack;
-        mpls_label_t label;
-        mac_fwd_object_spec_t fwd_spec;
-        uint32_t bd_ifindex;
-        uint32_t oif_ifindex;
-        uint32_t nh_ip;
-        int i;
+        tracer(rtm->node->cptr, DRTM | DERR,
+               "RTM[%s] : L2 FIB update aborted — non-MAC prefix %s\n",
+               rtm->name, rt_str);
+        return;
+    }
 
-        /* On DELETE, presentation may leave inh/nh NULL — recover from GC/live DB. */
-        if (!inh && presentation_data->inh_idx) {
-            inh = rtm_nh_lookup_by_idx(rtm, presentation_data->inh_idx);
-            if (!inh) {
-                inh = rtm_gc_lookup_nh(rtm, presentation_data->inh_idx);
+    assert (nh && inh);
+
+    tracer(rtm->node->cptr, DRTM,
+           "RTM[%s] : Updating L2 FIB : Route %s, NH %s(%u), L2 Table ID:%u, Operation %s\n",
+           rtm->name,
+           rtm_format_prefix(&presentation_data->route, rt_str, sizeof(rt_str)),
+           rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)),
+           presentation_data->nh->idx,
+           presentation_data->inh->mac_table_id,
+           presentation_data->operation == RTM_PPT_OP_ADD ? \
+            "Add" : presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
+
+    /* Info required to add an entry into Mac table (L2 FIB )*/
+    // bridge-domain ifindex : presentation_data->inh->mac_table_id
+    // prefix : presentation_data->route
+    // evpn service label : presentation_data->inh->vpn_label
+    // Remote PE label : presentation_data->nh->label_stack
+    // Gateway : presentation_data->nh->prefix
+    // OIF : presentation_data->nh->oif
+
+    rtm_presentation_data_trace(rtm, presentation_data);
+
+    bd_ifindex = inh->mac_table_id;
+    oif_ifindex = nh->oif;
+    nh_ip = 0;
+    if (nh->prefix.afi == AF_IPV4)
+        nh_ip = nh->prefix.u.v4_addr;
+
+    mpls_lstack_init(&lstack);
+
+    /* Bottom: EVPN service label from INH */
+    if (inh->vpn_label)
+    {
+        mpls_label_init(&label);
+        mpls_label_set_value(&label.label_val, inh->vpn_label);
+        label.op = MPLS_OP_PUSH;
+        mpls_lstack_push(&lstack, label);
+    }
+
+    /* Outer: transport labels from resolving DNH */
+    if (nh->label_stack && nh->label_stack->curr_index >= 0)
+    {
+        for (i = 0; i <= nh->label_stack->curr_index; i++)
+        {
+            if (mpls_label_is_null(nh->label_stack->labels[i]))
+            {
+                break;
             }
-        }
-
-        if (!nh && presentation_data->nh_idx) {
-            nh = rtm_nh_lookup_by_idx(rtm, presentation_data->nh_idx);
-            if (!nh) {
-                nh = rtm_gc_lookup_nh(rtm, presentation_data->nh_idx);
+            if (lstack.curr_index + 1 >= MAX_LBL_DEPTH)
+            {
+                tracer(rtm->node->cptr, DRTM | DERR,
+                       "RTM[%s] : L2 FIB label stack overflow for %s\n",
+                       rtm->name, rt_str);
+                break;
             }
-        }
-
-        if (!inh) {
-            tracer(rtm->node->cptr, DRTM | DERR,
-                   "RTM[%s] : L2 FIB update aborted — no INH for route %s\n",
-                   rtm->name, rt_str);
-            return;
-        }
-
-        if (presentation_data->route.afi != AF_MAC) {
-            tracer(rtm->node->cptr, DRTM | DERR,
-                   "RTM[%s] : L2 FIB update aborted — non-MAC prefix %s\n",
-                   rtm->name, rt_str);
-            return;
-        }
-
-        bd_ifindex = inh->mac_table_id;
-        oif_ifindex = nh ? nh->oif : 0;
-        nh_ip = 0;
-        if (nh && nh->prefix.afi == AF_IPV4)
-            nh_ip = nh->prefix.u.v4_addr;
-
-        mpls_lstack_init(&lstack);
-
-        /* Bottom: EVPN service label from INH */
-        if (inh->vpn_label) {
             mpls_label_init(&label);
-            mpls_label_set_value(&label.label_val, inh->vpn_label);
+            mpls_label_set_value(
+                &label.label_val,
+                mpls_label_get_value(
+                    nh->label_stack->labels[i].label_val));
             label.op = MPLS_OP_PUSH;
             mpls_lstack_push(&lstack, label);
         }
-
-        /* Outer: transport labels from resolving DNH */
-        if (nh && nh->label_stack && nh->label_stack->curr_index >= 0) {
-            for (i = 0; i <= nh->label_stack->curr_index; i++) {
-                if (mpls_label_is_null(nh->label_stack->labels[i])) {
-                    break;
-                }
-                if (lstack.curr_index + 1 >= MAX_LBL_DEPTH) {
-                    tracer(rtm->node->cptr, DRTM | DERR,
-                           "RTM[%s] : L2 FIB label stack overflow for %s\n",
-                           rtm->name, rt_str);
-                    break;
-                }
-                mpls_label_init(&label);
-                mpls_label_set_value(
-                    &label.label_val,
-                    mpls_label_get_value(
-                        nh->label_stack->labels[i].label_val));
-                label.op = MPLS_OP_PUSH;
-                mpls_lstack_push(&lstack, label);
-            }
-        }
-
-        if (lstack.curr_index < 0) {
-            tracer(rtm->node->cptr, DRTM | DERR,
-                   "RTM[%s] : L2 FIB update aborted — empty label stack "
-                   "for route %s (vpn_label=%u)\n",
-                   rtm->name, rt_str, (unsigned)inh->vpn_label);
-            return;
-        }
-
-        mpls_label_set_stack_bottom(&lstack.labels[0].label_val);
-
-        mac_fwd_object_spec_from_mpls_tunnel(&fwd_spec, &lstack,
-                                             oif_ifindex, nh_ip);
-
-        if (presentation_data->operation == RTM_PPT_OP_DELETE) {
-            cp2dp_bd_mac_table_entry_del_mpls(
-                rtm->node,
-                presentation_data->route.u.mac_addr,
-                bd_ifindex,
-                &fwd_spec,
-                true);
-        } else {
-            /* ADD and UPDATE */
-            cp2dp_bd_mac_table_entry_add_mpls(
-                rtm->node,
-                presentation_data->route.u.mac_addr,
-                bd_ifindex,
-                &fwd_spec,
-                MAC_CONTROL_PLANE,
-                true);
-        }
-
-        tracer(rtm->node->cptr, DRTM,
-               "RTM[%s] : L2 FIB MAC %s bd=%u oif=%u nh=%u.%u.%u.%u "
-               "vpn_label=%u stack_depth=%d op=%s\n",
-               rtm->name, rt_str, bd_ifindex, oif_ifindex,
-               (nh_ip >> 24) & 0xFF, (nh_ip >> 16) & 0xFF,
-               (nh_ip >> 8) & 0xFF, nh_ip & 0xFF,
-               (unsigned)inh->vpn_label,
-               (int)lstack.curr_index + 1,
-               presentation_data->operation == RTM_PPT_OP_DELETE ? "DEL" :
-               presentation_data->operation == RTM_PPT_OP_UPDATE ? "UPD" : "ADD");
     }
+
+    if (lstack.curr_index < 0)
+    {
+        tracer(rtm->node->cptr, DRTM | DERR,
+               "RTM[%s] : L2 FIB update aborted — empty label stack "
+               "for route %s (vpn_label=%u)\n",
+               rtm->name, rt_str, (unsigned)inh->vpn_label);
+        return;
+    }
+
+    mpls_label_set_stack_bottom(&lstack.labels[0].label_val);
+
+    mac_fwd_object_spec_from_mpls_tunnel(&fwd_spec, &lstack,
+                                         oif_ifindex, nh_ip);
+
+    if (presentation_data->operation == RTM_PPT_OP_DELETE)
+    {
+        cp2dp_bd_mac_table_entry_del_mpls(
+            rtm->node,
+            presentation_data->route.u.mac_addr,
+            bd_ifindex,
+            &fwd_spec,
+            true);
+    }
+    else
+    {
+        /* ADD and UPDATE */
+        cp2dp_bd_mac_table_entry_add_mpls(
+            rtm->node,
+            presentation_data->route.u.mac_addr,
+            bd_ifindex,
+            &fwd_spec,
+            MAC_CONTROL_PLANE,
+            true);
+    }
+
+    tracer(rtm->node->cptr, DRTM,
+           "RTM[%s] : L2 FIB MAC %s bd=%u oif=%u nh=%u.%u.%u.%u "
+           "vpn_label=%u stack_depth=%d op=%s\n",
+           rtm->name, rt_str, bd_ifindex, oif_ifindex,
+           (nh_ip >> 24) & 0xFF, (nh_ip >> 16) & 0xFF,
+           (nh_ip >> 8) & 0xFF, nh_ip & 0xFF,
+           (unsigned)inh->vpn_label,
+           (int)lstack.curr_index + 1,
+           presentation_data->operation == RTM_PPT_OP_DELETE ? \
+                "DEL" : presentation_data->operation == RTM_PPT_OP_UPDATE ? "UPD" : "ADD");
 }

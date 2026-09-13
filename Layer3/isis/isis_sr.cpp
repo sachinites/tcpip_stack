@@ -356,6 +356,46 @@ isis_sr_mpls_advertise_node_sid (isis_node_info_t *node_info,
     return 0;
 }
 
+/* Re-create Node-SID TLV after full LSP regen tore down advt_db but left
+ * node_sid_configured and the SRGB reservation intact. */
+void
+isis_sr_mpls_readvertise_node_sid (isis_node_info_t *node_info) {
+
+    isis_advt_info_t advt_info;
+    isis_adv_data_t *advt_data;
+    isis_srmpls_config_t *sr_config = isis_sr_mpls_get_config(node_info);
+
+    if (!sr_config || !sr_config->node_sid_configured) return;
+    if (sr_config->node_sid_adv_data) return;
+
+    advt_data = (isis_adv_data_t *)XCALLOC2(0, 1, isis_adv_data_t);
+    sr_config->node_sid_adv_data = advt_data;
+
+    advt_data->tlv_no = ISIS_TLV_NODE_SID;
+    advt_data->flags = 0;
+    advt_data->fragment = NULL;
+    advt_data->src.holder = &sr_config->node_sid_adv_data;
+    init_glthread(&advt_data->glue);
+
+    advt_data->u.node_sid.prefix = NODE_RTR_ID_INT(node_info->vrf->node);
+    advt_data->u.node_sid.prefix_len = 32;
+    advt_data->u.node_sid.sid_index = sr_config->node_sid_index;
+    advt_data->u.node_sid.flags = sr_config->node_sid_flags;
+    advt_data->tlv_size = isis_get_adv_data_size(advt_data);
+
+    isis_advertise_tlv(node_info, 0, advt_data, &advt_info);
+}
+
+void
+isis_sr_mpls_readvertise_after_full_regen (isis_node_info_t *node_info) {
+
+    if (!isis_sr_mpls_is_enabled(node_info)) return;
+
+    isis_sr_mpls_advertise_rtr_cap_tlv242(node_info);
+    isis_sr_mpls_readvertise_node_sid(node_info);
+    isis_sr_mpls_sync_self_ted_srgb(node_info);
+}
+
 void
 isis_sr_mpls_withdraw_node_sid (isis_node_info_t *node_info) {
 

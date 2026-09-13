@@ -387,8 +387,9 @@ l2_fwd_type_str(L2_FWD_TYPE_T fwd_type)
 static void
 dp_print_l2_fwd_object(dp_ctx_t *dp_ctx, mac_fwd_object_t *obj)
 {
-    cprintf("  obj=%p  idx=%u  ref=%u  hits=%llu  ",
+    cprintf("  obj=%p  idx=%u  ref=%u  type=%s  hits=%llu  ",
             (void *)obj, obj->idx, obj->ref_count,
+            mac_entry_flag(obj->flags),
             (unsigned long long)obj->hit_count);
 
     switch (obj->fwd_type) {

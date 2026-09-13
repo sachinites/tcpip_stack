@@ -114,7 +114,7 @@ typedef struct rtm_nh_ {
         /* Metric */
         uint32_t metric;
 
-        /* Applicable only for MAC L2 VPN routes */
+        /* Applicable only for MAC L2 VPN routes, ifindex of BD */
         uint32_t mac_table_id;
 
         /* Action */

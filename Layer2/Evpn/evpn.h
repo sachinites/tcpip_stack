@@ -54,6 +54,8 @@ typedef struct evpn_inst_ {
     /* EVPN is a control plane wrapper over BD Mgmt */
     BDInterfaceP bd_intf;    
 
+    mac_vrf_t *mac_vrf;
+    
     rd_t rd;
     rt_t import_rt;    
     rt_t export_rt;    

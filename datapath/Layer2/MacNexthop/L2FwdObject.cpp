@@ -727,6 +727,8 @@ mac_fwd_object_clone (mac_fwd_object_t *fwd_obj_src, mac_fwd_object_t *fwd_obj_d
     memcpy(fwd_obj_dst, fwd_obj_src, sizeof(*fwd_obj_src));
     fwd_obj_dst->ref_count = 0;
     fwd_obj_dst->hit_count = 0;
+    fwd_obj_dst->install_time = time(NULL);
+    /* flags intentionally retained from template/src */
     avltree_node_init(&fwd_obj_dst->glue);
     memset(&fwd_obj_dst->u, 0, sizeof(fwd_obj_dst->u));
     mac_fwd_object_copy_union(fwd_obj_dst, fwd_obj_src);

@@ -1,11 +1,14 @@
 
 #include "../../libs/EventDispatcher/event_dispatcher.h"
 #include "../../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../../libs/Tracer/tracer.h"
+
 #include "../../dpcp_cmn.h"
 #include "../../router_init.h"
 #include "../../Interface/InterfaceUApi.h"
 
 #include "../../vrf/mac_vrf.h"
+#include "../Evpn/evpn.h"
 #include "bd_api.h"
 
 extern int cprintf (const char* format, ...);
@@ -26,7 +29,8 @@ bd_recv_mac_learning_cbk(
     for (; lmac_data;
          lmac_data = (bd_lmac_data_t *)task_get_next_pkt(ev_dis, &pkt_size)) {
 
-        cprintf("MAC Recvd : %02x:%02x:%02x:%02x:%02x:%02x, BD = %u, op:%s\n",
+        tracer (node->cptr, DEVPN, 
+                "Local MAC Recvd : %02x:%02x:%02x:%02x:%02x:%02x, BD = %u, op:%s\n",
                 lmac_data->mac.mac[0], lmac_data->mac.mac[1],
                 lmac_data->mac.mac[2], lmac_data->mac.mac[3],
                 lmac_data->mac.mac[4], lmac_data->mac.mac[5],
@@ -38,12 +42,14 @@ bd_recv_mac_learning_cbk(
 
         if (lmac_data->add) {
                 mac_vrf_evpn_route_type2_local_import (
-                    bd_intf->vrf->mac_vrf[bd_intf->bd_id],
+                    node,
+                    node->evpn[bd_intf->evi_id]->mac_vrf,
                     &lmac_data->mac);
         }
         else {
                 mac_vrf_evpn_route_type2_delete (
-                    bd_intf->vrf->mac_vrf[bd_intf->bd_id],
+                    node,
+                    node->evpn[bd_intf->evi_id]->mac_vrf,
                     &lmac_data->mac);
         }
 

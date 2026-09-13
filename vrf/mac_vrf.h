@@ -36,23 +36,24 @@ typedef struct mac_vrf_ {
 
 #pragma pack(pop)
 
-struct evpn_inst_;
 typedef struct evpn_inst_ evpn_inst_t;
 
 mac_vrf_t *
-mac_vrf_create (vrf_t *vrf, uint16_t mac_vrf_id, evpn_inst_t *evpn_inst);
+mac_vrf_create (vrf_t *vrf, uint16_t mac_vrf_id);
 
 void
-mac_vrf_destroy (vrf_t *vrf, uint16_t mac_vrf_id);
+mac_vrf_destroy (mac_vrf_t *mac_vrf);
 
 
 void 
 mac_vrf_evpn_route_type2_local_import (
+        node_t *node,
         mac_vrf_t *mac_vrf, 
         mac_addr_t *mac_addr);
 
 void
 mac_vrf_evpn_route_type2_delete (
+        node_t *node,
         mac_vrf_t *mac_vrf,
         mac_addr_t *mac_addr);
 
@@ -67,5 +68,8 @@ void
 mac_vrf_evpn_route_type2_remote_delete(
         mac_vrf_t *mac_vrf,
         mac_addr_t *mac_addr);
+
+rtm_t *
+mac_vrf_get_rtm (node_t *node, uint16_t mac_vrf_id);
 
 #endif 

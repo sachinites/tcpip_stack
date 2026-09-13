@@ -110,7 +110,6 @@ struct node_ {
     glthread_t prefix_lst_db;
     /* ACL Builder*/
     acl_builder_t *acl_builder;
-
     /* Control Plane Tracer*/
     tracer_t *cptr;
     /* Network Object Hashtable */

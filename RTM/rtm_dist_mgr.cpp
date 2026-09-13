@@ -418,9 +418,8 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
     tracer (dist_mgr->node->cptr, DREDIS_DET,
         "REDIS-MGR : Route %s, NH %s(%u), Operation %s\n",
         rtm_format_prefix(&presentation_data->route, rt_str, sizeof(rt_str)),
-        presentation_data->operation == RTM_PPT_OP_ADD ? \
-        rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)) : "deleted",
-        presentation_data->nh_idx,
+        rtm_nh_one_liner_trace(presentation_data->nh, nh_str, sizeof(nh_str)),
+        presentation_data->nh->idx,
         presentation_data->operation == RTM_PPT_OP_ADD ? "Add" : 
         presentation_data->operation == RTM_PPT_OP_UPDATE ? "Update" : "Delete");
 
@@ -431,8 +430,8 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
             rt_redist_route_t *redis_rt = (rt_redist_route_t *)XCALLOC2(0, 1, rt_redist_route_t);
 
             fib_set_nh_idx(&Cnhidx, 
-                presentation_data->inh_idx, 
-                presentation_data->nh_idx);
+                presentation_data->inh ? presentation_data->inh->idx : 0,
+                presentation_data->nh->idx);
 
             redis_rt->Cnhidx = Cnhidx;
             avltree_node_init (&redis_rt->nhidx_glue);
@@ -522,8 +521,8 @@ rtm_distribution_manager_update (dist_mgr_t *dist_mgr,
         {
 
             fib_set_nh_idx(&Cnhidx,
-                presentation_data->inh_idx,
-                presentation_data->nh_idx);
+                presentation_data->inh ? presentation_data->inh->idx : 0,
+                presentation_data->nh->idx);
 
             rt_tmplate.Cnhidx = Cnhidx;
             avltree_node_init(&rt_tmplate.nhidx_glue);

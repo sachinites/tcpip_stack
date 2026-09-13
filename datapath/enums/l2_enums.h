@@ -5,7 +5,8 @@
  * =============================================================================
  *
  * Design:
- *   - MAC_STATIC, MAC_DATA_PLANE, MAC_CONTROL_PLANE: flags for MAC table entries.
+ *   - MAC_STATIC, MAC_DATA_PLANE, MAC_CONTROL_PLANE: origin flags on
+ *     MacFwdObject (how the nexthop was installed), not on the MAC entry.
  *   - mac_entry_flag(): return string for CLI/logging.
  * =============================================================================
  */

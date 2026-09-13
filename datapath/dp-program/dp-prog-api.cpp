@@ -151,9 +151,12 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
                                 &tmpl);
 
              /* Trap to control plane */
-             if (dp_msg->component_type == BD_MAC_TABLE)
-                 dp_bd_mac_notify_cp(dp_ctx, overlay_vlan,
-                                    mac_update_msg->mac_addr, true);
+            if (dp_msg->component_type == BD_MAC_TABLE && 
+                (mac_update_msg->flags & MAC_DATA_PLANE)) {
+                
+                dp_bd_mac_notify_cp(dp_ctx, overlay_vlan,
+                    mac_update_msg->mac_addr, true);
+            }
             break;
             
         case DP_DEL:
@@ -163,9 +166,12 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
                                    table_vlan,
                                    &tmpl);
             
-            if (dp_msg->component_type == BD_MAC_TABLE)
+            if (dp_msg->component_type == BD_MAC_TABLE && 
+                (mac_update_msg->flags & MAC_DATA_PLANE)) {
+                    
                 dp_bd_mac_notify_cp(dp_ctx, overlay_vlan,
                                    mac_update_msg->mac_addr, false);
+            }
             break;
 
         case DP_UPDATE:
@@ -537,6 +543,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                             MAC_STATIC,
                             &tmpl);
 
+                #if 0
                     memset (&spec, 0, sizeof (spec));
                     layer2_fill_with_broadcast_mac (mac_addr.mac);
                     mac_fwd_object_spec_from_ifindex(&spec, BD_RMAC_INTF_INDEX, 0,
@@ -551,6 +558,7 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                             DEFAULT_VLAN_ID,
                             MAC_STATIC,
                             &tmpl);
+                    #endif
                 }
                 break;
             }

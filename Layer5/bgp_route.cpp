@@ -2019,11 +2019,9 @@ bgp_evpn_remote_route_install(node_t *node,
             continue;
         }
 
-        mac_vrf = bd_intf->vrf->mac_vrf[bd_intf->bd_id];
-        if (!mac_vrf) {
-            continue;
-        }
-
+        mac_vrf = evpn_inst->mac_vrf;
+        if (!mac_vrf) continue;
+        
         if (install) {
             mac_vrf_evpn_route_type2_remote_import(mac_vrf,
                                                    &mac_addr,

@@ -1,10 +1,19 @@
 #ifndef __CP2DP__
 #define __CP2DP__
 
+/*
+ * Control-plane → Datapath (cp2dp) API
+ *
+ * Thin wrappers that allocate a dp_msg_t, fill the component-specific
+ * payload, and submit it to the node's datapath via cp2dp_submit().
+ * Related APIs are grouped by datapath object they program.
+ */
+
 #include <stdint.h>
+#include <semaphore.h>
 
 typedef struct node_ node_t;
-typedef struct mac_table_entry_ mac_table_entry_t; 
+typedef struct mac_table_entry_ mac_table_entry_t;
 typedef struct rtm_nh_fwd_info_ rtm_nh_fwd_info_t;
 typedef struct dp_msg_ dp_msg_t;
 typedef struct ping_ctx_ ping_ctx_t;
@@ -14,7 +23,6 @@ typedef struct dp_ctx_ dp_ctx_t;
 struct rte_mbuf;
 class TransportService;
 
-#include <semaphore.h>
 #include "../libs/pkt-block/cp_pkt_block.h"
 #include "../libs/common/cmn_prefix.h"
 #include "../libs/common/mpls_lstack.h"
@@ -26,53 +34,71 @@ class TransportService;
 #include "../Interface/InterfacEnums.h"
 #include "../datapath/Layer2/MacNexthop/L2FwdObject.h"
 
-void 
-cp2dp_submit (node_t *node, dp_msg_t *dp_msg, bool async);
+/* ========================================================================
+ * Core messaging / packet conversion
+ * ======================================================================== */
 
 void
-cp2dp_xmit_pkt (node_t *node, cp_pkt_block_t *pkt_block, Interface *xmit_interface) ;
+cp2dp_submit(node_t *node, dp_msg_t *dp_msg, bool async);
 
-void 
-cp2dp_send_ip_data ( node_t *node,
-                     vrf_t *vrf,
-                     uint8_t *ip_payload,
-                     pkt_size_t payload_size,
-                     uint32_t dest_ip_addr,
-                     uint16_t std_ip_protocol);
-
-void 
-cp2dp_send_ip6_data ( node_t *node,
-                      vrf_t *vrf,
-                      uint8_t *ipv6_payload,
-                      pkt_size_t payload_size,
-                      ipv6_addr_t dest_ip_addr,
-                      uint16_t std_ip_protocol);
-
-/* Wrapper fn to add MAC entry to MAC table Asynchronously*/
 void
-cp2dp_mac_table_entry_add (node_t *node,
-                      uint8_t *mac_addr,
-                      uint16_t vlan_id,
-                      uint32_t ifindex,
-                      uint16_t flags,
-                      bool async,
-                      uint32_t remote_dst_ip
+cp2dp_xmit_pkt(node_t *node, cp_pkt_block_t *pkt_block, Interface *xmit_interface);
+
+struct rte_mbuf *
+cp2dp_convert_pkt_block(dp_ctx_t *dp_ctx, cp_pkt_block_t *cp_pkt_block);
+
+/* ========================================================================
+ * L3 northbound transmit (CP → DP)
+ * ======================================================================== */
+
+void
+cp2dp_send_ip_data(node_t *node,
+                   vrf_t *vrf,
+                   uint8_t *ip_payload,
+                   pkt_size_t payload_size,
+                   uint32_t dest_ip_addr,
+                   uint16_t std_ip_protocol);
+
+void
+cp2dp_send_ip6_data(node_t *node,
+                    vrf_t *vrf,
+                    uint8_t *ipv6_payload,
+                    pkt_size_t payload_size,
+                    ipv6_addr_t dest_ip_addr,
+                    uint16_t std_ip_protocol);
+
+/* ========================================================================
+ * VLAN MAC table
+ * ======================================================================== */
+
+void
+cp2dp_mac_table_entry_add(node_t *node,
+                          uint8_t *mac_addr,
+                          uint16_t vlan_id,
+                          uint32_t ifindex,
+                          uint16_t flags,
+                          bool async,
+                          uint32_t remote_dst_ip
 #ifdef __cplusplus
-                      , uint32_t vlan_bd_ifindex = 0
+                          , uint32_t vlan_bd_ifindex = 0
 #endif
-                      );
+                          );
 
 void
-cp2dp_mac_table_entry_del (node_t *node,
-                      uint8_t *mac_addr,
-                      uint16_t vlan_id,
-                      uint32_t ifindex,
-                      bool async,
-                      uint32_t remote_dst_ip
+cp2dp_mac_table_entry_del(node_t *node,
+                          uint8_t *mac_addr,
+                          uint16_t vlan_id,
+                          uint32_t ifindex,
+                          bool async,
+                          uint32_t remote_dst_ip
 #ifdef __cplusplus
-                      , uint32_t vlan_bd_ifindex = 0
+                          , uint32_t vlan_bd_ifindex = 0
 #endif
-                      );
+                          );
+
+/* ========================================================================
+ * Bridge-domain MAC table
+ * ======================================================================== */
 
 void
 cp2dp_bd_mac_table_entry_add(node_t *node,
@@ -109,32 +135,68 @@ cp2dp_bd_mac_table_clear(node_t *node,
                          uint32_t bd_ifindex,
                          bool async);
 
+/* ========================================================================
+ * FIB
+ * ======================================================================== */
+
 void
-cp2dp_fib_update (
-                node_t *node,
-                uint8_t target_fib_vrf_id,
-                AFI_T target_fib_afi,
-                cmn_prefix_t *prefix,
-                uint32_t nh_idx,
-                uint32_t inh_idx,
-                rtm_nh_fwd_info_t *fwd_info,
-                FIB_OPN_T operation) ;
+cp2dp_fib_update(node_t *node,
+                 uint8_t target_fib_vrf_id,
+                 AFI_T target_fib_afi,
+                 cmn_prefix_t *prefix,
+                 uint32_t nh_idx,
+                 uint32_t inh_idx,
+                 rtm_nh_fwd_info_t *fwd_info,
+                 FIB_OPN_T operation);
 
-void 
-cp2dp_vrf_create (node_t *node, char *vrf_name, uint8_t vrf_id);
+/* ========================================================================
+ * VRF
+ * ======================================================================== */
 
-void 
-cp2dp_vrf_delete (node_t *node, uint8_t vrf_id);
+void
+cp2dp_vrf_create(node_t *node, char *vrf_name, uint8_t vrf_id);
 
-void 
-cp2dp_vrf_delete_interface (node_t *node, uint8_t vrf_id, uint32_t ifindex);
+void
+cp2dp_vrf_delete(node_t *node, uint8_t vrf_id);
 
-void 
-cp2dp_vrf_add_interface (node_t *node, uint8_t vrf_id, uint32_t ifindex);
+void
+cp2dp_vrf_add_interface(node_t *node, uint8_t vrf_id, uint32_t ifindex);
 
-/* Interface update message sending functions */
-void 
-cp2dp_send_intf_ipv4_addr_update(node_t *node, uint32_t port_id, uint32_t ipv4_addr, uint8_t mask);
+void
+cp2dp_vrf_delete_interface(node_t *node, uint8_t vrf_id, uint32_t ifindex);
+
+/* ========================================================================
+ * Interface lifecycle
+ * ======================================================================== */
+
+void
+cp2dp_interface_create(node_t *node, Interface *intf);
+
+void
+cp2dp_interface_delete(node_t *node, uint32_t ifindex);
+
+void
+cp2dp_interface_add_acl(node_t *node,
+                        uintptr_t acl,
+                        uint8_t layer,
+                        uint32_t ifindex,
+                        bool ingress);
+
+/* ========================================================================
+ * Interface property updates
+ * ======================================================================== */
+
+void
+cp2dp_send_intf_ipv4_addr_update(node_t *node,
+                                 uint32_t port_id,
+                                 uint32_t ipv4_addr,
+                                 uint8_t mask);
+
+void
+cp2dp_send_intf_ipv6_addr_update(node_t *node,
+                                 uint32_t port_id,
+                                 uint8_t ipv6_addr[16],
+                                 uint8_t prefix_len);
 
 void
 cp2dp_send_intf_gre_tunnel_update(node_t *node,
@@ -145,41 +207,74 @@ cp2dp_send_intf_gre_tunnel_update(node_t *node,
                                   uint32_t tunnel_dst_ip,
                                   bool tunnel_up);
 
-void 
-cp2dp_send_intf_ipv6_addr_update(node_t *node, uint32_t port_id, uint8_t ipv6_addr[16], uint8_t prefix_len);
+void
+cp2dp_send_intf_admin_status_update(node_t *node,
+                                    uint32_t port_id,
+                                    bool is_down);
 
-void 
-cp2dp_send_intf_vlan_bind_update(node_t *node, uint32_t port_id, 
-                                uint32_t vlan_port_id, 
-                                IntfL2Mode l2_mode, 
+void
+cp2dp_send_intf_switchport_update(node_t *node,
+                                  uint32_t port_id,
+                                  uint8_t switchport);
+
+void
+cp2dp_send_switchport_intf_access(node_t *node, Interface *intf, bool add);
+
+void
+cp2dp_send_intf_vlan_bind_update(node_t *node,
+                                 uint32_t port_id,
+                                 uint32_t vlan_port_id,
+                                 IntfL2Mode l2_mode,
+                                 bool add);
+
+void
+cp2dp_send_intf_vlan_grp_bind_update(node_t *node,
+                                     uint32_t port_id,
+                                     bitmap_t *vlan_bitmap,
+                                     bool add);
+
+void
+cp2dp_send_intf_grp_bind_to_vlan_update(node_t *node,
+                                        TransportService *tsp,
+                                        uint16_t vlan_id,
+                                        bool add);
+
+void
+cp2dp_send_intf_vlan_vni_update(node_t *node,
+                                uint16_t vlan_port_id,
+                                uint32_t vni_id,
                                 bool add);
 
-void 
-cp2dp_send_intf_grp_bind_to_vlan_update(node_t *node, TransportService *tsp, uint16_t vlan_id, bool add);
+void
+cp2dp_send_vlan_add_access_port(node_t *node,
+                                uint16_t vlan_id,
+                                uint32_t access_port_id,
+                                bool add);
 
-void 
-cp2dp_send_intf_admin_status_update(node_t *node, uint32_t port_id, bool is_down);
+/* ========================================================================
+ * Bridge-domain attachment / AC
+ * ======================================================================== */
 
-void 
-cp2dp_send_intf_vlan_vni_update(node_t *node, uint16_t vlan_port_id, uint32_t vni_id, bool add);
+void
+cp2dp_bd_ac_bind(node_t *node,
+                 uint32_t bd_ifindex,
+                 uint32_t ac_ifindex,
+                 bool add);
 
-void 
-cp2dp_send_intf_switchport_update(node_t *node, uint32_t port_id, uint8_t switchport);
+void
+cp2dp_bd_ac_set_encap_8021q(node_t *node,
+                            uint32_t ac_ifindex,
+                            uint16_t encap_8021q_tag);
 
-void 
-cp2dp_send_intf_vlan_grp_bind_update(node_t *node, uint32_t port_id, bitmap_t *vlan_bitmap, bool add);
+void
+cp2dp_enable_bd_lmac_learning_queue(BDInterface *bd_intf, bool enable);
 
-void 
-cp2dp_interface_create (node_t *node, Interface *intf);
+/* ========================================================================
+ * Generics (router ID, anycast GW, ping)
+ * ======================================================================== */
 
-void 
-cp2dp_interface_delete (node_t *node, uint32_t ifindex);
-
-void 
-cp2dp_interface_add_acl (node_t *node, 
-                         uintptr_t acl,
-                         uint8_t layer,
-                         uint32_t ifindex, bool ingress);
+void
+cp2dp_send_rtr_id(node_t *node, uint32_t rtr_id);
 
 void
 cp2dp_send_distributed_anycast_gateway(node_t *node, uint8_t (*mac)[6]);
@@ -187,60 +282,35 @@ cp2dp_send_distributed_anycast_gateway(node_t *node, uint8_t (*mac)[6]);
 void
 cp2dp_delete_distributed_anycast_gateway(node_t *node);
 
-void 
-cp2dp_send_rtr_id(node_t *node, uint32_t rtr_id);
-
 void
-cp2dp_send_switchport_intf_access (node_t *node, Interface *intf, bool add);
-
-void
-cp2dp_send_vlan_add_access_port (node_t *node, 
-                                    uint16_t vlan_id,
-                                    uint32_t access_port_id, bool add);
-
-void
-cp2dp_bd_ac_bind (node_t *node,
-                  uint32_t bd_ifindex,
-                  uint32_t ac_ifindex,
-                  bool add);
-
-void
-cp2dp_bd_ac_set_encap_8021q (node_t *node,
-                             uint32_t ac_ifindex,
-                             uint16_t encap_8021q_tag);
-
-void 
 cp2dp_ping_request(node_t *node, ping_ctx_t *pctx);
 
-struct rte_mbuf *
-cp2dp_convert_pkt_block (dp_ctx_t *dp_ctx, cp_pkt_block_t *cp_pkt_block);
-
-void 
-cp2dp_enable_bd_lmac_learning_queue(BDInterface *bd_intf, bool enable);
-
-/* Pkt Trap APIs to be used by Control plane */
-void
-cp2dp_install_pkt_trap_rule  (node_t *node,
-                              uint32_t ifindex,
-                              uint16_t id,       /* Unique ID for this rule */
-                              uint16_t l2_proto, /* L2 proto Or IP proto, atleast 1 is mandatory */
-                              uint8_t ip_proto, 
-                              bool (*trap_fn)(struct rte_mbuf *),  /* optional, to further examine the pkt*/
-                              void (*trap_app_cbk)(void *cp_ctx,struct rte_mbuf *), /* CP can provide its fn, but should return asap*/
-                              event_dispatcher_t *ev_dis, /* CP can provide its Scheduler & pkt Q compbo */
-                              pkt_q_t *pkt_q, 
-                              bool consume); /* Should DP must end its journey after handover to CP ?*/
+/* ========================================================================
+ * Packet trap rules
+ * ======================================================================== */
 
 void
-cp2dp_uninstall_pkt_trap_rule (node_t *node,
-                              uint32_t ifindex,
-                              uint16_t id,       /* Unique ID for this rule */
-                              uint16_t l2_proto, /* L2 proto Or IP proto, atleast 1 is mandatory */
-                              uint8_t ip_proto, 
-                              bool (*trap_fn)(struct rte_mbuf *),  /* optional, to further examine the pkt*/
-                              void (*trap_app_cbk)(void *cp_ctx, struct rte_mbuf *), /* CP can provide its fn, but should return asap*/
-                              event_dispatcher_t *ev_dis, /* CP can provide its Scheduler & pkt Q compbo */
-                              pkt_q_t *pkt_q, 
-                              bool consume); /* Should DP must end its journey after handover to CP ?*/
+cp2dp_install_pkt_trap_rule(node_t *node,
+                            uint32_t ifindex,
+                            uint16_t id,        /* unique rule id */
+                            uint16_t l2_proto,  /* L2 or IP proto; at least one required */
+                            uint8_t ip_proto,
+                            bool (*trap_fn)(struct rte_mbuf *),  /* optional pkt filter */
+                            void (*trap_app_cbk)(void *cp_ctx, struct rte_mbuf *),
+                            event_dispatcher_t *ev_dis,
+                            pkt_q_t *pkt_q,
+                            bool consume);      /* DP ends journey after CP handoff */
 
-#endif 
+void
+cp2dp_uninstall_pkt_trap_rule(node_t *node,
+                              uint32_t ifindex,
+                              uint16_t id,
+                              uint16_t l2_proto,
+                              uint8_t ip_proto,
+                              bool (*trap_fn)(struct rte_mbuf *),
+                              void (*trap_app_cbk)(void *cp_ctx, struct rte_mbuf *),
+                              event_dispatcher_t *ev_dis,
+                              pkt_q_t *pkt_q,
+                              bool consume);
+
+#endif /* __CP2DP__ */

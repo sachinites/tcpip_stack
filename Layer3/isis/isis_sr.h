@@ -75,6 +75,12 @@ isis_sr_mpls_advertise_node_sid (isis_node_info_t *node_info,
                                     uint32_t sid_index, uint8_t flags);
 
 void
+isis_sr_mpls_readvertise_node_sid (isis_node_info_t *node_info);
+
+void
+isis_sr_mpls_readvertise_after_full_regen (isis_node_info_t *node_info);
+
+void
 isis_sr_mpls_withdraw_node_sid (isis_node_info_t *node_info);
 
 uint32_t

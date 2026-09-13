@@ -282,6 +282,16 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                         return -1;
                     }
 
+                    /* If this is BD interface, do not allow vrf deletion if it has evi_id configured */
+                    if (interface->iftype == INTF_TYPE_BD) {
+                        BDInterface *bd_intf = dynamic_cast<BDInterface *>(interface);
+                        
+                        if (bd_intf->evi_id) {
+                            cprintf ("Error : BD interface has evi_id configured, cannot remove VRF\nConfiguration Checkout failed\n");
+                            return -1;
+                        }
+                    }
+
                     if (!vrf_del_interface(vrf, interface)) {
                         cprintf ("Error : Failed to remove interface from VRF %s\nConfiguration Checkout failed\n",
                                  vrf->vrf_name);

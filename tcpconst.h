@@ -92,9 +92,9 @@ tcpip_protocol_classification(uint16_t proto) {
 #define DEFAULT_VRF             0
 #define DEF_VRF_NAME            "0"
 #define MAX_INTF_IFINDEX        8191
-#define MAX_EVPN_INDEX          8
-#define MAX_VRF_SUPPORTED       256 /* have to widen uint8_t to support more */
-#define MAX_BD_SUPPORT          64
+#define MAX_VRF_SUPPORTED       128 /* have to widen uint8_t to support more */
+#define MAX_BD_SUPPORT          128
+#define MAX_EVPN_INDEX          MAX_BD_SUPPORT
 #define MAX_VLAN_MEMBERPORTS    16
 #define MAX_BD_MEMBERPORTS      16
 #define MAX_VLAN_SUPPORTED      4096

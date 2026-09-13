@@ -74,9 +74,6 @@ typedef struct vrf_ {
     /* Device level SRV6 info */
     srv6_node_info_t *srv6_node_info;
 
-    /* MAC VRFs under this L3 VRF*/
-    mac_vrf_t *mac_vrf[MAX_BD_SUPPORT];
-
 } vrf_t;
 
 typedef struct def_vrf_ {

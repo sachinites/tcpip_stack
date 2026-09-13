@@ -15,6 +15,7 @@
 #include "isis_ted.h"
 #include "isis_cmdcodes.h"
 #include "isis_srv6.h"
+#include "isis_sr.h"
 #include "../../RTM/rtm_nb_integ.h"
 
 extern void
@@ -1250,6 +1251,25 @@ isis_regen_all_fragments_from_scratch (event_dispatcher_t *ev_dis, void *arg, ui
         }
 
     } ITERATE_NODE_ISIS_INTERFACES_END;
+
+    /* Re-advertise loopback Router-ID as TLV130 (cleared when advt_db was destroyed). */
+    ITERATE_NODE_ISIS_INTERFACES_BEGIN (node_info, intf) {
+
+        isis_intf_info_t *intf_info;
+
+        if (!isis_is_protocol_enable_on_intf (intf)) continue;
+
+        intf_info = ISIS_INTF_INFO(intf);
+        if (!intf_info) continue;
+
+        assert (!intf_info->tlv_130_data);
+        intf_info->tlv_130_data =
+            isis_advertise_intf_v4addr_tlv130(intf_info);
+
+    } ITERATE_NODE_ISIS_INTERFACES_END;
+
+    /* Re-advertise SR-MPLS TLV242 / Node-SID (cleared when advt_db was destroyed). */
+    isis_sr_mpls_readvertise_after_full_regen(node_info);
 
     /* Advertise v6loop back as  IPV6 REACH TLV*/
     assert (!node_info->tlv_global_advt.v6lo_adv_data_tlv236);

@@ -187,9 +187,13 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
 
     if (!mac_table->hash || !fwd_tmpl) return;
 
+    fwd_tmpl->flags = flags;
+
     mac_table_entry_t *existing = mac_table_lookup(mac_table, vlan_id, mac_addr);
 
     if (existing) {
+        if (flags & MAC_STATIC)
+            existing->flags |= MAC_STATIC;
         if (mac_table_entry_attach_fwd(dp_ctx, existing, fwd_tmpl)) {
             tracer(dp_ctx->dptr, DL2SW,
                    "MAC Table Entry [%u %02x:%02x:%02x:%02x:%02x:%02x]: fwd obj added\n",
@@ -204,7 +208,9 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     entry->vlan_id = vlan_id;
     entry->last_used = (flags & MAC_STATIC) ? 0 : time(NULL);
     memcpy(entry->mac.mac, mac_addr, sizeof(mac_addr_t));
-    entry->flags = flags;
+    /* Entry flags: only MAC_STATIC is retained for aging/GC; origin type
+       lives on each MacFwdObject. */
+    entry->flags = (flags & MAC_STATIC) ? MAC_STATIC : 0;
     entry->oifs = NULL;
     entry->oif_count = 0;
     entry->oif_cap = 0;
@@ -650,31 +656,63 @@ mac_table_fmt_one_oif(dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj,
 }
 
 static void
-mac_table_entry_print_oifs(dp_ctx_t *dp_ctx, mac_table_entry_t *entry)
+mac_table_entry_print_oifs(dp_ctx_t *dp_ctx, mac_table_entry_t *entry,
+                           const char *vlan_str, const char *idle_str)
 {
-    char buffer[256];
+    char dest[192];
+    byte uptime_str[HRS_MIN_SEC_FMT_TIME_LEN];
     bool first = true;
 
     for (uint16_t i = 0; i < entry->oif_count; i++) {
         mac_fwd_object_t *fwd_obj = entry->oifs[i];
+
         if (!fwd_obj)
             continue;
 
-        if (mac_table_fmt_one_oif(dp_ctx, fwd_obj, buffer, sizeof(buffer)) <= 0)
+        if (mac_table_fmt_one_oif(dp_ctx, fwd_obj, dest, sizeof(dest)) <= 0)
             continue;
 
+        if (fwd_obj->install_time)
+            RTM_UP_TIME(fwd_obj->install_time, uptime_str, sizeof(uptime_str));
+        else
+            snprintf((char *)uptime_str, sizeof(uptime_str), "-");
+
         if (first) {
-            cprintf("       Ports: %s  hits=%llu\n", buffer,
-                    (unsigned long long)fwd_obj->hit_count);
+            cprintf("%-4s  %02x:%02x:%02x:%02x:%02x:%02x  %-7s  %-14s  %8llu  %-8s  %s\n",
+                    vlan_str,
+                    entry->mac.mac[0], entry->mac.mac[1],
+                    entry->mac.mac[2], entry->mac.mac[3],
+                    entry->mac.mac[4], entry->mac.mac[5],
+                    idle_str,
+                    mac_entry_flag(fwd_obj->flags),
+                    (unsigned long long)fwd_obj->hit_count,
+                    (char *)uptime_str,
+                    dest);
             first = false;
         } else {
-            cprintf("              %s  hits=%llu\n", buffer,
-                    (unsigned long long)fwd_obj->hit_count);
+            cprintf("%-4s  %-17s  %-7s  %-14s  %8llu  %-8s  %s\n",
+                    "",
+                    "",
+                    "",
+                    mac_entry_flag(fwd_obj->flags),
+                    (unsigned long long)fwd_obj->hit_count,
+                    (char *)uptime_str,
+                    dest);
         }
     }
 
-    if (first)
-        cprintf("       Ports:\n");
+    if (first) {
+        cprintf("%-4s  %02x:%02x:%02x:%02x:%02x:%02x  %-7s  %-14s  %8s  %-8s  %s\n",
+                vlan_str,
+                entry->mac.mac[0], entry->mac.mac[1],
+                entry->mac.mac[2], entry->mac.mac[3],
+                entry->mac.mac[4], entry->mac.mac[5],
+                idle_str,
+                "-",
+                "-",
+                "-",
+                "(no nexthop)");
+    }
 }
 
 void
@@ -689,43 +727,41 @@ show_mac_table(dp_ctx_t *dp_ctx, mac_table_t *mac_table, uint16_t vlan_id)
 
     time_t now = time(NULL);
     printw("\n\r");
-    cprintf("VLAN   MAC Address         Type         Idle-Time(sec)\n");
-    cprintf("----  ------------        ------       --------------\n\n");
+    cprintf("%-4s  %-17s  %-7s  %-14s  %8s  %-8s  %s\n",
+            "VLAN", "MAC Address", "Idle", "Type", "Hits", "Uptime", "Destination");
+    cprintf("%-4s  %-17s  %-7s  %-14s  %8s  %-8s  %s\n",
+            "----", "-----------------", "-------", "--------------",
+            "--------", "--------", "--------------------------------");
 
     while (rte_hash_iterate(mac_table->hash, &key, &data, &next) >= 0) {
 
         mac_table_entry_t *entry = (mac_table_entry_t *)data;
-        if (vlan_id && vlan_id != entry->vlan_id) continue;
+        char vlan_str[8];
+        char idle_str[16];
+        time_t lu;
+
+        if (vlan_id && vlan_id != entry->vlan_id)
+            continue;
 
         count++;
-        time_t lu = __atomic_load_n(&entry->last_used, __ATOMIC_RELAXED);
-        char idle_str[16];
-        if (lu == 0) snprintf(idle_str, sizeof(idle_str), "never");
-        else         snprintf(idle_str, sizeof(idle_str), "%ld", (long)(now - lu));
+        lu = __atomic_load_n(&entry->last_used, __ATOMIC_RELAXED);
+        if (lu == 0)
+            snprintf(idle_str, sizeof(idle_str), "never");
+        else
+            snprintf(idle_str, sizeof(idle_str), "%lds", (long)(now - lu));
 
-        if (entry->vlan_id == DEFAULT_VLAN_ID) {
-            cprintf("%-6s %02x:%02x:%02x:%02x:%02x:%02x  %-13s %-14s\n",
-                    "--",
-                    entry->mac.mac[0], entry->mac.mac[1],
-                    entry->mac.mac[2], entry->mac.mac[3],
-                    entry->mac.mac[4], entry->mac.mac[5],
-                    mac_entry_flag(entry->flags),
-                    idle_str);
-        } else {
-            cprintf("%-6d %02x:%02x:%02x:%02x:%02x:%02x  %-13s %-14s\n",
-                    entry->vlan_id,
-                    entry->mac.mac[0], entry->mac.mac[1],
-                    entry->mac.mac[2], entry->mac.mac[3],
-                    entry->mac.mac[4], entry->mac.mac[5],
-                    mac_entry_flag(entry->flags),
-                    idle_str);
-        }
+        if (entry->vlan_id == DEFAULT_VLAN_ID)
+            snprintf(vlan_str, sizeof(vlan_str), "--");
+        else
+            snprintf(vlan_str, sizeof(vlan_str), "%u", entry->vlan_id);
 
-        mac_table_entry_print_oifs(dp_ctx, entry);
-        cprintf("\n");
+        mac_table_entry_print_oifs(dp_ctx, entry, vlan_str, idle_str);
     }
 
-    if (!count) cprintf("(empty)\n");
+    if (!count)
+        cprintf("(empty)\n");
+    else
+        cprintf("\nTotal MAC entries: %d\n", count);
 }
 
 /* -------------------------------------------------------------------------
@@ -764,6 +800,10 @@ mac_table_entry_attach_fwd(dp_ctx_t *dp_ctx,
     fwd_obj = dp_l2fwd_object_acquire(dp_ctx, fwd_tmpl);
     if (!fwd_obj)
         return false;
+
+    /* Origin type is a property of the L2 fwd object, not the MAC entry. */
+    if (fwd_tmpl->flags)
+        fwd_obj->flags = fwd_tmpl->flags;
 
     if (mac_entry->oif_count >= mac_entry->oif_cap &&
         !mac_table_entry_grow_oifs(mac_entry)) {

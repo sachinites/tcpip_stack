@@ -239,13 +239,7 @@ rtm_get(node_t *node, uint8_t vrf_id, AFI_T afi, uint8_t rtm_id) {
         }
 
         else if (afi == AF_MAC) {
-            
-            /* MAC VRF rtm */
-            vrf_t *vrf = (vrf_t *)def_vrf;
-
-            if (vrf->mac_vrf[rtm_id]) {
-                return vrf->mac_vrf[rtm_id]->mac_rtm;
-            }
+            return mac_vrf_get_rtm(node, rtm_id);
         }
     }
 
@@ -259,9 +253,7 @@ rtm_get(node_t *node, uint8_t vrf_id, AFI_T afi, uint8_t rtm_id) {
         case AF_IPV6: return vrf->inet6;
         case AF_LABEL: return NULL;
         case AF_MAC: 
-            if (vrf->mac_vrf[rtm_id]) {
-                return vrf->mac_vrf[rtm_id]->mac_rtm;
-            }
+            return mac_vrf_get_rtm(node, rtm_id);
         break;
     }
     
