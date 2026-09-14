@@ -1,9 +1,22 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../../libs/Tracer/tracer.h"
+
 #include "bgp_rib_vpnv4.h"
 #include "bgp_nlri_key.h"
 #include "bgp_nlri_wire.h"
+
+#include "../bgp_route.h"
+#include "../bgp_rtr.h"
+#include "../../libs/common/cmn_prefix.h"
+#include "../../RTM/rtm.h"
+#include "../../RTM/rtm_enums.h"
+#include "../../RTM/rtm_error.h"
+#include "../../RTM/rtm_nb_integ.h"
+#include "../../RTM/rtm_proto.h"
+#include "../../router_init.h"
+#include "../bgp_enums.h"
 
 static void
 format_ipv4(uint32_t addr, char *buf, size_t buflen)
@@ -358,4 +371,229 @@ bgp_vpnv4_rib_route_lookup(const bgp_rib_t *rib,
     }
 
     return bgp_rib_route_lookup(rib, &key);
+}
+
+void
+bgp_vpnv4_nlri_key_to_cmn_prefix(bgp_nlri_key_t *key,
+                                 cmn_prefix_t *cmn_prefix)
+{
+    bgp_vpnv4_nlri_t nlri;
+
+    if (!cmn_prefix) {
+        return;
+    }
+
+    memset(cmn_prefix, 0, sizeof(*cmn_prefix));
+    if (!key) {
+        return;
+    }
+
+    if (bgp_vpnv4_nlri_decode(key, &nlri) != BGP_RIB_OK) {
+        return;
+    }
+
+    cmn_prefix_initialize_v4(cmn_prefix, nlri.prefix, nlri.prefix_len);
+}
+
+/* Similar to bgp_route_build_vpn_nh_template */
+bool
+bgp_vpnv4_build_nh_template(bgp_nlri_key_t *key,
+                            bgp_rib_attrs_t *attrs,
+                            cp_nexthop_template_t *cp_nh_template)
+{
+    char nh_cidr[72];
+    cmn_prefix_t gateway;
+    rt_t import_rt;
+    bgp_vpnv4_nlri_t nlri;
+    rtm_error_t rc;
+
+    memset(cp_nh_template, 0, sizeof(*cp_nh_template));
+
+    if (bgp_vpnv4_nlri_decode(key, &nlri) != BGP_RIB_OK) {
+        return false;
+    }
+
+    if (attrs->nexthop[0] == '\0') {
+        return false;
+    }
+
+    if (strchr(attrs->nexthop, '/')) {
+        strncpy(nh_cidr, attrs->nexthop, sizeof(nh_cidr) - 1);
+        nh_cidr[sizeof(nh_cidr) - 1] = '\0';
+    } else {
+        snprintf(nh_cidr, sizeof(nh_cidr), "%s/32", attrs->nexthop);
+    }
+
+    if (!cmn_parse_prefix_string(nh_cidr, &gateway) ||
+        gateway.afi != AF_IPV4) {
+        return false;
+    }
+
+    if (!bgp_route_parse_rt_string(attrs->import_rt, &import_rt)) {
+        return false;
+    }
+
+    cp_nh_template->is_indirect = true;
+    cp_nh_template->is_resolved = false;
+    cp_nh_template->proto = RTM_PROTO_BGP;
+    cp_nh_template->sub_proto = RTM_PROTO_BGP_VPN;
+    cp_nh_template->action = RTM_NH_ACTION_FORWARD;
+    cp_nh_template->metric = attrs->med_present ? attrs->med : 0;
+    cp_nh_template->import_rt = import_rt;
+    if (nlri.label_present && nlri.label) {
+        cp_nh_template->vpn_label = (mpls_label_val_t)nlri.label;
+    }
+    memcpy(&cp_nh_template->gateway, &gateway, sizeof(gateway));
+
+    rc = rtm_nh_proto_info_create(RTM_PROTO_BGP,
+                                  RTM_PROTO_BGP_VPN,
+                                  0,
+                                  RTM_DEFAULT_VRF,
+                                  &cp_nh_template->rtm_nh_proto);
+    if (rc != RTM_SUCCESS) {
+        memset(cp_nh_template, 0, sizeof(*cp_nh_template));
+    }
+
+    return true;
+}
+
+void 
+bgp_global_rib_export_vpnv4_route_cb(     
+                                   void *ctx,
+                                   uint8_t afi,
+                                   uint8_t safi,
+                                   bgp_nlri_key_t *key,
+                                   bgp_rib_attrs_t *attrs,
+                                   bool is_add,
+                                   uint16_t target_vrf_id)
+{
+    int i; 
+    vrf_t *vrf;
+    rtm_error_t rc;
+    char nh_str[48];
+    char route_str[48];
+    rtm_t *vpnv4_cust_rtm;
+    cmn_prefix_t cmn_prefix;
+    cp_nexthop_template_t cp_nh_template;
+    bgp_inst_t *bgp_inst = (bgp_inst_t *)ctx;
+    node_t *node = bgp_inst->node;
+
+    /* Now install this route in all customer VRF RIBs whose 
+        route target matches */
+    
+    /* Reject the self advertised routes */
+    {
+        uint32_t nh_int = ip_pton((c_string)attrs->nexthop);
+        if (nh_int == 0 || (nh_int == NODE_RTR_ID_INT(node))) return;
+    }
+
+    /* Derieve internal AFI from standardized AFI */
+    AFI_T vpnv4_cust_rtm_afi = (afi == AFI_IPV4) ? AF_IPV4 : AF_IPV6;
+
+    bgp_vpnv4_nlri_key_to_cmn_prefix(key, &cmn_prefix);
+    rtm_format_prefix(&cmn_prefix, route_str, sizeof (route_str));
+
+    if (!bgp_vpnv4_build_nh_template (key, attrs, &cp_nh_template)) {
+
+        tracer (bgp_inst->tr, DRTM|DERR, 
+            "%s : [%s] : Route %s, Failed to build nh_template, %sInstallation Failed\n", 
+            BGP_RTM_IM, 
+            BGP_VPN_V4_RIB_NAME, 
+            route_str, 
+            is_add ? "" : "Un");
+
+        tracer (node->cptr, DRTM|DERR, 
+            "%s : [%s] : Route %s, Failed to build nh_template, %sInstallation Failed\n", 
+            BGP_RTM_IM, 
+            BGP_VPN_V4_RIB_NAME, 
+            route_str, 
+            is_add ? "" : "Un");
+
+        return;
+    }
+
+    rtm_format_nexthop(&cp_nh_template.gateway, nh_str, sizeof(nh_str));
+
+    tracer (bgp_inst->tr, DRTM_DET, 
+            "%s : [%s] : Route %s, nh_template is successfully build, op=%s\n", 
+            BGP_RTM_IM, 
+            BGP_VPN_V4_RIB_NAME, 
+            route_str, 
+            is_add ? "Add" : "Del");   
+            
+    tracer (node->cptr, DRTM_DET, 
+            "%s : [%s] : Route %s, nh_template is successfully build, op=%s\n", 
+            BGP_RTM_IM, 
+            BGP_VPN_V4_RIB_NAME, 
+            route_str, 
+            is_add ? "Add" : "Del");  
+
+    if (target_vrf_id == 0) {
+
+        /* Now install the vpnv4 route to all client vpnv4 RIBs */
+        for (i = 1; i < MAX_VRF_PER_NODE; i++) {
+
+            if (!node->vrf[i]) continue;
+
+            vrf = node->vrf[i];
+            
+            vpnv4_cust_rtm = rtm_get(node, vrf->vrf_id, vpnv4_cust_rtm_afi, 0);
+            if (!vpnv4_cust_rtm ) continue;
+
+            /* Now match Route target */
+            if (vrf->import_rt.rtr_id == cp_nh_template.import_rt.rtr_id &&
+                vrf->import_rt.vrf_id == cp_nh_template.import_rt.vrf_id) {
+                    
+                if (is_add) {
+                    rc = cp_rtm_install_route ( vpnv4_cust_rtm,  &cmn_prefix, &cp_nh_template);
+                }
+                else {
+                    rc = cp_rtm_uninstall_route ( vpnv4_cust_rtm,  &cmn_prefix, &cp_nh_template);
+                }
+
+                tracer (node->cptr, DRTM_DET, 
+                    "RTM[%s] : L3 VPN Route %s, %s %sInstalled in Client, Result : %s\n",
+                    vpnv4_cust_rtm->name, route_str, nh_str, 
+                    is_add ? "" : "Un",
+                    rtm_error_to_string(rc));            
+            }
+        }
+        rtm_nh_template_free_internals(&cp_nh_template);
+        return;
+    }
+
+    /* (Un)Install the route to/from a particular client rtm which belongs to target_vrf_id*/
+    vrf = vrf_get_by_id(node, (uint8_t)target_vrf_id);
+    if (!vrf) {
+        rtm_nh_template_free_internals(&cp_nh_template);
+        return;
+    }
+
+    vpnv4_cust_rtm = rtm_get(node, target_vrf_id, vpnv4_cust_rtm_afi, 0);
+
+    if (!vpnv4_cust_rtm) {
+        rtm_nh_template_free_internals(&cp_nh_template);
+        return;
+    }
+
+    if (vrf->import_rt.rtr_id == cp_nh_template.import_rt.rtr_id &&
+        vrf->import_rt.vrf_id == cp_nh_template.import_rt.vrf_id)
+    {
+        if (is_add)
+        {
+            rc = cp_rtm_install_route(vpnv4_cust_rtm, &cmn_prefix, &cp_nh_template);
+        }
+        else
+        {
+            rc = cp_rtm_uninstall_route(vpnv4_cust_rtm, &cmn_prefix, &cp_nh_template);
+        }
+
+        tracer(node->cptr, DRTM_DET,
+               "RTM[%s] : L3 VPN Route %s, %s %sInstalled in Client, Result : %s\n",
+               vpnv4_cust_rtm->name, route_str, nh_str,
+               is_add ? "" : "Un",
+               rtm_error_to_string(rc));
+    }
+
+    rtm_nh_template_free_internals(&cp_nh_template);
 }

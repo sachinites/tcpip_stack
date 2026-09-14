@@ -193,12 +193,12 @@ acl_parse_ace_config_entries(
     acl_entry->src_addr.acl_addr_format = ACL_ADDR_NOT_SPECIFIED;
     if (host_src_ip) {
         acl_entry->src_addr.acl_addr_format = ACL_ADDR_HOST;
-        acl_entry->src_addr.u.host_addr = tcp_ip_convert_ip_p_to_n(host_src_ip);
+        acl_entry->src_addr.u.host_addr = ip_pton(host_src_ip);
     }
     else if (subnet_src_ip && subnet_src_mask) {
          acl_entry->src_addr.acl_addr_format = ACL_ADDR_SUBNET_MASK;
-         acl_entry->src_addr.u.subnet.subnet_addr =  tcp_ip_convert_ip_p_to_n(subnet_src_ip);
-         acl_entry->src_addr.u.subnet.subnet_mask =  tcp_ip_convert_ip_p_to_n(subnet_src_mask);
+         acl_entry->src_addr.u.subnet.subnet_addr =  ip_pton(subnet_src_ip);
+         acl_entry->src_addr.u.subnet.subnet_mask =  ip_pton(subnet_src_mask);
     }
     else if (obj_nw_src) {
         acl_entry_link_src_object_networks(acl_entry, obj_nw_src);
@@ -215,12 +215,12 @@ acl_parse_ace_config_entries(
     acl_entry->dst_addr.acl_addr_format = ACL_ADDR_NOT_SPECIFIED;
     if (host_dst_ip) {
         acl_entry->dst_addr.acl_addr_format = ACL_ADDR_HOST;
-        acl_entry->dst_addr.u.host_addr = tcp_ip_convert_ip_p_to_n(host_dst_ip);
+        acl_entry->dst_addr.u.host_addr = ip_pton(host_dst_ip);
     }
     else if (subnet_dst_ip && subnet_dst_mask) {
          acl_entry->dst_addr.acl_addr_format = ACL_ADDR_SUBNET_MASK;
-         acl_entry->dst_addr.u.subnet.subnet_addr =  tcp_ip_convert_ip_p_to_n(subnet_dst_ip);
-         acl_entry->dst_addr.u.subnet.subnet_mask =  tcp_ip_convert_ip_p_to_n(subnet_dst_mask);
+         acl_entry->dst_addr.u.subnet.subnet_addr =  ip_pton(subnet_dst_ip);
+         acl_entry->dst_addr.u.subnet.subnet_mask =  ip_pton(subnet_dst_mask);
     }
     else if (obj_nw_dst) {
         acl_entry_link_dst_object_networks(acl_entry, obj_nw_dst);

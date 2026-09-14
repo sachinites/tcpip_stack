@@ -6,6 +6,9 @@
 #include "bgp_rib.h"
 #include "bgp_rib_types.h"
 
+typedef struct cp_nexthop_template_ cp_nexthop_template_t;
+typedef struct cmn_prefix_ cmn_prefix_t;
+
 typedef struct bgp_vpnv4_nlri_ {
     rd_t     rd;
     uint8_t  prefix_len;
@@ -51,5 +54,25 @@ bgp_vpnv4_rib_route_delete(bgp_rib_t *rib,
 const bgp_rib_attrs_t *
 bgp_vpnv4_rib_route_lookup(const bgp_rib_t *rib,
                            const bgp_vpnv4_nlri_t *nlri);
+
+
+void 
+bgp_vpnv4_nlri_key_to_cmn_prefix (bgp_nlri_key_t *key, 
+                                  cmn_prefix_t *cmn_prefix);
+
+bool
+bgp_vpnv4_build_nh_template(bgp_nlri_key_t *key, 
+                            bgp_rib_attrs_t *attrs, 
+                            cp_nexthop_template_t *cp_nh_template);
+
+void 
+bgp_global_rib_export_vpnv4_route_cb(     
+                                   void *ctx,
+                                   uint8_t afi,
+                                   uint8_t safi,
+                                   bgp_nlri_key_t *key,
+                                   bgp_rib_attrs_t *attrs,
+                                   bool is_add,
+                                   uint16_t target_vrf_id);
 
 #endif /* BGP_RIB_VPNV4_H_ */

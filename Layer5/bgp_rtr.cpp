@@ -40,6 +40,8 @@ bgp_init(node_t *node) {
     tracer_log_bit_set(bgp->tr, ~0);
     tracer_enable_file_logging(bgp->tr, true);
 
+    bgp->node = node;
+    
     bgp_route_processing_pkt_q_init(node, bgp);
 
     prefix_list_register_client(node, bgp_prefix_list_change_cbk, node->vrf[0], 0);

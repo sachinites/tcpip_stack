@@ -22,7 +22,7 @@
 #include "../../RTM/rtm_nb_integ.h"
 #include "../../datapath/dp_uapi.h"
 
-extern void isis_recv_ipc_updates(isis_node_info_t *node_info,
+extern void isis_recv_ipc_updates(node_t *node,
                                   ips_major_code_t major_code,
                                   uint32_t minor_code,
                                   void *msg,

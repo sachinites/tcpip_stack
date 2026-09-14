@@ -1238,6 +1238,7 @@ Original Topo:
     event_dispatcher_run(&H2->purger_ev_dis, true, 0);
 
 #if 1
+
     /* launch GoBGP for each PE router  */
     system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:22000 --pprof-host=127.0.0.1:22001 --log-level=debug &");
     system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:23000 --pprof-host=127.0.0.1:23001 --log-level=debug &");

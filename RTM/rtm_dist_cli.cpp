@@ -434,7 +434,7 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
         else if (parser_match_leaf_id(tlv->leaf_id, "bgp-neighbor-addr") &&
             target_proto == RTM_PROTO_BGP){
             bgp_nbr = tlv->value;
-            uint32_t nbr_ip_addr_int = tcp_ip_convert_ip_p_to_n(bgp_nbr);
+            uint32_t nbr_ip_addr_int = ip_pton(bgp_nbr);
             cmn_prefix_initialize_v4(&bgp_nbr_pfx, nbr_ip_addr_int, 32);
         }
     }

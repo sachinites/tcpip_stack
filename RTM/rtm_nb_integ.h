@@ -22,6 +22,7 @@ typedef struct rt_advert_info_ rt_advert_info_t;
 typedef struct node_ node_t;
 typedef struct vrf_ vrf_t;
 typedef struct _param_t_ param_t;
+typedef struct dist_mgr_ dist_mgr_t;
 
 #pragma pack(push, 8)
 

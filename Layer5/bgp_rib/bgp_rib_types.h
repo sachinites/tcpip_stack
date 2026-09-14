@@ -32,7 +32,7 @@ typedef struct bgp_rib_ext_comm_ {
 } bgp_rib_ext_comm_t;
 
 typedef struct bgp_rib_attrs_ {
-    char     nexthop[46];
+    char     nexthop[48];
     uint8_t  origin;
     bool     origin_present;
     uint32_t med;

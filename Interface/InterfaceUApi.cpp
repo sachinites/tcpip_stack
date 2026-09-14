@@ -281,7 +281,7 @@ interface_set_ip_addr(node_t *node,
 
     assert (intf->iftype != INTF_TYPE_GRE_TUNNEL);
 
-    ip_addr_int = tcp_ip_convert_ip_p_to_n(intf_ip_addr);
+    ip_addr_int = ip_pton(intf_ip_addr);
 
     /* new config */
     if (!intf->IsIpConfigured()) {
@@ -332,7 +332,7 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
 
     intf->InterfaceGetIpAddressMask(&existing_ip_addr, &existing_mask);
 
-    ip_addr_int = tcp_ip_convert_ip_p_to_n(intf_ip_addr);
+    ip_addr_int = ip_pton(intf_ip_addr);
 
     if ((ip_addr_int != existing_ip_addr) || mask != existing_mask) {
         cprintf ("Error : IP address and mask do not match\n");

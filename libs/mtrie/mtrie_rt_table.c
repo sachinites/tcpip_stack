@@ -10,7 +10,7 @@
 /* This file tests the mtrie implementation for IPV4 routing table */
 // 1.2.3.4 --> INT
 static uint32_t
-covert_ip_p_to_n(char *ip_addr){
+covert_ip_pton(char *ip_addr){
 
     uint32_t binary_prefix = 0;
     inet_pton(AF_INET, ip_addr, &binary_prefix);
@@ -126,7 +126,7 @@ main(int argc, char **argv) {
     char ip1[16] = "1.2.3.4";
     uint8_t dmask = 24;
 
-    uint32_t _bin_ip = covert_ip_p_to_n(ip1);
+    uint32_t _bin_ip = covert_ip_pton(ip1);
     uint32_t _bin_mask = convert_dmask_to_bin_mask(dmask);
 
     bitmap_t bbin_ip, bbin_mask;
@@ -144,49 +144,49 @@ main(int argc, char **argv) {
 
 #if 0
     strcpy(ip1, "0.0.0.0");
-    bin_ip = covert_ip_p_to_n(ip1);
+    bin_ip = covert_ip_pton(ip1);
     bin_mask = convert_dmask_to_bin_mask(0);
     mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32, 
             (void *)create_prefix(bin_ip, bin_mask));
 
     strcpy(ip1, "1.2.0.0");
-    bin_ip = covert_ip_p_to_n(ip1);
+    bin_ip = covert_ip_pton(ip1);
     bin_mask = convert_dmask_to_bin_mask(16);
     mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32,
                     (void *)create_prefix(bin_ip, bin_mask));
 
     strcpy(ip1, "5.6.7.0");
-    bin_ip = covert_ip_p_to_n(ip1);
+    bin_ip = covert_ip_pton(ip1);
     bin_mask = convert_dmask_to_bin_mask(8);
     mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32, 
                     (void *)create_prefix(bin_ip, bin_mask));
 
     strcpy(ip1, "100.1.2.3");
-    bin_ip = covert_ip_p_to_n(ip1);
+    bin_ip = covert_ip_pton(ip1);
     bin_mask = convert_dmask_to_bin_mask(32);
     mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32,
                     (void *)create_prefix(bin_ip, bin_mask));
 
     strcpy(ip1, "122.1.2.3");
-    bin_ip = covert_ip_p_to_n(ip1);
+    bin_ip = covert_ip_pton(ip1);
     bin_mask = convert_dmask_to_bin_mask(32);
     mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32,
                     (void *)create_prefix(bin_ip, bin_mask));
 
     strcpy(ip1, "0.0.0.1");
-    bin_ip = covert_ip_p_to_n(ip1);
+    bin_ip = covert_ip_pton(ip1);
     bin_mask = convert_dmask_to_bin_mask(32);
     mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32, 
                     (void *)create_prefix(bin_ip, bin_mask));
 
     strcpy(ip1, "100.50.40.1");
-    bin_ip = covert_ip_p_to_n(ip1);
+    bin_ip = covert_ip_pton(ip1);
     bin_mask = convert_dmask_to_bin_mask(24);
     mtrie_insert_prefix(&mtrie, bin_ip, ~bin_mask, 32,
                 (void *)create_prefix(bin_ip, bin_mask));
 #endif
     strcpy(ip1, "1.1.1.1");
-    _bin_ip = covert_ip_p_to_n(ip1);
+    _bin_ip = covert_ip_pton(ip1);
     _bin_ip = htonl(_bin_ip);
     _bin_mask = convert_dmask_to_bin_mask(32);
     _bin_mask = ~_bin_mask;
@@ -197,7 +197,7 @@ main(int argc, char **argv) {
                 (void *)create_prefix(_bin_ip, _bin_mask));
 
     strcpy(ip1, "1.1.1.0");
-    _bin_ip = covert_ip_p_to_n(ip1);
+    _bin_ip = covert_ip_pton(ip1);
     _bin_ip = htonl(_bin_ip);
     _bin_mask = convert_dmask_to_bin_mask(24);
     _bin_mask = ~_bin_mask;
@@ -208,7 +208,7 @@ main(int argc, char **argv) {
                 (void *)create_prefix(_bin_ip, _bin_mask));
 
     strcpy(ip1, "1.1.0.0");
-    _bin_ip = covert_ip_p_to_n(ip1);
+    _bin_ip = covert_ip_pton(ip1);
     _bin_ip = htonl(_bin_ip);
     _bin_mask = convert_dmask_to_bin_mask(16);
     _bin_mask = ~_bin_mask;
@@ -219,7 +219,7 @@ main(int argc, char **argv) {
                 (void *)create_prefix(_bin_ip, _bin_mask));
 
     strcpy(ip1, "1.0.0.0");
-    _bin_ip = covert_ip_p_to_n(ip1);
+    _bin_ip = covert_ip_pton(ip1);
     _bin_ip = htonl(_bin_ip);
     _bin_mask = convert_dmask_to_bin_mask(8);
     _bin_mask = ~_bin_mask;
@@ -233,7 +233,7 @@ main(int argc, char **argv) {
      prefix_t *route;
 #if 0
     strcpy(ip1, "1.1.1.1");
-    _bin_ip = covert_ip_p_to_n(ip1);
+    _bin_ip = covert_ip_pton(ip1);
     
     memcpy(bbin_ip.bits, &_bin_ip, sizeof(_bin_ip));
     assert(node = mtrie_longest_prefix_match_search(&mtrie, &bbin_ip));
@@ -245,7 +245,7 @@ main(int argc, char **argv) {
                             node->n_backtracks, node->n_comparisons);
 
     strcpy(ip1, "1.1.1.1");
-    _bin_ip = covert_ip_p_to_n(ip1);
+    _bin_ip = covert_ip_pton(ip1);
     _bin_mask = convert_dmask_to_bin_mask(32);
     memcpy(bbin_ip.bits, &_bin_ip, sizeof(_bin_ip));
     memcpy(bbin_mask.bits, &_bin_mask, sizeof(_bin_mask));
@@ -260,7 +260,7 @@ main(int argc, char **argv) {
 #endif
     mtrie_print_ipv4_recursive(&mtrie);
      strcpy(ip1, "1.1.1.1");
-    _bin_ip = covert_ip_p_to_n(ip1);
+    _bin_ip = covert_ip_pton(ip1);
     _bin_mask = convert_dmask_to_bin_mask(32);
     memcpy(bbin_ip.bits, &_bin_ip, sizeof(_bin_ip));
     memcpy(bbin_mask.bits, &_bin_mask, sizeof(_bin_mask));
@@ -269,7 +269,7 @@ main(int argc, char **argv) {
     assert(mtrie_delete_prefix(&mtrie, &bbin_ip, &bbin_mask));
 
     strcpy(ip1, "1.1.1.0");
-    _bin_ip = covert_ip_p_to_n(ip1);
+    _bin_ip = covert_ip_pton(ip1);
     _bin_mask = convert_dmask_to_bin_mask(24);
     memcpy(bbin_ip.bits, &_bin_ip, sizeof(_bin_ip));
     memcpy(bbin_mask.bits, &_bin_mask, sizeof(_bin_mask));
@@ -278,7 +278,7 @@ main(int argc, char **argv) {
     assert(mtrie_delete_prefix(&mtrie, &bbin_ip, &bbin_mask));
 
     strcpy(ip1, "1.1.0.0");
-    _bin_ip = covert_ip_p_to_n(ip1);
+    _bin_ip = covert_ip_pton(ip1);
     _bin_mask = convert_dmask_to_bin_mask(16);
     memcpy(bbin_ip.bits, &_bin_ip, sizeof(_bin_ip));
     memcpy(bbin_mask.bits, &_bin_mask, sizeof(_bin_mask));
@@ -287,7 +287,7 @@ main(int argc, char **argv) {
     assert(mtrie_delete_prefix(&mtrie, &bbin_ip, &bbin_mask));
 
     strcpy(ip1, "1.0.0.0");
-   _bin_ip = covert_ip_p_to_n(ip1);
+   _bin_ip = covert_ip_pton(ip1);
     _bin_mask = convert_dmask_to_bin_mask(8);
     memcpy(bbin_ip.bits, &_bin_ip, sizeof(_bin_ip));
     memcpy(bbin_mask.bits, &_bin_mask, sizeof(_bin_mask));

@@ -59,12 +59,12 @@ layer3_ero_ping_fn(node_t *node,
     initialize_ip_hdr(&inner_ip_hdr);
     inner_ip_hdr.total_length = htons(IP_HDR_DEFAULT_SIZE);
     inner_ip_hdr.protocol = IP_PROTO_ICMP;
-    inner_ip_hdr.src_ip = htonl(tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node)));
-    inner_ip_hdr.dst_ip = htonl(tcp_ip_convert_ip_p_to_n(dst_ip_addr));
+    inner_ip_hdr.src_ip = htonl(ip_pton(NODE_RTRID_ADDR(node)));
+    inner_ip_hdr.dst_ip = htonl(ip_pton(dst_ip_addr));
 
     cp2dp_send_ip_data(node, NODE_DEF_VRF(node),
                        (uint8_t *)&inner_ip_hdr, IP_HDR_DEFAULT_SIZE,
-                       tcp_ip_convert_ip_p_to_n(ero_ip_address),
+                       ip_pton(ero_ip_address),
                        IP_PROTO_IP_IN_IP);
 }
 
@@ -102,7 +102,7 @@ ip_traffic_generate_handler(int64_t cmdcode,
    
    node = node_get_node_by_name(topo, node_name);
 
-   addr_int = tcp_ip_convert_ip_p_to_n(dst_addr_str );
+   addr_int = ip_pton(dst_addr_str );
 
    for (i = 0; i < count ; i ++) {
         cp2dp_send_ip_data (node, NODE_DEF_VRF(node), NULL, 0, addr_int, protocol);
@@ -151,7 +151,7 @@ ping_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
             struct timespec ts;
             uint32_t ip_addr_int;
 
-            ip_addr_int = tcp_ip_convert_ip_p_to_n(ip_addr);
+            ip_addr_int = ip_pton(ip_addr);
 
             ping_ctx_t *pctx = (ping_ctx_t *)calloc (1, sizeof (ping_ctx_t ));
 
@@ -159,7 +159,7 @@ ping_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable){
             cmn_prefix_initialize_v4(&pctx->dst, ip_addr_int, 32);
             if (src_ip) {
                 cmn_prefix_initialize_v4(&pctx->src,
-                                         tcp_ip_convert_ip_p_to_n(src_ip), 32);
+                                         ip_pton(src_ip), 32);
             }
             sem_init(&pctx->cli_unblock_sem, 0, 0);
             pctx->count = count;

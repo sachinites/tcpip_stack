@@ -4,6 +4,7 @@
 typedef struct tracer_ tracer_t;
 typedef struct bgp_inst_ bgp_inst_t;
 typedef struct bgp_rib_ bgp_rib_t;
+typedef struct node_ node_t;
 
 #include "bgp_config.h"
 #include "../libs/EventDispatcher/event_dispatcher.h"
@@ -24,11 +25,15 @@ typedef struct bgp_inst_ {
 
     /* Queue for GoBGP watch route updates (watcher thread -> CP scheduler). */
     pkt_q_t bgp_route_pkt_q;
+    /* Queue for GoBGP watch route updates (watcher thread -> CP scheduler). */
+    pkt_q_t bgp_route_pkt_q2;
 
     /* BGP Global RIBS (imported a local copy from GoBGP ) */
     bgp_rib_t *ipv4_unicast_rib;
     bgp_rib_t *vpnv4_rib;
     bgp_rib_t *evpn_rib;
+
+    node_t *node; 
 
 } bgp_inst_t;
 

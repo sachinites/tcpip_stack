@@ -110,10 +110,10 @@ tlv_buffer_insert_tlv(byte *tlv_buff, uint8_t tlv_no,
 
 unsigned char *
 ip_ntop(uint32_t ip_addr, 
-                        c_string output_buffer);
+        c_string output_buffer);
 
 uint32_t
-tcp_ip_convert_ip_p_to_n(c_string ip_addr);
+ip_pton(c_string ip_addr);
 
 static inline uint32_t
 tcp_ip_convert_dmask_to_bin_mask(uint8_t dmask) {

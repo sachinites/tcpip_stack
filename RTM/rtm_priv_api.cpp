@@ -643,7 +643,7 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                     memcpy(prefix.u.v6_addr, v6_addr.addr, 16);
                 } else {
                     /* Parse IPv4 prefix */
-                    prefix.u.v4_addr = tcp_ip_convert_ip_p_to_n((c_string)prefix_str);
+                    prefix.u.v4_addr = ip_pton((c_string)prefix_str);
                 }
             }
 
@@ -723,7 +723,7 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                     } else {
                         /* Parse IPv4 gateway */
                         gateway.prefix_len = 32;
-                        uint32_t v4_gw = tcp_ip_convert_ip_p_to_n(gw_ip);
+                        uint32_t v4_gw = ip_pton(gw_ip);
                         if (v4_gw == 0 && strcmp((const char *)gw_ip, "0.0.0.0") != 0) {
                             cprintf("Error: Invalid IPv4 gateway address '%s'\n", gw_ip);
                             return -1;
@@ -954,7 +954,7 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                     memcpy(prefix.u.v6_addr, v6_addr.addr, 16);
                 } else {
                     /* Parse IPv4 prefix */
-                    prefix.u.v4_addr = tcp_ip_convert_ip_p_to_n((c_string)prefix_str);
+                    prefix.u.v4_addr = ip_pton((c_string)prefix_str);
                 }
             }
 
@@ -1034,7 +1034,7 @@ config_rtm_route_cli_handler(int64_t cmdcode,
                     } else {
                         /* Parse IPv4 gateway */
                         gateway.prefix_len = 32;
-                        uint32_t v4_gw = tcp_ip_convert_ip_p_to_n(gw_ip);
+                        uint32_t v4_gw = ip_pton(gw_ip);
                         if (v4_gw == 0 && strcmp((const char *)gw_ip, "0.0.0.0") != 0) {
                             cprintf("Error: Invalid IPv4 gateway address '%s'\n", gw_ip);
                             return -1;
@@ -1736,72 +1736,6 @@ rtm_copy_ribs (node_t *node,
 }
 
 /**
- * @brief Copy L3VPN routes to customer VRF RIBs
- * 
- * Propagates routes from bgp.l3vpn.0 to customer VRF RIBs based on
- * Import Route Targets. This implements the L3VPN route distribution
- * mechanism.
- * 
- * L3VPN Distribution:
- * ┌─────────────────────────────────────────────────────────┐
- * │ Default VRF: bgp.l3vpn.0 (IPv4)                        │
- * │   Route: 10.1.1.0/24 (RD: 100:1, RT: 200:1)            │
- * │                                                          │
- * │ Customer VRFs:                                          │
- * │   VRF1 (Import RT: 200:1) → Match! Copy to vrf1.inet.0 │
- * │   VRF2 (Import RT: 200:2) → No match, skip              │
- * │   VRF3 (Import RT: 200:1) → Match! Copy to vrf3.inet.0  │
- * └─────────────────────────────────────────────────────────┘
- * 
- * @param node Pointer to network node
- * @param afi Address family (AF_IPV4 or AF_IPV6)
- * @param target_vrf_id Specific VRF ID (0 for all VRFs)
- * @param perform_resolution Whether to perform route resolution after copy
- */
-void 
-rtm_copy_l3vpn_to_vrf_client_ribs (
-        node_t *node,
-        AFI_T afi,
-        uint8_t target_vrf_id, 
-        bool perform_resolution) {
-
-    int i;
-    vrf_t *vrf = NULL;
-    int resolved_count = 0;
-
-    assert (afi == AF_IPV4 || afi == AF_IPV6);
-
-    rtm_t *src_rib = (afi == AF_IPV4 ) ? \
-                node->node_nw_prop.def_vrf->l3vpnv4 : \
-                node->node_nw_prop.def_vrf->l3vpnv6;
-
-    if (target_vrf_id) {
-
-        vrf = vrf_get_by_id (node, target_vrf_id);
-        if (!vrf) return;
-        rtm_t *dst_rib = (afi == AF_IPV4 ) ? vrf->inet0 : vrf->inet6;
-        rtm_copy_ribs (node, src_rib, dst_rib, vrf->import_rt);
-        if (perform_resolution) {
-            rtm_all_inh_unresolve(dst_rib, NULL);
-            rtm_try_unresolvable_paths_resolution (dst_rib, &resolved_count);
-        }
-        return;
-    }
-
-    for (i = 0; i < MAX_VRF_PER_NODE; i++) {
-
-        vrf = node->vrf[i];
-        if (!vrf) continue;
-        rtm_t *dst_rib = (afi == AF_IPV4 ) ? vrf->inet0 : vrf->inet6;
-        rtm_copy_ribs (node, src_rib, dst_rib, vrf->import_rt);
-        if (perform_resolution) {
-            rtm_all_inh_unresolve(dst_rib, NULL);
-            rtm_try_unresolvable_paths_resolution (dst_rib, &resolved_count);
-        }
-    }
-}
-
-/**
  * @brief Get list of client RIBs for a given parent RIB
  * 
  * Returns a list of client RIBs that should receive route updates
@@ -1846,85 +1780,6 @@ rtm_get_client_rtm_set (rtm_t *rtm, glthread_t *lst_head_out) {
             init_glthread(&data_node->glue);
             glthread_add_next(lst_head_out, &data_node->glue);
         }
-    }
-}
-
-void 
-rtm_install_l3vpn_routes_to_all_client_ribs(
-        rtm_t *rtm, 
-        cmn_prefix_t *prefix, 
-        cp_nexthop_template_t *cp_nh_template,
-        bool install){
-
-    vrf_t *vrf;
-    rtm_error_t rc;
-    glthread_t *curr;
-    char route_str[48];
-    char nh_str[48];
-    rtm_t *client_rtm;
-    glthread_t client_rtm_list;
-    glthread_data_node_t *data_node;
-
-    rtm_get_client_rtm_set(rtm, &client_rtm_list);
-
-    rtm_format_prefix(prefix, route_str, sizeof (route_str));
-    rtm_format_nexthop(&cp_nh_template->gateway, nh_str, sizeof (nh_str));
-
-    ITERATE_GLTHREAD_BEGIN (&client_rtm_list, curr) {
-
-        data_node = glue_to_glthread_data_node(curr);
-        client_rtm = (rtm_t *)data_node->data;
-
-        vrf = vrf_get_by_id(rtm->node, client_rtm->vrf);
-
-        if (vrf->import_rt.rtr_id == cp_nh_template->import_rt.rtr_id &&
-            vrf->import_rt.vrf_id == cp_nh_template->import_rt.vrf_id) {
-
-            if (install) {
-                rc = rtm_install_route ( client_rtm,  prefix, cp_nh_template);
-            }
-            else {
-                rc = rtm_uninstall_route ( client_rtm,  prefix, cp_nh_template);
-            }
-            tracer (rtm->node->cptr, DRTM_DET, 
-                "RTM[%s] : L3 VPN Route %s, %s %sInstalled in Client RTM[%s] Result : %s\n",
-                rtm->name, route_str, nh_str, 
-                install ? "" : "Un",
-                client_rtm->name, rtm_error_to_string(rc));
-        }
-        
-    } ITERATE_GLTHREAD_END (&client_rtm_list, curr);
-
-    while((curr = dequeue_glthread_first(&client_rtm_list))) {
-        data_node = glue_to_glthread_data_node(curr);
-        XFREE(data_node);
-    }
-}
-
-
-void 
-rtm_uninstall_l3vpn_routes_to_all_client_ribs(
-        rtm_t *rtm, 
-        uint32_t idx) {
-
-    glthread_t *curr;
-    rtm_t *client_rtm;
-    glthread_t client_rtm_list;
-    glthread_data_node_t *data_node;
-
-    rtm_get_client_rtm_set(rtm, &client_rtm_list);
-
-    ITERATE_GLTHREAD_BEGIN (&client_rtm_list, curr) {
-
-        data_node = glue_to_glthread_data_node(curr);
-        client_rtm = (rtm_t *)data_node->data;
-        cp_rtm_uninstall_route_by_idx(client_rtm, idx);
-        
-    } ITERATE_GLTHREAD_END (&client_rtm_list, curr);
-
-    while((curr = dequeue_glthread_first(&client_rtm_list))) {
-        data_node = glue_to_glthread_data_node(curr);
-        XFREE(data_node);
     }
 }
 

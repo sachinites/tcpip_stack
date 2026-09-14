@@ -98,7 +98,7 @@ bool node_set_rtr_id(node_t *node, const char *ip_addr){
 
     string_copy((char *)NODE_RTRID_ADDR(node), ip_addr, 16);
     NODE_RTRID_ADDR(node)[15] = '\0';
-    cp2dp_send_rtr_id(node, tcp_ip_convert_ip_p_to_n(ip_addr));
+    cp2dp_send_rtr_id(node, ip_pton(ip_addr));
     return true;
 }
 

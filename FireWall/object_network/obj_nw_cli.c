@@ -44,9 +44,9 @@ network_object_config_handler (int64_t cmdcode,
     else if (parser_match_leaf_id (tlv->leaf_id, "subnet-mask"))
         subnet_mask = tlv->value;           
     else if (parser_match_leaf_id (tlv->leaf_id, "range-lb"))
-        lb = tcp_ip_convert_ip_p_to_n(tlv->value);       
+        lb = ip_pton(tlv->value);       
     else if (parser_match_leaf_id (tlv->leaf_id, "range-ub")) {
-        ub = tcp_ip_convert_ip_p_to_n(tlv->value);             
+        ub = ip_pton(tlv->value);             
         if (ub < lb) {
             cprintf ("Error : Invalid Range\n");
             return -1;
@@ -78,7 +78,7 @@ network_object_config_handler (int64_t cmdcode,
                             return -1;
                         }
                         obj_nw = network_object_create_new(nw_obj_name, OBJ_NW_TYPE_HOST);
-                        obj_nw->u.host = tcp_ip_convert_ip_p_to_n(host_addr);
+                        obj_nw->u.host = ip_pton(host_addr);
                         assert (network_object_insert_into_ht(node->object_network_ght, obj_nw));
                     }
                     break;
@@ -131,8 +131,8 @@ network_object_config_handler (int64_t cmdcode,
                         }
 
                         obj_nw = network_object_create_new(nw_obj_name, OBJ_NW_TYPE_SUBNET);
-                        obj_nw->u.subnet.network = tcp_ip_convert_ip_p_to_n(subnet_addr);
-                        obj_nw->u.subnet.subnet = tcp_ip_convert_ip_p_to_n(subnet_mask);                        
+                        obj_nw->u.subnet.network = ip_pton(subnet_addr);
+                        obj_nw->u.subnet.subnet = ip_pton(subnet_mask);                        
                         assert (network_object_insert_into_ht(node->object_network_ght, obj_nw));
                     }
                     break;

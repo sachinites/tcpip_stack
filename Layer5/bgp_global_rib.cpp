@@ -1,14 +1,26 @@
 #include <cstring>
 
 #include "../libs/Tracer/tracer.h"
+#include "../libs/LinuxMemoryManager/uapi_mm.h"
+#include "../libs/EventDispatcher/event_dispatcher.h"
+
 #include "../tcpconst.h"
 #include "../vrf/vrf.h"
+#include "../net.h"
 
 #include "bgp_enums.h"
 #include "bgp_global_rib.h"
 #include "bgp_rib/bgp_rib.h"
 #include "bgp_rib/bgp_rib_types.h"
 #include "bgp_rtr.h"
+
+typedef struct bgp_route_processing_info2_ {
+
+    node_t *node;
+    bgp_route_info_t *route;
+    bool is_add;
+
+} bgp_route_processing_info2_t;
 
 static bgp_rib_t **
 bgp_global_rib_slot(bgp_inst_t *bgp, int afi, int safi)
@@ -65,7 +77,7 @@ bgp_global_rib_fill_attrs(const bgp_route_info_t *route,
 }
 
 int
-bgp_global_rib_af_enable(node_t *node, int afi, int safi)
+bgp_global_rib_af_enable(node_t *node, int afi, int safi, bgp_rib_export_route_cb cbk)
 {
     bgp_inst_t *bgp;
     bgp_rib_t **rib_slot;
@@ -93,6 +105,8 @@ bgp_global_rib_af_enable(node_t *node, int afi, int safi)
     if (!rib) {
         return -1;
     }
+
+    bgp_rib_set_export_route(rib, bgp, cbk);
 
     *rib_slot = rib;
 
@@ -168,10 +182,7 @@ bgp_global_rib_route_update(node_t *node,
         return;
     }
 
-    bgp = bgp_get_instance(node);
-    if (!bgp) {
-        return;
-    }
+    bgp = BGP_INST(node);
 
     rib = NULL;
     if (route->afi == AFI_IPV4 && route->safi == SAFI_UNICAST) {
@@ -183,6 +194,9 @@ bgp_global_rib_route_update(node_t *node,
     }
 
     if (!rib) {
+        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_RT_ERRORS ,
+            "%s : Route %s import failed, no Global Exist\n", 
+            BGP_RTM_IM, route->prefix);
         return;
     }
 
@@ -195,7 +209,9 @@ bgp_global_rib_route_update(node_t *node,
         rc = bgp_rib_route_add(rib, &key, &attrs);
         if (rc != BGP_RIB_OK && bgp->tr) {
             tracer(bgp->tr, TR_BGP_RT_EVENTS,
-                   "Global RIB: failed to add route (%s)\n",
+                   "%s : failed to add route %s , error = (%s)\n",
+                   BGP_RTM_IM, 
+                   route->prefix,
                    bgp_rib_err_to_string(rc));
         }
         return;
@@ -204,8 +220,39 @@ bgp_global_rib_route_update(node_t *node,
     rc = bgp_rib_route_delete(rib, &key);
     if (rc != BGP_RIB_OK && rc != BGP_RIB_ERR_NOT_FOUND && bgp->tr) {
         tracer(bgp->tr, TR_BGP_RT_EVENTS,
-               "Global RIB: failed to delete route (%s)\n",
+               "%s : failed to delete route %s, error = (%s)\n",
+               BGP_RTM_IM, 
+               route->prefix, 
                bgp_rib_err_to_string(rc));
+    }
+}
+
+void
+bgp_route_pkt_q_cbk2(event_dispatcher_t *ev_dis,
+                      void *data,
+                      uint32_t data_size) {
+
+    bgp_route_processing_info2_t *info;
+    node_t *node = (node_t *)ev_dis->app_data;
+    bgp_inst_t *bgp_inst = BGP_INST(node);
+
+    (void)data;
+
+    info = (bgp_route_processing_info2_t *)task_get_next_pkt(ev_dis, &data_size);
+
+    tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
+        "%s : Route processing job cbk invoked\n", BGP_RTM_IM);    
+
+    for (; info;
+         info = (bgp_route_processing_info2_t *)task_get_next_pkt(
+                    ev_dis, &data_size)) {
+
+         bgp_global_rib_route_update(node, 
+                (const bgp_route_info_t *)info->route, 
+                info->is_add);
+
+        XFREE(info->route);
+        XFREE(info);
     }
 }
 
@@ -215,8 +262,35 @@ bgp_monitor_recv_global_rib_cbk(const bgp_route_info_t *route,
                                 void *userdata)
 {
     node_t *node = (node_t *)userdata;
+    bgp_inst_t *bgp_inst = BGP_INST(node);
 
-    bgp_global_rib_route_update(node, route, !is_withdraw);
+    bgp_route_processing_info2_t *bgp_rt_info2 =
+        (bgp_route_processing_info2_t *)XCALLOC2(0, 1,  bgp_route_processing_info2_t);
+
+    bgp_route_info_t *route_cpy = 
+        (bgp_route_info_t *)XCALLOC2(0, 1, bgp_route_info_t);
+
+    memcpy (route_cpy, route, sizeof (*route_cpy));
+    bgp_rt_info2->node = (node_t *)userdata;
+    bgp_rt_info2->route = route_cpy;
+    bgp_rt_info2->is_add = !is_withdraw;
+
+    if (!pkt_q_enqueue(EV(node),
+                       &bgp_inst->bgp_route_pkt_q2,
+                       (char *)bgp_rt_info2,
+                       sizeof(*bgp_rt_info2))) {
+
+        tracer(bgp_inst->tr, TR_BGP_GRPC_TALK|TR_BGP_RT_ERRORS,
+               "%s : FATAL : Route processing pkt_q full, dropped %s\n",
+               BGP_RTM_IM, route->prefix);
+        XFREE(route_cpy);
+        XFREE(bgp_rt_info2);
+        return;
+    }
+
+    tracer(bgp_inst->tr, TR_BGP_GRPC_TALK,
+        "%s : Route %s submit to pkt Q for thread handoff\n",
+        BGP_RTM_IM, route->prefix);
 }
 
 bgp_rib_t *
@@ -240,4 +314,30 @@ bgp_global_rib_get(node_t *node, int afi, int safi)
     }
 
     return *rib_slot;
+}
+
+void
+bgp_global_rib_export_all(bgp_inst_t *bgp,
+                          uint8_t afi,
+                          uint8_t safi,
+                          uint16_t target_vrf_id)
+{
+    bgp_rib_t **rib_slot;
+    bgp_rib_t *rib;
+
+    if (!bgp) {
+        return;
+    }
+
+    rib_slot = bgp_global_rib_slot(bgp, afi, safi);
+    if (!rib_slot) {
+        return;
+    }
+
+    rib = *rib_slot;
+    if (!rib) {
+        return;
+    }
+
+    bgp_rib_export_all(rib, target_vrf_id);
 }

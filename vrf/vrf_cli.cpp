@@ -9,6 +9,8 @@
 #include "../cmdcodes.h"
 #include <errno.h>
 #include "vrf.h"
+#include "../Layer5/bgp_rtr.h"
+#include "../Layer5/bgp_global_rib.h"
 #include "../RTM/rtm_priv_api.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../dpal/cp2dp.h"
@@ -203,8 +205,8 @@ vrf_config_handler (int64_t cmdcode,
                     }
                     cp2dp_vrf_create(node, (char *)vrf_name, vrf->vrf_id);
                     rtm_install_xconnect_vpnv4_route (vrf, true);
-                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
-                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV4, SAFI_MPLS_VPN, vrf->vrf_id);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV6, SAFI_MPLS_VPN, vrf->vrf_id);
                 }
                 break;
                 case CONFIG_DISABLE:
@@ -238,7 +240,7 @@ vrf_config_handler (int64_t cmdcode,
             }
 
             rt_type1_fill(&new_import_rt,
-                          tcp_ip_convert_ip_p_to_n((char *)rt_ip),
+                          ip_pton((char *)rt_ip),
                           (uint16_t)strtoul((const char *)rt_assigned,
                                             NULL, 10));
 
@@ -261,8 +263,8 @@ vrf_config_handler (int64_t cmdcode,
                     cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN, 0);
                     
                     /* Re-import routes with new import RT */
-                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
-                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV4, SAFI_MPLS_VPN, vrf->vrf_id);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV6, SAFI_MPLS_VPN, vrf->vrf_id);
                 }
                 break;
                 
@@ -289,8 +291,8 @@ vrf_config_handler (int64_t cmdcode,
                     cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN, 0);
                     
                     /* Re-import routes with restored import RT */
-                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV4, vrf->vrf_id, true);
-                    rtm_copy_l3vpn_to_vrf_client_ribs(node, AF_IPV6, vrf->vrf_id, true);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV4, SAFI_MPLS_VPN, vrf->vrf_id);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV6, SAFI_MPLS_VPN, vrf->vrf_id);
                 }
                 break;
                 
@@ -321,7 +323,7 @@ vrf_config_handler (int64_t cmdcode,
             }
 
             rt_type1_fill(&new_export_rt,
-                          tcp_ip_convert_ip_p_to_n((c_string)rt_ip),
+                          ip_pton((c_string)rt_ip),
                           (uint16_t)strtoul((const char *)rt_assigned,
                                             NULL, 10));
 

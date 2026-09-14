@@ -128,8 +128,8 @@ main(int argc, char **argv){
     ip_hdr->total_length = htons(sizeof (ip_hdr_t));
 #endif
 
-    ip_hdr->src_ip = htonl(tcp_ip_convert_ip_p_to_n(SRC_IP_ADDR));
-    ip_hdr->dst_ip = htonl(tcp_ip_convert_ip_p_to_n(DEST_IP_ADDR));
+    ip_hdr->src_ip = htonl(ip_pton(SRC_IP_ADDR));
+    ip_hdr->dst_ip = htonl(ip_pton(DEST_IP_ADDR));
     
 
 #ifdef INCLUDE_UDP_HDR

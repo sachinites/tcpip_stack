@@ -37,24 +37,6 @@ rtm_uninstall_route(
     cmn_prefix_t *prefix,
     cp_nexthop_template_t *nh_template);
 
-void 
-rtm_copy_l3vpn_to_vrf_client_ribs (
-        node_t *node,
-        AFI_T afi,
-        uint8_t target_vrf_id,
-        bool perform_resolution);
-
-void 
-rtm_install_l3vpn_routes_to_all_client_ribs(
-        rtm_t *rtm, 
-        cmn_prefix_t *prefix, 
-        cp_nexthop_template_t *cp_nh_template, bool install);
-
-void 
-rtm_uninstall_l3vpn_routes_to_all_client_ribs(
-        rtm_t *rtm, 
-        uint32_t idx);
-
 int8_t
 srv6_rtm_route_install_vpnv4 (node_t *node, 
                     unsigned char* prefix_mask, 

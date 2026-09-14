@@ -630,26 +630,8 @@ cp_rtm_install_route (
         cmn_prefix_t *prefix,
         cp_nexthop_template_t *cp_nh_template) {
 
-    rtm_error_t rc;
-
     /* Install route in the target RTM */
-    rc = rtm_install_route(rtm, prefix, cp_nh_template);
-
-    if (rc != RTM_SUCCESS) return rc;
-
-    /* Handle L3VPN route propagation to customer VRFs */
-    /* If this route is being installed in bgp.l3vpn.0, we need to */
-    /* propagate it to all customer VRFs that have matching Import RT */
-    def_vrf_t *def_vrf = (def_vrf_t *)rtm->node->vrf[0];
-
-    if ((rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6)) {
-
-        rtm_install_l3vpn_routes_to_all_client_ribs(
-            rtm, 
-            prefix, cp_nh_template, true);
-    }
-
-    return rc;
+    return rtm_install_route(rtm, prefix, cp_nh_template);
 }
 
 /**
@@ -748,12 +730,6 @@ cp_rtm_uninstall_route_by_idx (
         /* If route was resolved, dependent routes would be notified */
     }
 
-    /* Handle L3VPN route uninstallation from customer VRFs */
-    def_vrf_t *def_vrf = (def_vrf_t *)rtm->node->vrf[0];
-    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6)) {
-        rtm_uninstall_l3vpn_routes_to_all_client_ribs(rtm, idx);
-    }
-
     return RTM_SUCCESS;
 }
 
@@ -775,18 +751,8 @@ cp_rtm_uninstall_route (
         cmn_prefix_t *prefix, 
         cp_nexthop_template_t *cp_nh_template) {
 
-    rtm_error_t rc;
-
     /* Uninstall route from the target RTM */
-    rc = rtm_uninstall_route(rtm, prefix, cp_nh_template);
-
-    /* Handle L3VPN route uninstallation from customer VRFs */
-    def_vrf_t *def_vrf = rtm->node->node_nw_prop.def_vrf;
-    if (def_vrf && (rtm == def_vrf->l3vpnv4 || rtm == def_vrf->l3vpnv6)) {
-        rtm_install_l3vpn_routes_to_all_client_ribs(rtm, prefix, cp_nh_template, false);
-    }
-
-    return rc;
+    return rtm_uninstall_route(rtm, prefix, cp_nh_template);
 }
 
 /**

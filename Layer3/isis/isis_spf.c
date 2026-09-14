@@ -649,7 +649,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
                             /* New RTM Route Install */
                             isis_rt_ipv4_route_add (node_info, 
                                 prefix32bit, ted_prefix->mask,
-                                tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
+                                ip_pton(nexthop->gw_ip),
                                 nexthop->oif.get(),
                                 spf_result->spf_metric + ted_prefix->metric);  
 
@@ -689,7 +689,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
                             /* New RTM Route Install */
                             isis_rt_ipv4_route_add (node_info,
                                 prefix32bit, ted_prefix->mask, 
-                                tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
+                                ip_pton(nexthop->gw_ip),
                                 nexthop->oif.get(),
                                 spf_result->spf_metric + ted_prefix->metric);  
 
@@ -711,7 +711,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
                             /* New RTM Route Install */
                             isis_rt_ipv4_route_add (node_info,
                                 prefix32bit, ted_prefix->mask,
-                                tcp_ip_convert_ip_p_to_n(nexthop->gw_ip),
+                                ip_pton(nexthop->gw_ip),
                                 nexthop->oif.get(),
                                 spf_result->spf_metric + ted_prefix->metric);  
 
@@ -860,7 +860,7 @@ isis_spf_install_srmpls_routes (isis_node_info_t *node_info, ted_node_t *ted_spf
 
                 cmn_prefix_t rtm_gateway;
                 cmn_prefix_initialize_v4 (&rtm_gateway,
-                    tcp_ip_convert_ip_p_to_n(nexthop->gw_ip), 32);
+                    ip_pton(nexthop->gw_ip), 32);
 
                 /* Install the ingress/imposition route in vrf.inet.3 */
                 if (rtm_inet3) {
@@ -1408,7 +1408,7 @@ isis_compute_spf (isis_node_info_t *node_info){
 
     ted_spf_root = ted_lookup_node(
                         node_info->ted_db,
-                        tcp_ip_convert_ip_p_to_n (NODE_RTRID_ADDR(spf_root)), 0);
+                        ip_pton (NODE_RTRID_ADDR(spf_root)), 0);
 
     if (!ted_spf_root) return;
 
@@ -1573,7 +1573,7 @@ isis_show_spf_results (isis_node_info_t *node_info){
     if (!ted_db) return;
 
     ted_node = ted_lookup_node(ted_db, 
-                        tcp_ip_convert_ip_p_to_n (NODE_RTRID_ADDR(node)), 0);
+                        ip_pton (NODE_RTRID_ADDR(node)), 0);
 
     if (!ted_node) return;
 

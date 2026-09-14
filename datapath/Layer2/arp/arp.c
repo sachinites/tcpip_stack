@@ -822,7 +822,7 @@ arp_entry_add(dp_ctx_t *dp_ctx,
               uint16_t proto)
 {
     arp_entry_t *entry = (arp_entry_t *)XCALLOC2(0, 1, arp_entry_t);
-    entry->ip_addr = tcp_ip_convert_ip_p_to_n((char *)ip_addr);
+    entry->ip_addr = ip_pton((char *)ip_addr);
     memcpy(entry->mac_addr.mac, mac.mac, MAC_ADDR_SIZE);
     entry->proto = proto;
     entry->oif   = oif;

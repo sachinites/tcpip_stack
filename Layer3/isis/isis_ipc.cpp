@@ -2,6 +2,8 @@
 #include "isis_pkt.h"
 #include "isis_rtr.h"
 #include "isis_ips_struct.h"
+#include "isis_utils.h"
+#include "../../cp_ipc.h"
 
 extern  void 
  isis_interface_ipc_updates(isis_node_info_t *node_info, uint32_t minor_code, ipc_interface_t *msg);
@@ -12,11 +14,22 @@ extern  void
 extern  void 
 isis_access_lst_ipc_updates (isis_node_info_t *node_info, uint32_t minor_code, ipc_access_lst_t *msg) ;
 
-void isis_recv_ipc_updates (isis_node_info_t *node_info, 
-                                             ips_major_code_t major_code,
-                                             uint32_t minor_code,
-                                             void *msg,
-                                             uint32_t msg_size) {
+void isis_recv_ipc_updates (node_t *node,
+                            ips_major_code_t major_code,
+                            uint32_t minor_code,
+                            void *msg,
+                            uint32_t msg_size) {
+
+    isis_node_info_t *node_info;
+
+    if (!node) {
+        return;
+    }
+
+    node_info = ISIS_NODE_INFO(node);
+    if (!node_info) {
+        return;
+    }
 
     switch (major_code) {
 

@@ -421,7 +421,7 @@ arp_handler(int64_t cmdcode, Stack_t *tlv_stack,
 
     node = node_get_node_by_name(topo, node_name);
 
-    uint32_t ip_addr = tcp_ip_convert_ip_p_to_n(ip_addr_str);
+    uint32_t ip_addr = ip_pton(ip_addr_str);
 
     /* Route ARP resolve through dp_ev_dis (single-writer thread) */
     dp_arp_cli_resolve_sync(node->dp_ctx, node->dp_ctx->default_vrf, ip_addr);
@@ -711,7 +711,7 @@ l3_config_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable
         case CMDCODE_CONFIG_RTR_ID:
         {
             uint32_t existing_rtr_id = NODE_RTR_ID_INT(node);
-            uint32_t new_rtr_id = tcp_ip_convert_ip_p_to_n(dest);
+            uint32_t new_rtr_id = ip_pton(dest);
 
             switch(enable_or_disable){
 
@@ -763,7 +763,7 @@ l3_config_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable
                     }
 
                     if (gwip) {
-                        gw_ip_int =  tcp_ip_convert_ip_p_to_n (gwip);
+                        gw_ip_int =  ip_pton (gwip);
                     }
 
                     /* If Gw and OIF is specified, then Gw must belong to subnet 
@@ -779,11 +779,11 @@ l3_config_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable
 
                     /* New RTM*/
                     cmn_prefix_t  prefix, gateway;
-                    cmn_prefix_initialize_v4 (&prefix, tcp_ip_convert_ip_p_to_n(dest), mask);
+                    cmn_prefix_initialize_v4 (&prefix, ip_pton(dest), mask);
                     cmn_prefix_initialize_v4 (&gateway, 0, 32);
 
                     if (gwip) {
-                        gw_ip_int =  tcp_ip_convert_ip_p_to_n (gwip);
+                        gw_ip_int =  ip_pton (gwip);
                         cmn_prefix_initialize_v4 (&gateway, gw_ip_int, 32);
                     }
                     
@@ -815,13 +815,13 @@ l3_config_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable
 
                     /* New RTM*/
                     cmn_prefix_t  prefix, gateway;
-                    cmn_prefix_initialize_v4 (&prefix, tcp_ip_convert_ip_p_to_n(dest), mask);
+                    cmn_prefix_initialize_v4 (&prefix, ip_pton(dest), mask);
                     cmn_prefix_initialize_v4 (&gateway, 0, 32);
 
                     if (!gwip) return -1;
 
                     if (gwip) {
-                        gw_ip_int =  tcp_ip_convert_ip_p_to_n (gwip);
+                        gw_ip_int =  ip_pton (gwip);
                         cmn_prefix_initialize_v4 (&gateway, gw_ip_int, 32);
                     }
                     

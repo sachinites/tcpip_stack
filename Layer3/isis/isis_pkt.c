@@ -427,7 +427,7 @@ isis_prepare_hello_pkt(Interface *intf) {
                                                   NODE_NAME_SIZE,
                                                   node_info->vrf->node->node_name);
 
-    rtr_id = htonl(tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node_info->vrf->node)));
+    rtr_id = htonl(ip_pton(NODE_RTRID_ADDR(node_info->vrf->node)));
     temp = tlv_buffer_insert_tlv(temp, ISIS_TLV_RTR_ID,
                                                    4, 
                                                    (byte *)(&rtr_id));
@@ -899,7 +899,7 @@ isis_init_lan_hello_pkt_hdr (isis_lan_hello_pkt_hdr_t *hdr, Interface *intf) {
     isis_node_info_t *node_info = ISIS_CTX_INTF(intf);
     hdr->circuit_type =  intf_info->level;  
     hdr->source_id = node_info->sys_id;
-    hdr->source_id.rtr_id = tcp_ip_convert_ip_p_to_n (NODE_RTRID_ADDR(node_info->vrf->node));
+    hdr->source_id.rtr_id = ip_pton (NODE_RTRID_ADDR(node_info->vrf->node));
     hdr->hold_time = htons(intf_info->hello_interval * ISIS_HOLD_TIME_FACTOR);
     hdr->pdu_len = 0; /* Total len of pdu in bytes*/
     hdr->priority = intf_info->priority;

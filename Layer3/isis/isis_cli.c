@@ -832,7 +832,7 @@ isis_run_handler (int64_t cmdcode,
 
         case CMDCODE_RUN_ISIS_LSP_TED_INSTALL:
             {
-                rtr_id = tcp_ip_convert_ip_p_to_n (ip_addr);
+                rtr_id = ip_pton (ip_addr);
                 lsp_pkt = isis_lookup_lsp_from_lsdb (node_info, rtr_id, pn_no, 0);
                 if (!lsp_pkt) {
                     cprintf ("Error: No LSP found\n");
@@ -848,7 +848,7 @@ isis_run_handler (int64_t cmdcode,
             break;
         case CMDCODE_RUN_ISIS_LSP_TED_UNINSTALL:
             {
-                rtr_id = tcp_ip_convert_ip_p_to_n (ip_addr);
+                rtr_id = ip_pton (ip_addr);
                 lsp_pkt = isis_lookup_lsp_from_lsdb (node_info, rtr_id, pn_no, 0);
                 if (!lsp_pkt) {
                     cprintf ("Error: No LSP found\n");
@@ -993,7 +993,7 @@ isis_show_handler (int64_t cmdcode,
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_LSP:
             {
                 isis_lsp_pkt_t *lsp_pkt = isis_lookup_lsp_from_lsdb(node_info,
-                                            tcp_ip_convert_ip_p_to_n(rtr_id_str), pn_id, fr_no);
+                                            ip_pton(rtr_id_str), pn_id, fr_no);
                 if (!lsp_pkt) return 0;
                 isis_show_one_lsp_pkt_detail_info (NULL, lsp_pkt);
             }
@@ -1008,7 +1008,7 @@ isis_show_handler (int64_t cmdcode,
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY:
             if (!isis_is_protocol_enable_on_node(vrf)) break;
             ted_show_ted_db(ISIS_TED_DB(node_info),
-                tcp_ip_convert_ip_p_to_n(rtr_id_str), pn_id, node->print_buff, false);
+                ip_pton(rtr_id_str), pn_id, node->print_buff, false);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_TED_DETAIL:
             if (!isis_is_protocol_enable_on_node(vrf)) break;
@@ -1017,7 +1017,7 @@ isis_show_handler (int64_t cmdcode,
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ONE_TED_ENTRY_DETAIL:
             if (!isis_is_protocol_enable_on_node(vrf)) break;
             ted_show_ted_db(ISIS_TED_DB(node_info),
-                tcp_ip_convert_ip_p_to_n(rtr_id_str), pn_id, node->print_buff, true);
+                ip_pton(rtr_id_str), pn_id, node->print_buff, true);
         break;
         case CMDCODE_SHOW_NODE_ISIS_PROTOCOL_ALL_ADJACENCY:
             if (!isis_is_protocol_enable_on_node(vrf)) break;

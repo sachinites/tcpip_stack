@@ -173,7 +173,7 @@ bgp_evpn_route_parse_nexthop(const bgp_route_info_t *route,
         *slash = '\0';
     }
 
-    *vtep_ip_out = tcp_ip_convert_ip_p_to_n((c_string)nh_addr);
+    *vtep_ip_out = ip_pton((c_string)nh_addr);
     return (*vtep_ip_out != 0);
 }
 

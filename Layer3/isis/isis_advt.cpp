@@ -497,7 +497,7 @@ isis_regenerate_lsp_fragment (isis_node_info_t *node_info,
 
     lsp_pkt_hdr->isis_pkt_type = ISIS_L1_LSP_PKT_TYPE;
     lsp_pkt_hdr->seq_no = (++fragment->seq_no);
-    lsp_pkt_hdr->rtr_id = tcp_ip_convert_ip_p_to_n(NODE_RTRID_ADDR(node_info->vrf->node));
+    lsp_pkt_hdr->rtr_id = ip_pton(NODE_RTRID_ADDR(node_info->vrf->node));
     lsp_pkt_hdr->pn_no = fragment->pn_no;
     lsp_pkt_hdr->fr_no = fragment->fr_no;
 

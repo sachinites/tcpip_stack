@@ -32,6 +32,11 @@
 void
 bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert);
 
+extern void
+bgp_route_pkt_q_cbk2(event_dispatcher_t *ev_dis,
+                      void *data,
+                      uint32_t data_size);
+                      
 static sf_gobgp_grpc_client_t *
 bgp_route_get_grpc_client(node_t *node)
 {
@@ -232,7 +237,7 @@ bgp_route_parse_rt_string(const char *rt_str, rt_t *out)
     out->sub_type = 0;
 
     if (strchr(left, '.')) {
-        out->rtr_id = tcp_ip_convert_ip_p_to_n(left);
+        out->rtr_id = ip_pton(left);
     } else {
         out->rtr_id = (uint32_t)strtoul(left, NULL, 10);
     }
@@ -1522,7 +1527,12 @@ bgp_route_processing_pkt_q_init(node_t *node, bgp_inst_t *bgp)
         return;
     }
 
+    if (bgp->bgp_route_pkt_q2.task) {
+        return;
+    }    
+
     init_pkt_q(EV(node), &bgp->bgp_route_pkt_q, bgp_route_pkt_q_cbk);
+    init_pkt_q(EV(node), &bgp->bgp_route_pkt_q2, bgp_route_pkt_q_cbk2);
 }
 
 void

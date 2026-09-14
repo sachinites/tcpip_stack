@@ -13,14 +13,31 @@ bd_recv_mac_learning_cbk
 
 Recvd From BGP to RTM installation:
 ==================================
-bgp_schedule_evpn_route_processing_job
-    bgp_schedule_route_processing_job_common
-        bgp_route_pkt_q_cbk
-            bgp_evpn_remote_route_install
-                mac_vrf_evpn_route_type2_remote_import
-                    cp_rtm_install_route_advanced
-                        rtm_l2_fib_update
-                            cp2dp_bd_mac_table_entry_add_mpls
+bgp_monitor_recv_evpn_route_processing_cbk
+    bgp_schedule_evpn_route_processing_job
+        bgp_schedule_route_processing_job_common
+            bgp_route_pkt_q_cbk
+                bgp_evpn_remote_route_install
+                    mac_vrf_evpn_route_type2_remote_import
+                        cp_rtm_install_route_advanced
+                            rtm_l2_fib_update
+                                cp2dp_bd_mac_table_entry_add_mpls
+
+
+Recvd from BGP to Global RIB :
+================================
+
+bgp_global_rib_af_enable
+    Subscribe : bgp_monitor_recv_global_rib_cbk
+
+bgp_monitor_recv_global_rib_cbk
+    pkt_q_enqueue
+    . . .
+    . . .
+    bgp_route_pkt_q_cbk2
+        bgp_global_rib_route_update
+            bgp_global_rib_fill_attrs
+            bgp_rib_route_add
 
 ==================================
 

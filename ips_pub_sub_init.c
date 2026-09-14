@@ -4,10 +4,9 @@
 
 
 typedef struct node_ node_t;
-typedef struct isis_node_info_ isis_node_info_t;
 
 extern void
-isis_recv_ipc_updates(isis_node_info_t *node_info,
+isis_recv_ipc_updates(node_t *node,
                       ips_major_code_t major_code,
                       uint32_t minor_code,
                       void *msg,

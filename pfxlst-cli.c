@@ -113,7 +113,7 @@ prefix_lst_config_handler (int64_t cmdcode,
     if (!prefix_list_add_rule (prefix_lst,
                                              seq_no,
                                              res, 
-                                             nw_prefix ? tcp_ip_convert_ip_p_to_n(nw_prefix) : 0,
+                                             nw_prefix ? ip_pton(nw_prefix) : 0,
                                              len, lb, ub)) {
         
         cprintf ("Error : Rule Could not be configured\n");

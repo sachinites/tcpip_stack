@@ -30,6 +30,7 @@ OBJS = std_lib_init.o 					  \
        Tree/avl.o                        \
 	   common/ipv6_utils.o               \
 	   common/cmn_prefix.o				 \
+	   common/mpls_lstack.o              \
 	   pkt-block/pkt_mbuf.o
 
 .PHONY: all $(TARGET_MEXPR_LIB) $(TARGET_DBMS_LIB)
@@ -119,6 +120,9 @@ common/ipv6_utils.o:common/ipv6_utils.cpp
 
 common/cmn_prefix.o:common/cmn_prefix.cpp
 	$(CC) $(CFLAGS) -c -I common common/cmn_prefix.cpp -o common/cmn_prefix.o
+
+common/mpls_lstack.o:common/mpls_lstack.cpp
+	$(CC) $(CFLAGS) -c -I common common/mpls_lstack.cpp -o common/mpls_lstack.o
 
 clean:
 	rm -f $(TARGET_LIB)

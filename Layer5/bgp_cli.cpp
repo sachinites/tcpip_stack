@@ -342,7 +342,7 @@ bgp_config_handler(int64_t cmdcode,
                                                   bgp_monitor_recv_route_processing_cbk,
                                                   node);
                     if (bgp_global_rib_af_enable(node, AFI_IPV4,
-                                                 SAFI_UNICAST) != 0) {
+                                                 SAFI_UNICAST, NULL) != 0) {
                         cprintf("Error : Failed to initialize IPv4 unicast global RIB\n");
                         return -1;
                     }
@@ -529,7 +529,7 @@ bgp_config_handler(int64_t cmdcode,
                         return -1;
                     }
                     if (bgp_global_rib_af_enable(node, AFI_IPV4,
-                                                 SAFI_UNICAST) != 0) {
+                                                 SAFI_UNICAST, NULL) != 0) {
                         cprintf("Error : Failed to initialize IPv4 unicast global RIB\n");
                         return -1;
                     }
@@ -616,16 +616,18 @@ bgp_config_handler(int64_t cmdcode,
                                             &result);
                         return -1;
                     }
-                    if (bgp_node_monitor_subscribe_af(
+                    if (0 && bgp_node_monitor_subscribe_af(
                             node, AFI_IPV4, SAFI_MPLS_VPN,
                             bgp_monitor_recv_vpn_route_processing_cbk,
                             node) != 0) {
-                        cprintf("Error : Failed to register %s monitor callback\n",
+
+                            cprintf("Error : Failed to register %s monitor callback\n",
                                 VPNV4_UNICAST_AF_STR);
                         return -1;
                     }
                     if (bgp_global_rib_af_enable(node, AFI_IPV4,
-                                                 SAFI_MPLS_VPN) != 0) {
+                                                 SAFI_MPLS_VPN, 
+                                                 bgp_global_rib_export_vpnv4_route_cb) != 0) {
                         cprintf("Error : Failed to initialize %s global RIB\n",
                                 VPNV4_UNICAST_AF_STR);
                         return -1;
@@ -727,7 +729,7 @@ bgp_config_handler(int64_t cmdcode,
                         return -1;
                     }
                     if (bgp_global_rib_af_enable(node, AFI_L2VPN,
-                                                 SAFI_MPLS_EVPN) != 0) {
+                                                 SAFI_MPLS_EVPN, NULL) != 0) {
                         cprintf("Error : Failed to initialize %s global RIB\n",
                                 L2VPN_EVPN_AF_STR);
                         return -1;

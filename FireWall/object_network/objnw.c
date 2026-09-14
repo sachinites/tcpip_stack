@@ -222,7 +222,7 @@ object_network_apply_change_host_address(node_t *node, obj_nw_t *obj_nw, char *h
 
     assert(obj_nw->type == OBJ_NW_TYPE_HOST);
 
-    uint32_t host_addr_int = tcp_ip_convert_ip_p_to_n(host_addr);
+    uint32_t host_addr_int = ip_pton(host_addr);
 
     if (obj_nw->u.host == host_addr_int) return true;
 
@@ -247,8 +247,8 @@ object_network_apply_change_subnet (node_t *node,
 
     assert(obj_nw->type == OBJ_NW_TYPE_SUBNET);
 
-    uint32_t subnet_addr_int = tcp_ip_convert_ip_p_to_n(subnet_addr);
-    uint32_t subnet_mask_int = tcp_ip_convert_ip_p_to_n(subnet_mask);
+    uint32_t subnet_addr_int = ip_pton(subnet_addr);
+    uint32_t subnet_mask_int = ip_pton(subnet_mask);
 
     if (obj_nw->u.subnet.network == subnet_addr_int &&
           obj_nw->u.subnet.subnet ==  subnet_mask_int) return true;

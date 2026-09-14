@@ -38,7 +38,7 @@ mac_table_config_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or
     
     node = node_get_node_by_name(topo, node_name);
     
-    uint32_t vtep_ip = remote_vtep_ip ? tcp_ip_convert_ip_p_to_n(remote_vtep_ip) : 0;
+    uint32_t vtep_ip = remote_vtep_ip ? ip_pton(remote_vtep_ip) : 0;
     
     switch (enable_or_disable) {
 

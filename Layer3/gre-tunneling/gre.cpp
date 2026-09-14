@@ -102,7 +102,7 @@ gre_tunnel_set_src_addr (node_t *node, uint32_t tunnel_id, c_string src_addr) {
     GRETunnelInterface *gre_tunnel = dynamic_cast <GRETunnelInterface *> (tunnel);
 
     if (src_addr) {
-        gre_tunnel->SetTunnelSrcIp(tcp_ip_convert_ip_p_to_n(src_addr));
+        gre_tunnel->SetTunnelSrcIp(ip_pton(src_addr));
     }
     else {
         gre_tunnel->UnSetTunnelSrcIp();
@@ -127,7 +127,7 @@ gre_tunnel_set_dst_addr (node_t *node, uint32_t tunnel_id, c_string dst_addr) {
     GRETunnelInterface *gre_tunnel = dynamic_cast <GRETunnelInterface *> (tunnel);
 
     if (dst_addr) {
-        gre_tunnel->SetTunnelDestination(tcp_ip_convert_ip_p_to_n(dst_addr));
+        gre_tunnel->SetTunnelDestination(ip_pton(dst_addr));
     }
     else {
         gre_tunnel->SetTunnelDestination(0);
@@ -215,7 +215,7 @@ bool
 
 
         tunnel->InterfaceSetIpAddressMask(
-                tcp_ip_convert_ip_p_to_n(intf_ip_addr), mask);
+                ip_pton(intf_ip_addr), mask);
      }
 
      else if (intf_ip_addr == NULL ||  mask == 0)
