@@ -15,6 +15,7 @@ OBJS = \
 	bgp_nlri_key.o \
 	bgp_nlri_wire.o \
 	bgp_rib.o \
+	bgp_rib_ipv4.o \
 	bgp_rib_vpnv4.o \
 	bgp_rib_evpn.o
 

@@ -26,21 +26,20 @@
 #include "bgp_enums.h"
 #include "gobgp/sf_gobgp_grpc_client.h"
 #include "../Layer2/Evpn/evpn_bgp.h"
-#include "../Layer3/vpnv4/vpnv4_bgp.h"
 #include "../utils.h"
 
 void
 bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert);
 
 extern void
-bgp_route_pkt_q_cbk2(event_dispatcher_t *ev_dis,
+bgp_route_pkt_q_cbk(event_dispatcher_t *ev_dis,
                       void *data,
                       uint32_t data_size);
                       
 static sf_gobgp_grpc_client_t *
 bgp_route_get_grpc_client(node_t *node)
 {
-    bgp_inst_t *bgp = bgp_get_instance(node);
+    bgp_inst_t *bgp = BGP_INST(node);
 
     if (!bgp) {
         return nullptr;
@@ -59,7 +58,7 @@ bgp_route_get_grpc_client(node_t *node)
 static bgp_node_config_t *
 bgp_route_config_get(node_t *node)
 {
-    bgp_inst_t *bgp = bgp_get_instance(node);
+    bgp_inst_t *bgp = BGP_INST(node);
 
     if (!bgp) {
         return nullptr;
@@ -237,7 +236,7 @@ bgp_route_parse_rt_string(const char *rt_str, rt_t *out)
     out->sub_type = 0;
 
     if (strchr(left, '.')) {
-        out->rtr_id = ip_pton(left);
+        out->rtr_id = ip_pton((c_string)left);
     } else {
         out->rtr_id = (uint32_t)strtoul(left, NULL, 10);
     }
@@ -340,7 +339,7 @@ bgp_route_af_enabled_in_local_config(bgp_node_config_t *cfg,
 bool
 bgp_route_is_af_enabled_on_any_neighbor(node_t *node, int sf_afi, int sf_safi)
 {
-    bgp_inst_t *bgp = bgp_get_instance(node);
+    bgp_inst_t *bgp = BGP_INST(node);
 
     if (!bgp) {
         return false;
@@ -381,7 +380,7 @@ bgp_route_is_af_configured_for_advertise(node_t *node,
     bgp_node_config_t *cfg;
     sf_gobgp_grpc_client_t *client;
 
-    bgp = bgp_get_instance(node);
+    bgp = BGP_INST(node);
     if (!bgp) {
         return false;
     }
@@ -484,7 +483,7 @@ bgp_route_apply_to_gobgp(node_t *node,
     tracer_t *tr;
     const char *op;
 
-    bgp = bgp_get_instance(node);
+    bgp = BGP_INST(node);
     tr = bgp ? bgp->tr : nullptr;
     op = is_delete ? "DeletePath" : "AddPath";
 
@@ -561,7 +560,7 @@ static int
 bgp_route_walk_adapter(const sf_gobgp_route_info_t *route, void *userdata)
 {
     bgp_route_walk_ctx *ctx = (bgp_route_walk_ctx *)userdata;
-    bgp_route_info_t info;
+    bgp_unified_rt_t info;
 
     if (!ctx || !ctx->callback || !route) {
         return 0;
@@ -722,7 +721,7 @@ bgp_route_withdraw_originated_routes(node_t *node, int sf_afi, int sf_safi)
         return;
     }
 
-    bgp = bgp_get_instance(node);
+    bgp = BGP_INST(node);
     if (!bgp || !bgp->bgp_config.started) {
         return;
     }
@@ -772,7 +771,7 @@ bgp_monitor_dispatch(bgp_monitor_ctx_t *mon,
             continue;
         }
 
-        bgp_route_info_t info;
+        bgp_unified_rt_t info;
         memset(&info, 0, sizeof(info));
         strncpy(info.prefix, update->route.prefix, sizeof(info.prefix) - 1);
         strncpy(info.nexthop, update->route.nexthop, sizeof(info.nexthop) - 1);
@@ -908,7 +907,7 @@ bgp_node_monitor_start(node_t *node)
 int
 bgp_node_monitor_stop(node_t *node)
 {
-    if (!node || !bgp_get_instance(node)) {
+    if (!node || !BGP_INST(node)) {
         return -1;
     }
 
@@ -1026,7 +1025,7 @@ bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
 
     if (!bgp_route_notif_parse_af(rt_advert->afi, &afi) ||
         !bgp_route_notif_parse_safi(rt_advert->safi, &safi)) {
-        bgp_inst = bgp_get_instance(vrf->node);
+        bgp_inst = BGP_INST(vrf->node);
         if (bgp_inst) {
             tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
                    "%s : Unsupported addr-family afi=%u safi=%u for route %s, skip\n",
@@ -1036,7 +1035,7 @@ bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
         return;
     }
 
-    bgp_inst = bgp_get_instance(vrf->node);
+    bgp_inst = BGP_INST(vrf->node);
     if (!bgp_inst) {
         return;
     }
@@ -1150,442 +1149,13 @@ bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
            label_buf);
 }
 
-/* ======================== BGP Remote routes installation==================== */
-
-    /*
-     * Route placement decision is based primarily on:
-     *     AFI/SAFI
-     *     Route Type (for EVPN)
-     *     Route Targets
-     *
-     * RD is used for route uniqueness and bookkeeping,
-     * not for VRF selection.
-     */
-
-    /*
-     * AFI=1 SAFI=1 (IPv4 Unicast)
-     *
-     * No RD.
-     * No Route Targets.
-     *
-     * Install directly into the IPv4 Unicast RIB associated
-     * with the peer/VRF context.
-     */
-    
-    /*
-     * AFI=1 SAFI=128 (VPNv4)
-     *
-     * Store in local VPNv4 RIB:
-     *      key = <RD, Prefix>
-     *
-     * Use Route Targets to determine importing VRFs.
-     *
-     * Import selected routes into:
-     *      VRF.inet.0
-     */
-     
-    /*
-     * AFI=2 SAFI=128 (VPNv6)
-     *
-     * Same model as VPNv4.
-     */
-
-    /*
-     * AFI=25 SAFI=70 (EVPN)
-     *
-     * Store in local EVPN RIB:
-     *      key = <RD, Route-Type-specific-NLRI>
-     *
-     * Use Route Targets to determine importing MAC-VRFs
-     * and/or IP-VRFs.
-     *
-     * RT-2 (MAC/IP Advertisement)
-     *      -> Import into MAC-VRF
-     *
-     * RT-3 (IMET)
-     *      -> Import into MAC-VRF
-     *
-     * RT-4 (Ethernet Segment)
-     *      -> EVPN control-plane database
-     *
-     * RT-5 (IP Prefix)
-     *      -> Import into IP-VRF (VRF.inet.0)
-     */
-
-
-bool
-bgp_route_is_nh_self(node_t *node, const bgp_route_info_t *route)
-{
-    bgp_inst_t *bgp;
-    bgp_node_config_t *cfg;
-    char nh_addr[64];
-
-    if (!node || !route || route->nexthop[0] == '\0') {
-        return false;
-    }
-
-    bgp = bgp_get_instance(node);
-    if (!bgp) {
-        return false;
-    }
-
-    cfg = &bgp->bgp_config;
-    if (cfg->router_id[0] == '\0') {
-        return false;
-    }
-
-    /* Nexthop may be "a.b.c.d" or "a.b.c.d/32" from GoBGP. */
-    strncpy(nh_addr, route->nexthop, sizeof(nh_addr) - 1);
-    nh_addr[sizeof(nh_addr) - 1] = '\0';
-    {
-        char *slash = strchr(nh_addr, '/');
-        if (slash) {
-            *slash = '\0';
-        }
-    }
-
-    return strcmp(nh_addr, cfg->router_id) == 0;
-}
-
-/* We have recvd route ADD from GoBGP*/
-void
-bgp_rtm_route_install(node_t *node, const bgp_route_info_t *route)
-{
-    bgp_inst_t *bgp;
-    rtm_t *rtm;
-    cmn_prefix_t prefix;
-    cmn_prefix_t gateway;
-    rtm_error_t rc;
-    uint32_t metric;
-    char nh_cidr[72];
-
-    if (!node || !route || route->prefix[0] == '\0') {
-        return;
-    }
-
-    bgp = bgp_get_instance(node);
-    if (!bgp) {
-        return;
-    }
-
-    /*
-     * AFI=1 SAFI=1 (IPv4 Unicast): no RD/RT.
-     * VPNv4 / EVPN paths are handled separately later.
-     */
-    if (route->rd[0] != '\0') {
-        tracer(bgp->tr, TR_BGP_RT_EVENTS,
-               "%s : install skip %s — RD present (not ipv4-unicast)\n",
-               BGP_RTM_TAG, route->prefix);
-        return;
-    }
-
-    if (!route->best) {
-        tracer(bgp->tr, TR_BGP_RT_EVENTS,
-               "%s : install skip %s — not best path\n",
-               BGP_RTM_TAG, route->prefix);
-        return;
-    }
-
-    if (bgp_route_is_nh_self(node, route)) {
-        tracer(bgp->tr, TR_BGP_RT_EVENTS,
-               "%s : install skip %s — nh-self route (locally originated)\n",
-               BGP_RTM_TAG, route->prefix);
-        return;
-    }
-
-    if (!cmn_parse_prefix_string(route->prefix, &prefix) ||
-        prefix.afi != AF_IPV4) {
-        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
-               "%s : install fail %s — invalid IPv4 prefix\n",
-               BGP_RTM_TAG, route->prefix);
-        return;
-    }
-
-    if (route->nexthop[0] == '\0') {
-        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
-               "%s : install fail %s — empty nexthop\n",
-               BGP_RTM_TAG, route->prefix);
-        return;
-    }
-
-    /* Bare IPv4 NH (no /mask) must be forced to /32 for the parser. */
-    if (strchr(route->nexthop, '/')) {
-        strncpy(nh_cidr, route->nexthop, sizeof(nh_cidr) - 1);
-        nh_cidr[sizeof(nh_cidr) - 1] = '\0';
-    } else {
-        snprintf(nh_cidr, sizeof(nh_cidr), "%s/32", route->nexthop);
-    }
-
-    if (!cmn_parse_prefix_string(nh_cidr, &gateway) ||
-        gateway.afi != AF_IPV4) {
-        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
-               "%s : install fail %s — invalid IPv4 nexthop %s\n",
-               BGP_RTM_TAG, route->prefix, route->nexthop);
-        return;
-    }
-
-    /* 0.inet.0 — default VRF IPv4 unicast RIB */
-    rtm = rtm_get(node, RTM_DEFAULT_VRF, AF_IPV4, 0);
-    if (!rtm) {
-        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
-               "%s : install fail %s — 0.inet.0 not found\n",
-               BGP_RTM_TAG, route->prefix);
-        return;
-    }
-
-    metric = route->med_present ? route->med : 0;
-
-    /* Indirect NH: BGP peer NH resolves via IGP in inet.0 */
-    rc = cp_rtm_install_route_advanced(
-            rtm,
-            &prefix,
-            RTM_PROTO_BGP,
-            RTM_PROTO_BGP_INT,
-            0, 0,
-            RTM_NH_ACTION_FORWARD,
-            metric,
-            &gateway,
-            0,
-            INTF_TYPE_UNKNOWN,
-            NULL,
-            0,
-            0,
-            MPLS_OP_STACK_OPS_UNKNOWN,
-            0);
-
-    if (rc != RTM_SUCCESS) {
-        tracer(bgp->tr, TR_BGP_RT_EVENTS,
-               "%s : install FAILED %s nh %s into 0.inet.0 — %s\n",
-               BGP_RTM_TAG, route->prefix, route->nexthop,
-               rtm_error_to_string(rc));
-        return;
-    }
-
-    tracer(bgp->tr, TR_BGP_RT_EVENTS,
-           "%s : installed %s nh %s into 0.inet.0 (BGP/BGP-INT metric %u)\n",
-           BGP_RTM_TAG, route->prefix, route->nexthop, metric);
-}
-
-/* We have recvd route DEL from GoBGP */
-void
-bgp_rtm_route_uninstall(node_t *node, const bgp_route_info_t *route)
-{
-    bgp_inst_t *bgp;
-    rtm_t *rtm;
-    cmn_prefix_t prefix;
-    cmn_prefix_t gateway;
-    rtm_error_t rc;
-    uint32_t metric;
-    char nh_cidr[72];
-
-    if (!node || !route || route->prefix[0] == '\0') {
-        return;
-    }
-
-    bgp = bgp_get_instance(node);
-    if (!bgp) {
-        return;
-    }
-
-    if (route->rd[0] != '\0') {
-        tracer(bgp->tr, TR_BGP_RT_EVENTS,
-               "%s : uninstall skip %s — RD present (not ipv4-unicast)\n",
-               BGP_RTM_TAG, route->prefix);
-        return;
-    }
-
-    if (!cmn_parse_prefix_string(route->prefix, &prefix) ||
-        prefix.afi != AF_IPV4) {
-        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
-               "%s : uninstall fail %s — invalid IPv4 prefix\n",
-               BGP_RTM_TAG, route->prefix);
-        return;
-    }
-
-    rtm = rtm_get(node, RTM_DEFAULT_VRF, AF_IPV4, 0);
-    if (!rtm) {
-        tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
-               "%s : uninstall fail %s — 0.inet.0 not found\n",
-               BGP_RTM_TAG, route->prefix);
-        return;
-    }
-
-    metric = route->med_present ? route->med : 0;
-
-    if (route->nexthop[0] != '\0') {
-        if (strchr(route->nexthop, '/')) {
-            strncpy(nh_cidr, route->nexthop, sizeof(nh_cidr) - 1);
-            nh_cidr[sizeof(nh_cidr) - 1] = '\0';
-        } else {
-            snprintf(nh_cidr, sizeof(nh_cidr), "%s/32", route->nexthop);
-        }
-
-        if (!cmn_parse_prefix_string(nh_cidr, &gateway) ||
-            gateway.afi != AF_IPV4) {
-            tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
-                   "%s : uninstall fail %s — invalid IPv4 nexthop %s\n",
-                   BGP_RTM_TAG, route->prefix, route->nexthop);
-            return;
-        }
-
-        rc = cp_rtm_uninstall_route_advanced(
-                rtm,
-                &prefix,
-                RTM_PROTO_BGP,
-                RTM_PROTO_BGP_INT,
-                0,
-                RTM_NH_ACTION_FORWARD,
-                metric,
-                &gateway,
-                0,
-                INTF_TYPE_UNKNOWN,
-                NULL,
-                0,
-                0,
-                MPLS_OP_STACK_OPS_UNKNOWN,
-                0);
-
-        if (rc != RTM_SUCCESS) {
-            tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
-                   "%s : uninstall FAILED %s nh %s from 0.inet.0 — %s\n",
-                   BGP_RTM_TAG, route->prefix, route->nexthop,
-                   rtm_error_to_string(rc));
-            return;
-        }
-    } else {
-        /* No NH in withdraw — remove all BGP-INT nexthops for this prefix. */
-        (void)cp_rtm_uninstall_route_by_proto(
-                rtm, &prefix, RTM_PROTO_BGP, RTM_PROTO_BGP_INT);
-    }
-
-    tracer(bgp->tr, TR_BGP_RT_EVENTS,
-           "%s : uninstalled %s nh %s from 0.inet.0 (BGP/BGP-INT)\n",
-           BGP_RTM_TAG, route->prefix,
-           route->nexthop[0] ? route->nexthop : "-");
-}
-
-typedef struct bgp_route_processing_info_ {
-
-    node_t *node;
-    bgp_route_info_t *route;
-    bool is_add;
-    bool is_vpn;
-    bool is_evpn;
-
-} bgp_route_processing_info_t;
-
-static void
-bgp_route_pkt_q_cbk(event_dispatcher_t *ev_dis,
-                      void *data,
-                      uint32_t data_size)
-{
-    bgp_route_processing_info_t *info;
-    node_t *node = (node_t *)ev_dis->app_data;
-    bgp_inst_t *bgp_inst = BGP_INST(node);
-
-    (void)data;
-
-    if (!bgp_inst) {
-        return;
-    }
-
-    info = (bgp_route_processing_info_t *)task_get_next_pkt(ev_dis, &data_size);
-    if (!info) {
-        return;
-    }
-
-    tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
-           "%s : Route processing job cbk invoked\n", BGP_RTM_TAG);
-
-    for (; info;
-         info = (bgp_route_processing_info_t *)task_get_next_pkt(ev_dis,
-                                                                 &data_size)) {
-        if (info->is_evpn) {
-            info->is_add ? bgp_rtm_evpn_route_install(info->node, info->route) :
-                           bgp_rtm_evpn_route_uninstall(info->node, info->route);
-        } else if (info->is_vpn) {
-            info->is_add ? bgp_rtm_vpn_route_install(info->node, info->route) :
-                           bgp_rtm_vpn_route_uninstall(info->node, info->route);
-        } else {
-            info->is_add ? bgp_rtm_route_install(info->node, info->route) :
-                           bgp_rtm_route_uninstall(info->node, info->route);
-        }
-
-        XFREE(info->route);
-        XFREE(info);
-    }
-}
-
 void
 bgp_route_processing_pkt_q_init(node_t *node, bgp_inst_t *bgp)
 {
-    if (!node || !bgp) {
-        return;
-    }
 
     if (bgp->bgp_route_pkt_q.task) {
-        return;
-    }
-
-    if (bgp->bgp_route_pkt_q2.task) {
         return;
     }    
 
     init_pkt_q(EV(node), &bgp->bgp_route_pkt_q, bgp_route_pkt_q_cbk);
-    init_pkt_q(EV(node), &bgp->bgp_route_pkt_q2, bgp_route_pkt_q_cbk2);
-}
-
-void
-bgp_schedule_route_processing_job_af(node_t *node,
-                                         const bgp_route_info_t *route,
-                                         bool is_add,
-                                         bool is_vpn,
-                                         bool is_evpn)
-{
-    bgp_inst_t *bgp_inst = BGP_INST(node);
-    bgp_route_processing_info_t *info;
-    bgp_route_info_t *route_cpy;
-
-    if (!bgp_inst) {
-        return;
-    }
-
-    if (!bgp_inst->bgp_route_pkt_q.task) {
-        bgp_route_processing_pkt_q_init(node, bgp_inst);
-    }
-
-    info = (bgp_route_processing_info_t *)
-        XCALLOC2(0, 1, bgp_route_processing_info_t);
-    route_cpy = (bgp_route_info_t *)XCALLOC2(0, 1, bgp_route_info_t);
-
-    memcpy(route_cpy, route, sizeof(*route_cpy));
-
-    info->node = node;
-    info->route = route_cpy;
-    info->is_add = is_add;
-    info->is_vpn = is_vpn;
-    info->is_evpn = is_evpn;
-
-    if (!pkt_q_enqueue(EV(node),
-                       &bgp_inst->bgp_route_pkt_q,
-                       (char *)info,
-                       sizeof(*info))) {
-        tracer(bgp_inst->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
-               "%s : Route processing pkt_q full, dropped %s\n",
-               BGP_RTM_TAG, route->prefix);
-        XFREE(route_cpy);
-        XFREE(info);
-        return;
-    }
-
-    tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
-           "%s : Route processing job scheduled\n", BGP_RTM_TAG);
-}
-
-void 
-bgp_schedule_route_processing_job (node_t *node, 
-                                  const bgp_route_info_t *route, 
-                                  bool is_add) 
-{
-    bgp_schedule_route_processing_job_af(node, route, is_add, false, false);
 }

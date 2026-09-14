@@ -14,7 +14,7 @@ test_evpn_rib(void)
     bgp_rib_t *rib;
     bgp_evpn_nlri_t nlri;
     bgp_rib_attrs_t attrs;
-    evpn_rt_t evpn_rt;
+    evpn_exp_rt_t evpn_rt;
     const bgp_rib_attrs_t *found;
 
     rib = bgp_rib_create(AFI_L2VPN, SAFI_MPLS_EVPN);

@@ -80,21 +80,8 @@ typedef struct def_vrf_ {
 
     vrf_t vrf;
 
-    /* GLobal RIBs which belong to only Default VRF */
+    /* Global RIBs which belong to only Default VRF */
     rtm_t *mpls0;
-    rtm_t *l3vpnv4;
-    rtm_t *l3vpnv6;
-
-    /* EVPN Type 5 routes will go here, will be distributed 
-        to Customer VRFs (exactly like vpnv4 routes ). This RIB is 
-        0.inet.70. Based on RT, these routes will be distributed in IP VRF
-        Routing tables */
-    rtm_t *l3evpnv4;
-
-    /* Global RIB containing Type-2 EVPN routes (Local & Remote). Routes installed/Removed 
-       from this RIB will be added/deleted from all MAC VRFs. Route Resolution
-       of this RIB happens on 0.inet.3 table. This RIB is 0.mac.70 */
-    rtm_t *type2_evpn;
 
     bgp_inst_t *bgp_inst;
 

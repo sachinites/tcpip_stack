@@ -113,7 +113,6 @@ OBJS=     router_init.o   \
 		  Layer3/gre-tunneling/gre.o \
 		  Layer3/netfilter.o \
 		  Layer3/ipv6/ipv6cli.o \
-		  Layer3/vpnv4/vpnv4_bgp.o \
 		  Layer4/layer4.o  \
 		  Layer4/udp.o  \
 		  Layer5/layer5.o  \
@@ -180,9 +179,6 @@ Layer2/Evpn/evpn_rt.o:Layer2/Evpn/evpn_rt.cpp
 
 Layer2/Evpn/evpn_bgp.o:Layer2/Evpn/evpn_bgp.cpp
 	${CC} ${CFLAGS} -c -I . -I Layer5/gobgp Layer2/Evpn/evpn_bgp.cpp -o Layer2/Evpn/evpn_bgp.o
-
-Layer3/vpnv4/vpnv4_bgp.o:Layer3/vpnv4/vpnv4_bgp.cpp
-	${CC} ${CFLAGS} -c -I . -I Layer5/gobgp Layer3/vpnv4/vpnv4_bgp.cpp -o Layer3/vpnv4/vpnv4_bgp.o
 
 ted/ted.o:ted/ted.c
 	${CC} ${CFLAGS} -c -I . ted/ted.c -o ted/ted.o
@@ -370,7 +366,6 @@ clean:
 	rm -f Layer2/vxlan/cp/*.o
 	rm -f Layer2/Evpn/*.o
 	rm -f Layer3/*.o
-	rm -f Layer3/vpnv4/*.o
 	rm -f Layer3/rt_table/*.o
 	rm -f Layer4/*.o
 	rm -f Layer5/*.o

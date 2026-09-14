@@ -43,7 +43,7 @@ bgp_evpn_nlri_format_bracket(const bgp_nlri_key_t *key,
 bgp_rib_err_t
 bgp_evpn_nlri_to_evpn_rt(const bgp_evpn_nlri_t *nlri,
                          uint32_t vtep_ip,
-                         evpn_rt_t *evpn_rt_out);
+                         evpn_exp_rt_t *evpn_rt_out);
 
 bgp_rib_err_t
 bgp_evpn_rib_route_add(bgp_rib_t *rib,
@@ -57,5 +57,14 @@ bgp_evpn_rib_route_delete(bgp_rib_t *rib,
 const bgp_rib_attrs_t *
 bgp_evpn_rib_route_lookup(const bgp_rib_t *rib,
                           const bgp_evpn_nlri_t *nlri);
+
+void
+bgp_global_rib_export_evpn_route_cb(void *ctx,
+                                    uint8_t afi,
+                                    uint8_t safi,
+                                    bgp_nlri_key_t *key,
+                                    bgp_rib_attrs_t *attrs,
+                                    bool is_add,
+                                    uint16_t target_evi);
 
 #endif /* BGP_RIB_EVPN_H_ */

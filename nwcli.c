@@ -483,43 +483,6 @@ show_rtm_route_cli_handler(int64_t cmdcode,
 }
 
 static int
-show_rtm_protocol_subscriptions_handler(int64_t cmdcode, Stack_t *tlv_stack,
-                    op_mode enable_or_disable){
-
-    node_t *node;
-    c_string node_name = NULL;
-    tlv_struct_t *tlv = NULL;
-
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if(parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-
-    }TLV_LOOP_END;
-
-    if(!node_name){
-        cprintf("Error : node-name missing\n");
-        return -1;
-    }
-
-    node = node_get_node_by_name(topo, node_name);
-    if(!node){
-        cprintf("Error : Node %s not found\n", node_name);
-        return -1;
-    }
-
-    /* Get default RTM: VRF=0, AFI=IPv4, RTM ID=0 */
-    rtm_t *rtm = rtm_get(node, 0, AF_IPV4, 0);
-    if(!rtm){
-        cprintf("Error : Default RTM not found for node %s\n", node_name);
-        return -1;
-    }
-
-    rtm_show_protocol_subscriptions(rtm);
-    return 0;
-}
-
-static int
 show_rtm_presentation_db_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     op_mode enable_or_disable){
 
@@ -1373,15 +1336,6 @@ nw_init_cli(){
                                        "Display unresolvable routes");
                             libcli_register_param(&rib_name, &unresolvable_routes);
                             libcli_set_param_cmd_code(&unresolvable_routes, CMDCODE_SHOW_NODE_RTM_UNRESOLVABLE_ROUTES);
-                        }
-                        {
-                            /*show node <node-name> rtm <Rib name> protocol-subscriptions */
-                            static param_t protocol_subscriptions;
-                            init_param(&protocol_subscriptions, CMD, "protocol-subscriptions", 
-                                       show_rtm_protocol_subscriptions_handler, 0, INVALID, 0, 
-                                       "Display protocol subscription database");
-                            libcli_register_param(&rib_name, &protocol_subscriptions);
-                            libcli_set_param_cmd_code(&protocol_subscriptions, CMDCODE_SHOW_NODE_RTM_PROTOCOL_SUBSCRIPTIONS);
                         }
                         {
                             /*show node <node-name> rtm <Rib name> ppt-db */

@@ -29,7 +29,7 @@ typedef struct bgp_route_params_ {
     bool evpn_label_present;
 } bgp_route_params_t;
 
-typedef struct bgp_route_info_ {
+typedef struct bgp_unified_rt_ {
     char prefix[64];
     char nexthop[64];
     char rd[32];
@@ -53,9 +53,9 @@ typedef struct bgp_route_info_ {
     bool evpn_label1_from_ext_comm;
     uint16_t tunnel_encap_type;
     bool tunnel_encap_present;
-} bgp_route_info_t;
+} bgp_unified_rt_t;
 
-typedef int (*bgp_route_walk_cb)(const bgp_route_info_t *route, void *userdata);
+typedef int (*bgp_route_walk_cb)(const bgp_unified_rt_t *route, void *userdata);
 
 int bgp_node_add_route(node_t *node, const bgp_route_params_t *params);
 int bgp_node_delete_route(node_t *node, const bgp_route_params_t *params);
@@ -65,7 +65,7 @@ int bgp_node_walk_routes(node_t *node,
                          bgp_route_walk_cb callback,
                          void *userdata);
 
-typedef void (*bgp_route_update_notify_cb)(const bgp_route_info_t *route,
+typedef void (*bgp_route_update_notify_cb)(const bgp_unified_rt_t *route,
                                            bool is_withdraw,
                                            void *userdata);
 
@@ -84,19 +84,19 @@ int bgp_node_monitor_subscribe_af(node_t *node,
                                   void *userdata);
 
 void
-bgp_monitor_recv_global_rib_cbk(const bgp_route_info_t *route,
+bgp_monitor_recv_global_rib_cbk(const bgp_unified_rt_t *route,
                                 bool is_withdraw,
                                 void *userdata);
 
 void 
-bgp_rtm_route_install(node_t *node, const bgp_route_info_t *route);
+bgp_rtm_route_install(node_t *node, const bgp_unified_rt_t *route);
 
 void 
-bgp_rtm_route_uninstall(node_t *node, const bgp_route_info_t *route);
+bgp_rtm_route_uninstall(node_t *node, const bgp_unified_rt_t *route);
 
 void 
 bgp_schedule_route_processing_job (node_t *node, 
-                                  const bgp_route_info_t *route, 
+                                  const bgp_unified_rt_t *route, 
                                   bool is_add);
 
 /* Shared helpers for AFI/SAFI-specific BGP modules (vpnv4_bgp, evpn_bgp). */
@@ -112,16 +112,6 @@ bgp_route_apply_to_gobgp(node_t *node,
 
 bool
 bgp_route_parse_rt_string(const char *rt_str, rt_t *out);
-
-bool
-bgp_route_is_nh_self(node_t *node, const bgp_route_info_t *route);
-
-void
-bgp_schedule_route_processing_job_af(node_t *node,
-                                     const bgp_route_info_t *route,
-                                     bool is_add,
-                                     bool is_vpn,
-                                     bool is_evpn);
 
 bool
 bgp_route_is_af_enabled_on_any_neighbor(node_t *node, int afi, int safi);

@@ -7,15 +7,14 @@
  *
  *        This file contains the private/internal APIs for the RTM system.
  *        These functions handle the core logic of route installation, uninstallation,
- *        nexthop management, and L3VPN route propagation.
+ *        nexthop management, and route configuration CLI.
  *
  *        Key Responsibilities:
  *        1. Route Installation/Uninstallation (core logic)
  *        2. Nexthop Management and Path Selection
  *        3. Admin Distance Calculation
- *        4. L3VPN Route Propagation to Customer VRFs
- *        5. CLI Handler for Route Configuration
- *        6. Route Formatting and Display
+ *        4. CLI Handler for Route Configuration
+ *        5. Route Formatting and Display
  *
  *        Route Installation Flow:
  *        ┌─────────────────────────────────────────────────────────────┐
@@ -66,18 +65,6 @@
  *        │ 1. Admin Distance (lower is better)                         │
  *        │ 2. Metric (lower is better)                                 │
  *        │ 3. Protocol-specific tie-breakers                            │
- *        └─────────────────────────────────────────────────────────────┘
- *
- *        L3VPN Route Propagation:
- *        ┌─────────────────────────────────────────────────────────────┐
- *        │ Default VRF: bgp.l3vpn.0                                    │
- *        │   Route: 10.1.1.0/24 (RD: 100:1, RT: 200:1)                │
- *        │   └─> Customer VRF 1 (Import RT: 200:1)                     │
- *        │       └─> vrf1.inet.0: 10.1.1.0/24                         │
- *        │   └─> Customer VRF 2 (Import RT: 200:2)                    │
- *        │       └─> (Not imported - RT mismatch)                      │
- *        │   └─> Customer VRF 3 (Import RT: 200:1)                      │
- *        │       └─> vrf3.inet.0: 10.1.1.0/24                         │
  *        └─────────────────────────────────────────────────────────────┘
  *
  *        Version:  1.0
@@ -1621,165 +1608,3 @@ rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix,
 
     return RTM_SUCCESS;
 }
-
-/* ========================================================================
- * L3VPN Route Propagation Functions
- * ======================================================================== */
-
-/**
- * @brief Copy routes from source RIB to destination RIB
- * 
- * This function copies routes from a source RIB (typically bgp.l3vpn.0)
- * to a destination RIB (typically a customer VRF's inet.0/inet6.0).
- * Routes are filtered based on Import Route Target (RT).
- * 
- * L3VPN Route Copy Flow:
- * ┌─────────────────────────────────────────────────────────┐
- * │ Source RIB: bgp.l3vpn.0                                 │
- * │   Route: 10.1.1.0/24 (RT: 200:1)                       │
- * │   └─> Filter by Import RT: 200:1                       │
- * │       └─> Match! Copy to destination RIB                │
- * │                                                          │
- * │ Destination RIB: vrf1.inet.0                            │
- * │   Route: 10.1.1.0/24 (copied with VRF label)            │
- * └─────────────────────────────────────────────────────────┘
- * 
- * Route Target Filtering:
- * - If import_rt is (0:0), all routes are copied (pass-through)
- * - Otherwise, only routes with matching RT are copied
- * 
- * @param node Pointer to network node
- * @param src_rib Source routing table
- * @param dst_rib Destination routing table
- * @param import_rt Import Route Target for filtering
- */
-static void 
-rtm_copy_ribs (node_t *node, 
-        rtm_t *src_rib, 
-        rtm_t *dst_rib, rt_t import_rt) {
-
-    rtm_error_t rc;
-    glthread_t *curr;
-    uint32_t nh_copied;
-    rtm_nh *nh, *new_nh;
-    char prefix_str[48];
-    rtm_route *src_route;
-    rtm_route *dst_route;
-    avltree_node_t *src_rt_node;
-
-    bool pass_through = (import_rt.rtr_id == 0 && import_rt.vrf_id == 0);
-
-    ITERATE_AVL_TREE_BEGIN(&src_rib->route_tree, src_rt_node) {
-
-        src_route = avltree_container_of(src_rt_node, rtm_route, route_glue);
-        dst_route = rtm_route_lookup(dst_rib, &src_route->prefix);
-
-        if (!dst_route) {
-
-            dst_route = (rtm_route *)XCALLOC2(0, 1, rtm_route);
-            rtm_route_initialize(dst_route, node_get_sequence_no(node));
-            dst_route->prefix = src_route->prefix;
-            rc = rtm_route_add(dst_rib, dst_route);
-
-            if (rc != RTM_SUCCESS) {
-
-                tracer(node->cptr, DRTM_DET,
-                    "RTM[%s] : ERROR(%s): Route %s addition failed\n", 
-                    dst_rib->name, rtm_error_to_string(rc),
-                    rtm_format_prefix(&dst_route->prefix, prefix_str, sizeof(prefix_str)));
-                XFREE(dst_route);
-                continue;
-            }
-
-            tracer(node->cptr, DRTM_DET,
-                "RTM[%s] : Success : New Route %s Added to RTM DB\n",
-                dst_rib->name,
-                rtm_format_prefix(&dst_route->prefix, prefix_str, sizeof(prefix_str)));   
-        }
-
-        nh_copied = 0;
-
-        ITERATE_GLTHREAD_BEGIN(&src_route->path_list, curr) {
-
-            nh = route_glue_to_rtm_nh(curr);
-
-            if (!pass_through &&
-                (nh->import_rt.rtr_id != import_rt.rtr_id || 
-                nh->import_rt.vrf_id != import_rt.vrf_id)) continue;
-            
-            new_nh = rtm_nh_duplicate (nh);
-            rc = rtm_route_add_nh(dst_rib, dst_route, new_nh);
-            assert (rc == RTM_SUCCESS);
-            nh_copied++;
-
-            /* Glue the nexthop to global RTM hooks */
-            new_nh->rtm = dst_rib;
-            rtm_nh_add_to_idx_tree(dst_rib, new_nh);
-            rtm_nh_glthread_add_next(new_nh, 
-                &dst_rib->nhs_by_src[new_nh->proto], 
-                &new_nh->src_glue);
-
-        } ITERATE_GLTHREAD_END(&src_route->path_list, curr);
-
-        if (nh_copied == 0) {
-            /* Back out the route */
-            rtm_route_delete(dst_rib, dst_route);
-        }
-        else {
-            // No need to refresh nexthops, they are already arranged in
-            // src rib.
-            //rtm_route_refresh_nexthops (dst_rib, dst_route);
-        }
-
-    } ITERATE_AVL_TREE_END(&src_rib->route_tree, src_rt_node);
-
-}
-
-/**
- * @brief Get list of client RIBs for a given parent RIB
- * 
- * Returns a list of client RIBs that should receive route updates
- * from the parent RIB. This is used for L3VPN route propagation.
- * 
- * Client RIB Relationship:
- * ┌─────────────────────────────────────────────────────────┐
- * │ Parent RIB: bgp.l3vpn.0                                │
- * │   └─> Client RIBs:                                      │
- * │       - vrf1.inet.0                                     │
- * │       - vrf2.inet.0                                     │
- * │       - vrf3.inet.0                                     │
- * │                                                          │
- * │ When route is installed/deleted in parent:              │
- * │   → Automatically propagated to all client RIBs          │
- * └─────────────────────────────────────────────────────────┘
- * 
- * @param rtm Parent routing table
- * @param lst_head_out Output list head for client RIBs
- */
-static void
-rtm_get_client_rtm_set (rtm_t *rtm, glthread_t *lst_head_out) {
-
-    int i;
-    vrf_t *vrf;
-    node_t *node = rtm->node;
-    glthread_data_node_t *data_node;
-
-    init_glthread(lst_head_out);
-
-    /* L3 VPN case */
-    if (rtm == node->node_nw_prop.def_vrf->l3vpnv4 ||
-        rtm == node->node_nw_prop.def_vrf->l3vpnv6)
-    {
-        for (i = 1; i < MAX_VRF_PER_NODE; i++)
-        {
-            if (!node->vrf[i]) continue;
-            vrf = node->vrf[i];
-            data_node = (glthread_data_node_t *)XCALLOC2(0, 1, glthread_data_node_t);
-            rtm_t *client_rtm = rtm_get(node, vrf->vrf_id, rtm->afi, 0);
-            data_node->data = (void *)client_rtm;
-            init_glthread(&data_node->glue);
-            glthread_add_next(lst_head_out, &data_node->glue);
-        }
-    }
-}
-

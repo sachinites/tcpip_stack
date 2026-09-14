@@ -13,12 +13,12 @@
 #include "bgp_rib/bgp_nlri_wire.h"
 #include "bgp_rib/bgp_rib.h"
 #include "bgp_rib/bgp_rib_evpn.h"
+#include "bgp_rib/bgp_rib_ipv4.h"
 #include "bgp_rib/bgp_rib_vpnv4.h"
 #include "bgp_route.h"
 #include "bgp_rtr.h"
 #include "gobgp/sf_gobgp_grpc_client.h"
 #include "../Layer2/Evpn/evpn_bgp.h"
-#include "../Layer3/vpnv4/vpnv4_bgp.h"
 
 extern void
 rtm_build_distribution_policy_cli_tree(
@@ -72,7 +72,7 @@ extern graph_t *topo;
 static sf_gobgp_grpc_client_t *
 bgp_get_grpc_client(node_t *node)
 {
-    bgp_inst_t *bgp = bgp_get_instance(node);
+    bgp_inst_t *bgp = BGP_INST(node);
     if (!bgp) return nullptr;
 
     if (!bgp->bgp_grpc_client) {
@@ -88,7 +88,7 @@ bgp_get_grpc_client(node_t *node)
 static bgp_node_config_t *
 bgp_config_get(node_t *node)
 {
-    bgp_inst_t *bgp = bgp_get_instance(node);
+    bgp_inst_t *bgp = BGP_INST(node);
     if (!bgp) return nullptr;
     return &bgp->bgp_config;
 }
@@ -219,19 +219,9 @@ bgp_session_state_str(int state)
 }
 
 static void
-bgp_monitor_recv_route_processing_cbk(const bgp_route_info_t *route,
+bgp_monitor_recv_route_processing_cbk(const bgp_unified_rt_t *route,
                               bool is_withdraw,
                               void *userdata);
-
-static void
-bgp_monitor_recv_vpn_route_processing_cbk(const bgp_route_info_t *route,
-                                         bool is_withdraw,
-                                         void *userdata);
-
-static void
-bgp_monitor_recv_evpn_route_processing_cbk(const bgp_route_info_t *route,
-                                           bool is_withdraw,
-                                           void *userdata);
 
 /* Before firing any BGP config, make sure goBGP gRPC Server is running 
     run this command in separate terminal : 
@@ -311,7 +301,7 @@ bgp_config_handler(int64_t cmdcode,
 
                 case CONFIG_ENABLE:
                 {
-                    if (!bgp_get_instance(node)) {
+                    if (!BGP_INST(node)) {
                         ((def_vrf_t *)NODE_DEF_VRF(node))->bgp_inst = bgp_init(node);
                     }
 
@@ -338,11 +328,9 @@ bgp_config_handler(int64_t cmdcode,
                         return -1;
                     }
                     bgp_config_store_global(cfg, local_asn, rid);
-                    bgp_node_monitor_subscribe_af(node, AFI_IPV4, SAFI_UNICAST,
-                                                  bgp_monitor_recv_route_processing_cbk,
-                                                  node);
-                    if (bgp_global_rib_af_enable(node, AFI_IPV4,
-                                                 SAFI_UNICAST, NULL) != 0) {
+                    if (bgp_global_rib_af_enable(
+                            node, AFI_IPV4, SAFI_UNICAST,
+                            bgp_global_rib_export_ipv4_unicast_route_cb) != 0) {
                         cprintf("Error : Failed to initialize IPv4 unicast global RIB\n");
                         return -1;
                     }
@@ -354,7 +342,7 @@ bgp_config_handler(int64_t cmdcode,
 
                 case CONFIG_DISABLE:
                 {
-                    if (!bgp_get_instance(node)) {
+                    if (!BGP_INST(node)) {
                         cprintf("BGP is not running\n");
                         break;
                     }
@@ -397,7 +385,7 @@ bgp_config_handler(int64_t cmdcode,
                 return -1;
             }
 
-            if (!bgp_get_instance(node)) {
+            if (!BGP_INST(node)) {
                 cprintf("Error : BGP is not running\n");
                 return -1;
             }
@@ -528,8 +516,9 @@ bgp_config_handler(int64_t cmdcode,
                                             &result);
                         return -1;
                     }
-                    if (bgp_global_rib_af_enable(node, AFI_IPV4,
-                                                 SAFI_UNICAST, NULL) != 0) {
+                    if (bgp_global_rib_af_enable(
+                            node, AFI_IPV4, SAFI_UNICAST,
+                            bgp_global_rib_export_ipv4_unicast_route_cb) != 0) {
                         cprintf("Error : Failed to initialize IPv4 unicast global RIB\n");
                         return -1;
                     }
@@ -614,15 +603,6 @@ bgp_config_handler(int64_t cmdcode,
                     if (!result.ok) {
                         bgp_print_rpc_error(node, "Enable IPv4 VPN",
                                             &result);
-                        return -1;
-                    }
-                    if (0 && bgp_node_monitor_subscribe_af(
-                            node, AFI_IPV4, SAFI_MPLS_VPN,
-                            bgp_monitor_recv_vpn_route_processing_cbk,
-                            node) != 0) {
-
-                            cprintf("Error : Failed to register %s monitor callback\n",
-                                VPNV4_UNICAST_AF_STR);
                         return -1;
                     }
                     if (bgp_global_rib_af_enable(node, AFI_IPV4,
@@ -720,16 +700,9 @@ bgp_config_handler(int64_t cmdcode,
                                             &result);
                         return -1;
                     }
-                    if (bgp_node_monitor_subscribe_af(
-                            node, AFI_L2VPN, SAFI_MPLS_EVPN,
-                            bgp_monitor_recv_evpn_route_processing_cbk,
-                            node) != 0) {
-                        cprintf("Error : Failed to register %s monitor callback\n",
-                                L2VPN_EVPN_AF_STR);
-                        return -1;
-                    }
                     if (bgp_global_rib_af_enable(node, AFI_L2VPN,
-                                                 SAFI_MPLS_EVPN, NULL) != 0) {
+                                                 SAFI_MPLS_EVPN,
+                                                 bgp_global_rib_export_evpn_route_cb) != 0) {
                         cprintf("Error : Failed to initialize %s global RIB\n",
                                 L2VPN_EVPN_AF_STR);
                         return -1;
@@ -810,7 +783,7 @@ bgp_show_format_rd_rt(const char *value,
 }
 
 static int
-bgp_show_evpn_mac_route_print_cb(const bgp_route_info_t *route, void *userdata)
+bgp_show_evpn_mac_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
 {
     bgp_show_route_ctx_t *ctx = (bgp_show_route_ctx_t *)userdata;
     const char *dash = "-";
@@ -863,7 +836,7 @@ bgp_show_evpn_mac_route_print_cb(const bgp_route_info_t *route, void *userdata)
 }
 
 static int
-bgp_show_route_print_cb(const bgp_route_info_t *route, void *userdata)
+bgp_show_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
 {
     bgp_show_route_ctx_t *ctx = (bgp_show_route_ctx_t *)userdata;
     const char *dash = "-";
@@ -1413,39 +1386,7 @@ bgp_show_handler(int64_t cmdcode,
     return 0;
 }
 
-/* --- Monitor CLI --- */
-
-static void
-bgp_monitor_recv_route_processing_cbk(
-                              const bgp_route_info_t *route,
-                              bool is_withdraw,
-                              void *userdata)
-{
-    node_t *node = (node_t *)userdata;
-    bgp_schedule_route_processing_job (node, route, !is_withdraw);
-}
-
-static void
-bgp_monitor_recv_vpn_route_processing_cbk(
-                              const bgp_route_info_t *route,
-                              bool is_withdraw,
-                              void *userdata)
-{
-    node_t *node = (node_t *)userdata;
-    bgp_schedule_vpn_route_processing_job(node, route, !is_withdraw);
-}
-
-static void
-bgp_monitor_recv_evpn_route_processing_cbk(
-                              const bgp_route_info_t *route,
-                              bool is_withdraw,
-                              void *userdata)
-{
-    node_t *node = (node_t *)userdata;
-    bgp_schedule_evpn_route_processing_job(node, route, !is_withdraw);
-}
-/*
- * config node <node-name> protocol bgp <local-asn> [router-id <router-id>]
+/* config node <node-name> protocol bgp <local-asn> [router-id <router-id>]
  * config node <node-name> protocol bgp <local-asn> neighbor <neighbor-addr> remote-as <peer-asn>
  * config node <node-name> protocol bgp <local-asn> neighbor <neighbor-addr> address-family ipv4-unicast
  *

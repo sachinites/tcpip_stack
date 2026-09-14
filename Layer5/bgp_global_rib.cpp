@@ -14,13 +14,13 @@
 #include "bgp_rib/bgp_rib_types.h"
 #include "bgp_rtr.h"
 
-typedef struct bgp_route_processing_info2_ {
+typedef struct bgp_route_processing_info_ {
 
     node_t *node;
-    bgp_route_info_t *route;
+    bgp_unified_rt_t *route;
     bool is_add;
 
-} bgp_route_processing_info2_t;
+} bgp_route_processing_info_t;
 
 static bgp_rib_t **
 bgp_global_rib_slot(bgp_inst_t *bgp, int afi, int safi)
@@ -43,7 +43,7 @@ bgp_global_rib_slot(bgp_inst_t *bgp, int afi, int safi)
 }
 
 static void
-bgp_global_rib_fill_attrs(const bgp_route_info_t *route,
+bgp_global_rib_fill_attrs(const bgp_unified_rt_t *route,
                           bgp_rib_attrs_t *attrs)
 {
     memset(attrs, 0, sizeof(*attrs));
@@ -87,7 +87,7 @@ bgp_global_rib_af_enable(node_t *node, int afi, int safi, bgp_rib_export_route_c
         return -1;
     }
 
-    bgp = bgp_get_instance(node);
+    bgp = BGP_INST(node);
     if (!bgp) {
         return -1;
     }
@@ -98,6 +98,9 @@ bgp_global_rib_af_enable(node_t *node, int afi, int safi, bgp_rib_export_route_c
     }
 
     if (*rib_slot) {
+        if (cbk) {
+            bgp_rib_set_export_route(*rib_slot, bgp, cbk);
+        }
         return 0;
     }
 
@@ -132,7 +135,7 @@ bgp_global_rib_af_disable(node_t *node, int afi, int safi)
         return;
     }
 
-    bgp = bgp_get_instance(node);
+    bgp = BGP_INST(node);
     if (!bgp) {
         return;
     }
@@ -169,7 +172,7 @@ bgp_global_rib_deinit(bgp_inst_t *bgp)
 
 void
 bgp_global_rib_route_update(node_t *node,
-                            const bgp_route_info_t *route,
+                            const bgp_unified_rt_t *route,
                             bool is_add)
 {
     bgp_inst_t *bgp;
@@ -228,27 +231,27 @@ bgp_global_rib_route_update(node_t *node,
 }
 
 void
-bgp_route_pkt_q_cbk2(event_dispatcher_t *ev_dis,
+bgp_route_pkt_q_cbk(event_dispatcher_t *ev_dis,
                       void *data,
                       uint32_t data_size) {
 
-    bgp_route_processing_info2_t *info;
+    bgp_route_processing_info_t *info;
     node_t *node = (node_t *)ev_dis->app_data;
     bgp_inst_t *bgp_inst = BGP_INST(node);
 
     (void)data;
 
-    info = (bgp_route_processing_info2_t *)task_get_next_pkt(ev_dis, &data_size);
+    info = (bgp_route_processing_info_t *)task_get_next_pkt(ev_dis, &data_size);
 
     tracer(bgp_inst->tr, TR_BGP_RT_EVENTS,
         "%s : Route processing job cbk invoked\n", BGP_RTM_IM);    
 
     for (; info;
-         info = (bgp_route_processing_info2_t *)task_get_next_pkt(
+         info = (bgp_route_processing_info_t *)task_get_next_pkt(
                     ev_dis, &data_size)) {
 
          bgp_global_rib_route_update(node, 
-                (const bgp_route_info_t *)info->route, 
+                (const bgp_unified_rt_t *)info->route, 
                 info->is_add);
 
         XFREE(info->route);
@@ -257,18 +260,18 @@ bgp_route_pkt_q_cbk2(event_dispatcher_t *ev_dis,
 }
 
 void
-bgp_monitor_recv_global_rib_cbk(const bgp_route_info_t *route,
+bgp_monitor_recv_global_rib_cbk(const bgp_unified_rt_t *route,
                                 bool is_withdraw,
                                 void *userdata)
 {
     node_t *node = (node_t *)userdata;
     bgp_inst_t *bgp_inst = BGP_INST(node);
 
-    bgp_route_processing_info2_t *bgp_rt_info2 =
-        (bgp_route_processing_info2_t *)XCALLOC2(0, 1,  bgp_route_processing_info2_t);
+    bgp_route_processing_info_t *bgp_rt_info2 =
+        (bgp_route_processing_info_t *)XCALLOC2(0, 1,  bgp_route_processing_info_t);
 
-    bgp_route_info_t *route_cpy = 
-        (bgp_route_info_t *)XCALLOC2(0, 1, bgp_route_info_t);
+    bgp_unified_rt_t *route_cpy = 
+        (bgp_unified_rt_t *)XCALLOC2(0, 1, bgp_unified_rt_t);
 
     memcpy (route_cpy, route, sizeof (*route_cpy));
     bgp_rt_info2->node = (node_t *)userdata;
@@ -276,7 +279,7 @@ bgp_monitor_recv_global_rib_cbk(const bgp_route_info_t *route,
     bgp_rt_info2->is_add = !is_withdraw;
 
     if (!pkt_q_enqueue(EV(node),
-                       &bgp_inst->bgp_route_pkt_q2,
+                       &bgp_inst->bgp_route_pkt_q,
                        (char *)bgp_rt_info2,
                        sizeof(*bgp_rt_info2))) {
 
@@ -303,7 +306,7 @@ bgp_global_rib_get(node_t *node, int afi, int safi)
         return NULL;
     }
 
-    bgp = bgp_get_instance(node);
+    bgp = BGP_INST(node);
     if (!bgp) {
         return NULL;
     }

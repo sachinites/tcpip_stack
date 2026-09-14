@@ -23,7 +23,6 @@
  *        - rtm_presentation_data_t: Data for route advertisement
  *        - rtm_ppt_route_t: Route blueprint in presentation DB
  *        - rtm_ppt_nhidx_t: Nexthop index information
- *        - rtm_rt_subscription_t: Protocol subscription information
  *
  *        Version:  1.0
  *        Created:  [Original Date]
@@ -69,33 +68,6 @@ typedef enum rtm_ppt_operation_ {
 
 
 #pragma pack(push, 8)
-
-typedef struct rtm_rt_subscription_ {
-
-    /* Below three fields are keys */
-    /* Subscribe routes from this protocol */
-    RTM_PROTO_T target_proto; 
-    /* Subscribe these route types*/
-    RTM_SUB_PROTO_T target_sub_proto;
-    /* Subscrive route from this instance of protocol */
-    uint32_t target_instance_no;
-
-    /* Subscribe these routes */
-    prefix_list_t *prefix_list;
-
-    /* Second layer comparison function, for the matching route, compare the 
-        nexthop protocol properties. For example, Subscriber protocol need BGP 
-        routes with MED value > 100 only */
-    // To be Supported Later
-    rtm_nh_proto_t *nh_proto;
-
-    /* Callback fn used for notif - receives operation type and nh_idx */
-    void (*cbk)(rtm_t *, uint32_t nh_idx, rtm_nh *, rtm_nh_proto_t *, rtm_ppt_operation_t);
-
-    /* Hook up in rtm_proto_info_t sub_db Tree*/
-    avltree_node_t avl_glue;
-
-} rtm_rt_subscription_t;
 
 /* The data structire to present the route info to clients */
 typedef struct rtm_presentation_data_ {

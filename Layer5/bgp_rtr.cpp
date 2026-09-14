@@ -53,10 +53,3 @@ bgp_deinit (bgp_inst_t *bgp_inst) {
 
     bgp_global_rib_deinit(bgp_inst);
 }
-
-bgp_inst_t *
-bgp_get_instance(node_t *node) {
-
-    def_vrf_t *def_vrf = (def_vrf_t *)NODE_DEF_VRF(node);
-    return def_vrf->bgp_inst;
-}

@@ -117,12 +117,6 @@ rtm_t *rtm_get_route_target_rtm(
                           RTM_PROTO_T proto, 
                           RTM_SUB_PROTO_T sub_proto);
 
-void 
-rtm_copy_ribs (
-        isis_node_info_t *node_info,
-        AFI_T afi,
-        uint8_t target_vrf_id);
-
 /* ----------------------------------------------------------------  */
 
 
@@ -136,7 +130,6 @@ typedef struct rtm_proto_info_ {
     uint8_t vrf_id;
     
     avltree_node_t proto_glue;
-    avltree_t sub_db;
     
 } rtm_proto_info_t;
 

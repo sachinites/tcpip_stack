@@ -25,8 +25,6 @@ typedef struct bgp_inst_ {
 
     /* Queue for GoBGP watch route updates (watcher thread -> CP scheduler). */
     pkt_q_t bgp_route_pkt_q;
-    /* Queue for GoBGP watch route updates (watcher thread -> CP scheduler). */
-    pkt_q_t bgp_route_pkt_q2;
 
     /* BGP Global RIBS (imported a local copy from GoBGP ) */
     bgp_rib_t *ipv4_unicast_rib;
@@ -43,7 +41,7 @@ bgp_inst_t *bgp_init(node_t *node);
 void bgp_deinit (bgp_inst_t *bgp_inst);
 void bgp_inst_check_and_delete (bgp_inst_t *bgp_inst);
 
-bgp_inst_t *bgp_get_instance(node_t *node);
+bgp_inst_t *BGP_INST(node_t *node);
 
 #define BGP_INST(node_ptr) ((def_vrf_t *)NODE_DEF_VRF(node_ptr))->bgp_inst
 #endif /* __BGP_RTR__ */

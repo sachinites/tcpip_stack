@@ -885,10 +885,10 @@ rtm_all_inh_unresolve(rtm_t *rtm,  cmn_prefix_t *route) {
         if (!nh->is_active) continue;
 
         /* I find the case where , NHs could already be on unresolvable list
-            1. Create BGP L3 VPNv4 route
-            2. Create VRF ( route will be copied to VRF RIB) and put on
-                unresolvable_list because rtm_copy_ribs( ) is called with
-                'perform_resolution' set to true.
+            1. Create BGP L3 VPNv4 route in a customer VRF RIB
+            2. Create VRF / import RT change puts route on
+                unresolvable_list because resolution runs before the
+                resolving route exists.
             3. Add LDP route ( resolver route )
 
             As we progress, we need to relax strict list/tree insertion/deletion

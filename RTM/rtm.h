@@ -109,8 +109,7 @@ typedef struct rtm_ {
     /* Nexthops grouped by their source protocol */
     glthread_t nhs_by_src[RTM_PROTO_MAX];
 
-    /* Protocol information registered in this RTM. Used to
-        store protocol subscription and filters */
+    /* Protocol information registered in this RTM */
     avltree_t proto_info_tree[RTM_PROTO_MAX];
 
     /* List of rtm_presentation_data_t objects, to be advertised to 

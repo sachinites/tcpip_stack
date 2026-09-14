@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define BGP_NLRI_WIRE_MAX      256
+#define BGP_NLRI_WIRE_MAX      320
 #define BGP_RIB_EXT_COMM_MAX   16
 #define BGP_RIB_EXT_COMM_TEXT_MAX 80
 

@@ -27,7 +27,7 @@ bgp_global_rib_deinit(bgp_inst_t *bgp);
 
 void
 bgp_global_rib_route_update(node_t *node,
-                            const bgp_route_info_t *route,
+                            const bgp_unified_rt_t *route,
                             bool is_add);
 
 struct bgp_rib_;

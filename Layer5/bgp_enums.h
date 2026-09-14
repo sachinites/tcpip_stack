@@ -15,6 +15,7 @@
 
 /* BGP Global Rib Names */
 #define BGP_VPN_V4_RIB_NAME "bgp.vpnv4.0"
+#define BGP_IPV4_UNICAST_RIB_NAME "bgp.ipv4.0"
 #define BGP_EVPN_RIB_NAME "bgp.evpn.0"
 #define BGP_L3EVPN_RIB_NAME "bgp.l3evpn.0"
 

@@ -59,8 +59,6 @@
  *        │  │  │  - inet3 (IPv4 LDP/SR)                      │   │   │
  *        │  │  │  - inet63 (IPv6 LDP/SR)                     │   │   │
  *        │  │  │  - mpls0 (MPLS forwarding)                  │   │   │
- *        │  │  │  - l3vpnv4 (BGP L3VPN IPv4)                │   │   │
- *        │  │  │  - l3vpnv6 (BGP L3VPN IPv6)                │   │   │
  *        │  │  │  - fib_mpls0                                │   │   │
  *        │  │  └──────────────────────────────────────────────┘   │   │
  *        │  └──────────────────────────────────────────────────────┘   │
@@ -116,45 +114,6 @@
  * ======================================================================== */
 
 /**
- * @brief Comparison function for route subscription AVL tree
- * 
- * This function is used to maintain subscriptions in sorted order
- * for efficient lookup. The comparison order is:
- * 1. Target protocol (RTM_PROTO_T)
- * 2. Target sub-protocol (RTM_SUB_PROTO_T)
- * 3. Target instance number
- * 4. Callback pointer (for unique identification)
- * 
- * @param node1 First AVL tree node
- * @param node2 Second AVL tree node
- * @return -1 if node1 < node2, 0 if equal, 1 if node1 > node2
- */
-static int
-rtm_rt_subscription_compare(const avltree_node_t *node1, const avltree_node_t *node2) {
-    
-    rtm_rt_subscription_t *sub1 = avltree_container_of(node1, rtm_rt_subscription_t, avl_glue);
-    rtm_rt_subscription_t *sub2 = avltree_container_of(node2, rtm_rt_subscription_t, avl_glue);
-    
-    /* Compare by target protocol first */
-    if (sub1->target_proto < sub2->target_proto) return -1;
-    if (sub1->target_proto > sub2->target_proto) return 1;
-    
-    /* Then by target sub-protocol */
-    if (sub1->target_sub_proto < sub2->target_sub_proto) return -1;
-    if (sub1->target_sub_proto > sub2->target_sub_proto) return 1;
-    
-    /* Then by target instance number */
-    if (sub1->target_instance_no < sub2->target_instance_no) return -1;
-    if (sub1->target_instance_no > sub2->target_instance_no) return 1;
-    
-    /* Finally by callback pointer for unique identification */
-    if ((uintptr_t)sub1->cbk < (uintptr_t)sub2->cbk) return -1;
-    if ((uintptr_t)sub1->cbk > (uintptr_t)sub2->cbk) return 1;
-    
-    return 0;
-}
-
-/**
  * @brief Free internal resources of nexthop template
  * 
  * This function cleans up dynamically allocated resources within
@@ -201,13 +160,12 @@ rtm_nh_template_free_internals (cp_nexthop_template_t *nh_template) {
  * ├─────────┼──────────────┼─────────────────────────────────┤
  * │ 0       │ Unicast      │ Main routing table (inet.0)    │
  * │ 3       │ LDP/SR       │ Label distribution (inet.3)     │
- * │ 128     │ L3VPN        │ BGP VPN routes (bgp.l3vpn.0)   │
  * └─────────┴──────────────┴─────────────────────────────────┘
  * 
  * @param node Pointer to network node
  * @param vrf_id VRF identifier (0 for default VRF)
  * @param afi Address Family (AF_IPV4, AF_IPV6, AF_LABEL)
- * @param rtm_id Routing table identifier (0, 3, or 128)
+ * @param rtm_id Routing table identifier (0 or 3)
  * 
  * @return Pointer to RTM structure, or NULL if not found
  */
@@ -225,13 +183,11 @@ rtm_get(node_t *node, uint8_t vrf_id, AFI_T afi, uint8_t rtm_id) {
         if (afi == AF_IPV4) {
             if (rtm_id == 0) return def_vrf->vrf.inet0;      /* inet.0 - Unicast */
             if (rtm_id == 3) return def_vrf->vrf.inet3;         /* inet.3 - LDP/SR */
-            if (rtm_id == 128) return def_vrf->l3vpnv4;     /* bgp.l3vpn.0 (IPv4) */
         }
         /* IPv6 routing tables */
         else if (afi == AF_IPV6) {
             if (rtm_id == 0) return def_vrf->vrf.inet6;     /* inet6.0 - Unicast */
             if (rtm_id == 3) return def_vrf->vrf.inet63;        /* inet6.3 - LDP/SR */
-            if (rtm_id == 128) return def_vrf->l3vpnv6;     /* bgp.l3vpn.0 (IPv6) */
         }
         /* MPLS/Label routing tables */
         else if (afi == AF_LABEL) {
@@ -605,18 +561,7 @@ cp_rtm_uninstall_static_route (
  * @brief Install route in RTM (with L3VPN propagation)
  * 
  * This is the main route installation function. It installs a route
- * in the specified RTM and handles L3VPN route propagation if needed.
- * 
- * L3VPN Route Propagation:
- * ┌─────────────────────────────────────────────────────────┐
- * │ When route is installed in bgp.l3vpn.0:                  │
- * │                                                          │
- * │  1. Install in default VRF's bgp.l3vpn.0                │
- * │  2. For each customer VRF with matching Import RT:      │
- * │     - Copy route to customer VRF's inet.0/inet6.0       │
- * │     - Apply VRF-specific label                           │
- * │     - Update nexthop information                         │
- * └─────────────────────────────────────────────────────────┘
+ * in the specified RTM.
  * 
  * @param rtm Pointer to routing table
  * @param prefix Route prefix
@@ -649,7 +594,6 @@ cp_rtm_install_route (
  * │ 5. If route has active nexthops, refresh them          │
  * │ 6. Remove nexthop from index tree                      │
  * │ 7. If route has 0 nexthops, delete route               │
- * │ 8. If L3VPN route, uninstall from customer VRFs        │
  * └─────────────────────────────────────────────────────────┘
  * 
  * @param rtm Pointer to routing table

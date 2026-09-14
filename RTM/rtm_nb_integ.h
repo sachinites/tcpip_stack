@@ -16,7 +16,6 @@ typedef struct rtm_ rtm_t;
 class Interface;
 typedef struct rtm_nh_proto_ rtm_nh_proto_t;
 typedef struct rtm_nh_ rtm_nh;
-typedef struct rtm_rt_subscription_ rtm_rt_subscription_t;
 typedef struct mpls_lstack_ mpls_lstack_t;
 typedef struct rt_advert_info_ rt_advert_info_t;
 typedef struct node_ node_t;

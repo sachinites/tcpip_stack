@@ -42,8 +42,8 @@
  *        │  LDP         │ IPv4  │ Default│    3     │ inet.3           │
  *        │  LDP         │ IPv6  │ Default│    3     │ inet6.3          │
  *        │  LDP         │ *     │ Custom │    -     │ NULL (not supp.) │
- *        │  BGP VPN     │ IPv4  │ Default│  128     │ bgp.l3vpn.0 (v4)│
- *        │  BGP VPN     │ IPv6  │ Default│  128     │ bgp.l3vpn.0 (v6)│
+ *        │  BGP VPN     │ IPv4  │ Custom │    0     │ vrf.inet.0       │
+ *        │  BGP VPN     │ IPv6  │ Custom │    0     │ vrf.inet6.0      │
  *        │  SR/SRTE     │ IPv4  │ Default│    3     │ inet.3           │
  *        │  SR/SRTE     │ IPv6  │ Default│    3     │ inet6.3          │
  *        │  ISIS        │ IPv4  │ *      │    0     │ inet.0/inet6.0   │
@@ -68,45 +68,12 @@
 #include "rtm_error.h"
 #include "../lmm_enums.h"
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
-#include "rtm_presentation.h"
 #include "../libs/Tracer/tracer.h"
 #include "../vrf/vrf.h"
 
 /* ========================================================================
  * NH PROTO (rtm_nh_proto_t) Management Functions
  * ======================================================================== */
-
-/**
- * @brief Comparison function for subscription database AVL tree
- * 
- * Used to maintain subscriptions in sorted order for efficient lookup.
- * Comparison order:
- * 1. Target protocol
- * 2. Target sub-protocol
- * 3. Target instance number
- * 
- * @param node1 First AVL tree node
- * @param node2 Second AVL tree node
- * @return -1 if node1 < node2, 0 if equal, 1 if node1 > node2
- */
-static int 
-rtm_subscription_db_compare_fn(
-        const avltree_node_t *node1, const avltree_node_t *node2) {
-    
-    rtm_rt_subscription_t *sub1 = avltree_container_of(node1, rtm_rt_subscription_t, avl_glue);
-    rtm_rt_subscription_t *sub2 = avltree_container_of(node2, rtm_rt_subscription_t, avl_glue);
-    
-    if (sub1->target_proto < sub2->target_proto) return -1;
-    if (sub1->target_proto > sub2->target_proto) return 1;
-    
-    if (sub1->target_sub_proto < sub2->target_sub_proto) return -1;
-    if (sub1->target_sub_proto > sub2->target_sub_proto) return 1;
-
-    if (sub1->target_instance_no < sub2->target_instance_no) return -1;
-    if (sub1->target_instance_no > sub2->target_instance_no) return 1;
-
-    return 0;
-}
 
 /**
  * @brief Create and initialize a new NH protocol info structure
@@ -473,19 +440,8 @@ rtm_nh_proto_initialize(rtm_nh_proto_t *nh_proto) {
 /**
  * @brief Create and initialize a new protocol info structure
  * 
- * Protocol Info (rtm_proto_info_t) is used for protocol registration
- * and subscription management. Each registered protocol has one
- * protocol info structure per RTM.
- * 
- * Structure:
- * ┌─────────────────────────────────────────────────────────┐
- * │ rtm_proto_info_t                                        │
- * │  - proto: RTM_PROTO_T                                   │
- * │  - instance_no: Protocol instance number                │
- * │  - vrf_id: VRF identifier                               │
- * │  - proto_glue: AVL tree node                            │
- * │  - sub_db: Subscription database (AVL tree)             │
- * └─────────────────────────────────────────────────────────┘
+ * Protocol Info (rtm_proto_info_t) is used for protocol registration.
+ * Each registered protocol has one protocol info structure per RTM.
  * 
  * @param rtm Pointer to routing table
  * @param proto Protocol type
@@ -518,9 +474,6 @@ rtm_proto_info_create(rtm_t *rtm, RTM_PROTO_T proto, uint32_t inst_no) {
     
     /* Initialize the AVL tree glue node */
     avltree_node_init (&proto_info->proto_glue);
-    
-    /* Initialize subscription database (AVL tree for efficient lookup) */
-    avltree_init (&proto_info->sub_db, rtm_subscription_db_compare_fn);
     
     return proto_info;
 }
@@ -729,7 +682,7 @@ rtm_proto_lookup(const rtm_t* rtm, RTM_PROTO_T proto, uint32_t inst_no) {
  * │ 2. Check protocol-specific rules:                      │
  * │    - LDP: Only supported in default VRF, uses inet.3   │
  * │    - STATIC: Uses inet.0/inet6.0 (default or customer) │
- * │    - BGP VPN: Uses bgp.l3vpn.0 (default VRF only)      │
+ * │    - BGP VPN: Uses customer VRF inet.0/inet6.0         │
  * │    - SR/SRTE: Uses inet.3/inet6.3 (default VRF only)   │
  * │    - ISIS: Uses inet.0/inet6.0 (any VRF)               │
  * │    - MPLS: Uses mpls.0 (default VRF only)              │
@@ -750,9 +703,9 @@ rtm_proto_lookup(const rtm_t* rtm, RTM_PROTO_T proto, uint32_t inst_no) {
  *   - VRF: Default VRF or any customer VRF
  * 
  * BGP L3VPN:
- *   - Purpose: VPN route distribution
- *   - Tables: bgp.l3vpn.0 (IPv4), bgp.l3vpn.0 (IPv6)
- *   - VRF: Default VRF only (routes then propagated to customer VRFs)
+ *   - Purpose: VPN route distribution into customer VRFs
+ *   - Tables: vrf.inet.0 (IPv4), vrf.inet6.0 (IPv6)
+ *   - VRF: Customer VRF (via BGP global RIB export / VRF-targeted install)
  * 
  * SR/SRTE (Segment Routing / SR-TE):
  *   - Purpose: Traffic engineering with segment routing
@@ -828,17 +781,9 @@ rtm_get_route_target_rtm(
     if (!is_def_vrf && afi == AF_IPV6 && proto == RTM_PROTO_STATIC)
         return vrf->inet6;
 
-    /* ====================================================================
-     * BGP L3VPN Routes
-     * ==================================================================== */
-    /* BGP L3VPN routes are only in default VRF */
-    /* IPv4 VPN routes go to bgp.l3vpn.0 (IPv4) */
-    if (is_def_vrf && afi == AF_IPV4 && proto == RTM_PROTO_BGP && sub_proto == RTM_PROTO_BGP_VPN)
-        return NODE_DEF_VRF_MEMBER(node, l3vpnv4);
-
-    /* IPv6 VPN routes go to bgp.l3vpn.0 (IPv6) */
-    if (is_def_vrf && afi == AF_IPV6 && proto == RTM_PROTO_BGP && sub_proto == RTM_PROTO_BGP_VPN)
-        return NODE_DEF_VRF_MEMBER(node, l3vpnv6);
+    /* BGP L3VPN: installed into customer VRF inet.0/inet6.0 via BGP global
+     * RIB export (or explicit VRF-targeted install). No intermediate
+     * bgp.l3vpn.0 RIB on the default VRF. */
 
     /* ====================================================================
      * SR/SRTE (Segment Routing / SR-TE) Routes

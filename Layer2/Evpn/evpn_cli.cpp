@@ -15,6 +15,9 @@
 #include "../../libs/c-hashtable/hashtable.h"
 #include "../../libs/c-hashtable/hashtable_itr.h"
 #include "../../vrf/mac_vrf.h"
+#include "../../Layer5/bgp_rtr.h"
+#include "../../Layer5/bgp_global_rib.h"
+#include "../../RTM/rtm_nb_integ.h"
 #include "evpn.h"
 #include "evpn_rt.h"
 
@@ -24,10 +27,12 @@
 /* config node <node-name> protocol l2vpn evpn instance <id> route-distinguisher <rd>*/
 #define CMDCODE_CONFIG_EVPN_IMPORT_RD 2
 
-/* config node <node-name> protocol l2vpn evpn instance <id> route-target import <rt> */
+/* config node <node-name> protocol l2vpn evpn instance <id>
+ *   import-rt <ipv4-address> <uint16> */
 #define CMDCODE_CONFIG_EVPN_IMPORT_RT 3
 
-/* config node <node-name> protocol l2vpn evpn instance <id> route-target export <rt> */
+/* config node <node-name> protocol l2vpn evpn instance <id>
+ *   export-rt <ipv4-address> <uint16> */
 #define CMDCODE_CONFIG_EVPN_EXPORT_RT 4
 
 /* config node <node-name> protocol l2vpn evpn instance <id> bridge-domain <bd-id> */
@@ -103,11 +108,29 @@ rd_validator_cbk (Stack_t *tlv_stack, unsigned char *value)
     return validate_2B_4B_format ((const char *)value);
 }
 
+/* Type-1 RT assigned number is a 16-bit integer. */
 static int
-rt_validator_cbk (Stack_t *tlv_stack, unsigned char *value)
+rt_type1_assigned_validator_cbk(Stack_t *tlv_stack, unsigned char *value)
 {
+    char *endptr;
+    unsigned long v;
+
     (void)tlv_stack;
-    return validate_2B_4B_format ((const char *)value);
+
+    if (!value || !*value) {
+        return LEAF_VALIDATION_FAILED;
+    }
+
+    errno = 0;
+    v = strtoul((const char *)value, &endptr, 10);
+    if (errno || endptr == (const char *)value || *endptr != '\0') {
+        return LEAF_VALIDATION_FAILED;
+    }
+    if (v > 0xFFFFUL) {
+        return LEAF_VALIDATION_FAILED;
+    }
+
+    return LEAF_VALIDATION_SUCCESS;
 }
 
 static bool
@@ -292,7 +315,8 @@ evpn_config_handler (int64_t cmdcode,
     tlv_struct_t *tlv;
     c_string node_name = NULL;
     c_string rd_str = NULL;
-    c_string rt_str = NULL;
+    c_string rt_ip = NULL;
+    c_string rt_assigned = NULL;
     uint8_t evpn_id = 0;
     uint32_t bd_id = 0;
     bool evpn_id_present = false;
@@ -308,8 +332,12 @@ evpn_config_handler (int64_t cmdcode,
         }
         else if (parser_match_leaf_id (tlv->leaf_id, "rd"))
             rd_str = tlv->value;
-        else if (parser_match_leaf_id (tlv->leaf_id, "rt"))
-            rt_str = tlv->value;
+        else if (parser_match_leaf_id (tlv->leaf_id, "import-rt-ip") ||
+                 parser_match_leaf_id (tlv->leaf_id, "export-rt-ip"))
+            rt_ip = tlv->value;
+        else if (parser_match_leaf_id (tlv->leaf_id, "import-rt-asn") ||
+                 parser_match_leaf_id (tlv->leaf_id, "export-rt-asn"))
+            rt_assigned = tlv->value;
         else if (parser_match_leaf_id (tlv->leaf_id, "bd-id"))
             bd_id = (uint32_t)atoi ((const char *)tlv->value);
 
@@ -399,35 +427,125 @@ evpn_config_handler (int64_t cmdcode,
         case CMDCODE_CONFIG_EVPN_IMPORT_RT:
         case CMDCODE_CONFIG_EVPN_EXPORT_RT:
         {
-            rt_t rt;
+            rt_t new_rt;
             bool import = (cmdcode == CMDCODE_CONFIG_EVPN_IMPORT_RT);
-#if 0
-            if (!rt_str || !parse_2b_4b ((const char *)rt_str, &rt.asn, &rt.number)) {
-                cprintf ("Error : Invalid route-target format\n");
+
+            if (!rt_ip || !rt_assigned) {
+                cprintf ("Error : Type-1 %s requires "
+                         "<ipv4-address> <uint16>\n",
+                         import ? "import-rt" : "export-rt");
                 return -1;
             }
-#endif
+
+            rt_type1_fill(&new_rt,
+                          ip_pton((c_string)rt_ip),
+                          (uint16_t)strtoul((const char *)rt_assigned,
+                                            NULL, 10));
+
             switch (enable_or_disable) {
 
                 case CONFIG_ENABLE:
-                    evpn_inst = evpn_get_instance (node, evpn_id, true);
-                    if (!evpn_inst)
+                    evpn_inst = evpn_get_instance (node, evpn_id, false);
+                    if (!evpn_inst) {
+                        cprintf ("Error : EVPN instance %u does not exist\n",
+                                 evpn_id);
                         return -1;
-                    if (!evpn_config_rt (evpn_inst, rt, import)) {
-                        cprintf ("Error : Failed to configure route-target\n");
-                        return -1;
+                    }
+
+                    if (import) {
+                        if (evpn_inst->import_rt.rtr_id == new_rt.rtr_id &&
+                            evpn_inst->import_rt.vrf_id == new_rt.vrf_id &&
+                            evpn_inst->import_rt.type == new_rt.type) {
+                            return 0;
+                        }
+
+                        evpn_inst->import_rt = new_rt;
+
+                        if (evpn_inst->mac_vrf) {
+                            mac_vrf_flush_remote_bgp_routes(evpn_inst->mac_vrf);
+                            if (BGP_INST(node)) {
+                                bgp_global_rib_export_all(
+                                    BGP_INST(node),
+                                    AFI_L2VPN,
+                                    SAFI_MPLS_EVPN,
+                                    evpn_inst->evi);
+                            }
+                        }
+                    } else {
+                        if (evpn_inst->export_rt.rtr_id == new_rt.rtr_id &&
+                            evpn_inst->export_rt.vrf_id == new_rt.vrf_id &&
+                            evpn_inst->export_rt.type == new_rt.type) {
+                            return 0;
+                        }
+
+                        evpn_inst->export_rt = new_rt;
                     }
                     break;
 
                 case CONFIG_DISABLE:
                     evpn_inst = evpn_get_instance (node, evpn_id, false);
                     if (!evpn_inst) {
-                        cprintf ("Error : EVPN instance %u does not exist\n", evpn_id);
+                        cprintf ("Error : EVPN instance %u does not exist\n",
+                                 evpn_id);
                         return -1;
                     }
-                    if (!evpn_unconfig_rt (evpn_inst, rt, import)) {
-                        cprintf ("Error : Mis-matched Route Target value specified\n");
-                        return -1;
+
+                    if (import) {
+                        if (evpn_inst->import_rt.rtr_id == 0 &&
+                            evpn_inst->import_rt.vrf_id == 0) {
+                            return 0;
+                        }
+
+                        if (new_rt.rtr_id != evpn_inst->import_rt.rtr_id ||
+                            new_rt.vrf_id != evpn_inst->import_rt.vrf_id) {
+                            cprintf ("Error : Mis-matched Route Import value "
+                                     "specified\n");
+                            return -1;
+                        }
+
+                        /* Restore default Type-1 RT (0:<bd-id>) when BD attached */
+                        if (evpn_inst->bd_intf) {
+                            rt_type1_fill(&evpn_inst->import_rt,
+                                          0,
+                                          (uint16_t)evpn_inst->bd_intf->bd_id);
+                        } else {
+                            evpn_inst->import_rt.rtr_id = 0;
+                            evpn_inst->import_rt.sub_type = 0;
+                            evpn_inst->import_rt.vrf_id = 0;
+                        }
+
+                        if (evpn_inst->mac_vrf) {
+                            mac_vrf_flush_remote_bgp_routes(evpn_inst->mac_vrf);
+                            if (BGP_INST(node)) {
+                                bgp_global_rib_export_all(
+                                    BGP_INST(node),
+                                    AFI_L2VPN,
+                                    SAFI_MPLS_EVPN,
+                                    evpn_inst->evi);
+                            }
+                        }
+                    } else {
+                        if (evpn_inst->export_rt.rtr_id == 0 &&
+                            evpn_inst->export_rt.vrf_id == 0) {
+                            return 0;
+                        }
+
+                        if (new_rt.rtr_id != evpn_inst->export_rt.rtr_id ||
+                            new_rt.vrf_id != evpn_inst->export_rt.vrf_id) {
+                            cprintf ("Error : Mis-matched Route Export value "
+                                     "specified\n");
+                            return -1;
+                        }
+
+                        if (evpn_inst->bd_intf) {
+                            rt_type1_fill(&evpn_inst->export_rt,
+                                          0,
+                                          (uint16_t)evpn_inst->bd_intf->bd_id);
+                        } else {
+                            evpn_inst->export_rt.rtr_id = 0;
+                            evpn_inst->export_rt.sub_type = 0;
+                            evpn_inst->export_rt.vrf_id = 0;
+                        }
                     }
                     break;
 
@@ -597,36 +715,56 @@ evpn_config_cli_tree (param_t *param)
                         }
                     }
                     {
-                        static param_t route_target;
-                        init_param (&route_target, CMD, "route-target", 0, 0, INVALID, 0,
-                                    "Route Target");
-                        libcli_register_param (&evpn_id, &route_target);
+                        /* config ... evpn instance <id> import-rt
+                         *   <ipv4-address> <uint16> */
+                        static param_t import_rt;
+                        init_param (&import_rt, CMD, "import-rt", NULL, NULL,
+                                    INVALID, NULL,
+                                    "Import Route-Target (Type-1)");
+                        libcli_register_param (&evpn_id, &import_rt);
                         {
-                            static param_t import_kw;
-                            init_param (&import_kw, CMD, "import", 0, 0, INVALID, 0,
-                                        "Import Route-Target");
-                            libcli_register_param (&route_target, &import_kw);
+                            static param_t import_rt_ip;
+                            init_param (&import_rt_ip, LEAF, NULL, 0, 0, IPV4,
+                                        "import-rt-ip",
+                                        "Type-1 RT administrator (IPv4 address)");
+                            libcli_register_param (&import_rt, &import_rt_ip);
                             {
-                                static param_t import_rt;
-                                init_param (&import_rt, LEAF, NULL, evpn_config_handler,
-                                            rt_validator_cbk, STRING, "rt",
-                                            "RT value in <2B:4B> fmt");
-                                libcli_register_param (&import_kw, &import_rt);
-                                libcli_set_param_cmd_code (&import_rt, CMDCODE_CONFIG_EVPN_IMPORT_RT);
+                                static param_t import_rt_asn;
+                                init_param (&import_rt_asn, LEAF, NULL,
+                                            evpn_config_handler,
+                                            rt_type1_assigned_validator_cbk, INT,
+                                            "import-rt-asn",
+                                            "Type-1 RT assigned number (0-65535)");
+                                libcli_register_param (&import_rt_ip, &import_rt_asn);
+                                libcli_set_param_cmd_code (&import_rt_asn,
+                                                           CMDCODE_CONFIG_EVPN_IMPORT_RT);
                             }
                         }
+                    }
+                    {
+                        /* config ... evpn instance <id> export-rt
+                         *   <ipv4-address> <uint16> */
+                        static param_t export_rt;
+                        init_param (&export_rt, CMD, "export-rt", NULL, NULL,
+                                    INVALID, NULL,
+                                    "Export Route-Target (Type-1)");
+                        libcli_register_param (&evpn_id, &export_rt);
                         {
-                            static param_t export_kw;
-                            init_param (&export_kw, CMD, "export", 0, 0, INVALID, 0,
-                                        "Export Route-Target");
-                            libcli_register_param (&route_target, &export_kw);
+                            static param_t export_rt_ip;
+                            init_param (&export_rt_ip, LEAF, NULL, 0, 0, IPV4,
+                                        "export-rt-ip",
+                                        "Type-1 RT administrator (IPv4 address)");
+                            libcli_register_param (&export_rt, &export_rt_ip);
                             {
-                                static param_t export_rt;
-                                init_param (&export_rt, LEAF, NULL, evpn_config_handler,
-                                            rt_validator_cbk, STRING, "rt",
-                                            "RT value in <2B:4B> fmt");
-                                libcli_register_param (&export_kw, &export_rt);
-                                libcli_set_param_cmd_code (&export_rt, CMDCODE_CONFIG_EVPN_EXPORT_RT);
+                                static param_t export_rt_asn;
+                                init_param (&export_rt_asn, LEAF, NULL,
+                                            evpn_config_handler,
+                                            rt_type1_assigned_validator_cbk, INT,
+                                            "export-rt-asn",
+                                            "Type-1 RT assigned number (0-65535)");
+                                libcli_register_param (&export_rt_ip, &export_rt_asn);
+                                libcli_set_param_cmd_code (&export_rt_asn,
+                                                           CMDCODE_CONFIG_EVPN_EXPORT_RT);
                             }
                         }
                     }
@@ -652,7 +790,7 @@ evpn_config_cli_tree (param_t *param)
 }
 
 static void
-evpn_print_type2_route (evpn_rt_t *evpn_rt,
+evpn_print_type2_route (evpn_exp_rt_t *evpn_rt,
                         uint32_t bd_id,
                         uint32_t bd_label)
 {
@@ -744,7 +882,7 @@ evpn_show_mac_routes (evpn_inst_t *evpn_inst, mac_addr_t *mac_filter)
     BDInterface *bd_intf;
     mac_vrf_t *mac_vrf;
     struct hashtable_itr *itr;
-    evpn_rt_t *evpn_rt;
+    evpn_exp_rt_t *evpn_rt;
     uint32_t count = 0;
 
     bd_intf = evpn_inst->bd_intf.get();
@@ -768,7 +906,7 @@ evpn_show_mac_routes (evpn_inst_t *evpn_inst, mac_addr_t *mac_filter)
     cprintf ("--------------------------------------------------------------------------------------\n");
 
     if (mac_filter) {
-        evpn_rt = (evpn_rt_t *)hashtable_search(mac_vrf->type2_rib, mac_filter);
+        evpn_rt = (evpn_exp_rt_t *)hashtable_search(mac_vrf->type2_rib, mac_filter);
         if (evpn_rt) {
             evpn_print_type2_route(evpn_rt, bd_intf->bd_id,
                                    bd_intf->vpn_svc_label);
@@ -786,7 +924,7 @@ evpn_show_mac_routes (evpn_inst_t *evpn_inst, mac_addr_t *mac_filter)
         }
 
         do {
-            evpn_rt = (evpn_rt_t *)hashtable_iterator_value(itr);
+            evpn_rt = (evpn_exp_rt_t *)hashtable_iterator_value(itr);
             if (evpn_rt) {
                 evpn_print_type2_route(evpn_rt, bd_intf->bd_id,
                                        bd_intf->vpn_svc_label);

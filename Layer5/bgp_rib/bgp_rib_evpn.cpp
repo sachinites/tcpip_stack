@@ -1,9 +1,21 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../../libs/Tracer/tracer.h"
+
 #include "bgp_rib_evpn.h"
 #include "bgp_nlri_key.h"
 #include "bgp_nlri_wire.h"
+
+#include "../bgp_route.h"
+#include "../bgp_rtr.h"
+#include "../bgp_enums.h"
+#include "../../Layer2/Evpn/evpn.h"
+#include "../../Layer2/Evpn/evpn_enums.h"
+#include "../../router_init.h"
+#include "../../tcpconst.h"
+#include "../../utils.h"
+#include "../../vrf/mac_vrf.h"
 
 static void
 encode_rd_type1(const rd_t *rd, uint8_t out[8])
@@ -304,7 +316,7 @@ bgp_evpn_nlri_format_compact(const bgp_nlri_key_t *key,
 bgp_rib_err_t
 bgp_evpn_nlri_to_evpn_rt(const bgp_evpn_nlri_t *nlri,
                          uint32_t vtep_ip,
-                         evpn_rt_t *evpn_rt_out)
+                         evpn_exp_rt_t *evpn_rt_out)
 {
     if (!nlri || !evpn_rt_out) {
         return BGP_RIB_ERR_NULL;
@@ -391,4 +403,209 @@ bgp_evpn_rib_route_lookup(const bgp_rib_t *rib,
     }
 
     return bgp_rib_route_lookup(rib, &key);
+}
+
+static bool
+bgp_evpn_route_parse_nexthop(const char *nexthop, uint32_t *vtep_ip_out)
+{
+    char nh_addr[64];
+    char *slash;
+
+    if (!nexthop || !vtep_ip_out || nexthop[0] == '\0') {
+        return false;
+    }
+
+    strncpy(nh_addr, nexthop, sizeof(nh_addr) - 1);
+    nh_addr[sizeof(nh_addr) - 1] = '\0';
+
+    slash = strchr(nh_addr, '/');
+    if (slash) {
+        *slash = '\0';
+    }
+
+    *vtep_ip_out = ip_pton((c_string)nh_addr);
+    return (*vtep_ip_out != 0);
+}
+
+static bool
+bgp_evpn_import_rt_matches(evpn_inst_t *evpn_inst, const rt_t *route_rt)
+{
+    if (!evpn_inst || !route_rt) {
+        return false;
+    }
+
+    if (!evpn_inst->import_rt.rtr_id && !evpn_inst->import_rt.vrf_id) {
+        return false;
+    }
+
+    return evpn_inst->import_rt.rtr_id == route_rt->rtr_id &&
+           evpn_inst->import_rt.vrf_id == route_rt->vrf_id;
+}
+
+static void
+bgp_evpn_format_mac(const mac_addr_t *mac, char *buf, size_t buflen)
+{
+    snprintf(buf, buflen,
+             "%02x:%02x:%02x:%02x:%02x:%02x",
+             mac->mac[0], mac->mac[1], mac->mac[2],
+             mac->mac[3], mac->mac[4], mac->mac[5]);
+}
+
+static void
+bgp_evpn_install_to_mac_vrf(mac_vrf_t *mac_vrf,
+                            const bgp_evpn_nlri_t *nlri,
+                            uint32_t vtep_ip,
+                            uint32_t label,
+                            bool is_add)
+{
+    if (!mac_vrf || !nlri) {
+        return;
+    }
+
+    if (nlri->route_type != EVPN_RT_TYPE_MAC_ONLY) {
+        return;
+    }
+
+    if (is_add) {
+        mac_vrf_evpn_route_type2_remote_import(mac_vrf,
+                                             (mac_addr_t *)&nlri->mac,
+                                             vtep_ip,
+                                             label);
+    } else {
+        mac_vrf_evpn_route_type2_remote_delete(mac_vrf,
+                                               (mac_addr_t *)&nlri->mac);
+    }
+}
+
+void
+bgp_global_rib_export_evpn_route_cb(void *ctx,
+                                    uint8_t afi,
+                                    uint8_t safi,
+                                    bgp_nlri_key_t *key,
+                                    bgp_rib_attrs_t *attrs,
+                                    bool is_add,
+                                    uint16_t target_evi)
+{
+    int i;
+    char mac_str[32];
+    char nh_str[16];
+    rt_t import_rt;
+    uint32_t vtep_ip = 0;
+    uint32_t label = 0;
+    bgp_evpn_nlri_t nlri;
+    evpn_inst_t *evpn_inst;
+    bgp_inst_t *bgp_inst = (bgp_inst_t *)ctx;
+    node_t *node = bgp_inst->node;
+
+    if (!node || !key || !attrs) {
+        return;
+    }
+
+    {
+        uint32_t nh_int = ip_pton((c_string)attrs->nexthop);
+        if (nh_int == 0 || nh_int == NODE_RTR_ID_INT(node)) {
+            return;
+        }
+    }
+
+    if (bgp_evpn_nlri_decode(key, &nlri) != BGP_RIB_OK) {
+        return;
+    }
+
+    if (nlri.route_type != EVPN_RT_TYPE_MAC_ONLY) {
+        return;
+    }
+
+    if (is_add && !attrs->best) {
+        return;
+    }
+
+    if (!bgp_route_parse_rt_string(attrs->import_rt, &import_rt)) {
+        tracer(bgp_inst->tr, DRTM | DERR,
+               "%s : [%s] : Failed to parse import RT for EVPN route, "
+               "%sInstallation Failed\n",
+               BGP_RTM_IM, BGP_EVPN_RIB_NAME,
+               is_add ? "" : "Un");
+        return;
+    }
+
+    if (is_add &&
+        !bgp_evpn_route_parse_nexthop(attrs->nexthop, &vtep_ip)) {
+        tracer(bgp_inst->tr, DRTM | DERR,
+               "%s : [%s] : Failed to parse VTEP nexthop, "
+               "%sInstallation Failed\n",
+               BGP_RTM_IM, BGP_EVPN_RIB_NAME,
+               is_add ? "" : "Un");
+        return;
+    }
+
+    if (nlri.label_present && nlri.label) {
+        label = nlri.label;
+    } else if (attrs->evpn_label1_present) {
+        label = attrs->evpn_label1;
+    }
+
+    bgp_evpn_format_mac(&nlri.mac, mac_str, sizeof(mac_str));
+    if (is_add) {
+        ip_ntop(vtep_ip, (c_string)nh_str);
+    } else {
+        nh_str[0] = '\0';
+    }
+
+    tracer(bgp_inst->tr, DRTM_DET,
+           "%s : [%s] : Route %s, nh %s label %u, op=%s\n",
+           BGP_RTM_IM, BGP_EVPN_RIB_NAME, mac_str,
+           is_add ? nh_str : "-", label,
+           is_add ? "Add" : "Del");
+
+    tracer(node->cptr, DRTM_DET,
+           "%s : [%s] : Route %s, nh %s label %u, op=%s\n",
+           BGP_RTM_IM, BGP_EVPN_RIB_NAME, mac_str,
+           is_add ? nh_str : "-", label,
+           is_add ? "Add" : "Del");
+
+    if (target_evi == 0) {
+        for (i = 0; i < MAX_EVPN_INDEX; i++) {
+            evpn_inst = node->evpn[i];
+            if (!evpn_inst || !evpn_inst->mac_vrf) {
+                continue;
+            }
+
+            if (!bgp_evpn_import_rt_matches(evpn_inst, &import_rt)) {
+                continue;
+            }
+
+            bgp_evpn_install_to_mac_vrf(evpn_inst->mac_vrf,
+                                        &nlri, vtep_ip, label, is_add);
+
+            tracer(node->cptr, DRTM_DET,
+                   "EVPN[%u] : Type-2 MAC %s %sInstalled into MAC VRF %u\n",
+                   evpn_inst->evi, mac_str,
+                   is_add ? "" : "Un",
+                   evpn_inst->mac_vrf->mac_vrf_id);
+        }
+        return;
+    }
+
+    if (target_evi >= MAX_EVPN_INDEX) {
+        return;
+    }
+
+    evpn_inst = node->evpn[target_evi];
+    if (!evpn_inst || !evpn_inst->mac_vrf) {
+        return;
+    }
+
+    if (!bgp_evpn_import_rt_matches(evpn_inst, &import_rt)) {
+        return;
+    }
+
+    bgp_evpn_install_to_mac_vrf(evpn_inst->mac_vrf,
+                                &nlri, vtep_ip, label, is_add);
+
+    tracer(node->cptr, DRTM_DET,
+           "EVPN[%u] : Type-2 MAC %s %sInstalled into MAC VRF %u\n",
+           evpn_inst->evi, mac_str,
+           is_add ? "" : "Un",
+           evpn_inst->mac_vrf->mac_vrf_id);
 }

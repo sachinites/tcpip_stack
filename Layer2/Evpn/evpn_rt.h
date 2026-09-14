@@ -13,6 +13,7 @@
 #define EVPN_RT_F_LOCAL  1
 #define EVPN_RT_F_REMOTE 2
 
+/* This structure is used to export evpn route details to GoBGP */
 typedef struct evpn_rt_ {
 
     /* What is route type */
@@ -45,7 +46,7 @@ typedef struct evpn_rt_ {
         /* Route type 5 will go in RTM */
     } u;
 
-} evpn_rt_t;
+} evpn_exp_rt_t;
 
 #pragma pack(pop)
 

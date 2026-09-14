@@ -29,9 +29,6 @@ typedef struct mac_vrf_ {
     
     // ToDo : Evpn Imet RIB
 
-    // RIB of Type 5 EVPN Routes are not functionally distinguishable from
-    // l3 vpn routes. So, they will go in def_vrf->l3evpnv4 rtm.
-
 } mac_vrf_t;
 
 #pragma pack(pop)
@@ -68,6 +65,9 @@ void
 mac_vrf_evpn_route_type2_remote_delete(
         mac_vrf_t *mac_vrf,
         mac_addr_t *mac_addr);
+
+void
+mac_vrf_flush_remote_bgp_routes(mac_vrf_t *mac_vrf);
 
 rtm_t *
 mac_vrf_get_rtm (node_t *node, uint16_t mac_vrf_id);

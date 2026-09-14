@@ -15,6 +15,8 @@
 #include "../../../layer3.h"
 #include "../../../../tcpconst.h"
 #include "../../../../libs/common/ipv6_utils.h"
+#include "../../../../vrf/vrf.h"
+#include "../../../../libs/LinuxMemoryManager/uapi_mm.h"
 
 void
 srv6_rtm_route_install (vrf_t *vrf,
@@ -202,16 +204,8 @@ srv6_rtm_route_install_vpnv4 (node_t *node,
     cmn_prefix_t gateway;
     cmn_prefix_initialize_v6(&gateway, (uint8_t (*)[16])v6_raw.s6_addr, 128);
 
-    /* SRv6 L3VPN routes land in the default VRF's VPNv4 RIB (bgp.l3vpn.0),
-     * exactly like plain BGP VPNv4 routes.  The only difference is that the
-     * next-hop is an IPv6 SRv6 SID rather than an MPLS-labelled IPv4 address. */
-    rtm_t *rtm = NODE_DEF_VRF_MEMBER(node, l3vpnv4);
-    
-    if (!rtm) {
-        cprintf("Error: l3vpnv4 RIB not initialised on node %s\n", node->node_name);
-        return -1;
-    }
-
+    /* SRv6 L3VPN routes install directly into customer VRF inet.0 tables
+     * (same destination as BGP VPNv4 export). No intermediate bgp.l3vpn.0. */
     memset(&nh_template, 0, sizeof(cp_nexthop_template_t));
     nh_template.is_indirect = true;
     nh_template.is_resolved = false;
@@ -258,15 +252,38 @@ srv6_rtm_route_install_vpnv4 (node_t *node,
     nh_template.rtm_nh_proto->instance_no = 0;
     nh_template.rtm_nh_proto->vrf_id = DEFAULT_VRF;
 
-    /* (Un)Install route using new RTM API */
-    rc = install ? cp_rtm_install_route(rtm, &prefix_key, &nh_template) : \
-                   cp_rtm_uninstall_route(rtm, &prefix_key, &nh_template);
+    {
+        int i;
+        int installed = 0;
 
-    if (rc != RTM_SUCCESS) {
+        for (i = 1; i < MAX_VRF_PER_NODE; i++) {
+            vrf_t *vrf = node->vrf[i];
+            rtm_t *rtm;
 
-        cprintf("%s : Warning: SRv6 route %sinstallation failed for prefix %s, error code: %s\n",
-               rtm->node->node_name, install ? "" : "(Un-)", 
-	           prefix_mask, rtm_error_to_string(rc));
+            if (!vrf || !vrf->inet0) continue;
+
+            rtm = vrf->inet0;
+            nh_template.rtm_nh_proto->vrf_id = vrf->vrf_id;
+
+            rc = install ? cp_rtm_install_route(rtm, &prefix_key, &nh_template) :
+                           cp_rtm_uninstall_route(rtm, &prefix_key, &nh_template);
+
+            if (rc != RTM_SUCCESS) {
+                cprintf("%s : Warning: SRv6 route %sinstallation failed for "
+                        "prefix %s in VRF %s, error code: %s\n",
+                        node->node_name, install ? "" : "(Un-)",
+                        prefix_mask, vrf->vrf_name, rtm_error_to_string(rc));
+            } else {
+                installed++;
+            }
+        }
+
+        if (!installed) {
+            cprintf("Error: no customer VRF to install SRv6 L3VPN route on node %s\n",
+                    node->node_name);
+            rtm_nh_template_free_internals(&nh_template);
+            return -1;
+        }
     }
 
     /* Destroy nexthop template resources */
