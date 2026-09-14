@@ -191,6 +191,68 @@ send_arp_broadcast_request(dp_ctx_t *dp_ctx,
     pkt_mbuf_dereference(mbuf);
 }
 
+void
+send_arp_broadcast_request_direct(dp_ctx_t *dp_ctx,
+                                  dp_intf_t *oif,
+                                  uint32_t target_ip,
+                                  uint32_t src_ip,
+                                  const mac_addr_t *src_mac)
+{
+    pkt_size_t pkt_size;
+    char target_str[16];
+    char src_str[16];
+
+    ASSERT_ON_DP_EV_DIS(dp_ctx);
+
+    if (!dp_ctx || !oif || !src_mac) {
+        return;
+    }
+
+    ip_ntop(target_ip, target_str);
+    ip_ntop(src_ip, src_str);
+
+    struct rte_mbuf *mbuf = dp_pkt_mbuf_get_new(
+        dp_ctx,
+        sizeof(ethernet_hdr_t) + sizeof(arp_hdr_t) + ETH_FCS_SIZE);
+
+    if (!mbuf) {
+        return;
+    }
+
+    pkt_mbuf_assign_pkt_id(mbuf);
+
+    ethernet_hdr_t *eth = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+
+    layer2_fill_with_broadcast_mac(eth->dst_mac.mac);
+    memcpy(eth->src_mac.mac, src_mac->mac, MAC_ADDR_SIZE);
+    SET_COMMON_ETH_HDR_TYPE(eth, ETH_TYPE_ARP);
+
+    arp_hdr_t *arp = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth);
+    arp->hw_type        = htons(0x1);
+    arp->proto_type     = htons(ETH_TYPE_IPv4);
+    arp->hw_addr_len    = MAC_ADDR_SIZE;
+    arp->proto_addr_len = 4;
+    arp->op_code        = htons(ARP_BROAD_REQ);
+    memcpy(arp->src_mac.mac, src_mac->mac, MAC_ADDR_SIZE);
+    arp->src_ip = htonl(src_ip);
+    memset(arp->dst_mac.mac, 0, MAC_ADDR_SIZE);
+    arp->dst_ip = htonl(target_ip);
+    SET_COMMON_ETH_FCS(eth, sizeof(arp_hdr_t), 0);
+
+    pkt_mbuf_update_new_hdr_type(mbuf, ETHERNET_HEADER);
+
+    pkt_tracer(mbuf, dp_ctx->dptr, DARP,
+               "CLI ARP Request: who-has %s tell %s "
+               "(%02x:%02x:%02x:%02x:%02x:%02x) out %s via send_xmit_out\n",
+               target_str, src_str,
+               src_mac->mac[0], src_mac->mac[1], src_mac->mac[2],
+               src_mac->mac[3], src_mac->mac[4], src_mac->mac[5],
+               oif->if_name);
+
+    send_xmit_out(oif, mbuf);
+    pkt_mbuf_dereference(mbuf);
+}
+
 /* -------------------------------------------------------------------------
  * ARP reply
  * ---------------------------------------------------------------------- */

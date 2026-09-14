@@ -6,22 +6,20 @@ Local Route to BGP Advertisement:
 bd_recv_mac_learning_cbk
     mac_vrf_evpn_route_type2_local_import
         evpn_route_export_to_bgp
-            bgp_evpn_type2_route_update
                 bgp_route_apply_to_gobgp
                     sf_gobgp_add_route
                         client->client.AddRoute(to_cpp_route_params(params));
 
 Recvd From BGP to RTM installation:
 ==================================
-bgp_monitor_recv_evpn_route_processing_cbk
-    bgp_schedule_evpn_route_processing_job
-        bgp_schedule_route_processing_job_common
-            bgp_route_pkt_q_cbk
-                bgp_evpn_remote_route_install
-                    mac_vrf_evpn_route_type2_remote_import
-                        cp_rtm_install_route_advanced
-                            rtm_l2_fib_update
-                                cp2dp_bd_mac_table_entry_add_mpls
+GoBGP --> BGP EVPN global RIB --> Mac VRF RIBs ----> RTM ----> L2 FIB 
+
+bgp_monitor_recv_global_rib_cbk
+    pkt_q_enqueue
+        bgp_global_rib_export_evpn_route_cb
+            bgp_evpn_install_to_mac_vrf
+                mac_vrf_evpn_route_type2_remote_import
+                mac_vrf_evpn_route_type2_remote_delete
 
 
 Recvd from BGP to Global RIB :
@@ -42,15 +40,19 @@ bgp_monitor_recv_global_rib_cbk
 ==================================
 
 Installation of remote MAC routes :
-    BGP          show node R3 protocol bgp routes l2vpn-evpn mac
+
+  GoBGP          show node R3 protocol bgp routes l2vpn-evpn mac
     |             PE Recvd - Entry point
     |
+  --|--------------------SoftFireWall Begins here ----------------------------
+    |
     V 
-    MAC VRF Global RIB 
+    EVPN Global RIB 
+    |             show node R3 protocol bgp global-rib l2vpn-evpn
     |             Global RIB of EVPN MAC routes, Redistribute to MAC VRFs based on RT
     |
     V
-    MAC VRF RIB  show node R3 protocol l2vpn evpn instance 0 mac-routes
+    MAC VRF RIB  show node R3 protocol l2vpn evpn instance 1 mac-routes
     |             Aggregation of EVPN MAC routes based on RTs 
     |
     V

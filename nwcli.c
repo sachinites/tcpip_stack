@@ -361,6 +361,11 @@ extern "C" {
 void dp_show_mac_table_sync(dp_ctx_t *dp_ctx, uint16_t vlan_id);
 void dp_arp_cli_resolve_sync(dp_ctx_t *dp_ctx, dp_vrf_t *vrf,
                              uint32_t ip_addr);
+void dp_arp_cli_resolve_ex_sync(dp_ctx_t *dp_ctx,
+                                uint32_t target_ip,
+                                uint32_t src_ip,
+                                const uint8_t src_mac[6],
+                                uint32_t ifindex);
 }
 
 static int
@@ -407,9 +412,16 @@ arp_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 op_mode enable_or_disable){
 
     node_t *node;
-    c_string node_name;
-    c_string ip_addr_str;
+    c_string node_name = NULL;
+    c_string ip_addr_str = NULL;
+    c_string src_ip_str = NULL;
+    c_string src_mac_str = NULL;
+    c_string if_name = NULL;
     tlv_struct_t *tlv = NULL;
+    Interface *intf;
+    mac_addr_t src_mac;
+    uint32_t target_ip;
+    uint32_t src_ip;
 
     TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
 
@@ -417,14 +429,56 @@ arp_handler(int64_t cmdcode, Stack_t *tlv_stack,
             node_name = tlv->value;
         else if(parser_match_leaf_id(tlv->leaf_id, "ip-address"))
             ip_addr_str = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "source-ip-address"))
+            src_ip_str = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "src-mac"))
+            src_mac_str = tlv->value;
+        else if(parser_match_leaf_id(tlv->leaf_id, "if-name"))
+            if_name = tlv->value;
     } TLV_LOOP_END;
 
+    if (!node_name || !ip_addr_str) {
+        cprintf("Error : node-name and ip-address required\n");
+        return -1;
+    }
+
     node = node_get_node_by_name(topo, node_name);
+    if (!node || !node->dp_ctx) {
+        cprintf("Error : Node %s not found\n", node_name);
+        return -1;
+    }
 
-    uint32_t ip_addr = ip_pton(ip_addr_str);
+    target_ip = ip_pton(ip_addr_str);
 
-    /* Route ARP resolve through dp_ev_dis (single-writer thread) */
-    dp_arp_cli_resolve_sync(node->dp_ctx, node->dp_ctx->default_vrf, ip_addr);
+    if (cmdcode == CMDCODE_RUN_ARP_EX) {
+        if (!src_ip_str || !src_mac_str || !if_name) {
+            cprintf("Error : source-ip-address, src-mac and interface required\n");
+            return -1;
+        }
+
+        if (sscanf((const char *)src_mac_str,
+                   "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                   &src_mac.mac[0], &src_mac.mac[1], &src_mac.mac[2],
+                   &src_mac.mac[3], &src_mac.mac[4], &src_mac.mac[5]) != 6) {
+            cprintf("Error : Failed to parse MAC address %s\n", src_mac_str);
+            return -1;
+        }
+
+        intf = node_interface_lookup_by_name(node, (const char *)if_name);
+        if (!intf) {
+            cprintf("Error : Interface %s not found on node %s\n",
+                    if_name, node_name);
+            return -1;
+        }
+
+        src_ip = ip_pton(src_ip_str);
+        dp_arp_cli_resolve_ex_sync(node->dp_ctx, target_ip, src_ip,
+                                   src_mac.mac, intf->ifindex);
+        return 0;
+    }
+
+    /* Legacy: resolve-arp <ip> only */
+    dp_arp_cli_resolve_sync(node->dp_ctx, node->dp_ctx->default_vrf, target_ip);
 
     return 0;
 }
@@ -1488,16 +1542,57 @@ nw_init_cli(){
             }
 
             {
-                /*run node <node-name> resolve-arp*/    
+                /*run node <node-name> resolve-arp <ip-address>
+                 *         [source-ip-address <ip> src-mac <mac> interface <if-name>] */
                 static param_t resolve_arp;
                 init_param(&resolve_arp, CMD, "resolve-arp", 0, 0, INVALID, 0, "Resolve ARP");
                 libcli_register_param(&node_name, &resolve_arp);
                 {
-                    /*run node <node-name> resolve-arp <ip-address>*/    
+                    /*run node <node-name> resolve-arp <ip-address>*/
                     static param_t ip_addr;
                     init_param(&ip_addr, LEAF, 0, arp_handler, 0, IPV4, "ip-address", "Nbr IPv4 Address");
                     libcli_register_param(&resolve_arp, &ip_addr);
                     libcli_set_param_cmd_code(&ip_addr, CMDCODE_RUN_ARP);
+                    {
+                        /* ... source-ip-address <ip> */
+                        static param_t source_ip_address;
+                        init_param(&source_ip_address, CMD, "source-ip-address", 0, 0, INVALID, 0,
+                                   "Source IPv4 address for ARP request");
+                        libcli_register_param(&ip_addr, &source_ip_address);
+                        {
+                            static param_t src_ip;
+                            init_param(&src_ip, LEAF, 0, 0, 0, IPV4, "source-ip-address",
+                                       "Source IPv4 Address");
+                            libcli_register_param(&source_ip_address, &src_ip);
+                            {
+                                /* ... src-mac <mac> */
+                                static param_t src_mac_kw;
+                                init_param(&src_mac_kw, CMD, "src-mac", 0, 0, INVALID, 0,
+                                           "Source MAC address for ARP request");
+                                libcli_register_param(&src_ip, &src_mac_kw);
+                                {
+                                    static param_t src_mac;
+                                    init_param(&src_mac, LEAF, 0, 0, 0, MAC, "src-mac",
+                                               "Source MAC Address");
+                                    libcli_register_param(&src_mac_kw, &src_mac);
+                                    {
+                                        /* ... interface <if-name> */
+                                        static param_t interface_kw;
+                                        init_param(&interface_kw, CMD, "interface", 0, 0, INVALID, 0,
+                                                   "Egress interface");
+                                        libcli_register_param(&src_mac, &interface_kw);
+                                        {
+                                            static param_t if_name;
+                                            init_param(&if_name, LEAF, 0, arp_handler, 0, STRING,
+                                                       "if-name", "Interface name");
+                                            libcli_register_param(&interface_kw, &if_name);
+                                            libcli_set_param_cmd_code(&if_name, CMDCODE_RUN_ARP_EX);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             {

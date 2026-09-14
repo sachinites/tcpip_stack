@@ -162,6 +162,14 @@ void dp_show_arp_table_sync(dp_ctx_t *dp_ctx, void *arp_table);
 void dp_arp_cli_resolve_sync(dp_ctx_t *dp_ctx, dp_vrf_t *vrf,
                              uint32_t ip_addr);
 
+/* CLI-originated ARP resolve with explicit src IP/MAC and egress interface.
+ * Builds the request and transmits via send_xmit_out() on ifindex. */
+void dp_arp_cli_resolve_ex_sync(dp_ctx_t *dp_ctx,
+                                uint32_t target_ip,
+                                uint32_t src_ip,
+                                const uint8_t src_mac[6],
+                                uint32_t ifindex);
+
 
 
 #ifdef __cplusplus

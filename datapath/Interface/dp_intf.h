@@ -141,4 +141,9 @@ dp_send_pkt_out(dp_ctx_t *dp_ctx,
                                    // is vfif, in all other cases NULL
 				   // steer object in case of Steering forwarding objects
 
+/* Put a fully-formed L2 frame on the wire for this interface (no L2/L3
+ * egress processing).  Used by CLI-originated probes such as ARP resolve. */
+int
+send_xmit_out(dp_intf_t *intf, struct rte_mbuf *mbuf);
+
 #endif /* __DP_INTF__ */

@@ -50,6 +50,26 @@ l2_fwd_cmp_ptr (const void *a, const void *b)
     return 0;
 }
 
+static int
+l2_fwd_cmp_mpls_lstack (const mpls_lstack_t *s1, const mpls_lstack_t *s2)
+{
+    int rc;
+
+    if (!s1 && !s2)
+        return 0;
+    if (!s1)
+        return -1;
+    if (!s2)
+        return 1;
+
+    rc = memcmp(s1, s2, sizeof(mpls_lstack_t));
+    if (rc < 0)
+        return -1;
+    if (rc > 0)
+        return 1;
+    return 0;
+}
+
 extern void
 dp_send_pkt_out (dp_ctx_t *dp_ctx, dp_intf_t *intf,
                 struct rte_mbuf *mbuf, uint32_t ctx);
@@ -533,12 +553,8 @@ L2_forward_object_comp_fb (
                 return rc_oif;
             if (rc_nh)
                 return rc_nh;
-            if (!o1->u.mpls_tunnel.lbl_stk && !o2->u.mpls_tunnel.lbl_stk)
-                return 0;
-            if (!o1->u.mpls_tunnel.lbl_stk || !o2->u.mpls_tunnel.lbl_stk)
-                return o1->u.mpls_tunnel.lbl_stk ? 1 : -1;
-            return mpls_lstack_compare(o1->u.mpls_tunnel.lbl_stk,
-                                      o2->u.mpls_tunnel.lbl_stk) ? 0 : -1;
+            return l2_fwd_cmp_mpls_lstack(o1->u.mpls_tunnel.lbl_stk,
+                                          o2->u.mpls_tunnel.lbl_stk);
         }
 
         case L2_FWD_SRv6_TUNNEL: {
@@ -578,6 +594,15 @@ L2_forward_object_comp_fb (
     }
 
     return 0;
+}
+
+bool
+mac_fwd_object_equal (const mac_fwd_object_t *o1, const mac_fwd_object_t *o2)
+{
+    if (!o1 || !o2)
+        return false;
+
+    return L2_forward_object_comp_fb(&o1->glue, &o2->glue) == 0;
 }
 
 void

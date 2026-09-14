@@ -195,6 +195,14 @@ void send_arp_broadcast_request(dp_ctx_t *dp_ctx,
                                 dp_intf_t *oif,
                                 uint32_t ip_addr);
 
+/* Build an ARP request with explicit src IP/MAC and put it on the wire via
+ * send_xmit_out() on oif.  Must run on dp_ev_dis. */
+void send_arp_broadcast_request_direct(dp_ctx_t *dp_ctx,
+                                       dp_intf_t *oif,
+                                       uint32_t target_ip,
+                                       uint32_t src_ip,
+                                       const mac_addr_t *src_mac);
+
 void process_arp_broadcast_request(dp_ctx_t *dp_ctx,
                                    dp_vrf_t *vrf,
                                    dp_intf_t *iif,

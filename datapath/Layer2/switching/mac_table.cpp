@@ -787,19 +787,27 @@ mac_table_entry_attach_fwd(dp_ctx_t *dp_ctx,
                            mac_fwd_object_t *fwd_tmpl)
 {
     mac_fwd_object_t *fwd_obj;
-    mac_fwd_object_t *existing;
+    uint16_t i;
 
     if (!mac_entry || !fwd_tmpl || fwd_tmpl->fwd_type >= L2_FWD_MAX)
-        return false;
-
-    existing = dp_ctx_lookup_mac_fwd_object(
-        dp_ctx->l2_fwd_obj_tree[fwd_tmpl->fwd_type], fwd_tmpl);
-    if (existing && mac_table_entry_find_fwd(mac_entry, existing))
         return false;
 
     fwd_obj = dp_l2fwd_object_acquire(dp_ctx, fwd_tmpl);
     if (!fwd_obj)
         return false;
+
+    /* Reject duplicate forwarding objects for the same MAC (ECMP uses
+     * distinct MacFwdObjects; identical nh/label-stack must not repeat). */
+    for (i = 0; i < mac_entry->oif_count; i++) {
+        if (!mac_fwd_object_equal(mac_entry->oifs[i], fwd_obj))
+            continue;
+
+        if (fwd_tmpl->flags)
+            mac_entry->oifs[i]->flags = fwd_tmpl->flags;
+
+        mac_fwd_object_dereference(dp_ctx, fwd_obj);
+        return false;
+    }
 
     /* Origin type is a property of the L2 fwd object, not the MAC entry. */
     if (fwd_tmpl->flags)
@@ -849,8 +857,8 @@ mac_table_entry_find_fwd(mac_table_entry_t *mac_entry,
     if (!mac_entry || !fwd_obj) return NULL;
 
     for (i = 0; i < mac_entry->oif_count; i++) {
-        if (mac_entry->oifs[i] == fwd_obj)
-            return fwd_obj;
+        if (mac_fwd_object_equal(mac_entry->oifs[i], fwd_obj))
+            return mac_entry->oifs[i];
     }
 
     return NULL;

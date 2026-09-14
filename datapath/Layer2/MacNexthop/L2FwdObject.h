@@ -123,6 +123,9 @@ dp_l2fwd (dp_ctx_t *dp_ctx, mac_fwd_object_t *fwd_obj, struct rte_mbuf *mbuf);
 mac_fwd_object_t *
 dp_ctx_lookup_mac_fwd_object (avltree_t *tree, mac_fwd_object_t *tmplate);
 
+bool
+mac_fwd_object_equal (const mac_fwd_object_t *o1, const mac_fwd_object_t *o2);
+
 bool 
 dp_ctx_insert_fwd_object (avltree_t *tree, mac_fwd_object_t *fwd_obj);
 

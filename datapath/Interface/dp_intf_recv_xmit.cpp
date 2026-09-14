@@ -166,7 +166,7 @@ dpdk_send_xmit_out(dp_intf_t *dp_intf, struct rte_mbuf *mbuf) {
 
 /* Helper APIs */
 
-static int
+int
 send_xmit_out (dp_intf_t *intf, struct rte_mbuf *mbuf)
 {
     pkt_size_t pkt_size;

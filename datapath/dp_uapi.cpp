@@ -310,6 +310,70 @@ dp_arp_cli_resolve_sync(dp_ctx_t *dp_ctx, dp_vrf_t *vrf, uint32_t ip_addr)
                                     TASK_PRIORITY_CP_TO_DP);
 }
 
+typedef struct arp_cli_resolve_ex_job_data_ {
+    uint32_t target_ip;
+    uint32_t src_ip;
+    uint32_t ifindex;
+    uint8_t  src_mac[6];
+} arp_cli_resolve_ex_job_data_t;
+
+static void
+arp_cli_resolve_ex_job_cbk(event_dispatcher_t *ev_dis, void *arg, uint32_t arg_size)
+{
+    arp_cli_resolve_ex_job_data_t *d = (arp_cli_resolve_ex_job_data_t *)arg;
+    dp_ctx_t *dp_ctx;
+    dp_intf_t *oif;
+    mac_addr_t src_mac;
+
+    (void)arg_size;
+
+    if (!d) {
+        return;
+    }
+
+    dp_ctx = (dp_ctx_t *)ev_dis->app_data;
+    oif = (d->ifindex < DP_MAX_INTF) ? dp_ctx->intf_table[d->ifindex] : NULL;
+    if (!oif) {
+        free(d);
+        return;
+    }
+
+    memcpy(src_mac.mac, d->src_mac, sizeof(src_mac.mac));
+    send_arp_broadcast_request_direct(dp_ctx, oif,
+                                      d->target_ip, d->src_ip, &src_mac);
+    free(d);
+}
+
+void
+dp_arp_cli_resolve_ex_sync(dp_ctx_t *dp_ctx,
+                           uint32_t target_ip,
+                           uint32_t src_ip,
+                           const uint8_t src_mac[6],
+                           uint32_t ifindex)
+{
+    arp_cli_resolve_ex_job_data_t *data;
+
+    if (!dp_ctx || !src_mac) {
+        return;
+    }
+
+    data = (arp_cli_resolve_ex_job_data_t *)calloc(1, sizeof(*data));
+    if (!data) {
+        return;
+    }
+
+    data->target_ip = target_ip;
+    data->src_ip = src_ip;
+    data->ifindex = ifindex;
+    memcpy(data->src_mac, src_mac, sizeof(data->src_mac));
+
+    task_create_new_job_synchronous(EV_DP(dp_ctx),
+                                    (void *)data,
+                                    arp_cli_resolve_ex_job_cbk,
+                                    TASK_ONE_SHOT,
+                                    TASK_PRIORITY_CP_TO_DP);
+}
+
 #if 0
 static cp_pkt_block_t *
 dp2cp_convert_pkt_block (struct rte_mbuf *mbuf) {
