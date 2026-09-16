@@ -72,6 +72,9 @@ bgp_global_rib_fill_attrs(const bgp_unified_rt_t *route,
     attrs->evpn_label1 = route->evpn_label1;
     attrs->evpn_label1_present = route->evpn_label1_present;
     attrs->evpn_label1_from_ext_comm = route->evpn_label1_from_ext_comm;
+    attrs->pmsi_label = route->pmsi_label;
+    attrs->pmsi_label_present = route->pmsi_label_present;
+    attrs->pmsi_tunnel_type = route->pmsi_tunnel_type;
     attrs->tunnel_encap_type = route->tunnel_encap_type;
     attrs->tunnel_encap_present = route->tunnel_encap_present;
 }

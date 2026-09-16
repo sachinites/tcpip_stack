@@ -106,8 +106,11 @@ bd_config_handler(int64_t cmdcode,
                     /* Assign Service L2 VPN label to BD */
                     assert (label_mgr_block_alloc_label(
                         node->l2vpn_lbl_block, &bdP->vpn_svc_label) == LABEL_MGR_OK);
+                    assert (label_mgr_block_alloc_label(
+                        node->l2vpn_lbl_block, &bdP->vpn_bum_label) == LABEL_MGR_OK);
                     /* Install the Service L2 EVPN label in 0.mpls.0 with Xconnect to BD*/
                     rtm_install_mpls_xconnect_bd_evpn_local_route (bdP.get(), true);
+                    rtm_install_mpls_xconnect_bd_evpn_bum_local_route (bdP.get(), true);
                 }
                 break;
 

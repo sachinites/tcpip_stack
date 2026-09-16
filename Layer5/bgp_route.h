@@ -25,8 +25,13 @@ typedef struct bgp_route_params_ {
     bool local_pref_present;
     bool l3_vpn_label_present;
     char mac_addr[32];
+    char pe_addr[16];
     uint32_t evpn_label;
     bool evpn_label_present;
+    uint8_t evpn_route_type;
+    uint32_t eth_tag_id;
+    uint32_t pmsi_label;
+    bool pmsi_label_present;
 } bgp_route_params_t;
 
 typedef struct bgp_unified_rt_ {
@@ -51,6 +56,9 @@ typedef struct bgp_unified_rt_ {
     uint32_t evpn_label1;
     bool evpn_label1_present;
     bool evpn_label1_from_ext_comm;
+    uint32_t pmsi_label;
+    bool pmsi_label_present;
+    uint8_t pmsi_tunnel_type;
     uint16_t tunnel_encap_type;
     bool tunnel_encap_present;
 } bgp_unified_rt_t;

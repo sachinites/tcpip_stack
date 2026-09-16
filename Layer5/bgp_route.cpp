@@ -94,7 +94,8 @@ bgp_route_parse_safi(const char *safi)
         return SAFI_MPLS_VPN;
     }
     if (strcmp(safi, "evpn") == 0 ||
-        strcmp(safi, "mac") == 0) {
+        strcmp(safi, "mac") == 0 ||
+        strcmp(safi, "imet") == 0) {
         return SAFI_MPLS_EVPN; /* SAFI_EVPN */
     }
     return -1;
@@ -120,6 +121,14 @@ bgp_route_to_sf_params(const bgp_route_params_t *params,
     strncpy(out->mac_addr, params->mac_addr, sizeof(out->mac_addr) - 1);
     out->evpn_label = params->evpn_label;
     out->evpn_label_present = params->evpn_label_present;
+    out->evpn_route_type = params->evpn_route_type;
+    out->eth_tag_id = params->eth_tag_id;
+    out->pmsi_label = params->pmsi_label;
+    out->pmsi_label_present = params->pmsi_label_present;
+    strncpy(out->pe_addr, params->pe_addr, sizeof(out->pe_addr) - 1);
+    if (out->prefix[0] == '\0' && out->pe_addr[0] != '\0') {
+        strncpy(out->prefix, out->pe_addr, sizeof(out->prefix) - 1);
+    }
     out->afi = afi;
     out->safi = safi;
 }
@@ -578,6 +587,17 @@ bgp_route_walk_adapter(const sf_gobgp_route_info_t *route, void *userdata)
     info.local_pref_present = route->local_pref_present;
     info.l3_vpn_label_present = route->l3_vpn_label_present;
     info.best = route->best;
+    info.afi = route->afi;
+    info.safi = route->safi;
+    info.nlri_wire_len = route->nlri_wire_len;
+    if (route->nlri_wire_len > 0) {
+        memcpy(info.nlri_wire, route->nlri_wire, route->nlri_wire_len);
+    }
+    info.pmsi_label = route->pmsi_label;
+    info.pmsi_label_present = route->pmsi_label_present;
+    info.pmsi_tunnel_type = route->pmsi_tunnel_type;
+    info.evpn_label1 = route->evpn_label1;
+    info.evpn_label1_present = route->evpn_label1_present;
 
     return ctx->callback(&info, ctx->userdata);
 }
@@ -801,6 +821,9 @@ bgp_monitor_dispatch(bgp_monitor_ctx_t *mon,
         info.evpn_label1_present = update->route.evpn_label1_present;
         info.evpn_label1_from_ext_comm =
             update->route.evpn_label1_from_ext_comm;
+        info.pmsi_label = update->route.pmsi_label;
+        info.pmsi_label_present = update->route.pmsi_label_present;
+        info.pmsi_tunnel_type = update->route.pmsi_tunnel_type;
         info.tunnel_encap_type = update->route.tunnel_encap_type;
         info.tunnel_encap_present = update->route.tunnel_encap_present;
 

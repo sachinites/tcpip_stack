@@ -253,6 +253,9 @@ rtm_install_xconnect_vpnv4_route (vrf_t *vrf, bool install);
 void
 rtm_install_mpls_xconnect_bd_evpn_local_route (Interface *intf, bool install) ;
 
+void
+rtm_install_mpls_xconnect_bd_evpn_bum_local_route (Interface *intf, bool install);
+
 uint32_t
 rtm_proto_seed_update (rtm_t *rtm, 
                       RTM_PROTO_T proto, 

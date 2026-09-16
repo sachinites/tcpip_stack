@@ -1332,6 +1332,64 @@ rtm_install_mpls_xconnect_bd_evpn_local_route (Interface *intf, bool install) {
 
 }
 
+void
+rtm_install_mpls_xconnect_bd_evpn_bum_local_route (Interface *intf, bool install) {
+
+    node_t *node = intf->att_node;
+
+    BDInterface *bd_intf = dynamic_cast<BDInterface *>(intf);
+
+    if (!bd_intf) return;
+
+    assert (bd_intf->vpn_bum_label);
+
+    cmn_prefix_t gateway;
+    cmn_prefix_t mpls_in_label;
+
+    cmn_prefix_initialize_label(&mpls_in_label, bd_intf->vpn_bum_label);
+
+    cmn_prefix_initialize_v4(&gateway, intf->ifindex, 32);
+
+    if (install) {
+
+        cp_rtm_install_route_advanced (
+                        ((def_vrf_t *)node->vrf[0])->mpls0,
+                        &mpls_in_label,
+                        RTM_PROTO_STATIC,
+                        RTM_PROTO_L2VPN_EVPN,
+                        0, 0,
+                        RTM_NH_ACTION_FORWARD,
+                        0,
+                        &gateway,
+                        MPLS_TO_BD_INTF_STEER_IFINDEX,
+                        INTF_TYPE_MPLS_TO_BD_STEER,
+                        NULL,
+                        0,
+                        0,
+                        MPLS_OP_POP,
+                        0);
+    }
+    else {
+
+        cp_rtm_uninstall_route_advanced (
+                        ((def_vrf_t *)node->vrf[0])->mpls0,
+                        &mpls_in_label,
+                        RTM_PROTO_STATIC,
+                        RTM_PROTO_L2VPN_EVPN,
+                        0,
+                        RTM_NH_ACTION_FORWARD,
+                        0,
+                        &gateway,
+                        MPLS_TO_BD_INTF_STEER_IFINDEX,
+                        INTF_TYPE_MPLS_TO_BD_STEER,
+                        NULL,
+                        0,
+                        0,
+                        MPLS_OP_POP,
+                        0);
+    }
+}
+
 uint32_t
 rtm_proto_seed_update (rtm_t *rtm, 
                       RTM_PROTO_T proto, 

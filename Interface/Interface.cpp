@@ -2062,6 +2062,7 @@ BDInterface::BDInterface(std::string ifname, InterfaceType_t iftype, node_t *nod
       ip_addr(0),
       mask(0),
       vpn_svc_label(0),
+      vpn_bum_label(0),
       evi_id(0),
       lmac_queue(0)
 {
@@ -2130,12 +2131,18 @@ BDInterface::InterfaceReleaseAllResources() {
     assert(member_ac.empty());
 
     rtm_install_mpls_xconnect_bd_evpn_local_route(this, false);
+    rtm_install_mpls_xconnect_bd_evpn_bum_local_route(this, false);
 
     label_mgr_block_release_label(
         this->att_node->l2vpn_lbl_block,
-        this->vpn_svc_label);   
+        this->vpn_svc_label);
 
-    rtm_install_mpls_xconnect_bd_evpn_local_route((Interface *)this, false);
+    if (this->vpn_bum_label) {
+        label_mgr_block_release_label(
+            this->att_node->l2vpn_lbl_block,
+            this->vpn_bum_label);
+        this->vpn_bum_label = 0;
+    }
 
     if (this->lmac_queue) {
         this->disable_lmac_queue();

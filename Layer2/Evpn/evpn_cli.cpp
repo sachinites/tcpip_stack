@@ -47,6 +47,9 @@
 /* show node <node-name> protocol l2vpn evpn instance <id> mac-routes [<mac>] */
 #define CMDCODE_SHOW_EVPN_MAC_ROUTES 8
 
+/* show node <node-name> protocol l2vpn evpn instance <id> imet-routes */
+#define CMDCODE_SHOW_EVPN_IMET_ROUTES 9
+
 extern graph_t *topo;
 
 static int
@@ -863,6 +866,7 @@ evpn_show_instance (evpn_inst_t *evpn_inst)
         cprintf ("  Bridge-Domain       : None\n");
         cprintf ("  BD Admin Status     : N/A\n");
         cprintf ("  BD EVPN Label       : N/A\n");
+        cprintf ("  BD BUM Label        : N/A\n");
         cprintf ("  L3 VRF              : N/A\n");
         return;
     }
@@ -871,6 +875,7 @@ evpn_show_instance (evpn_inst_t *evpn_inst)
     cprintf ("  BD Admin Status     : %s\n",
              bd_intf->is_up ? "up" : "down");
     cprintf ("  BD EVPN Label       : %u\n", bd_intf->vpn_svc_label);
+    cprintf ("  BD BUM Label        : %u\n", bd_intf->vpn_bum_label);
     cprintf ("  L3 VRF              : %s\n",
              (bd_intf->vrf && bd_intf->vrf->vrf_name[0]) ?
              bd_intf->vrf->vrf_name : "None");
@@ -935,6 +940,89 @@ evpn_show_mac_routes (evpn_inst_t *evpn_inst, mac_addr_t *mac_filter)
         free(itr);
     }
 
+    cprintf ("Total : %u\n", count);
+}
+
+static void
+evpn_print_type3_route (evpn_exp_rt_t *evpn_rt,
+                        uint32_t bd_id,
+                        uint32_t bd_bum_label)
+{
+    char pe_str[16];
+    char nh_str[16];
+    char label_str[16];
+    const char *flags_str;
+    bool is_local = (evpn_rt->flags & EVPN_RT_F_LOCAL) != 0;
+
+    ip_ntop(evpn_rt->u.imet.pe_addr, (c_string)pe_str);
+    flags_str = is_local ? "L" : "R";
+
+    if (is_local) {
+        snprintf(nh_str, sizeof(nh_str), "0.0.0.0");
+        snprintf(label_str, sizeof(label_str), "%u", bd_bum_label);
+    } else {
+        ip_ntop(evpn_rt->vtep_ip, (c_string)nh_str);
+        snprintf(label_str, sizeof(label_str), "%u",
+                 evpn_rt->u.imet.evpn_label);
+    }
+
+    /* BD  PE-Address       Flags  Next-Hops      BUM-Lbl */
+    cprintf ("%-5u %-16s %-5s  %-14s %-7s\n",
+             bd_id,
+             pe_str,
+             flags_str,
+             nh_str,
+             label_str);
+}
+
+static void
+evpn_show_imet_routes (evpn_inst_t *evpn_inst)
+{
+    BDInterface *bd_intf;
+    mac_vrf_t *mac_vrf;
+    struct hashtable_itr *itr;
+    evpn_exp_rt_t *evpn_rt;
+    uint32_t count = 0;
+
+    bd_intf = evpn_inst->bd_intf.get();
+    if (!bd_intf || !bd_intf->vrf) {
+        cprintf ("EVPN instance %u : no bridge-domain attached\n",
+                 evpn_inst->evi);
+        return;
+    }
+
+    mac_vrf = evpn_inst->mac_vrf;
+    if (!mac_vrf || !mac_vrf->type3_rib) {
+        cprintf ("EVPN instance %u BD %u : MAC VRF IMET RIB not present\n",
+                 evpn_inst->evi, bd_intf->bd_id);
+        return;
+    }
+
+    cprintf ("\nFlags - (L):Local (R):Remote\n");
+    cprintf ("%-5s %-16s %-5s  %-14s %-7s\n",
+             "BD", "PE-Address", "Flags", "Next-Hops", "BUM-Lbl");
+    cprintf ("---------------------------------------------------------------\n");
+
+    if (hashtable_count(mac_vrf->type3_rib) == 0) {
+        cprintf ("(none)\n");
+        return;
+    }
+
+    itr = hashtable_iterator(mac_vrf->type3_rib);
+    if (!itr) {
+        return;
+    }
+
+    do {
+        evpn_rt = (evpn_exp_rt_t *)hashtable_iterator_value(itr);
+        if (evpn_rt) {
+            evpn_print_type3_route(evpn_rt, bd_intf->bd_id,
+                                   bd_intf->vpn_bum_label);
+            count++;
+        }
+    } while (hashtable_iterator_advance(itr));
+
+    free(itr);
     cprintf ("Total : %u\n", count);
 }
 
@@ -1021,6 +1109,21 @@ evpn_show_handler (int64_t cmdcode,
             }
             break;
 
+        case CMDCODE_SHOW_EVPN_IMET_ROUTES:
+            if (!evpn_id_present) {
+                cprintf ("Error : EVPN instance id required\n");
+                return -1;
+            }
+
+            evpn_inst = evpn_get_instance (node, evpn_id, false);
+            if (!evpn_inst) {
+                cprintf ("Error : EVPN instance %u does not exist\n", evpn_id);
+                return -1;
+            }
+
+            evpn_show_imet_routes (evpn_inst);
+            break;
+
         default:
             break;
     }
@@ -1075,6 +1178,15 @@ evpn_show_cli_tree (param_t *param)
                             libcli_set_param_cmd_code (
                                 &mac_addr, CMDCODE_SHOW_EVPN_MAC_ROUTES);
                         }
+
+                        /* show ... instance <id> imet-routes */
+                        static param_t imet_routes;
+                        init_param (&imet_routes, CMD, "imet-routes",
+                                    evpn_show_handler, 0, INVALID, 0,
+                                    "Show EVPN Type-3 IMET routes");
+                        libcli_register_param (&evpn_id, &imet_routes);
+                        libcli_set_param_cmd_code (&imet_routes,
+                                                   CMDCODE_SHOW_EVPN_IMET_ROUTES);
                     }
                 }
             }

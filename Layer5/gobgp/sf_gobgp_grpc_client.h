@@ -17,6 +17,17 @@ typedef struct sf_gobgp_rpc_result {
 } sf_gobgp_rpc_result_t;
 
 #define SF_GOBGP_MAX_PEERS 64
+#define SF_GOBGP_MAX_PEER_AFI_SAFI 8
+
+typedef struct sf_gobgp_peer_afi_safi_info {
+    int afi;
+    int safi;
+    bool configured;
+    bool enabled;
+    uint64_t received;
+    uint64_t accepted;
+    uint64_t advertised;
+} sf_gobgp_peer_afi_safi_info_t;
 
 typedef struct sf_gobgp_peer_info {
     char neighbor_address[64];
@@ -24,6 +35,10 @@ typedef struct sf_gobgp_peer_info {
     char router_id[64];
     int session_state;
     char description[128];
+    uint64_t uptime_seconds;
+    bool uptime_valid;
+    uint8_t num_afi_safis;
+    sf_gobgp_peer_afi_safi_info_t afi_safis[SF_GOBGP_MAX_PEER_AFI_SAFI];
 } sf_gobgp_peer_info_t;
 
 typedef struct sf_gobgp_global_info {
@@ -114,6 +129,11 @@ typedef struct sf_gobgp_route_params {
     char mac_addr[32];
     uint32_t evpn_label;
     bool evpn_label_present;
+    uint8_t evpn_route_type;
+    uint32_t eth_tag_id;
+    char pe_addr[16];
+    uint32_t pmsi_label;
+    bool pmsi_label_present;
     int afi;
     int safi;
 } sf_gobgp_route_params_t;
@@ -150,6 +170,9 @@ typedef struct sf_gobgp_route_info {
     uint32_t evpn_label1;
     bool evpn_label1_present;
     bool evpn_label1_from_ext_comm;
+    uint32_t pmsi_label;
+    bool pmsi_label_present;
+    uint8_t pmsi_tunnel_type;
     uint16_t tunnel_encap_type;
     bool tunnel_encap_present;
 } sf_gobgp_route_info_t;

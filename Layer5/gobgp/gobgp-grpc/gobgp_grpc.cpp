@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 #include <chrono>
+#include <ctime>
 #include <cstring>
 #include <cstdlib>
 #include <sstream>
@@ -278,6 +279,42 @@ bool ExtractNlriWire(const api::NLRI& nlri,
 
         if (evpn.labels_size() > 0) {
             AppendMplsLabel(evpn.labels(0), info->nlri_wire, &offset);
+        }
+
+        info->nlri_wire_len = offset;
+        return true;
+    }
+
+    if (nlri.has_evpn_multicast()) {
+        const api::EVPNInclusiveMulticastEthernetTagRoute& imet =
+            nlri.evpn_multicast();
+        std::uint8_t ip[4] = {};
+
+        info->nlri_wire[offset++] = 3;
+
+        if (!imet.has_rd() ||
+            !EncodeRouteDistinguisherWire(imet.rd(), &info->nlri_wire[offset])) {
+            return false;
+        }
+        offset += 8;
+
+        const std::uint32_t eth_tag = imet.ethernet_tag();
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>((eth_tag >> 24) & 0xff);
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>((eth_tag >> 16) & 0xff);
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>((eth_tag >> 8) & 0xff);
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>(eth_tag & 0xff);
+
+        if (!imet.ip_address().empty() &&
+            ParseIpv4Address(imet.ip_address(), ip)) {
+            info->nlri_wire[offset++] = 32;
+            std::memcpy(&info->nlri_wire[offset], ip, 4);
+            offset += 4;
+        } else {
+            info->nlri_wire[offset++] = 0;
         }
 
         info->nlri_wire_len = offset;
@@ -692,6 +729,87 @@ RpcResult GoBgpGrpcClient::ListPeers(std::vector<PeerInfo>* peers)
             pi.peer_asn = conf.peer_asn();
         }
 
+        if (peer.has_timers() && peer.timers().has_state() &&
+            peer.timers().state().has_uptime()) {
+            const auto& uptime_ts = peer.timers().state().uptime();
+            const time_t uptime_epoch =
+                static_cast<time_t>(uptime_ts.seconds());
+            if (uptime_epoch > 0) {
+                pi.uptime_seconds = static_cast<std::uint64_t>(
+                    std::difftime(std::time(nullptr), uptime_epoch));
+                pi.uptime_valid = true;
+            }
+        }
+
+        for (int i = 0; i < peer.afi_safis_size(); ++i) {
+            const api::AfiSafi& afi_safi = peer.afi_safis(i);
+            PeerAfiSafiInfo af_info{};
+
+            if (afi_safi.has_config()) {
+                const api::AfiSafiConfig& cfg = afi_safi.config();
+                af_info.configured = cfg.enabled();
+                if (cfg.has_family()) {
+                    const api::Family& family = cfg.family();
+                    if (family.afi() == api::Family::AFI_IP6) {
+                        af_info.afi = 2;
+                    } else if (family.afi() == api::Family::AFI_L2VPN) {
+                        af_info.afi = 25;
+                    } else {
+                        af_info.afi = 1;
+                    }
+
+                    switch (family.safi()) {
+                        case api::Family::SAFI_MPLS_VPN:
+                            af_info.safi = 128;
+                            break;
+                        case api::Family::SAFI_EVPN:
+                            af_info.safi = 70;
+                            break;
+                        default:
+                            af_info.safi = 1;
+                            break;
+                    }
+                }
+            }
+
+            if (afi_safi.has_state()) {
+                const api::AfiSafiState& st = afi_safi.state();
+                af_info.enabled = st.enabled();
+                af_info.received = st.received();
+                af_info.accepted = st.accepted();
+                af_info.advertised = st.advertised();
+
+                if (af_info.afi == 0 && st.has_family()) {
+                    const api::Family& family = st.family();
+                    if (family.afi() == api::Family::AFI_IP6) {
+                        af_info.afi = 2;
+                    } else if (family.afi() == api::Family::AFI_L2VPN) {
+                        af_info.afi = 25;
+                    } else {
+                        af_info.afi = 1;
+                    }
+
+                    switch (family.safi()) {
+                        case api::Family::SAFI_MPLS_VPN:
+                            af_info.safi = 128;
+                            break;
+                        case api::Family::SAFI_EVPN:
+                            af_info.safi = 70;
+                            break;
+                        default:
+                            af_info.safi = 1;
+                            break;
+                    }
+                }
+            }
+
+            if (!af_info.configured && !af_info.enabled) {
+                continue;
+            }
+
+            pi.afi_safis.push_back(af_info);
+        }
+
         if (peers)
             peers->push_back(std::move(pi));
     }
@@ -960,7 +1078,11 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
     bool has_prefix = ParsePrefixCidr(params.prefix, &addr, &prefix_len);
 
     if (params.safi == BgpSafi::kEvpn) {
-        if (params.mac_addr.empty()) {
+        if (params.evpn_route_type == 3) {
+            if (params.pe_addr.empty()) {
+                return path;
+            }
+        } else if (params.mac_addr.empty()) {
             return path;
         }
     } else if (!has_prefix) {
@@ -975,17 +1097,27 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
 
     api::NLRI* nlri = path.mutable_nlri();
     if (params.safi == BgpSafi::kEvpn) {
-        api::EVPNMACIPAdvertisementRoute* evpn =
-            nlri->mutable_evpn_macadv();
-        if (!params.rd.empty()) {
-            SetRouteDistinguisher(params.rd, evpn->mutable_rd());
-        }
-        SetDefaultEthernetSegmentIdentifier(evpn->mutable_esi());
-        evpn->set_ethernet_tag(0);
-        evpn->set_mac_address(params.mac_addr);
-        evpn->clear_ip_address();
-        if (params.evpn_label_present) {
-            evpn->add_labels(params.evpn_label);
+        if (params.evpn_route_type == 3) {
+            api::EVPNInclusiveMulticastEthernetTagRoute* imet =
+                nlri->mutable_evpn_multicast();
+            if (!params.rd.empty()) {
+                SetRouteDistinguisher(params.rd, imet->mutable_rd());
+            }
+            imet->set_ethernet_tag(params.eth_tag_id);
+            imet->set_ip_address(params.pe_addr);
+        } else {
+            api::EVPNMACIPAdvertisementRoute* evpn =
+                nlri->mutable_evpn_macadv();
+            if (!params.rd.empty()) {
+                SetRouteDistinguisher(params.rd, evpn->mutable_rd());
+            }
+            SetDefaultEthernetSegmentIdentifier(evpn->mutable_esi());
+            evpn->set_ethernet_tag(0);
+            evpn->set_mac_address(params.mac_addr);
+            evpn->clear_ip_address();
+            if (params.evpn_label_present) {
+                evpn->add_labels(params.evpn_label);
+            }
         }
     } else if (!params.rd.empty() || params.safi == BgpSafi::kMplsVpn) {
         api::LabeledVPNIPAddressPrefix* vpn =
@@ -1041,6 +1173,26 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
                 rt_attr->mutable_extended_communities()->add_communities();
             SetRouteTargetCommunity(params.rt, community);
         }
+
+        if (params.safi == BgpSafi::kEvpn &&
+            params.evpn_route_type == 3 &&
+            params.pmsi_label_present) {
+            api::Attribute* pmsi_attr = path.add_pattrs();
+            api::PmsiTunnelAttribute* pmsi =
+                pmsi_attr->mutable_pmsi_tunnel();
+            const std::string& tunnel_id_str =
+                !params.pe_addr.empty() ? params.pe_addr : params.nexthop;
+            std::uint8_t tunnel_id_bytes[4] = {};
+
+            pmsi->set_flags(0);
+            pmsi->set_type(6);
+            pmsi->set_label(params.pmsi_label);
+            /* GoBGP expects raw IPv4 octets in id (bytes), not an ASCII string. */
+            if (ParseIpv4Address(tunnel_id_str, tunnel_id_bytes)) {
+                pmsi->set_id(std::string(
+                    reinterpret_cast<const char*>(tunnel_id_bytes), 4));
+            }
+        }
     }
 
     return path;
@@ -1090,6 +1242,13 @@ void GoBgpGrpcClient::FillRouteInfo(const api::Path& path,
                 info->l3_vpn_label = evpn.labels(0);
                 info->l3_vpn_label_present = true;
             }
+        } else if (nlri.has_evpn_multicast()) {
+            const api::EVPNInclusiveMulticastEthernetTagRoute& imet =
+                nlri.evpn_multicast();
+            info->prefix = imet.ip_address();
+            if (imet.has_rd()) {
+                info->rd = FormatRouteDistinguisher(imet.rd());
+            }
         }
     }
 
@@ -1115,6 +1274,12 @@ void GoBgpGrpcClient::FillRouteInfo(const api::Path& path,
             case api::Attribute::kLocalPref:
                 info->local_pref = attr.local_pref().local_pref();
                 info->local_pref_present = true;
+                break;
+            case api::Attribute::kPmsiTunnel:
+                info->pmsi_label = attr.pmsi_tunnel().label();
+                info->pmsi_label_present = true;
+                info->pmsi_tunnel_type =
+                    static_cast<std::uint8_t>(attr.pmsi_tunnel().type());
                 break;
             default:
                 break;

@@ -43,6 +43,11 @@ struct BgpRouteParams {
     std::string mac_addr;
     std::uint32_t evpn_label = 0;
     bool evpn_label_present = false;
+    std::uint8_t evpn_route_type = 0;
+    std::uint32_t eth_tag_id = 0;
+    std::string pe_addr;
+    std::uint32_t pmsi_label = 0;
+    bool pmsi_label_present = false;
     BgpAfi afi = BgpAfi::kIpv4;
     BgpSafi safi = BgpSafi::kUnicast;
 };
@@ -75,6 +80,9 @@ struct BgpRouteInfo {
     std::uint32_t evpn_label1 = 0;
     bool evpn_label1_present = false;
     bool evpn_label1_from_ext_comm = false;
+    std::uint32_t pmsi_label = 0;
+    bool pmsi_label_present = false;
+    std::uint8_t pmsi_tunnel_type = 0;
     std::uint16_t tunnel_encap_type = 0;
     bool tunnel_encap_present = false;
 };
@@ -100,12 +108,25 @@ struct RpcResult {
     std::string message;
 };
 
+struct PeerAfiSafiInfo {
+    int afi = 0;
+    int safi = 0;
+    bool configured = false;
+    bool enabled = false;
+    std::uint64_t received = 0;
+    std::uint64_t accepted = 0;
+    std::uint64_t advertised = 0;
+};
+
 struct PeerInfo {
     std::string neighbor_address;
-    std::uint32_t peer_asn;
+    std::uint32_t peer_asn = 0;
     std::string router_id;
-    int session_state;
+    int session_state = 0;
     std::string description;
+    std::uint64_t uptime_seconds = 0;
+    bool uptime_valid = false;
+    std::vector<PeerAfiSafiInfo> afi_safis;
 };
 
 struct BgpGlobalInfo {

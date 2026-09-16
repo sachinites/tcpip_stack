@@ -385,6 +385,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     interface_install_local_v4_routes  (node, interface);
                     interface_install_local_v6_routes  (node, interface);
                     rtm_install_mpls_xconnect_bd_evpn_local_route(interface, true);
+                    rtm_install_mpls_xconnect_bd_evpn_bum_local_route(interface, true);
                     interface_bd_install_router_mac(node, interface);
                     interface_vlan_install_router_mac(node, interface);
                     interface_install_anycast_gw_mac(node, interface);
@@ -393,6 +394,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     interface_uninstall_local_v4_routes  (node, interface);
                     interface_uninstall_local_v6_routes  (node, interface);
                     rtm_install_mpls_xconnect_bd_evpn_local_route(interface, false);
+                    rtm_install_mpls_xconnect_bd_evpn_bum_local_route(interface, false);
                     interface_bd_uninstall_router_mac(node, interface);
                     interface_vlan_uninstall_router_mac(node, interface);
                     interface_uninstall_anycast_gw_mac(node, interface);

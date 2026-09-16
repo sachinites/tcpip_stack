@@ -47,7 +47,7 @@ Installation of remote MAC routes :
   --|--------------------SoftFireWall Begins here ----------------------------
     |
     V 
-    EVPN Global RIB 
+    BGP Global RIBs (Locally stored) 
     |             show node R3 protocol bgp global-rib l2vpn-evpn
     |             Global RIB of EVPN MAC routes, Redistribute to MAC VRFs based on RT
     |

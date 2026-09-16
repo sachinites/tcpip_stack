@@ -7,6 +7,7 @@
 #include "../cmdcodes.h"
 #include "../router_init.h"
 #include "../tcpconst.h"
+#include "../utils.h"
 #include "../RTM/rtm_enums.h"
 #include "bgp_config.h"
 #include "bgp_global_rib.h"
@@ -19,6 +20,7 @@
 #include "bgp_rtr.h"
 #include "gobgp/sf_gobgp_grpc_client.h"
 #include "../Layer2/Evpn/evpn_bgp.h"
+#include "../vrf/mac_vrf.h"
 
 extern void
 rtm_build_distribution_policy_cli_tree(
@@ -51,6 +53,9 @@ extern graph_t *topo;
 
 /* show node <node-name> protocol bgp routes l2vpn-evpn mac */
 #define CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_MAC 14
+
+/* show node <node-name> protocol bgp routes l2vpn-evpn imet */
+#define CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_IMET 17
 
 /* show node <node-name> protocol bgp global-rib <ipv4-vpn|l2vpn-evpn> */
 #define CMDCODE_SHOW_BGP_GLOBAL_RIB_IPV4_VPN 15
@@ -215,6 +220,76 @@ bgp_session_state_str(int state)
         case 5: return "OPENCONFIRM";
         case 6: return "ESTABLISHED";
         default: return "UNKNOWN";
+    }
+}
+
+static const char *
+bgp_peer_af_str(int afi, int safi)
+{
+    if (afi == AFI_IPV4 && safi == SAFI_UNICAST) {
+        return IPV4_UNICAST_AF_STR;
+    }
+    if (afi == AFI_IPV4 && safi == SAFI_MPLS_VPN) {
+        return VPNV4_UNICAST_AF_STR;
+    }
+    if (afi == AFI_IPV6 && safi == SAFI_UNICAST) {
+        return IPV6_UNICAST_AF_STR;
+    }
+    if (afi == AFI_L2VPN && safi == SAFI_MPLS_EVPN) {
+        return L2VPN_EVPN_AF_STR;
+    }
+    return "unknown";
+}
+
+static const char *
+bgp_peer_af_status_str(const sf_gobgp_peer_afi_safi_info_t *af)
+{
+    if (af->enabled) {
+        return "active";
+    }
+    if (af->configured) {
+        return "configured";
+    }
+    return "inactive";
+}
+
+static void
+bgp_format_peer_uptime(const sf_gobgp_peer_info_t *peer,
+                       char *buf,
+                       size_t buflen)
+{
+    byte time_str[HRS_MIN_SEC_FMT_TIME_LEN];
+
+    if (!peer->uptime_valid) {
+        snprintf(buf, buflen, "-");
+        return;
+    }
+
+    hrs_min_sec_format((unsigned int)peer->uptime_seconds,
+                       time_str, sizeof(time_str));
+    snprintf(buf, buflen, "%s", (char *)time_str);
+}
+
+static void
+bgp_show_peer_address_families(const sf_gobgp_peer_info_t *peer)
+{
+    if (peer->num_afi_safis == 0) {
+        cprintf("  Address-Families : none configured\n");
+        return;
+    }
+
+    cprintf("\n  Address-Family       Status       PfxRcd     PfxAcc     PfxAdv\n");
+    cprintf("  ----------------     ------       ------     ------     ------\n");
+
+    for (int j = 0; j < peer->num_afi_safis; j++) {
+        const sf_gobgp_peer_afi_safi_info_t *af = &peer->afi_safis[j];
+
+        cprintf("  %-20s %-12s %-10llu %-10llu %-10llu\n",
+                bgp_peer_af_str(af->afi, af->safi),
+                bgp_peer_af_status_str(af),
+                (unsigned long long)af->received,
+                (unsigned long long)af->accepted,
+                (unsigned long long)af->advertised);
     }
 }
 
@@ -714,6 +789,7 @@ bgp_config_handler(int64_t cmdcode,
                     }
                     cprintf("%s enabled for neighbor %s\n",
                             L2VPN_EVPN_AF_STR, neighbor_addr);
+                    mac_vrf_export_all_local_evpn_routes_to_bgp(node);
                     break;
 
                 case CONFIG_DISABLE:
@@ -755,8 +831,19 @@ typedef struct bgp_show_route_ctx_ {
     const char *safi;
     bool show_label;
     bool evpn_mac;
+    bool evpn_imet;
     int count;
 } bgp_show_route_ctx_t;
+
+/* EVPN NLRI wire starts with route-type octet (RFC 7432). */
+static uint8_t
+bgp_show_evpn_route_type(const bgp_unified_rt_t *route)
+{
+    if (route && route->nlri_wire_len > 0) {
+        return route->nlri_wire[0];
+    }
+    return 0;
+}
 
 /* GoBGP may return RD/RT already as "a.b.c.d:N", or as numeric "N:N".
  * Only convert the numeric form; never pass NULL to %s. */
@@ -789,8 +876,18 @@ bgp_show_evpn_mac_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
     const char *dash = "-";
     char rd_fmt_buffer[48];
     char rt_fmt_buffer[48];
+    uint8_t rt_type;
 
     if (!route || !ctx) {
+        return 0;
+    }
+
+    rt_type = bgp_show_evpn_route_type(route);
+    if (rt_type == 3) {
+        return 0;
+    }
+    if (rt_type == 0 && route->prefix[0] &&
+        strchr(route->prefix, ':') == NULL) {
         return 0;
     }
 
@@ -836,6 +933,79 @@ bgp_show_evpn_mac_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
 }
 
 static int
+bgp_show_evpn_imet_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
+{
+    bgp_show_route_ctx_t *ctx = (bgp_show_route_ctx_t *)userdata;
+    const char *dash = "-";
+    char rd_fmt_buffer[48];
+    char rt_fmt_buffer[48];
+    uint8_t rt_type;
+    uint32_t bum_label = 0;
+    bool bum_label_present = false;
+
+    if (!route || !ctx) {
+        return 0;
+    }
+
+    rt_type = bgp_show_evpn_route_type(route);
+    if (rt_type != 0 && rt_type != 3) {
+        return 0;
+    }
+    /* Without wire metadata, IMET prefixes are originating PE IPs. */
+    if (rt_type == 0 && strchr(route->prefix, ':') != NULL) {
+        return 0;
+    }
+
+    if (ctx->count == 0) {
+        cprintf("\nBGP routes (%s %s):\n", ctx->afi, ctx->safi);
+        cprintf("%-16s %-14s %-14s %-16s %-10s %-6s %-10s %s\n",
+                "PE-Address", "RD", "RT", "Nexthop", "PMSI-Lbl",
+                "MED", "LocalPref", "Best");
+        cprintf("%-16s %-14s %-14s %-16s %-10s %-6s %-10s %s\n",
+                "----------", "--", "--", "-------", "--------",
+                "---", "---------", "----");
+    }
+
+    if (route->pmsi_label_present) {
+        bum_label = route->pmsi_label;
+        bum_label_present = true;
+    } else if (route->l3_vpn_label_present) {
+        bum_label = route->l3_vpn_label;
+        bum_label_present = true;
+    }
+
+    cprintf("%-16s %-14s %-14s %-16s ",
+            route->prefix[0] ? route->prefix : dash,
+            bgp_show_format_rd_rt(route->rd, true, rd_fmt_buffer,
+                                  sizeof(rd_fmt_buffer), dash),
+            bgp_show_format_rd_rt(route->rt, false, rt_fmt_buffer,
+                                  sizeof(rt_fmt_buffer), dash),
+            route->nexthop[0] ? route->nexthop : dash);
+
+    if (bum_label_present) {
+        cprintf("%-10u ", bum_label);
+    } else {
+        cprintf("%-10s ", dash);
+    }
+
+    if (route->med_present) {
+        cprintf("%-6u ", route->med);
+    } else {
+        cprintf("%-6s ", dash);
+    }
+
+    if (route->local_pref_present) {
+        cprintf("%-10u ", route->local_pref);
+    } else {
+        cprintf("%-10s ", dash);
+    }
+
+    cprintf("%s\n", route->best ? "*" : "");
+    ctx->count++;
+    return 0;
+}
+
+static int
 bgp_show_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
 {
     bgp_show_route_ctx_t *ctx = (bgp_show_route_ctx_t *)userdata;
@@ -849,6 +1019,10 @@ bgp_show_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
 
     if (ctx->evpn_mac) {
         return bgp_show_evpn_mac_route_print_cb(route, userdata);
+    }
+
+    if (ctx->evpn_imet) {
+        return bgp_show_evpn_imet_route_print_cb(route, userdata);
     }
 
     if (ctx->count == 0) {
@@ -1137,6 +1311,8 @@ bgp_show_routes(node_t *node, const char *afi, const char *safi)
     ctx.show_label = (safi && strcmp(safi, "vpn") == 0);
     ctx.evpn_mac = (afi && strcmp(afi, "l2vpn-evpn") == 0 &&
                     safi && strcmp(safi, "mac") == 0);
+    ctx.evpn_imet = (afi && strcmp(afi, "l2vpn-evpn") == 0 &&
+                     safi && strcmp(safi, "imet") == 0);
 
     if (bgp_node_walk_routes(node, afi, safi, bgp_show_route_print_cb, &ctx) != 0) {
         cprintf("ListPath RPC failed for %s %s\n", afi, safi);
@@ -1304,20 +1480,28 @@ bgp_show_handler(int64_t cmdcode,
                 return 0;
             }
 
-            cprintf("\n%-20s %-10s %-16s %-14s %s\n",
+            cprintf("\n%-20s %-10s %-16s %-14s %-14s %s\n",
                     "Neighbor", "AS", "Router-ID",
-                    "State", "Description");
-            cprintf("%-20s %-10s %-16s %-14s %s\n",
+                    "State", "Uptime", "Description");
+            cprintf("%-20s %-10s %-16s %-14s %-14s %s\n",
                     "--------", "--", "---------",
-                    "-----", "-----------");
+                    "-----", "------", "-----------");
 
             for (int i = 0; i < num_peers; i++) {
-                cprintf("%-20s %-10u %-16s %-14s %s\n",
+                char uptime_str[32];
+
+                bgp_format_peer_uptime(&peers[i], uptime_str, sizeof(uptime_str));
+                cprintf("%-20s %-10u %-16s %-14s %-14s %s\n",
                         peers[i].neighbor_address,
                         peers[i].peer_asn,
                         peers[i].router_id,
                         bgp_session_state_str(peers[i].session_state),
+                        uptime_str,
                         peers[i].description);
+                bgp_show_peer_address_families(&peers[i]);
+                if (i + 1 < num_peers) {
+                    cprintf("\n");
+                }
             }
         }
         break;
@@ -1378,6 +1562,9 @@ bgp_show_handler(int64_t cmdcode,
 
         case CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_MAC:
             return bgp_show_routes(node, "l2vpn-evpn", "mac");
+
+        case CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_IMET:
+            return bgp_show_routes(node, "l2vpn-evpn", "imet");
 
         default:
             break;
@@ -1523,6 +1710,7 @@ bgp_config_cli_tree(param_t *param)
  * show node <node-name> protocol bgp running-config
  * show node <node-name> protocol bgp routes <afi> <safi>
  * show node <node-name> protocol bgp routes l2vpn-evpn mac
+ * show node <node-name> protocol bgp routes l2vpn-evpn imet
  * show node <node-name> protocol bgp global-rib <ipv4-vpn|l2vpn-evpn>
  */
 int
@@ -1615,6 +1803,15 @@ bgp_show_cli_tree(param_t *param)
                     libcli_set_param_cmd_code(
                         &safi_mac,
                         CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_MAC);
+
+                    static param_t safi_imet;
+                    init_param(&safi_imet, CMD, "imet", bgp_show_handler,
+                               0, INVALID, 0,
+                               "EVPN Type-3 IMET routes");
+                    libcli_register_param(&afi_l2vpn_evpn, &safi_imet);
+                    libcli_set_param_cmd_code(
+                        &safi_imet,
+                        CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_IMET);
                 }
             }
         }

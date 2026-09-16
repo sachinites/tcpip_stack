@@ -138,12 +138,16 @@ evpn_connect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf) {
     cp2dp_enable_bd_lmac_learning_queue(bd_intf, true);
     evpn_inst->mac_vrf =  mac_vrf_create(bd_intf->vrf, bd_intf->bd_id);
     evpn_inst->mac_vrf->evpn_inst = evpn_inst;
+
+    mac_vrf_evpn_route_type3_local_import(bd_intf->vrf->node, evpn_inst->mac_vrf);
 }
 
 bool 
 evpn_disconnect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf)
 {
     assert (evpn_inst->bd_intf.get() == bd_intf);
+
+    node_t *node = evpn_inst->node;
 
     /* Reset RT */
     evpn_inst->export_rt.rtr_id = 0;
@@ -153,6 +157,7 @@ evpn_disconnect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf)
 
     bd_intf->disable_lmac_queue();
     cp2dp_enable_bd_lmac_learning_queue(bd_intf, false);
+    mac_vrf_evpn_route_type3_delete(node, evpn_inst->mac_vrf);
     mac_vrf_destroy(evpn_inst->mac_vrf);
 
     evpn_inst->mac_vrf = NULL;

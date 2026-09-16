@@ -105,6 +105,26 @@ sf_gobgp_list_peers(sf_gobgp_grpc_client_t *client,
             out.session_state = p.session_state;
             std::strncpy(out.description, p.description.c_str(),
                          sizeof(out.description) - 1);
+            out.uptime_seconds = p.uptime_seconds;
+            out.uptime_valid = p.uptime_valid;
+            out.num_afi_safis = 0;
+
+            for (const auto& af : p.afi_safis) {
+                if (out.num_afi_safis >= SF_GOBGP_MAX_PEER_AFI_SAFI) {
+                    break;
+                }
+
+                sf_gobgp_peer_afi_safi_info_t& af_out =
+                    out.afi_safis[out.num_afi_safis++];
+                std::memset(&af_out, 0, sizeof(af_out));
+                af_out.afi = af.afi;
+                af_out.safi = af.safi;
+                af_out.configured = af.configured;
+                af_out.enabled = af.enabled;
+                af_out.received = af.received;
+                af_out.accepted = af.accepted;
+                af_out.advertised = af.advertised;
+            }
             count++;
         }
     }
@@ -295,6 +315,11 @@ to_cpp_route_params(const sf_gobgp_route_params_t *params)
     out.mac_addr = params->mac_addr;
     out.evpn_label = params->evpn_label;
     out.evpn_label_present = params->evpn_label_present;
+    out.evpn_route_type = params->evpn_route_type;
+    out.eth_tag_id = params->eth_tag_id;
+    out.pe_addr = params->pe_addr;
+    out.pmsi_label = params->pmsi_label;
+    out.pmsi_label_present = params->pmsi_label_present;
     out.afi = to_cpp_afi(params->afi);
     out.safi = to_cpp_safi(params->safi);
     return out;
@@ -335,6 +360,9 @@ to_c_route_info(const gobgp_client::BgpRouteInfo& in,
     out->evpn_label1 = in.evpn_label1;
     out->evpn_label1_present = in.evpn_label1_present;
     out->evpn_label1_from_ext_comm = in.evpn_label1_from_ext_comm;
+    out->pmsi_label = in.pmsi_label;
+    out->pmsi_label_present = in.pmsi_label_present;
+    out->pmsi_tunnel_type = in.pmsi_tunnel_type;
     out->tunnel_encap_type = in.tunnel_encap_type;
     out->tunnel_encap_present = in.tunnel_encap_present;
     switch (in.safi) {
@@ -361,7 +389,8 @@ sf_gobgp_add_route(sf_gobgp_grpc_client_t *client,
         return {false, -1, "invalid arguments"};
     }
     if (params->safi == 70) {
-        if (params->mac_addr[0] == '\0') {
+        /* Type-2 uses mac_addr; Type-3 IMET uses pe_addr. */
+        if (params->mac_addr[0] == '\0' && params->pe_addr[0] == '\0') {
             return {false, -1, "invalid arguments"};
         }
     } else if (params->prefix[0] == '\0') {
@@ -395,7 +424,7 @@ sf_gobgp_delete_route(sf_gobgp_grpc_client_t *client,
         return {false, -1, "invalid arguments"};
     }
     if (params->safi == 70) {
-        if (params->mac_addr[0] == '\0') {
+        if (params->mac_addr[0] == '\0' && params->pe_addr[0] == '\0') {
             return {false, -1, "invalid arguments"};
         }
     } else if (params->prefix[0] == '\0') {

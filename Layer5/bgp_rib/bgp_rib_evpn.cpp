@@ -96,33 +96,52 @@ bgp_evpn_nlri_encode(const bgp_evpn_nlri_t *nlri,
     encode_rd_type1(&nlri->rd, &key_out->wire[offset]);
     offset += 8;
 
-    memcpy(&key_out->wire[offset], nlri->esi, 10);
-    offset += 10;
+    switch (nlri->route_type) {
+    case EVPN_RT_TYPE_IMET:
+        key_out->wire[offset++] = (uint8_t)((nlri->eth_tag_id >> 24) & 0xff);
+        key_out->wire[offset++] = (uint8_t)((nlri->eth_tag_id >> 16) & 0xff);
+        key_out->wire[offset++] = (uint8_t)((nlri->eth_tag_id >> 8) & 0xff);
+        key_out->wire[offset++] = (uint8_t)(nlri->eth_tag_id & 0xff);
 
-    key_out->wire[offset++] = (uint8_t)((nlri->eth_tag_id >> 24) & 0xff);
-    key_out->wire[offset++] = (uint8_t)((nlri->eth_tag_id >> 16) & 0xff);
-    key_out->wire[offset++] = (uint8_t)((nlri->eth_tag_id >> 8) & 0xff);
-    key_out->wire[offset++] = (uint8_t)(nlri->eth_tag_id & 0xff);
+        key_out->wire[offset++] = nlri->ip_len ? nlri->ip_len : 32;
+        if ((nlri->ip_len == 0 || nlri->ip_len == 32) && nlri->ip_addr) {
+            key_out->wire[offset++] = (uint8_t)((nlri->ip_addr >> 24) & 0xff);
+            key_out->wire[offset++] = (uint8_t)((nlri->ip_addr >> 16) & 0xff);
+            key_out->wire[offset++] = (uint8_t)((nlri->ip_addr >> 8) & 0xff);
+            key_out->wire[offset++] = (uint8_t)(nlri->ip_addr & 0xff);
+        }
+        break;
 
-    key_out->wire[offset++] = nlri->mac_len;
-    memcpy(&key_out->wire[offset], nlri->mac.mac, MAC_ADDR_SIZE);
-    offset += MAC_ADDR_SIZE;
+    case EVPN_RT_TYPE_MAC_ONLY:
+    default:
+        memcpy(&key_out->wire[offset], nlri->esi, 10);
+        offset += 10;
 
-    key_out->wire[offset++] = nlri->ip_len;
-    if (nlri->ip_len == 32) {
-        key_out->wire[offset++] = (uint8_t)((nlri->ip_addr >> 24) & 0xff);
-        key_out->wire[offset++] = (uint8_t)((nlri->ip_addr >> 16) & 0xff);
-        key_out->wire[offset++] = (uint8_t)((nlri->ip_addr >> 8) & 0xff);
-        key_out->wire[offset++] = (uint8_t)(nlri->ip_addr & 0xff);
-    }
+        key_out->wire[offset++] = (uint8_t)((nlri->eth_tag_id >> 24) & 0xff);
+        key_out->wire[offset++] = (uint8_t)((nlri->eth_tag_id >> 16) & 0xff);
+        key_out->wire[offset++] = (uint8_t)((nlri->eth_tag_id >> 8) & 0xff);
+        key_out->wire[offset++] = (uint8_t)(nlri->eth_tag_id & 0xff);
 
-    if (nlri->label_present) {
-        /* RFC 8277: 20-bit label in high-order bits of 3 octets; BoS in LSB. */
-        uint32_t entry = ((nlri->label & 0xfffff) << 4) | 0x1;
+        key_out->wire[offset++] = nlri->mac_len;
+        memcpy(&key_out->wire[offset], nlri->mac.mac, MAC_ADDR_SIZE);
+        offset += MAC_ADDR_SIZE;
 
-        key_out->wire[offset++] = (uint8_t)((entry >> 16) & 0xff);
-        key_out->wire[offset++] = (uint8_t)((entry >> 8) & 0xff);
-        key_out->wire[offset++] = (uint8_t)(entry & 0xff);
+        key_out->wire[offset++] = nlri->ip_len;
+        if (nlri->ip_len == 32) {
+            key_out->wire[offset++] = (uint8_t)((nlri->ip_addr >> 24) & 0xff);
+            key_out->wire[offset++] = (uint8_t)((nlri->ip_addr >> 16) & 0xff);
+            key_out->wire[offset++] = (uint8_t)((nlri->ip_addr >> 8) & 0xff);
+            key_out->wire[offset++] = (uint8_t)(nlri->ip_addr & 0xff);
+        }
+
+        if (nlri->label_present) {
+            uint32_t entry = ((nlri->label & 0xfffff) << 4) | 0x1;
+
+            key_out->wire[offset++] = (uint8_t)((entry >> 16) & 0xff);
+            key_out->wire[offset++] = (uint8_t)((entry >> 8) & 0xff);
+            key_out->wire[offset++] = (uint8_t)(entry & 0xff);
+        }
+        break;
     }
 
     key_out->wire_len = offset;
@@ -135,7 +154,7 @@ bgp_evpn_nlri_decode(const bgp_nlri_key_t *key,
 {
     uint16_t offset = 0;
 
-    if (!key || !nlri_out || key->wire_len < 30) {
+    if (!key || !nlri_out || key->wire_len < 9) {
         return BGP_RIB_ERR_NULL;
     }
 
@@ -147,6 +166,37 @@ bgp_evpn_nlri_decode(const bgp_nlri_key_t *key,
         return BGP_RIB_ERR_DECODE;
     }
     offset += 8;
+
+    if (nlri_out->route_type == EVPN_RT_TYPE_IMET) {
+        if (key->wire_len < offset + 5) {
+            return BGP_RIB_ERR_DECODE;
+        }
+
+        nlri_out->eth_tag_id =
+            ((uint32_t)key->wire[offset] << 24) |
+            ((uint32_t)key->wire[offset + 1] << 16) |
+            ((uint32_t)key->wire[offset + 2] << 8) |
+            (uint32_t)key->wire[offset + 3];
+        offset += 4;
+
+        nlri_out->ip_len = key->wire[offset++];
+        if (nlri_out->ip_len == 32) {
+            if (key->wire_len < offset + 4) {
+                return BGP_RIB_ERR_DECODE;
+            }
+            nlri_out->ip_addr =
+                ((uint32_t)key->wire[offset] << 24) |
+                ((uint32_t)key->wire[offset + 1] << 16) |
+                ((uint32_t)key->wire[offset + 2] << 8) |
+                (uint32_t)key->wire[offset + 3];
+            offset += 4;
+        }
+        return BGP_RIB_OK;
+    }
+
+    if (key->wire_len < offset + 10) {
+        return BGP_RIB_ERR_DECODE;
+    }
 
     memcpy(nlri_out->esi, &key->wire[offset], 10);
     offset += 10;
@@ -462,18 +512,32 @@ bgp_evpn_install_to_mac_vrf(mac_vrf_t *mac_vrf,
         return;
     }
 
-    if (nlri->route_type != EVPN_RT_TYPE_MAC_ONLY) {
-        return;
-    }
+    switch (nlri->route_type) {
+    case EVPN_RT_TYPE_MAC_ONLY:
+        if (is_add) {
+            mac_vrf_evpn_route_type2_remote_import(mac_vrf,
+                                                 (mac_addr_t *)&nlri->mac,
+                                                 vtep_ip,
+                                                 label);
+        } else {
+            mac_vrf_evpn_route_type2_remote_delete(mac_vrf,
+                                                   (mac_addr_t *)&nlri->mac);
+        }
+        break;
 
-    if (is_add) {
-        mac_vrf_evpn_route_type2_remote_import(mac_vrf,
-                                             (mac_addr_t *)&nlri->mac,
-                                             vtep_ip,
-                                             label);
-    } else {
-        mac_vrf_evpn_route_type2_remote_delete(mac_vrf,
-                                               (mac_addr_t *)&nlri->mac);
+    case EVPN_RT_TYPE_IMET:
+        if (is_add) {
+            mac_vrf_evpn_route_type3_remote_import(mac_vrf,
+                                                   nlri->ip_addr,
+                                                   vtep_ip,
+                                                   label);
+        } else {
+            mac_vrf_evpn_route_type3_remote_delete(mac_vrf, nlri->ip_addr);
+        }
+        break;
+
+    default:
+        break;
     }
 }
 
@@ -488,6 +552,7 @@ bgp_global_rib_export_evpn_route_cb(void *ctx,
 {
     int i;
     char mac_str[32];
+    char pe_str[16];
     char nh_str[16];
     rt_t import_rt;
     uint32_t vtep_ip = 0;
@@ -512,7 +577,8 @@ bgp_global_rib_export_evpn_route_cb(void *ctx,
         return;
     }
 
-    if (nlri.route_type != EVPN_RT_TYPE_MAC_ONLY) {
+    if (nlri.route_type != EVPN_RT_TYPE_MAC_ONLY &&
+        nlri.route_type != EVPN_RT_TYPE_IMET) {
         return;
     }
 
@@ -541,28 +607,49 @@ bgp_global_rib_export_evpn_route_cb(void *ctx,
 
     if (nlri.label_present && nlri.label) {
         label = nlri.label;
+    } else if (attrs->pmsi_label_present) {
+        label = attrs->pmsi_label;
     } else if (attrs->evpn_label1_present) {
         label = attrs->evpn_label1;
     }
 
-    bgp_evpn_format_mac(&nlri.mac, mac_str, sizeof(mac_str));
+    if (nlri.route_type == EVPN_RT_TYPE_MAC_ONLY) {
+        bgp_evpn_format_mac(&nlri.mac, mac_str, sizeof(mac_str));
+    } else {
+        format_ipv4(nlri.ip_addr, pe_str, sizeof(pe_str));
+    }
+
     if (is_add) {
         ip_ntop(vtep_ip, (c_string)nh_str);
     } else {
         nh_str[0] = '\0';
     }
 
-    tracer(bgp_inst->tr, DRTM_DET,
-           "%s : [%s] : Route %s, nh %s label %u, op=%s\n",
-           BGP_RTM_IM, BGP_EVPN_RIB_NAME, mac_str,
-           is_add ? nh_str : "-", label,
-           is_add ? "Add" : "Del");
+    if (nlri.route_type == EVPN_RT_TYPE_MAC_ONLY) {
+        tracer(bgp_inst->tr, DRTM_DET,
+               "%s : [%s] : Route %s, nh %s label %u, op=%s\n",
+               BGP_RTM_IM, BGP_EVPN_RIB_NAME, mac_str,
+               is_add ? nh_str : "-", label,
+               is_add ? "Add" : "Del");
 
-    tracer(node->cptr, DRTM_DET,
-           "%s : [%s] : Route %s, nh %s label %u, op=%s\n",
-           BGP_RTM_IM, BGP_EVPN_RIB_NAME, mac_str,
-           is_add ? nh_str : "-", label,
-           is_add ? "Add" : "Del");
+        tracer(node->cptr, DRTM_DET,
+               "%s : [%s] : Route %s, nh %s label %u, op=%s\n",
+               BGP_RTM_IM, BGP_EVPN_RIB_NAME, mac_str,
+               is_add ? nh_str : "-", label,
+               is_add ? "Add" : "Del");
+    } else {
+        tracer(bgp_inst->tr, DRTM_DET,
+               "%s : [%s] : IMET PE %s, nh %s BUM label %u, op=%s\n",
+               BGP_RTM_IM, BGP_EVPN_RIB_NAME, pe_str,
+               is_add ? nh_str : "-", label,
+               is_add ? "Add" : "Del");
+
+        tracer(node->cptr, DRTM_DET,
+               "%s : [%s] : IMET PE %s, nh %s BUM label %u, op=%s\n",
+               BGP_RTM_IM, BGP_EVPN_RIB_NAME, pe_str,
+               is_add ? nh_str : "-", label,
+               is_add ? "Add" : "Del");
+    }
 
     if (target_evi == 0) {
         for (i = 0; i < MAX_EVPN_INDEX; i++) {
@@ -579,8 +666,10 @@ bgp_global_rib_export_evpn_route_cb(void *ctx,
                                         &nlri, vtep_ip, label, is_add);
 
             tracer(node->cptr, DRTM_DET,
-                   "EVPN[%u] : Type-2 MAC %s %sInstalled into MAC VRF %u\n",
-                   evpn_inst->evi, mac_str,
+                   "EVPN[%u] : Type-%u %s %sInstalled into MAC VRF %u\n",
+                   evpn_inst->evi,
+                   nlri.route_type,
+                   nlri.route_type == EVPN_RT_TYPE_IMET ? pe_str : mac_str,
                    is_add ? "" : "Un",
                    evpn_inst->mac_vrf->mac_vrf_id);
         }
@@ -604,8 +693,10 @@ bgp_global_rib_export_evpn_route_cb(void *ctx,
                                 &nlri, vtep_ip, label, is_add);
 
     tracer(node->cptr, DRTM_DET,
-           "EVPN[%u] : Type-2 MAC %s %sInstalled into MAC VRF %u\n",
-           evpn_inst->evi, mac_str,
+           "EVPN[%u] : Type-%u %s %sInstalled into MAC VRF %u\n",
+           evpn_inst->evi,
+           nlri.route_type,
+           nlri.route_type == EVPN_RT_TYPE_IMET ? pe_str : mac_str,
            is_add ? "" : "Un",
            evpn_inst->mac_vrf->mac_vrf_id);
 }
