@@ -90,7 +90,7 @@ mac_vrf_evpn_route_type3_remote_delete(
         uint32_t pe_addr);
 
 void
-mac_vrf_flush_remote_bgp_routes(mac_vrf_t *mac_vrf);
+mac_vrf_delete_all_remote_evpn_routes(mac_vrf_t *mac_vrf);
 
 void 
 mac_vrf_export_evpn_local_evpn_routes_to_bgp(node_t *node, evpn_inst_t *evpn);

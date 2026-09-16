@@ -81,12 +81,12 @@ event_dispatcher_init(event_dispatcher_t *ev_dis, const char *name){
 	strncpy((char *)ev_dis->name, name, sizeof(ev_dis->name) - 1);
 	ev_dis->name[sizeof(ev_dis->name) - 1] = '\0';
 	pthread_mutex_init(&ev_dis->ev_dis_mutex, NULL);
-	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_CRITICAL]);
-	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_HIGH]);
-	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_MEDIUM]);
-	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_LOW_MEDIUM]);
-	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_LOW]);
-	init_glthread(&ev_dis->task_array_head[TASK_PRIORITY_VERY_LOW]);
+	init_Fglthread(&ev_dis->task_array_head[TASK_PRIORITY_CRITICAL]);
+	init_Fglthread(&ev_dis->task_array_head[TASK_PRIORITY_HIGH]);
+	init_Fglthread(&ev_dis->task_array_head[TASK_PRIORITY_MEDIUM]);
+	init_Fglthread(&ev_dis->task_array_head[TASK_PRIORITY_LOW_MEDIUM]);
+	init_Fglthread(&ev_dis->task_array_head[TASK_PRIORITY_LOW]);
+	init_Fglthread(&ev_dis->task_array_head[TASK_PRIORITY_VERY_LOW]);
 	ev_dis->pending_task_count = 0;
 	ev_dis->ev_dis_state = EV_DIS_IDLE;
 	pthread_cond_init(&ev_dis->ev_dis_cond_wait, NULL);
@@ -127,7 +127,7 @@ event_dispatcher_schedule_task(event_dispatcher_t *ev_dis, task_t *task){
 		return false;
 	}
 
-	glthread_add_last(&ev_dis->task_array_head[task->priority], &task->glue);
+	Fglthread_add_last(&ev_dis->task_array_head[task->priority], &task->glue);
 	assert (!IS_GLTHREAD_LIST_EMPTY (&task->glue));
 
 	tracer (sched_tracer, DSCHED, 
@@ -196,12 +196,12 @@ eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 		case TASK_PKT_Q_JOB:	
 			pkt_q = (pkt_q_t *)(task->data);
 
-			pthread_mutex_lock(&pkt_q->q_mutex);
+			pthread_spin_lock(&pkt_q->q_spinlock);
 			
-			if (IS_GLTHREAD_LIST_EMPTY(&pkt_q->q_head)) {
+			if (Fglthread_list_is_empty(&pkt_q->q_head)) {
 				tracer (sched_tracer, DSCHED_DET, 
 					"%p : Queue Exhausted, will stop until pkt enqueue..\n", ptr);
-				pthread_mutex_unlock(&pkt_q->q_mutex);
+				pthread_spin_unlock(&pkt_q->q_spinlock);
 				return;
 			}
 
@@ -212,11 +212,11 @@ eve_dis_process_task_post_call(event_dispatcher_t *ev_dis, task_t *task){
 
 			if (!IS_GLTHREAD_LIST_EMPTY(&task->glue)) {
 				EV_DIS_UNLOCK(ev_dis);
-				pthread_mutex_unlock(&pkt_q->q_mutex);
+				pthread_spin_unlock(&pkt_q->q_spinlock);
 				break;
 			}
 			EV_DIS_UNLOCK(ev_dis);
-			pthread_mutex_unlock(&pkt_q->q_mutex);
+			pthread_spin_unlock(&pkt_q->q_spinlock);
 			event_dispatcher_schedule_task(ev_dis, task);
 			break;
 		default: 		;
@@ -227,17 +227,17 @@ static task_t *
 event_dispatcher_get_next_task_to_run(event_dispatcher_t *ev_dis){
 
 	glthread_t *curr;
-	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_CRITICAL]);
+	curr = dequeue_Fglthread_first(&ev_dis->task_array_head[TASK_PRIORITY_CRITICAL]);
 	if (curr) return glue_to_task(curr);
-	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_HIGH]);
+	curr = dequeue_Fglthread_first(&ev_dis->task_array_head[TASK_PRIORITY_HIGH]);
 	if (curr) return glue_to_task(curr);
-	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_MEDIUM]);
+	curr = dequeue_Fglthread_first(&ev_dis->task_array_head[TASK_PRIORITY_MEDIUM]);
 	if (curr) return glue_to_task(curr);
-	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_LOW_MEDIUM]);
+	curr = dequeue_Fglthread_first(&ev_dis->task_array_head[TASK_PRIORITY_LOW_MEDIUM]);
 	if (curr) return glue_to_task(curr);
-	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_LOW]);
+	curr = dequeue_Fglthread_first(&ev_dis->task_array_head[TASK_PRIORITY_LOW]);
 	if (curr) return glue_to_task(curr);
-	curr = dequeue_glthread_first(&ev_dis->task_array_head[TASK_PRIORITY_VERY_LOW]);
+	curr = dequeue_Fglthread_first(&ev_dis->task_array_head[TASK_PRIORITY_VERY_LOW]);
 	if (curr) return glue_to_task(curr);	
 	return NULL;
 }
@@ -418,7 +418,7 @@ event_dispatcher_cancel_queued_task(event_dispatcher_t *ev_dis, task_t *task){
 		return;
 	}
 
-	remove_glthread(&task->glue);
+	remove_Fglthread(&ev_dis->task_array_head[task->priority], &task->glue);
 	ev_dis->pending_task_count--;
 
 	if (ev_dis->ev_dis_state == EV_DIS_IDLE &&
@@ -461,10 +461,12 @@ task_cancel_job(event_dispatcher_t *ev_dis, task_t *task){
 
 		EV_DIS_UNLOCK(ev_dis);
 
-		pthread_mutex_lock(&pkt_q->q_mutex);
-		delete_glthread_list(&pkt_q->q_head);
+		pthread_spin_lock(&pkt_q->q_spinlock);
+		while (!Fglthread_list_is_empty(&pkt_q->q_head)) {
+			dequeue_Fglthread_first(&pkt_q->q_head);
+		}
 		pkt_q->pkt_count = 0;
-		pthread_mutex_unlock(&pkt_q->q_mutex);
+		pthread_spin_unlock(&pkt_q->q_spinlock);
 
 		EV_DIS_LOCK(ev_dis);
 		remove_glthread(&pkt_q->glue);
@@ -522,15 +524,15 @@ task_get_next_pkt (event_dispatcher_t *ev_dis, uint32_t *pkt_size){
 
 	pkt_q_t *pkt_q = (pkt_q_t *)(task->data);
 
-	pthread_mutex_lock(&pkt_q->q_mutex);
-	curr = dequeue_glthread_first(&pkt_q->q_head);
+	pthread_spin_lock(&pkt_q->q_spinlock);
+	curr = dequeue_Fglthread_first(&pkt_q->q_head);
 	
 	if(!curr) {
-		pthread_mutex_unlock(&pkt_q->q_mutex);
+		pthread_spin_unlock(&pkt_q->q_spinlock);
 		return NULL;
 	}
 	pkt_q->pkt_count--;
-	pthread_mutex_unlock(&pkt_q->q_mutex);
+	pthread_spin_unlock(&pkt_q->q_spinlock);
 
 	pkt = glue_to_pkt(curr);
 
@@ -548,20 +550,20 @@ pkt_q_enqueue (event_dispatcher_t *ev_dis,
 	
 	void *ptr = (void *)(ev_dis->app_data);
 
-	pthread_mutex_lock(&pkt_q->q_mutex);
+	pthread_spin_lock(&pkt_q->q_spinlock);
 
 	if (pkt_q->pkt_count > PKT_Q_MAX_QUEUE_SIZE) {
 		pkt_q->drop_count++;
-		pthread_mutex_unlock(&pkt_q->q_mutex);
+		pthread_spin_unlock(&pkt_q->q_spinlock);
 		return false;
 	}
 
 	pkt_t *pkt = task_get_new_pkt(_pkt, pkt_size);
 	
-	glthread_add_last(&pkt_q->q_head, &pkt->glue);
+	Fglthread_add_last(&pkt_q->q_head, &pkt->glue);
 	pkt_q->pkt_count++;
 
-	pthread_mutex_unlock(&pkt_q->q_mutex);
+	pthread_spin_unlock(&pkt_q->q_spinlock);
 
 	tracer (sched_tracer, DSCHED_DET, 
 		"%p : %s() calling event_dispatcher_schedule_task()\n", ptr, __FUNCTION__);
@@ -574,8 +576,8 @@ void
 init_pkt_q(event_dispatcher_t *ev_dis, 
 			pkt_q_t *pkt_q, event_cbk cbk){
 
-	init_glthread(&pkt_q->q_head);
-	pthread_mutex_init(&pkt_q->q_mutex, NULL);
+	init_Fglthread(&pkt_q->q_head);
+	pthread_spin_init(&pkt_q->q_spinlock, PTHREAD_PROCESS_PRIVATE);
 	pkt_q->task = create_new_task((void *)pkt_q,
 								  sizeof(*pkt_q),
 								  cbk);
@@ -589,13 +591,38 @@ init_pkt_q(event_dispatcher_t *ev_dis,
 void
 de_init_pkt_q(pkt_q_t *pkt_q){
 
-	remove_glthread(&pkt_q->glue); // ToDo : not thread safe, revisit 
+	glthread_t *curr;
+	pkt_t *pkt;
+	event_dispatcher_t *ev_dis = pkt_q->ev_dis;
+
+	pthread_spin_lock(&pkt_q->q_spinlock);
+	while ((curr = dequeue_Fglthread_first(&pkt_q->q_head)) != NULL) {
+		pkt = glue_to_pkt(curr);
+		if (pkt->pkt) {
+			if (pkt_q->free_cbk)
+				pkt_q->free_cbk(pkt->pkt);
+			else
+				free(pkt->pkt);
+		}
+		free(pkt);
+	}
+	pkt_q->pkt_count = 0;
+	pthread_spin_unlock(&pkt_q->q_spinlock);
+
+	if (ev_dis) {
+		EV_DIS_LOCK(ev_dis);
+		remove_glthread(&pkt_q->glue);
+		if (pkt_q->task)
+			event_dispatcher_cancel_queued_task(ev_dis, pkt_q->task);
+		EV_DIS_UNLOCK(ev_dis);
+	} else {
+		remove_glthread(&pkt_q->glue);
+	}
+
 	pkt_q->ev_dis = NULL;
-	// ToDo : drain data in this pkt Q : pkt_q->q_head
-	pthread_mutex_destroy(&pkt_q->q_mutex);
+	pthread_spin_destroy(&pkt_q->q_spinlock);
 	XFREE(pkt_q->task);
 	pkt_q->task = NULL;
-	XFREE(pkt_q);
 }
 
 bool
@@ -624,13 +651,13 @@ int scheduler_task_queue(event_dispatcher_t *ev_dis) {
 
     for (int pri = TASK_PRIORITY_FIRST; pri < TASK_PRIORITY_MAX; pri++) {
 
-        if (IS_GLTHREAD_LIST_EMPTY(&ev_dis->task_array_head[pri])) continue;
+        if (Fglthread_list_is_empty(&ev_dis->task_array_head[pri])) continue;
 
         tracer(sched_tracer, DSCHED_DET, "    Priority (%d):\n", pri);
 
         int task_idx = 0;
 
-        ITERATE_GLTHREAD_BEGIN(&ev_dis->task_array_head[pri], curr) {
+        ITERATE_GLTHREAD_BEGIN(&ev_dis->task_array_head[pri].head, curr) {
 
             task = glue_to_task(curr);
             tracer(sched_tracer, DSCHED_DET, 
@@ -642,7 +669,7 @@ int scheduler_task_queue(event_dispatcher_t *ev_dis) {
                     task->no_of_invocations);
             count++;
 
-        } ITERATE_GLTHREAD_END(&ev_dis->task_array_head[pri], curr);
+        } ITERATE_GLTHREAD_END(&ev_dis->task_array_head[pri].head, curr);
     }
 
     return count;

@@ -97,13 +97,13 @@ show_event_dispatcher(event_dispatcher_t *ev_dis) {
     cprintf("\n  Pending Task Queues:\n");
     for (pri = TASK_PRIORITY_FIRST; pri < TASK_PRIORITY_MAX; pri++) {
 
-        if (IS_GLTHREAD_LIST_EMPTY(&ev_dis->task_array_head[pri]))
+        if (Fglthread_list_is_empty(&ev_dis->task_array_head[pri]))
             continue;
 
         cprintf("    Priority %s (%d):\n",
                 task_priority_str((task_priority_t)pri), pri);
         task_idx = 0;
-        ITERATE_GLTHREAD_BEGIN(&ev_dis->task_array_head[pri], curr) {
+        ITERATE_GLTHREAD_BEGIN(&ev_dis->task_array_head[pri].head, curr) {
 
             task = glue_to_task(curr);
             cprintf("      [%d] task=%p cbk=%p data=%p data_size=%u type=%s "
@@ -112,7 +112,7 @@ show_event_dispatcher(event_dispatcher_t *ev_dis) {
                     task->data_size, task_type_str(task->task_type),
                     task->re_schedule ? "true" : "false",
                     task->no_of_invocations);
-        } ITERATE_GLTHREAD_END(&ev_dis->task_array_head[pri], curr);
+        } ITERATE_GLTHREAD_END(&ev_dis->task_array_head[pri].head, curr);
     }
 
     if (!IS_GLTHREAD_LIST_EMPTY(&ev_dis->pkt_queue_head)) {

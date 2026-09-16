@@ -105,13 +105,14 @@ GLTHREAD_TO_STRUCT(glue_to_task, task_t, glue);
 
 struct pkt_q_{
 
-	pthread_mutex_t q_mutex;
+	pthread_spinlock_t q_spinlock;
 	event_dispatcher_t *ev_dis;
 	task_t *task;
-	glthread_t q_head;
+	Fglthread_t q_head;
 	glthread_t glue;
 	uint32_t pkt_count;
 	uint32_t drop_count;
+	void (*free_cbk)(void *);
 };
 GLTHREAD_TO_STRUCT(glue_to_pkt_q,
 	pkt_q_t, glue);
@@ -121,7 +122,7 @@ struct event_dispatcher_{
 	unsigned char name[EV_DIS_NAME_LEN];
 	pthread_mutex_t ev_dis_mutex;
 
-	glthread_t task_array_head[TASK_PRIORITY_MAX];	
+	Fglthread_t task_array_head[TASK_PRIORITY_MAX];
 	uint32_t pending_task_count;
 
 	glthread_t pkt_queue_head;
@@ -203,9 +204,9 @@ static inline uint32_t
 ptk_q_drop_count (pkt_q_t *pkt_q){
 
 	uint32_t rc;
-	pthread_mutex_lock(&pkt_q->q_mutex);
+	pthread_spin_lock(&pkt_q->q_spinlock);
 	rc = pkt_q->drop_count;
-	pthread_mutex_unlock(&pkt_q->q_mutex);
+	pthread_spin_unlock(&pkt_q->q_spinlock);
 	return rc;
 }
 

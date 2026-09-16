@@ -770,65 +770,81 @@ mac_vrf_evpn_route_type3_remote_delete(
     XFREE(evpn_rt);
 }
 
-void
-mac_vrf_flush_remote_bgp_routes(mac_vrf_t *mac_vrf)
+void 
+mac_vrf_delete_all_remote_evpn_routes(mac_vrf_t *mac_vrf)
 {
     struct hashtable_itr *itr;
     mac_addr_t keys[256];
     int n = 0;
     int i;
 
-    if (!mac_vrf || !mac_vrf->type2_rib) {
+    if (!mac_vrf || !mac_vrf->type2_rib)
+    {
         return;
     }
 
-    if (mac_vrf->mac_rtm) {
+    if (mac_vrf->mac_rtm)
+    {
         cp_rtm_uninstall_routes_by_proto(mac_vrf->mac_rtm,
                                          RTM_PROTO_BGP,
                                          RTM_PROTO_L2VPN_EVPN,
                                          0);
     }
 
-    if (hashtable_count(mac_vrf->type2_rib) == 0) {
-        return;
-    }
+    do
+    {
 
-    itr = hashtable_iterator(mac_vrf->type2_rib);
-    if (!itr) {
-        return;
-    }
-
-    do {
-        mac_addr_t *key =
-            (mac_addr_t *)hashtable_iterator_key(itr);
-        evpn_exp_rt_t *evpn_rt =
-            (evpn_exp_rt_t *)hashtable_iterator_value(itr);
-
-        if (!key || !evpn_rt) {
+        if (hashtable_count(mac_vrf->type2_rib) == 0)
+        {
             break;
         }
 
-        if (evpn_rt->flags & EVPN_RT_F_LOCAL) {
-            continue;
+        itr = hashtable_iterator(mac_vrf->type2_rib);
+        if (!itr)
+        {
+            break;
         }
 
-        if (n < (int)(sizeof(keys) / sizeof(keys[0]))) {
-            memcpy(keys[n].mac, key->mac, MAC_ADDR_SIZE);
-            n++;
+        do
+        {
+            mac_addr_t *key =
+                (mac_addr_t *)hashtable_iterator_key(itr);
+            evpn_exp_rt_t *evpn_rt =
+                (evpn_exp_rt_t *)hashtable_iterator_value(itr);
+
+            if (!key || !evpn_rt)
+            {
+                break;
+            }
+
+            if (evpn_rt->flags & EVPN_RT_F_LOCAL)
+            {
+                continue;
+            }
+
+            if (n < (int)(sizeof(keys) / sizeof(keys[0])))
+            {
+                memcpy(keys[n].mac, key->mac, MAC_ADDR_SIZE);
+                n++;
+            }
+        } while (hashtable_iterator_advance(itr));
+
+        free(itr);
+
+        for (i = 0; i < n; i++)
+        {
+            evpn_exp_rt_t *evpn_rt =
+                (evpn_exp_rt_t *)hashtable_remove(mac_vrf->type2_rib, &keys[i]);
+            if (evpn_rt)
+            {
+                XFREE(evpn_rt);
+            }
         }
-    } while (hashtable_iterator_advance(itr));
 
-    free(itr);
+    } while (0);
 
-    for (i = 0; i < n; i++) {
-        evpn_exp_rt_t *evpn_rt =
-            (evpn_exp_rt_t *)hashtable_remove(mac_vrf->type2_rib, &keys[i]);
-        if (evpn_rt) {
-            XFREE(evpn_rt);
-        }
-    }
-
-    if (!mac_vrf->type3_rib || hashtable_count(mac_vrf->type3_rib) == 0) {
+    if (!mac_vrf->type3_rib || hashtable_count(mac_vrf->type3_rib) == 0)
+    {
         return;
     }
 
@@ -837,35 +853,42 @@ mac_vrf_flush_remote_bgp_routes(mac_vrf_t *mac_vrf)
         int pe_n = 0;
 
         itr = hashtable_iterator(mac_vrf->type3_rib);
-        if (!itr) {
+        if (!itr)
+        {
             return;
         }
 
-        do {
+        do
+        {
             uint32_t *key = (uint32_t *)hashtable_iterator_key(itr);
             evpn_exp_rt_t *evpn_rt =
                 (evpn_exp_rt_t *)hashtable_iterator_value(itr);
 
-            if (!key || !evpn_rt) {
+            if (!key || !evpn_rt)
+            {
                 break;
             }
 
-            if (evpn_rt->flags & EVPN_RT_F_LOCAL) {
+            if (evpn_rt->flags & EVPN_RT_F_LOCAL)
+            {
                 continue;
             }
 
-            if (pe_n < (int)(sizeof(pe_keys) / sizeof(pe_keys[0]))) {
+            if (pe_n < (int)(sizeof(pe_keys) / sizeof(pe_keys[0])))
+            {
                 pe_keys[pe_n++] = *key;
             }
         } while (hashtable_iterator_advance(itr));
 
         free(itr);
 
-        for (i = 0; i < pe_n; i++) {
+        for (i = 0; i < pe_n; i++)
+        {
             evpn_exp_rt_t *evpn_rt =
                 (evpn_exp_rt_t *)hashtable_remove(mac_vrf->type3_rib,
                                                   &pe_keys[i]);
-            if (evpn_rt) {
+            if (evpn_rt)
+            {
                 XFREE(evpn_rt);
             }
         }
@@ -919,11 +942,14 @@ mac_vrf_export_evpn_local_evpn_routes_to_bgp(node_t *node, evpn_inst_t *evpn) {
 
             evpn_rt = (evpn_exp_rt_t *)hashtable_iterator_value(itr);
 
-            evpn_route_export_to_bgp(node,
+            if (evpn_rt->flags & EVPN_RT_F_LOCAL) { 
+
+                evpn_route_export_to_bgp(node,
                              &mac_vrf->evpn_inst->rd,
                              &mac_vrf->evpn_inst->export_rt,
                              evpn_rt,
                              false);
+            }
         } while (hashtable_iterator_advance(itr));
 
         free(itr);
@@ -944,12 +970,14 @@ mac_vrf_export_evpn_local_evpn_routes_to_bgp(node_t *node, evpn_inst_t *evpn) {
 
         evpn_rt = (evpn_exp_rt_t *)hashtable_iterator_value(itr);
 
-        evpn_route_export_to_bgp(node,
+        if (evpn_rt->flags & EVPN_RT_F_LOCAL) { 
+
+            evpn_route_export_to_bgp(node,
                                  &mac_vrf->evpn_inst->rd,
                                  &mac_vrf->evpn_inst->export_rt,
                                  evpn_rt,
                                  false);
-
+        }
     } while (hashtable_iterator_advance(itr));
 
     free(itr);

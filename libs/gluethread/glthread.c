@@ -261,6 +261,17 @@ dequeue_glthread_first(glthread_t *base_glthread){
 }
 
 glthread_t *
+dequeue_Fglthread_first(Fglthread_t *head){
+
+    glthread_t *temp;
+    if(!head->head.right)
+        return NULL;
+    temp = head->head.right;
+    remove_Fglthread(head, temp);
+    return temp;
+}
+
+glthread_t *
 glthread_get_last(glthread_t *curr_glthread_node) {
 
     glthread_t *curr, *prev;

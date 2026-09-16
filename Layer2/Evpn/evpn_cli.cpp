@@ -465,7 +465,7 @@ evpn_config_handler (int64_t cmdcode,
                         evpn_inst->import_rt = new_rt;
 
                         if (evpn_inst->mac_vrf) {
-                            mac_vrf_flush_remote_bgp_routes(evpn_inst->mac_vrf);
+                            mac_vrf_delete_all_remote_evpn_routes(evpn_inst->mac_vrf);
                             if (BGP_INST(node)) {
                                 bgp_global_rib_export_all(
                                     BGP_INST(node),
@@ -518,7 +518,7 @@ evpn_config_handler (int64_t cmdcode,
                         }
 
                         if (evpn_inst->mac_vrf) {
-                            mac_vrf_flush_remote_bgp_routes(evpn_inst->mac_vrf);
+                            mac_vrf_delete_all_remote_evpn_routes(evpn_inst->mac_vrf);
                             if (BGP_INST(node)) {
                                 bgp_global_rib_export_all(
                                     BGP_INST(node),

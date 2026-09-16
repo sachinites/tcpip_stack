@@ -169,6 +169,9 @@ remove_Fglthread(Fglthread_t *head, glthread_t *glthread) ;
 void
 Fglthread_add_last(Fglthread_t *head, glthread_t *new_glthread) ;
 
+glthread_t *
+dequeue_Fglthread_first(Fglthread_t *head);
+
 static inline bool 
 Fglthread_list_is_empty (Fglthread_t *head) {
 
