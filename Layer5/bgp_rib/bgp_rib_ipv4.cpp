@@ -106,13 +106,13 @@ bgp_ipv4_unicast_build_nh_template(bgp_rib_attrs_t *attrs,
     cp_nh_template->is_indirect = true;
     cp_nh_template->is_resolved = false;
     cp_nh_template->proto = RTM_PROTO_BGP;
-    cp_nh_template->sub_proto = RTM_PROTO_BGP_INT;
+    cp_nh_template->sub_proto = RTM_SUB_PROTO_BGP_INT;
     cp_nh_template->action = RTM_NH_ACTION_FORWARD;
     cp_nh_template->metric = attrs->med_present ? attrs->med : 0;
     memcpy(&cp_nh_template->gateway, &gateway, sizeof(gateway));
 
     rc = rtm_nh_proto_info_create(RTM_PROTO_BGP,
-                                  RTM_PROTO_BGP_INT,
+                                  RTM_SUB_PROTO_BGP_INT,
                                   0,
                                   RTM_DEFAULT_VRF,
                                   &cp_nh_template->rtm_nh_proto);

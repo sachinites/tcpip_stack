@@ -257,7 +257,7 @@ static void rtm_show_single_route_detail(rtm_t *rtm, rtm_route *route) {
         
         /* Display L3 VPN label if present (for BGP-VPN routes) */
         if (nh->proto == RTM_PROTO_BGP && 
-            nh->sub_proto == RTM_PROTO_BGP_VPN && 
+            nh->sub_proto == RTM_SUB_PROTO_BGP_VPN && 
             nh->vpn_label != 0) {
 
             cprintf("    L3 VPN Label   : %u\n", nh->vpn_label);
@@ -427,13 +427,13 @@ static const char* rtm_get_proto_code(RTM_PROTO_T proto, RTM_SUB_PROTO_T sub_pro
             return "B";
         case RTM_PROTO_ISIS:
             switch(sub_proto) {
-                case RTM_PROTO_L1_ISIS_INT:
+                case RTM_SUB_PROTO_L1_ISIS_INT:
                     return "I L1";
-                case RTM_PROTO_L2_ISIS_INT:
+                case RTM_SUB_PROTO_L2_ISIS_INT:
                     return "I L2";
-                case RTM_PROTO_L1_ISIS_EXT:
+                case RTM_SUB_PROTO_L1_ISIS_EXT:
                     return "I L1";
-                case RTM_PROTO_L2_ISIS_EXT:
+                case RTM_SUB_PROTO_L2_ISIS_EXT:
                     return "I L2";
                 case RTM_SUB_PROTO_SRv6:
                     return "I SRv6";

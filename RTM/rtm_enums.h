@@ -30,16 +30,15 @@ typedef enum RTM_RT_CLIENT_CODE_ {
 typedef enum sub_protocols_ {
 
     RTM_SUB_PROTO_NA,
-    RTM_PROTO_L1_ISIS_INT,
-    RTM_PROTO_L2_ISIS_INT, 
-    RTM_PROTO_L1_ISIS_EXT, 
-    RTM_PROTO_L2_ISIS_EXT, 
+    RTM_SUB_PROTO_L1_ISIS_INT,
+    RTM_SUB_PROTO_L2_ISIS_INT, 
+    RTM_SUB_PROTO_L1_ISIS_EXT, 
+    RTM_SUB_PROTO_L2_ISIS_EXT, 
 
-    RTM_PROTO_BGP_INT,
-    RTM_PROTO_BGP_EXT,
-    RTM_PROTO_BGP_VPN,
-    RTM_PROTO_BGP_EVPN,
-    RTM_PROTO_L2VPN_EVPN,
+    RTM_SUB_PROTO_BGP_INT,
+    RTM_SUB_PROTO_BGP_EXT,
+    RTM_SUB_PROTO_BGP_VPN,
+    RTM_SUB_PROTO_BGP_EVPN,
 
     RTM_SUB_PROTO_OSPF_EXT,
     RTM_SUB_PROTO_OSPF_INTER,
@@ -104,15 +103,14 @@ static const char* rtm_proto_to_string(RTM_PROTO_T proto) {
 static const char* rtm_sub_proto_to_string(RTM_SUB_PROTO_T sub_proto) {
     switch(sub_proto) {
         case RTM_SUB_PROTO_NA: return "NA";
-        case RTM_PROTO_L1_ISIS_INT: return "L1-ISIS-INT";
-        case RTM_PROTO_L2_ISIS_INT: return "L2-ISIS-INT";
-        case RTM_PROTO_L1_ISIS_EXT: return "L1-ISIS-EXT";
-        case RTM_PROTO_L2_ISIS_EXT: return "L2-ISIS-EXT";
-        case RTM_PROTO_BGP_INT: return "BGP-INT";
-        case RTM_PROTO_BGP_EXT: return "BGP-EXT";
-        case RTM_PROTO_BGP_VPN: return "BGP-VPN";
-        case RTM_PROTO_BGP_EVPN: return "BGP-EVPN";
-        case RTM_PROTO_L2VPN_EVPN: return "L2VPN_EVPN";
+        case RTM_SUB_PROTO_L1_ISIS_INT: return "L1-ISIS-INT";
+        case RTM_SUB_PROTO_L2_ISIS_INT: return "L2-ISIS-INT";
+        case RTM_SUB_PROTO_L1_ISIS_EXT: return "L1-ISIS-EXT";
+        case RTM_SUB_PROTO_L2_ISIS_EXT: return "L2-ISIS-EXT";
+        case RTM_SUB_PROTO_BGP_INT: return "BGP-INT";
+        case RTM_SUB_PROTO_BGP_EXT: return "BGP-EXT";
+        case RTM_SUB_PROTO_BGP_VPN: return "BGP-VPN";
+        case RTM_SUB_PROTO_BGP_EVPN: return "BGP-EVPN";
         case RTM_SUB_PROTO_OSPF_EXT: return "OSPF-EXT";
         case RTM_SUB_PROTO_OSPF_INTER: return "OSPF-INTER";
         case RTM_SUB_PROTO_OSPF_INTRA: return "OSPF-INTRA";

@@ -610,10 +610,10 @@ clear_rt_handler(int64_t cmdcode, Stack_t *tlv_stack,
 
     cp_rtm_uninstall_routes_by_proto  (
             rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV4, 0), 
-            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+            RTM_PROTO_ISIS, RTM_SUB_PROTO_L1_ISIS_INT, 0);
     cp_rtm_uninstall_routes_by_proto  (
             rtm_get ( node, RTM_DEFAULT_VRF, AF_IPV6, 0), 
-            RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+            RTM_PROTO_ISIS, RTM_SUB_PROTO_L1_ISIS_INT, 0);
     return 0;
 }
 

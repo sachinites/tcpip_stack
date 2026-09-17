@@ -811,10 +811,10 @@ rtm_get_route_target_rtm(
      * but then checks sub_proto against ISIS-specific values. This should be
      * checking sub_proto directly. However, keeping original logic. */
     if (proto == RTM_PROTO_ISIS && 
-            (sub_proto == RTM_PROTO_L1_ISIS_INT || 
-             sub_proto == RTM_PROTO_L2_ISIS_INT || 
-             sub_proto == RTM_PROTO_L1_ISIS_EXT || 
-             sub_proto == RTM_PROTO_L2_ISIS_EXT)) {
+            (sub_proto == RTM_SUB_PROTO_L1_ISIS_INT || 
+             sub_proto == RTM_SUB_PROTO_L2_ISIS_INT || 
+             sub_proto == RTM_SUB_PROTO_L1_ISIS_EXT || 
+             sub_proto == RTM_SUB_PROTO_L2_ISIS_EXT)) {
 
         if (afi == AF_IPV4) {
             if (is_def_vrf) return NODE_DEF_VRF_VRF_MEMBER(node, inet0);

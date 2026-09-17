@@ -116,7 +116,7 @@ isis_rt_ipv6_route_add(
                     node_info->vrf,
                     AF_IPV6,
                     RTM_PROTO_ISIS, 
-                    RTM_PROTO_L1_ISIS_INT);
+                    RTM_SUB_PROTO_L1_ISIS_INT);
 
     cmn_prefix_t rtm_prefix, rtm_gateway;
     memset (&rtm_gateway, 0 , sizeof (rtm_gateway));
@@ -141,7 +141,7 @@ isis_rt_ipv6_route_add(
         rtm,
         &rtm_prefix,
         RTM_PROTO_ISIS,
-        RTM_PROTO_L1_ISIS_INT,
+        RTM_SUB_PROTO_L1_ISIS_INT,
         0,
         node_info->spf_no,
         action,
@@ -166,7 +166,7 @@ isis_rt_ipv6_route_del(
                     node_info->vrf,
                     AF_IPV6,
                     RTM_PROTO_ISIS, 
-                    RTM_PROTO_L1_ISIS_INT);
+                    RTM_SUB_PROTO_L1_ISIS_INT);
 
     cmn_prefix_t rtm_prefix, rtm_gateway;
     memset (&rtm_gateway, 0 , sizeof (rtm_gateway));
@@ -197,7 +197,7 @@ isis_rt_ipv6_route_del(
             rtm,
             &rtm_prefix,
             RTM_PROTO_ISIS,
-            RTM_PROTO_L1_ISIS_INT,
+            RTM_SUB_PROTO_L1_ISIS_INT,
             0,
             action,
             metric,
@@ -212,7 +212,7 @@ isis_rt_ipv6_route_del(
     cp_rtm_uninstall_route_by_proto(rtm, 
             &rtm_prefix, 
             RTM_PROTO_ISIS,
-            RTM_PROTO_L1_ISIS_INT);    
+            RTM_SUB_PROTO_L1_ISIS_INT);    
 }
 
 static int
@@ -233,13 +233,13 @@ isis_spf_install_v6routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root)
 
     rtm_v6 = cp_rtm_get_route_target_rtm (
                 vrf,
-                AF_IPV6, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT);
+                AF_IPV6, RTM_PROTO_ISIS, RTM_SUB_PROTO_L1_ISIS_INT);
 
     rtm_srv6 = cp_rtm_get_route_target_rtm (
                 vrf,
                 AF_IPV6, RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6);
 
-    //cp_rtm_uninstall_routes_by_proto (rtm_v6, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+    //cp_rtm_uninstall_routes_by_proto (rtm_v6, RTM_PROTO_ISIS, RTM_SUB_PROTO_L1_ISIS_INT, 0);
     //cp_rtm_uninstall_routes_by_proto (rtm_srv6, RTM_PROTO_ISIS, RTM_SUB_PROTO_SRv6, 0);
 
     /* Now iterate over result list and install routes for
@@ -291,7 +291,7 @@ isis_spf_install_v6routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root)
 
             /* Case 1 : No L3 route present in RIB by ISIS */
             if (!rtm_route || !rtm_route_is_path_present (
-                    rtm_route, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, &route_isis_metric)) {
+                    rtm_route, RTM_PROTO_ISIS, RTM_SUB_PROTO_L1_ISIS_INT, &route_isis_metric)) {
 
                 for (i = 0; i < MAX_NXT_HOPS; i++){
                     
@@ -430,7 +430,7 @@ isis_rt_ipv4_route_add(
                     node_info->vrf,
                     AF_IPV4,
                     RTM_PROTO_ISIS, 
-                    RTM_PROTO_L1_ISIS_INT);
+                    RTM_SUB_PROTO_L1_ISIS_INT);
 
     cmn_prefix_t rtm_prefix, rtm_gateway;
 
@@ -463,13 +463,13 @@ isis_rt_ipv4_route_add(
         metric,
         rtm_nh_action_to_string(action),
         rtm_proto_to_string(RTM_PROTO_ISIS),
-        rtm_sub_proto_to_string(RTM_PROTO_L1_ISIS_INT));
+        rtm_sub_proto_to_string(RTM_SUB_PROTO_L1_ISIS_INT));
 
     cp_rtm_install_route_advanced (
         rtm,
         &rtm_prefix,
         RTM_PROTO_ISIS,
-        RTM_PROTO_L1_ISIS_INT,
+        RTM_SUB_PROTO_L1_ISIS_INT,
         0,
         node_info->spf_no,
         action,
@@ -526,13 +526,13 @@ isis_rt_ipv4_route_del(
             metric,
             rtm_nh_action_to_string(action),
             rtm_proto_to_string(RTM_PROTO_ISIS),
-            rtm_sub_proto_to_string(RTM_PROTO_L1_ISIS_INT));
+            rtm_sub_proto_to_string(RTM_SUB_PROTO_L1_ISIS_INT));
 
         cp_rtm_uninstall_route_advanced (
             rtm,
             &rtm_prefix,
             RTM_PROTO_ISIS,
-            RTM_PROTO_L1_ISIS_INT,
+            RTM_SUB_PROTO_L1_ISIS_INT,
             0,
             action,
             metric,
@@ -549,12 +549,12 @@ isis_rt_ipv4_route_del(
         node_info->vrf->vrf_name,
         cmn_prefix_to_string(&rtm_prefix, &prefix_str),
         rtm_proto_to_string(RTM_PROTO_ISIS),
-        rtm_sub_proto_to_string(RTM_PROTO_L1_ISIS_INT));
+        rtm_sub_proto_to_string(RTM_SUB_PROTO_L1_ISIS_INT));
 
     cp_rtm_uninstall_route_by_proto(rtm, 
             &rtm_prefix, 
             RTM_PROTO_ISIS,
-            RTM_PROTO_L1_ISIS_INT);
+            RTM_SUB_PROTO_L1_ISIS_INT);
 }
 
 static int
@@ -571,7 +571,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
 
     rtm = node_info->vrf->inet0;
 
-    //cp_rtm_uninstall_routes_by_proto (rtm, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, 0);
+    //cp_rtm_uninstall_routes_by_proto (rtm, RTM_PROTO_ISIS, RTM_SUB_PROTO_L1_ISIS_INT, 0);
 
     /* Now iterate over result list and install routes for
      * loopback address of all routers*/
@@ -635,7 +635,7 @@ isis_spf_install_routes(isis_node_info_t *node_info, ted_node_t *ted_spf_root){
 
                     /* Case 1 : No L3 route present in RIB by ISIS */
                     if (!rtm_route || !rtm_route_is_path_present (
-                            rtm_route, RTM_PROTO_ISIS, RTM_PROTO_L1_ISIS_INT, &route_isis_metric)) {
+                            rtm_route, RTM_PROTO_ISIS, RTM_SUB_PROTO_L1_ISIS_INT, &route_isis_metric)) {
 
                         for (i = 0; i < MAX_NXT_HOPS; i++){
                             
@@ -1503,7 +1503,7 @@ isis_compute_spf (isis_node_info_t *node_info){
     /* Uninstall the obsolete routes */
     uint32_t del_count = rtm_proto_seed_update (node_info->vrf->inet0, 
                            RTM_PROTO_ISIS, 
-                           RTM_PROTO_L1_ISIS_INT, 0, node_info->spf_no);
+                           RTM_SUB_PROTO_L1_ISIS_INT, 0, node_info->spf_no);
     /*Step 7 : End*/
 
     tracer (ISIS_TR(node_info), TR_ISIS_SPF,
@@ -1516,11 +1516,11 @@ isis_compute_spf (isis_node_info_t *node_info){
      rtm = cp_rtm_get_route_target_rtm (node_info->vrf,
                                 AF_IPV6, 
                                 RTM_PROTO_ISIS, 
-                                RTM_PROTO_L1_ISIS_INT);
+                                RTM_SUB_PROTO_L1_ISIS_INT);
 
      del_count = rtm_proto_seed_update (rtm, 
                            RTM_PROTO_ISIS, 
-                           RTM_PROTO_L1_ISIS_INT, 0, node_info->spf_no);
+                           RTM_SUB_PROTO_L1_ISIS_INT, 0, node_info->spf_no);
      
      rtm = cp_rtm_get_route_target_rtm (node_info->vrf,
                                 AF_IPV6, 

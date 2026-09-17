@@ -204,7 +204,7 @@ rtm_get_target_fib (rtm_t *rtm,
     /* BGP VPN Route in Customer VRF Rib, eg : red.inet.0*/
     if (inh &&
         inh->proto == RTM_PROTO_BGP && 
-        inh->sub_proto == RTM_PROTO_BGP_VPN &&
+        inh->sub_proto == RTM_SUB_PROTO_BGP_VPN &&
         inh->rtm->vrf != RTM_DEFAULT_VRF && 
         inh->rtm->rtm_id == 0) {
 

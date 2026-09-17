@@ -436,7 +436,7 @@ bgp_vpnv4_build_nh_template(bgp_nlri_key_t *key,
     cp_nh_template->is_indirect = true;
     cp_nh_template->is_resolved = false;
     cp_nh_template->proto = RTM_PROTO_BGP;
-    cp_nh_template->sub_proto = RTM_PROTO_BGP_VPN;
+    cp_nh_template->sub_proto = RTM_SUB_PROTO_BGP_VPN;
     cp_nh_template->action = RTM_NH_ACTION_FORWARD;
     cp_nh_template->metric = attrs->med_present ? attrs->med : 0;
     cp_nh_template->import_rt = import_rt;
@@ -446,7 +446,7 @@ bgp_vpnv4_build_nh_template(bgp_nlri_key_t *key,
     memcpy(&cp_nh_template->gateway, &gateway, sizeof(gateway));
 
     rc = rtm_nh_proto_info_create(RTM_PROTO_BGP,
-                                  RTM_PROTO_BGP_VPN,
+                                  RTM_SUB_PROTO_BGP_VPN,
                                   0,
                                   RTM_DEFAULT_VRF,
                                   &cp_nh_template->rtm_nh_proto);

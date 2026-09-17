@@ -345,7 +345,7 @@ mac_vrf_evpn_route_type2_remote_import(
                 mac_vrf->mac_rtm,
                 &prefix,
                 RTM_PROTO_BGP,
-                RTM_PROTO_L2VPN_EVPN,
+                RTM_SUB_PROTO_BGP_EVPN,
                 0, 0,
                 RTM_NH_ACTION_TUNNEL,
                 1,
@@ -430,7 +430,7 @@ mac_vrf_evpn_route_type2_remote_delete(
                 mac_vrf->mac_rtm,
                 &prefix,
                 RTM_PROTO_BGP,
-                RTM_PROTO_L2VPN_EVPN,
+                RTM_SUB_PROTO_BGP_EVPN,
                 0,
                 RTM_NH_ACTION_TUNNEL,
                 1,
@@ -651,7 +651,7 @@ mac_vrf_evpn_route_type3_remote_import(
                 mac_vrf->mac_rtm,
                 &prefix,
                 RTM_PROTO_BGP,
-                RTM_PROTO_L2VPN_EVPN,
+                RTM_SUB_PROTO_BGP_EVPN,
                 0, 0,
                 RTM_NH_ACTION_TUNNEL,
                 1,
@@ -739,7 +739,7 @@ mac_vrf_evpn_route_type3_remote_delete(
                 mac_vrf->mac_rtm,
                 &prefix,
                 RTM_PROTO_BGP,
-                RTM_PROTO_L2VPN_EVPN,
+                RTM_SUB_PROTO_BGP_EVPN,
                 0,
                 RTM_NH_ACTION_TUNNEL,
                 1,
@@ -787,7 +787,7 @@ mac_vrf_delete_all_remote_evpn_routes(mac_vrf_t *mac_vrf)
     {
         cp_rtm_uninstall_routes_by_proto(mac_vrf->mac_rtm,
                                          RTM_PROTO_BGP,
-                                         RTM_PROTO_L2VPN_EVPN,
+                                         RTM_SUB_PROTO_BGP_EVPN,
                                          0);
     }
 

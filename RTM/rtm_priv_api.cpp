@@ -163,17 +163,17 @@ rtm_get_admin_distance(const RTM_PROTO_T& proto, const RTM_SUB_PROTO_T& sub_prot
         case RTM_PROTO_LOCAL:
             return RTM_ADMIN_DIST_STATIC;
         case RTM_PROTO_BGP:
-            if (sub_proto == RTM_PROTO_BGP_INT) {
+            if (sub_proto == RTM_SUB_PROTO_BGP_INT) {
                 return RTM_ADMIN_DIST_BGP_INT;
             } else {
                 return RTM_ADMIN_DIST_BGP_EXT;
             }
         case RTM_PROTO_ISIS:
             switch (sub_proto) {
-                case  RTM_PROTO_L1_ISIS_INT:
-                case RTM_PROTO_L2_ISIS_INT: 
-                case RTM_PROTO_L1_ISIS_EXT:
-                case RTM_PROTO_L2_ISIS_EXT:
+                case  RTM_SUB_PROTO_L1_ISIS_INT:
+                case RTM_SUB_PROTO_L2_ISIS_INT: 
+                case RTM_SUB_PROTO_L1_ISIS_EXT:
+                case RTM_SUB_PROTO_L2_ISIS_EXT:
                 return RTM_ADMIN_DIST_ISIS;
                 case  RTM_SUB_PROTO_SR:
                 case RTM_SUB_PROTO_SRTE:
@@ -753,9 +753,9 @@ config_rtm_route_cli_handler(int64_t cmdcode,
             /* Validate and parse VPN label if provided */
             if (vpn_label_str) {
                 /* VPN label is only valid for BGP-VPN routes */
-                if (proto_id != RTM_PROTO_BGP || sub_proto_id != RTM_PROTO_BGP_VPN) {
+                if (proto_id != RTM_PROTO_BGP || sub_proto_id != RTM_SUB_PROTO_BGP_VPN) {
                     cprintf("Error: l3vpn label is only valid for proto-id=%d (RTM_PROTO_BGP) and sub-proto-id=%d (RTM_PROTO_BGP_VPN)\n",
-                            RTM_PROTO_BGP, RTM_PROTO_BGP_VPN);
+                            RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_VPN);
                     cprintf("       Current proto-id=%u, sub-proto-id=%u\n", proto_id, sub_proto_id);
                     return -1;
                 }
@@ -1065,9 +1065,9 @@ config_rtm_route_cli_handler(int64_t cmdcode,
             /* Validate and parse VPN label if provided */
             if (vpn_label_str) {
                 /* VPN label is only valid for BGP-VPN routes */
-                if (proto_id != RTM_PROTO_BGP || sub_proto_id != RTM_PROTO_BGP_VPN) {
+                if (proto_id != RTM_PROTO_BGP || sub_proto_id != RTM_SUB_PROTO_BGP_VPN) {
                     cprintf("Error: l3vpn label is only valid for proto-id=%d (RTM_PROTO_BGP) and sub-proto-id=%d (RTM_PROTO_BGP_VPN)\n",
-                            RTM_PROTO_BGP, RTM_PROTO_BGP_VPN);
+                            RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_VPN);
                     cprintf("       Current proto-id=%u, sub-proto-id=%u\n", proto_id, sub_proto_id);
                     return -1;
                 }

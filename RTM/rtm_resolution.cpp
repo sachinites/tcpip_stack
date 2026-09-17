@@ -1026,7 +1026,7 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
         (indirect_nh->proto == RTM_PROTO_BGP ||
             indirect_nh->proto == RTM_PROTO_STATIC)
         &&
-        indirect_nh->sub_proto == RTM_PROTO_BGP_VPN
+        indirect_nh->sub_proto == RTM_SUB_PROTO_BGP_VPN
         &&
         indirect_nh->rtm->vrf != DEFAULT_VRF) {
 
@@ -1049,7 +1049,7 @@ rtm_get_resolver_rtm (node_t *node, rtm_nh *indirect_nh) {
     if (
         (indirect_nh->proto == RTM_PROTO_BGP)
         &&
-        (indirect_nh->sub_proto == RTM_PROTO_L2VPN_EVPN) ) {
+        (indirect_nh->sub_proto == RTM_SUB_PROTO_BGP_EVPN) ) {
 
             if (indirect_nh->prefix.afi == AF_IPV4) {
                 

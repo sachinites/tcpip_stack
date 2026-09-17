@@ -211,7 +211,7 @@ srv6_rtm_route_install_vpnv4 (node_t *node,
     nh_template.is_resolved = false;
 
     nh_template.proto = RTM_PROTO_BGP;
-    nh_template.sub_proto = RTM_PROTO_BGP_VPN;
+    nh_template.sub_proto = RTM_SUB_PROTO_BGP_VPN;
 
     nh_template.fwd_flags |= FIB_NH_FWD_F_IPV6;
     nh_template.oif = 0;
@@ -248,7 +248,7 @@ srv6_rtm_route_install_vpnv4 (node_t *node,
     nh_template.rtm_nh_proto = (rtm_nh_proto_t *)XCALLOC2(0, 1, rtm_nh_proto_t);
     rtm_nh_proto_initialize(nh_template.rtm_nh_proto);
     nh_template.rtm_nh_proto->proto = RTM_PROTO_BGP;
-    nh_template.rtm_nh_proto->sub_proto = RTM_PROTO_BGP_VPN;
+    nh_template.rtm_nh_proto->sub_proto = RTM_SUB_PROTO_BGP_VPN;
     nh_template.rtm_nh_proto->instance_no = 0;
     nh_template.rtm_nh_proto->vrf_id = DEFAULT_VRF;
 

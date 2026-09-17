@@ -259,8 +259,8 @@ vrf_config_handler (int64_t cmdcode,
                     vrf->import_rt = new_import_rt;
                     
                     /* Flush existing BGP VPN routes from VRF RIBs */
-                    cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN, 0);
-                    cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN, 0);
+                    cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_VPN, 0);
+                    cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_VPN, 0);
                     
                     /* Re-import routes with new import RT */
                     bgp_global_rib_export_all(BGP_INST(node), AFI_IPV4, SAFI_MPLS_VPN, vrf->vrf_id);
@@ -287,8 +287,8 @@ vrf_config_handler (int64_t cmdcode,
                                   vrf->vrf_id);
                     
                     /* Flush existing BGP VPN routes from VRF RIBs */
-                    cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN, 0);
-                    cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_PROTO_BGP_VPN, 0);
+                    cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_VPN, 0);
+                    cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_VPN, 0);
                     
                     /* Re-import routes with restored import RT */
                     bgp_global_rib_export_all(BGP_INST(node), AFI_IPV4, SAFI_MPLS_VPN, vrf->vrf_id);

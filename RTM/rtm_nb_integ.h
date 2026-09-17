@@ -162,7 +162,7 @@ config node H1 rtm-route prefix 2001::/120 0 0 0 2 10 gateway 2002::1 interface 
 config node H1 rtm-route prefix 100100 0 0 0 2 10 gateway 192.168.0.12 interface eth0 label-stack 100 200 300
 
 RTM_PROTO_ISIS
-RTM_PROTO_L1_ISIS_INT
+RTM_SUB_PROTO_L1_ISIS_INT
 instance 0
 action : forward 
 cost : 10 
