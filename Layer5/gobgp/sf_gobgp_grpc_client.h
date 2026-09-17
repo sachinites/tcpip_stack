@@ -170,6 +170,8 @@ typedef struct sf_gobgp_route_info {
     uint32_t evpn_label1;
     bool evpn_label1_present;
     bool evpn_label1_from_ext_comm;
+    uint32_t mac_mobility_seq;
+    bool mac_mobility_seq_present;
     uint32_t pmsi_label;
     bool pmsi_label_present;
     uint8_t pmsi_tunnel_type;

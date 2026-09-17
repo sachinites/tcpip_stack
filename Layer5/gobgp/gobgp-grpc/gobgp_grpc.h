@@ -80,6 +80,8 @@ struct BgpRouteInfo {
     std::uint32_t evpn_label1 = 0;
     bool evpn_label1_present = false;
     bool evpn_label1_from_ext_comm = false;
+    std::uint32_t mac_mobility_seq = 0;
+    bool mac_mobility_seq_present = false;
     std::uint32_t pmsi_label = 0;
     bool pmsi_label_present = false;
     std::uint8_t pmsi_tunnel_type = 0;

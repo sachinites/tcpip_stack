@@ -544,8 +544,12 @@ AppendExtendedCommunity(const api::ExtendedCommunity& community,
         const api::MacMobilityExtended& ec = community.mac_mobility();
         entry.type = 0x0600;
         entry.subtype = 0x0000;
-        snprintf(entry.text, sizeof(entry.text), "MAC-Mobility:seq:%u",
-                 ec.sequence_num());
+        snprintf(entry.text, sizeof(entry.text),
+                 "MAC-Mobility:seq=%u%s",
+                 ec.sequence_num(),
+                 ec.is_sticky() ? ",sticky" : "");
+        info->mac_mobility_seq = ec.sequence_num();
+        info->mac_mobility_seq_present = true;
     } else if (community.has_opaque()) {
         const api::OpaqueExtended& ec = community.opaque();
         entry.type = ec.is_transitive() ? 0x0303 : 0x4303;
@@ -571,6 +575,8 @@ FillExtendedCommunities(const api::Path& path, BgpRouteInfo* info)
     info->evpn_label1 = 0;
     info->evpn_label1_present = false;
     info->evpn_label1_from_ext_comm = false;
+    info->mac_mobility_seq = 0;
+    info->mac_mobility_seq_present = false;
     info->tunnel_encap_type = 0;
     info->tunnel_encap_present = false;
 

@@ -869,6 +869,21 @@ bgp_show_format_rd_rt(const char *value,
     return converted ? converted : value;
 }
 
+static const char *
+bgp_show_mac_mobility_seq(uint32_t seq,
+                          bool present,
+                          char *buf,
+                          size_t buflen,
+                          const char *dash)
+{
+    if (!present) {
+        return dash;
+    }
+
+    snprintf(buf, buflen, "%u", seq);
+    return buf;
+}
+
 static int
 bgp_show_evpn_mac_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
 {
@@ -876,6 +891,7 @@ bgp_show_evpn_mac_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
     const char *dash = "-";
     char rd_fmt_buffer[48];
     char rt_fmt_buffer[48];
+    char seq_fmt_buffer[16];
     uint8_t rt_type;
 
     if (!route || !ctx) {
@@ -893,11 +909,11 @@ bgp_show_evpn_mac_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
 
     if (ctx->count == 0) {
         cprintf("\nBGP routes (%s %s):\n", ctx->afi, ctx->safi);
-        cprintf("%-20s %-14s %-14s %-16s %-8s %-6s %-10s %s\n",
-                "MAC", "RD", "RT", "Nexthop", "Label",
+        cprintf("%-20s %-14s %-14s %-16s %-8s %-6s %-6s %-10s %s\n",
+                "MAC", "RD", "RT", "Nexthop", "Label", "Seq",
                 "MED", "LocalPref", "Best");
-        cprintf("%-20s %-14s %-14s %-16s %-8s %-6s %-10s %s\n",
-                "---", "--", "--", "-------", "-----",
+        cprintf("%-20s %-14s %-14s %-16s %-8s %-6s %-6s %-10s %s\n",
+                "---", "--", "--", "-------", "-----", "---",
                 "---", "---------", "----");
     }
 
@@ -914,6 +930,13 @@ bgp_show_evpn_mac_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
     } else {
         cprintf("%-8s ", dash);
     }
+
+    cprintf("%-6s ",
+            bgp_show_mac_mobility_seq(route->mac_mobility_seq,
+                                      route->mac_mobility_seq_present,
+                                      seq_fmt_buffer,
+                                      sizeof(seq_fmt_buffer),
+                                      dash));
 
     if (route->med_present) {
         cprintf("%-6u ", route->med);
@@ -1132,6 +1155,11 @@ bgp_show_global_rib_print_evpn_detail(const bgp_nlri_key_t *key,
         cprintf("      EVPN ESI: %s, Label1 %u\n", esi_hex, label1);
     } else {
         cprintf("      EVPN ESI: %s\n", esi_hex);
+    }
+
+    if (attrs->mac_mobility_seq_present) {
+        cprintf("      MAC Mobility Sequence: %u\n",
+                attrs->mac_mobility_seq);
     }
 
     if (attrs->tunnel_encap_present) {

@@ -360,6 +360,8 @@ to_c_route_info(const gobgp_client::BgpRouteInfo& in,
     out->evpn_label1 = in.evpn_label1;
     out->evpn_label1_present = in.evpn_label1_present;
     out->evpn_label1_from_ext_comm = in.evpn_label1_from_ext_comm;
+    out->mac_mobility_seq = in.mac_mobility_seq;
+    out->mac_mobility_seq_present = in.mac_mobility_seq_present;
     out->pmsi_label = in.pmsi_label;
     out->pmsi_label_present = in.pmsi_label_present;
     out->pmsi_tunnel_type = in.pmsi_tunnel_type;
