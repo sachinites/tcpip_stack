@@ -123,7 +123,8 @@ void
 dp_post_bd_mac_learn_job(dp_ctx_t *dp_ctx,
                       uint32_t bd_ifindex,
                       uint8_t *mac_addr,
-                      uint32_t oif_ifindex);
+                      uint32_t oif_ifindex,
+                      uint32_t ip_addr);
                       
 /*
  * Post an ARP resolution job to dp_ev_dis.

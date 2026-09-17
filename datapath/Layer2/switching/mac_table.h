@@ -84,7 +84,8 @@ void
 dp_bd_mac_notify_cp(dp_ctx_t *dp_ctx,
                     uint32_t bd_ifindex,
                     const uint8_t *mac_addr,
-                    bool add);
+                    bool add,
+                    uint32_t ip_addr);
 
 /* Build a fresh MAC table containing only static entries from old_table.
  * Dynamic entries are not copied; CP is notified of each discard via

@@ -20,6 +20,7 @@ typedef struct mac_update_msg_ {
     uint16_t flags;
     uint16_t table_vlan_id;     /* MAC hash key vlan (DEFAULT_VLAN for BD tables) */
     uint32_t bd_ifindex;      /* BD intf port_id — selects per-BD mac table */
+    uint32_t ip_addr;         /* optional host IP (ARP-learned); 0 if unknown */
     mac_fwd_object_spec_t fwd;
 
 } mac_update_msg_t;

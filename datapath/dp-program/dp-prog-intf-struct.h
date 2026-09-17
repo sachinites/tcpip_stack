@@ -166,6 +166,17 @@ typedef struct dp_intf_bd_pkt_trap_q_ {
 
 } dp_intf_bd_pkt_trap_q_t;
 
+/* BD ARP suppression cache: IP→MAC on bd_intf->arp_sup_cache_db */
+#define ARP_SUP_CACHE 27
+typedef struct dp_intf_arp_sup_cache_ {
+
+    uint32_t ip_addr;
+    uint8_t  mac_addr[6];
+    uint8_t  add;            /* 1 = insert/update, 0 = delete */
+    uint8_t  _pad;
+
+} dp_intf_arp_sup_cache_t;
+
 typedef struct dp_intf_cp2dp_msg_ {
 
     uint8_t  mac_addr[6];

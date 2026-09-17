@@ -21,9 +21,11 @@
 
 #include "../Layer2/switching/mac_table.h"
 #include "../Layer2/arp/arp.h"
+
 #include "../../libs/common/l2_hdrs.h"
 #include "../Layer2/vxlan/vlan_vni_ht.h"
 #include "../Layer2/bridge-domain/bd.h"
+#include "../Layer2/bridge-domain/arp_sup_cache.h"
 
 #include "../../dpcp_cmn.h"
 #include "../Vrfs/dp_vrf.h"
@@ -155,7 +157,8 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
                 (mac_update_msg->flags & MAC_DATA_PLANE)) {
                 
                 dp_bd_mac_notify_cp(dp_ctx, overlay_vlan,
-                    mac_update_msg->mac_addr, true);
+                    mac_update_msg->mac_addr, true,
+                    mac_update_msg->ip_addr);
             }
             break;
             
@@ -170,7 +173,8 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
                 (mac_update_msg->flags & MAC_DATA_PLANE)) {
                     
                 dp_bd_mac_notify_cp(dp_ctx, overlay_vlan,
-                                   mac_update_msg->mac_addr, false);
+                                   mac_update_msg->mac_addr, false,
+                                   mac_update_msg->ip_addr);
             }
             break;
 
@@ -543,22 +547,8 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                             MAC_STATIC,
                             &tmpl);
 
-                #if 0
-                    memset (&spec, 0, sizeof (spec));
-                    layer2_fill_with_broadcast_mac (mac_addr.mac);
-                    mac_fwd_object_spec_from_ifindex(&spec, BD_RMAC_INTF_INDEX, 0,
-                                                     intf->port_id);
-                    memset (&tmpl, 0, sizeof (tmpl));
-                    dp_mac_fwd_object_init_from_spec(dp_ctx, &tmpl, &spec,
-                                                     intf->port_id);
-                    mac_table_entry_add(
-                            dp_ctx,
-                            intf->mac_table, 
-                            mac_addr.mac,
-                            DEFAULT_VLAN_ID,
-                            MAC_STATIC,
-                            &tmpl);
-                    #endif
+                    /* EVPN ARP Suppression Cache init */
+                    arp_sup_cache_init(&intf->arp_sup_cache_db);
                 }
                 break;
             }
@@ -961,6 +951,51 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                         assert (intf->lmac_queue);
                         intf->lmac_queue = NULL;
                         tracer(dp_ctx->dptr, DCONF, "Trap Q Disabled for BD:%s\n", intf->if_name);
+                    }
+                }
+                break;
+
+                case ARP_SUP_CACHE:
+                {
+                    dp_intf_arp_sup_cache_t *asc;
+                    mac_addr_t mac;
+                    char ip_str[IPV4_ADDR_LEN_STR];
+
+                    assert(intf->if_type == DP_INTF_TYPE_BD);
+                    assert(intf->arp_sup_cache_db);
+
+                    asc = (dp_intf_arp_sup_cache_t *)(msg + 1);
+
+                    if (asc->add) {
+                        memcpy(mac.mac, asc->mac_addr, MAC_ADDR_SIZE);
+                        if (!arp_sup_cache_entry_insert(intf->arp_sup_cache_db,
+                                                       asc->ip_addr, &mac)) {
+                            tracer(dp_ctx->dptr, DCONF | DERR,
+                                   "ARP_SUP_CACHE: insert failed BD %s IP %s\n",
+                                   intf->if_name,
+                                   ip_ntop(asc->ip_addr, (c_string)ip_str));
+                        } else {
+                            tracer(dp_ctx->dptr, DCONF,
+                                   "ARP_SUP_CACHE: inserted BD %s IP %s → "
+                                   "%02x:%02x:%02x:%02x:%02x:%02x\n",
+                                   intf->if_name,
+                                   ip_ntop(asc->ip_addr, (c_string)ip_str),
+                                   mac.mac[0], mac.mac[1], mac.mac[2],
+                                   mac.mac[3], mac.mac[4], mac.mac[5]);
+                        }
+                    } else {
+                        if (!arp_sup_cache_entry_delete(intf->arp_sup_cache_db,
+                                                       asc->ip_addr)) {
+                            tracer(dp_ctx->dptr, DCONF | DERR,
+                                   "ARP_SUP_CACHE: delete miss BD %s IP %s\n",
+                                   intf->if_name,
+                                   ip_ntop(asc->ip_addr, (c_string)ip_str));
+                        } else {
+                            tracer(dp_ctx->dptr, DCONF,
+                                   "ARP_SUP_CACHE: deleted BD %s IP %s\n",
+                                   intf->if_name,
+                                   ip_ntop(asc->ip_addr, (c_string)ip_str));
+                        }
                     }
                 }
                 break;

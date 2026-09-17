@@ -111,9 +111,10 @@ typedef struct dp_intf_ {
     struct dp_intf_ *olay_tunnel_intf;
 
     /* If it is a BD interface, then it owns a mac table and mac learning
-        queue */
+        queue, and ARP Suppression Cache */
     mac_table_t *mac_table;
     pkt_q_t *lmac_queue;
+    struct rte_hash *arp_sup_cache_db;
 
     /* Logging */
     log_t log_info;

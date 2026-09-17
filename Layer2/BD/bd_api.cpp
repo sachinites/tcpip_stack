@@ -30,11 +30,12 @@ bd_recv_mac_learning_cbk(
          lmac_data = (bd_lmac_data_t *)task_get_next_pkt(ev_dis, &pkt_size)) {
 
         tracer (node->cptr, DEVPN, 
-                "Local MAC Recvd : %02x:%02x:%02x:%02x:%02x:%02x, BD = %u, op:%s\n",
+                "Local MAC Recvd : %02x:%02x:%02x:%02x:%02x:%02x, BD = %u, ip=%u, op:%s\n",
                 lmac_data->mac.mac[0], lmac_data->mac.mac[1],
                 lmac_data->mac.mac[2], lmac_data->mac.mac[3],
                 lmac_data->mac.mac[4], lmac_data->mac.mac[5],
                 lmac_data->bd_ifindex,
+                lmac_data->ip_addr,
                 lmac_data->add ? "add" : "del");
 
         BDInterface *bd_intf = dynamic_cast<BDInterface *>(node_get_intf_by_ifindex(node, lmac_data->bd_ifindex));
@@ -44,7 +45,8 @@ bd_recv_mac_learning_cbk(
                 mac_vrf_evpn_route_type2_local_import (
                     node,
                     node->evpn[bd_intf->evi_id]->mac_vrf,
-                    &lmac_data->mac);
+                    &lmac_data->mac,
+                    lmac_data->ip_addr);
         }
         else {
                 mac_vrf_evpn_route_type2_delete (

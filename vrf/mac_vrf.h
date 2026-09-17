@@ -20,6 +20,8 @@ typedef struct mac_vrf_ {
 
     // RIB for type 2 routes.
     hashtable_t *type2_rib;
+    /* IP → MAC bindings from Type-2 routes (key: uint32_t ip, value: mac_addr_t). */
+    hashtable_t *mac_ip_binding;
 
     // RIB for type 3 (IMET) routes, keyed by originating router IP.
     hashtable_t *type3_rib;
@@ -47,7 +49,8 @@ void
 mac_vrf_evpn_route_type2_local_import (
         node_t *node,
         mac_vrf_t *mac_vrf, 
-        mac_addr_t *mac_addr);
+        mac_addr_t *mac_addr,
+        uint32_t ip_addr);
 
 void
 mac_vrf_evpn_route_type2_delete (
@@ -59,6 +62,7 @@ void
 mac_vrf_evpn_route_type2_remote_import(
         mac_vrf_t *mac_vrf,
         mac_addr_t *mac_addr,
+        uint32_t ip_addr,
         uint32_t vtep_ip,
         uint32_t label);
 

@@ -517,6 +517,7 @@ bgp_evpn_install_to_mac_vrf(mac_vrf_t *mac_vrf,
         if (is_add) {
             mac_vrf_evpn_route_type2_remote_import(mac_vrf,
                                                  (mac_addr_t *)&nlri->mac,
+                                                 nlri->ip_addr,
                                                  vtep_ip,
                                                  label);
         } else {

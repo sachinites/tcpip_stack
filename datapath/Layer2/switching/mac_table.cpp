@@ -355,7 +355,8 @@ void
 dp_bd_mac_notify_cp(dp_ctx_t *dp_ctx,
                     uint32_t bd_ifindex,
                     const uint8_t *mac_addr,
-                    bool add)
+                    bool add,
+                    uint32_t ip_addr)
 {
     dp_intf_t *bd_intf;
     pkt_q_t *lmac_q;
@@ -374,17 +375,18 @@ dp_bd_mac_notify_cp(dp_ctx_t *dp_ctx,
 
     lmac_data = (bd_lmac_data_t *)XCALLOC2(0, 1, bd_lmac_data_t);
     lmac_data->ac_ifindex = 0;
-    lmac_data->ip_addr = 0;
+    lmac_data->ip_addr = ip_addr;
     lmac_data->bd_ifindex = bd_ifindex;
     lmac_data->add = add;
     memcpy(lmac_data->mac.mac, mac_addr, sizeof(lmac_data->mac.mac));
 
     tracer (dp_ctx->dptr, DL2SW_DET,
-            "MAC Table Entry [%s %02x:%02x:%02x:%02x:%02x:%02x] %s\n",
+            "MAC Table Entry [%s %02x:%02x:%02x:%02x:%02x:%02x] %s ip=%u\n",
             bd_intf->if_name,
             mac_addr[0], mac_addr[1], mac_addr[2],
             mac_addr[3], mac_addr[4], mac_addr[5],
-            add ? "added" : "deleted");
+            add ? "added" : "deleted",
+            ip_addr);
 
     dp_pkt_q_enqueue(dp_ctx, lmac_q, (char *)lmac_data, sizeof(*lmac_data));
 }
@@ -423,7 +425,7 @@ mac_table_clear_retain_static(dp_ctx_t *dp_ctx,
 
         if (!(src->flags & MAC_STATIC)) {
             /* Discard dynamic entry — notify CP of the unlearn. */
-            dp_bd_mac_notify_cp(dp_ctx, bd_ifindex, src->mac.mac, false);
+            dp_bd_mac_notify_cp(dp_ctx, bd_ifindex, src->mac.mac, false, 0);
             continue;
         }
 

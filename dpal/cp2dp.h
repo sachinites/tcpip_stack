@@ -136,6 +136,23 @@ cp2dp_bd_mac_table_clear(node_t *node,
                          bool async);
 
 /* ========================================================================
+ * BD ARP suppression cache
+ * ======================================================================== */
+
+void
+cp2dp_arp_sup_cache_entry_add(node_t *node,
+                              uint32_t bd_ifindex,
+                              uint32_t ip_addr,
+                              uint8_t *mac_addr,
+                              bool async);
+
+void
+cp2dp_arp_sup_cache_entry_del(node_t *node,
+                              uint32_t bd_ifindex,
+                              uint32_t ip_addr,
+                              bool async);
+
+/* ========================================================================
  * FIB
  * ======================================================================== */
 

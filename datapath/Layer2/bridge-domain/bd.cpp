@@ -8,6 +8,8 @@
 #include "../../../libs/Tracer/tracer.h"
 
 #include "../switching/mac_table.h"
+#include "../arp/arp.h"
+#include "arp_sup_cache.h"
 
 #include "../../dp_ctx.h"
 #include "../../dp_uapi.h"
@@ -252,7 +254,8 @@ void
 bd_perform_mac_learning (dp_ctx_t *dp_ctx,
                          dp_intf_t *bd, 
                          mac_addr_t *src_mac, 
-                         dp_intf_t *ac){
+                         dp_intf_t *ac,
+                         uint32_t ip_addr){
 
     mac_table_entry_t *existing =
         mac_table_lookup(bd->mac_table, DEFAULT_VLAN_ID, (uint8_t *)src_mac);
@@ -261,6 +264,10 @@ bd_perform_mac_learning (dp_ctx_t *dp_ctx,
         
         if (!(existing->flags & MAC_STATIC))
             mac_table_entry_touch(existing);
+        /* MAC already known — still trap IP if ARP-learned for Type-2 MAC+IP. */
+        if (ip_addr)
+            dp_bd_mac_notify_cp(dp_ctx, bd->port_id, (uint8_t *)src_mac->mac,
+                                true, ip_addr);
         return;
     }
 
@@ -268,7 +275,8 @@ bd_perform_mac_learning (dp_ctx_t *dp_ctx,
     dp_post_bd_mac_learn_job(dp_ctx, 
                          bd->port_id,
                          (uint8_t *)src_mac,
-                         ac->port_id);
+                         ac->port_id,
+                         ip_addr);
 }
 
 extern void
@@ -310,6 +318,80 @@ BD_SendPacketOut(
 
     return 0;
 }
+
+
+static bool
+bd_process_arp_with_arp_supp_cache
+    (dp_ctx_t *dp_ctx,
+     struct rte_mbuf *mbuf,
+     dp_intf_t *ac)
+{
+    pkt_size_t pkt_size;
+    ethernet_hdr_t *eth_hdr;
+    arp_hdr_t *arp_in;
+    uint32_t target_ip;
+    mac_addr_t *reply_mac;
+    dp_intf_t *bd_intf;
+    char ip_str[IPV4_ADDR_LEN_STR];
+    struct rte_mbuf *reply_mbuf;
+    ethernet_hdr_t *eth_reply;
+
+    eth_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+    if (!eth_hdr)
+        return false;
+
+    if (ntohs(eth_hdr->type) != ETH_TYPE_ARP)
+        return false;
+
+    arp_in = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
+    if (ntohs(arp_in->op_code) != ARP_BROAD_REQ)
+        return false;
+
+    bd_intf = ac->bd_intf;
+    if (!bd_intf || !bd_intf->arp_sup_cache_db)
+        return false;
+
+    /* ARP request target IP — look up suppression cache for its MAC. */
+    target_ip = ntohl(arp_in->dst_ip);
+    dp_arp_sup_cache_entry_t *entry =
+        arp_sup_cache_entry_lookup(bd_intf->arp_sup_cache_db, target_ip);
+    if (!entry)
+        return false;
+
+    reply_mac = &entry->mac_Addr;
+    entry->supp_count++;
+
+    /*
+     * Impersonate the genuine owner of target_ip:
+     *   reply src_ip  = ARP-B dst_ip (target being resolved)
+     *   reply src_mac = cached MAC for that IP
+     *   reply dst_*   = requester's src_* from the ARP-B
+     * Send the reply back on the ingress AC only (do not flood).
+     */
+    reply_mbuf = dp_pkt_mbuf_get_new(
+        dp_ctx,
+        (uint16_t)(sizeof(ethernet_hdr_t) + sizeof(arp_hdr_t) + ETH_FCS_SIZE));
+    pkt_mbuf_update_new_hdr_type(reply_mbuf, ETHERNET_HEADER);
+    eth_reply = (ethernet_hdr_t *)pkt_mbuf_get_pkt(reply_mbuf, 0);
+
+    l2_prepare_arp_reply_msg(eth_reply,
+                             &arp_in->src_mac, ntohl(arp_in->src_ip),
+                             reply_mac, target_ip);
+
+    pkt_tracer(reply_mbuf, dp_ctx->dptr, DARP,
+        "BD %s: ARP suppression reply for %s "
+        "(%02x:%02x:%02x:%02x:%02x:%02x) → AC %s only\n",
+        bd_intf->if_name,
+        ip_ntop(target_ip, (c_string)ip_str),
+        reply_mac->mac[0], reply_mac->mac[1], reply_mac->mac[2],
+        reply_mac->mac[3], reply_mac->mac[4], reply_mac->mac[5],
+        ac->if_name);
+
+    AC_SendPacketOut(dp_ctx, ac, reply_mbuf, 0);
+    pkt_mbuf_dereference(reply_mbuf);
+    return true;
+}
+
 
 void 
 bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
@@ -364,13 +446,25 @@ bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
 
     src_mac = vlan_eth_hdr->src_mac;
     dst_mac = vlan_eth_hdr->dst_mac;
-    uint16_t eth_proto = htons(vlan_eth_hdr->type);
 
     /* Untag the packet but keep the ethernet hdr */
     untag_pkt_with_vlan_id(mbuf);
 
+    /* If this is ARP, learn host IP (sender) with the source MAC. */
+    uint32_t learn_ip = 0;
+    eth_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
+    if (eth_hdr && ntohs(eth_hdr->type) == ETH_TYPE_ARP) {
+        arp_hdr_t *arp = (arp_hdr_t *)GET_ETHERNET_HDR_PAYLOAD(eth_hdr);
+        learn_ip = ntohl(arp->src_ip);
+    }
+
     /* Perform MAC learning : To be done via DP manager thread */
-    bd_perform_mac_learning (dp_ctx, ac->bd_intf, &src_mac, ac);
+    bd_perform_mac_learning (dp_ctx, ac->bd_intf, &src_mac, ac, learn_ip);
+
+    /* If this is ARP Broadcast request, intercept it and see if we can reply to it*/
+    if (bd_process_arp_with_arp_supp_cache (dp_ctx, mbuf, ac)) {
+        return;
+    }
 
     /* Forward the pkt in bridge domain */
     BD_SendPacketOut (dp_ctx, ac->bd_intf, mbuf, 0);

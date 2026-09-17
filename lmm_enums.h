@@ -64,9 +64,11 @@ typedef enum struct_index_
     MM_INDEX(arp_table_t),
     MM_INDEX(arp_pending_entry_t),
     MM_INDEX(arp_entry_t),
+    MM_INDEX(dp_arp_sup_cache_entry_t),
     MM_INDEX(vlan_8021q_hdr_t),
     MM_INDEX(vlan_ethernet_hdr_t),
     MM_INDEX(mac_table_t),
+    MM_INDEX(mac_vrf_t),
     //MM_INDEX(mac_table_entry_t),
 
     /* VXLAN Structures */

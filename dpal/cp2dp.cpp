@@ -383,6 +383,75 @@ cp2dp_bd_mac_table_clear(node_t *node,
 }
 
 /* ========================================================================
+ * BD ARP suppression cache
+ * Program IP→MAC bindings into the BD interface arp_sup_cache_db.
+ * ======================================================================== */
+
+void
+cp2dp_arp_sup_cache_entry_add(node_t *node,
+                              uint32_t bd_ifindex,
+                              uint32_t ip_addr,
+                              uint8_t *mac_addr,
+                              bool async)
+{
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_hdr_t *intf_msg;
+    dp_intf_arp_sup_cache_t *payload;
+
+    assert(mac_addr);
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) +
+                        sizeof(dp_intf_arp_sup_cache_t);
+
+    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
+    memset(intf_msg, 0, sizeof(*intf_msg));
+    intf_msg->port_id = bd_ifindex;
+    intf_msg->update_code = ARP_SUP_CACHE;
+
+    payload = (dp_intf_arp_sup_cache_t *)(intf_msg + 1);
+    memset(payload, 0, sizeof(*payload));
+    payload->ip_addr = ip_addr;
+    memcpy(payload->mac_addr, mac_addr, 6);
+    payload->add = 1;
+
+    cp2dp_submit(node, dp_msg, async);
+}
+
+void
+cp2dp_arp_sup_cache_entry_del(node_t *node,
+                              uint32_t bd_ifindex,
+                              uint32_t ip_addr,
+                              bool async)
+{
+    dp_msg_t *dp_msg;
+    dp_intf_cp2dp_msg_hdr_t *intf_msg;
+    dp_intf_arp_sup_cache_t *payload;
+
+    dp_msg = cp2dp_msg_alloc();
+    dp_msg->component_type = INTF_TABLE;
+    dp_msg->opr_type = DP_UPDATE;
+    dp_msg->flags = 0;
+    dp_msg->data_size = sizeof(dp_intf_cp2dp_msg_hdr_t) +
+                        sizeof(dp_intf_arp_sup_cache_t);
+
+    intf_msg = (dp_intf_cp2dp_msg_hdr_t *)dp_msg->data;
+    memset(intf_msg, 0, sizeof(*intf_msg));
+    intf_msg->port_id = bd_ifindex;
+    intf_msg->update_code = ARP_SUP_CACHE;
+
+    payload = (dp_intf_arp_sup_cache_t *)(intf_msg + 1);
+    memset(payload, 0, sizeof(*payload));
+    payload->ip_addr = ip_addr;
+    payload->add = 0;
+
+    cp2dp_submit(node, dp_msg, async);
+}
+
+/* ========================================================================
  * FIB
  * Install / withdraw FIB entries from RTM.
  * ======================================================================== */

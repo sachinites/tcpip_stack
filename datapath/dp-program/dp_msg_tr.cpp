@@ -62,6 +62,7 @@ dp_intf_update_code_str (uint16_t code) {
         case CP2DP_CODE_BD_AC_BIND:      return "BD_AC_BIND";
         case CP2DP_CODE_BD_AC_UNBIND:    return "BD_AC_UNBIND";
         case CP2DP_CODE_BD_AC_ENCAP_8021Q: return "BD_AC_ENCAP_8021Q";
+        case ARP_SUP_CACHE:               return "ARP_SUP_CACHE";
         default:                          return "?";
     }
 }
@@ -86,13 +87,14 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
     switch (dp_msg->component_type) {
 
         case MAC_TABLE:
+        case BD_MAC_TABLE:
         {
             mac_update_msg_t *m = (mac_update_msg_t *)dp_msg->data;
             tracer(dp_ctx->dptr, DCONF,
-                "  mac_msg: mac=%02x:%02x:%02x:%02x:%02x:%02x table_vlan=%u bd_ifindex=%u flags=0x%x fwd_type=%u\n",
+                "  mac_msg: mac=%02x:%02x:%02x:%02x:%02x:%02x table_vlan=%u bd_ifindex=%u ip=%u flags=0x%x fwd_type=%u\n",
                 m->mac_addr[0], m->mac_addr[1], m->mac_addr[2],
                 m->mac_addr[3], m->mac_addr[4], m->mac_addr[5],
-                (unsigned)m->table_vlan_id, m->bd_ifindex,
+                (unsigned)m->table_vlan_id, m->bd_ifindex, m->ip_addr,
                 (unsigned)m->flags, (unsigned)m->fwd.fwd_type);
         }
         break;
@@ -264,6 +266,21 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
                                 "    intf_update: bd_ac_encap_8021q "
                                 "ac_port_id=%u tag=%u\n",
                                 u->ac_port_id, u->encap_8021q_tag);
+                        }
+                        break;
+                    case ARP_SUP_CACHE:
+                        if (dp_msg->data_size >=
+                            hdr_sz + sizeof(dp_intf_arp_sup_cache_t)) {
+                            const dp_intf_arp_sup_cache_t *u =
+                                (const dp_intf_arp_sup_cache_t *)payload;
+                            char ip_str[16];
+                            tracer(dp_ctx->dptr, DCONF,
+                                "    intf_update: arp_sup_cache %s ip=%s "
+                                "mac=%02x:%02x:%02x:%02x:%02x:%02x\n",
+                                u->add ? "add" : "del",
+                                ip_ntop(u->ip_addr, (c_string)ip_str),
+                                u->mac_addr[0], u->mac_addr[1], u->mac_addr[2],
+                                u->mac_addr[3], u->mac_addr[4], u->mac_addr[5]);
                         }
                         break;
                     default:

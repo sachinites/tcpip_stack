@@ -18,6 +18,8 @@
 #include "../Interface/InterfacEnums.h"
 #include "../libs/common/cmn_prefix.h"
 
+#include "../dpal/cp2dp.h"
+
 #include "mac_vrf.h"
 #include "../Layer2/Evpn/evpn_rt.h"
 #include "../Layer2/Evpn/evpn_bgp.h"
@@ -27,6 +29,7 @@ extern int cprintf(const char *format, ...);
 
 #define MAC_VRF_TYPE2_HT_SIZE  128
 #define MAC_VRF_TYPE3_HT_SIZE  32
+#define MAC_VRF_MAC_IP_HT_SIZE 128
 #define MAC_VRF_MAC_STR_LEN    18
 
 static const char *
@@ -73,6 +76,59 @@ mac_vrf_type3_key_equal (void *key1, void *key2)
     return (*a == *b);
 }
 
+/* IP→MAC binding table uses the same uint32 key hash/equal as Type-3. */
+static void
+mac_vrf_mac_ip_binding_add(mac_vrf_t *mac_vrf,
+                           uint32_t ip_addr,
+                           const mac_addr_t *mac)
+{
+    uint32_t *key;
+    mac_addr_t *val;
+    mac_addr_t *old;
+
+    if (!mac_vrf || !mac_vrf->mac_ip_binding || !mac || ip_addr == 0)
+        return;
+
+    old = (mac_addr_t *)hashtable_remove(mac_vrf->mac_ip_binding, &ip_addr);
+    if (old)
+        XFREE(old);
+
+    key = (uint32_t *)XCALLOC2(0, 1, uint32_t);
+    *key = ip_addr;
+    val = (mac_addr_t *)XCALLOC2(0, 1, mac_addr_t);
+    memcpy(val->mac, mac->mac, MAC_ADDR_SIZE);
+
+    if (!hashtable_insert(mac_vrf->mac_ip_binding, key, val)) {
+        XFREE(key);
+        XFREE(val);
+    }
+
+    cp2dp_arp_sup_cache_entry_add(mac_vrf->vrf->node, 
+                                  mac_vrf->evpn_inst->bd_intf->ifindex,
+                                  ip_addr, (uint8_t *)mac->mac, true);
+}
+
+static void
+mac_vrf_mac_ip_binding_del(mac_vrf_t *mac_vrf, uint32_t ip_addr)
+{
+    mac_addr_t *val;
+
+    if (!mac_vrf || !mac_vrf->mac_ip_binding || ip_addr == 0)
+        return;
+
+    val = (mac_addr_t *)hashtable_remove(mac_vrf->mac_ip_binding, &ip_addr);
+
+    if (val) {
+        cp2dp_arp_sup_cache_entry_del(
+                mac_vrf->vrf->node, 
+                mac_vrf->evpn_inst->bd_intf->ifindex, 
+                ip_addr,
+                true);
+
+        XFREE(val);
+    }
+}
+
 static void
 mac_vrf_fill_broadcast_mac(mac_addr_t *mac)
 {
@@ -99,6 +155,11 @@ mac_vrf_create (vrf_t *vrf, uint16_t mac_vrf_id) {
                                           mac_vrf_type3_key_equal);
     assert(mac_vrf->type3_rib);
 
+    mac_vrf->mac_ip_binding = create_hashtable(MAC_VRF_MAC_IP_HT_SIZE,
+                                               mac_vrf_type3_hash,
+                                               mac_vrf_type3_key_equal);
+    assert(mac_vrf->mac_ip_binding);
+
     /* mac vrf name for BD10 under L3 VRF red will be : red.mac.10 */
     mac_vrf->mac_rtm = rtm_initialize (vrf->node, 
                                         vrf->vrf_id, 
@@ -113,6 +174,7 @@ mac_vrf_check_and_delete(mac_vrf_t *mac_vrf) {
 
     assert (!mac_vrf->type2_rib);
     assert (!mac_vrf->type3_rib);
+    assert (!mac_vrf->mac_ip_binding);
     assert (!mac_vrf->vrf);
     assert (!mac_vrf->mac_rtm);
     assert (!mac_vrf->evpn_inst);
@@ -137,6 +199,11 @@ mac_vrf_destroy (mac_vrf_t *mac_vrf) {
         mac_vrf->type3_rib = NULL;
     }
 
+    if (mac_vrf->mac_ip_binding) {
+        hashtable_destroy(mac_vrf->mac_ip_binding, 1);
+        mac_vrf->mac_ip_binding = NULL;
+    }
+
     rtm_stop(mac_vrf->mac_rtm);
     rtm_check_and_delete(mac_vrf->mac_rtm, true);
     mac_vrf->mac_rtm = NULL;
@@ -149,23 +216,44 @@ void
 mac_vrf_evpn_route_type2_local_import(
                 node_t *node,
                 mac_vrf_t *mac_vrf, 
-                mac_addr_t *mac_addr) {
+                mac_addr_t *mac_addr,
+                uint32_t ip_addr) {
 
     mac_addr_t *key;
     evpn_exp_rt_t *evpn_rt;
+    evpn_exp_rt_t *existing;
     char mac_str[MAC_VRF_MAC_STR_LEN];
+    char ip_str[16];
 
     mac_vrf_format_mac(mac_addr, mac_str, sizeof(mac_str));
+    ip_ntop(ip_addr, (c_string)ip_str);
 
     tracer(node->cptr, DEVPN,
-           "EVPN Type-2 local import route %s mac-vrf %u\n",
-           mac_str, mac_vrf->mac_vrf_id);
+           "EVPN Type-2 local import route %s ip %s mac-vrf %u\n",
+           mac_str, ip_str, mac_vrf->mac_vrf_id);
 
-    /* Idempotent: already present for this MAC */
-    if (hashtable_search(mac_vrf->type2_rib, mac_addr)) {
-        tracer(node->cptr, DEVPN_DET,
-               "EVPN Type-2 local import route %s skipped — already in RIB\n",
-               mac_str);
+    existing = (evpn_exp_rt_t *)hashtable_search(mac_vrf->type2_rib, mac_addr);
+    if (existing) {
+        /* MAC already in RIB — upgrade with host IP if newly learned. */
+        if (ip_addr && existing->u.mac_only.ip_addr != ip_addr) {
+            if (existing->u.mac_only.ip_addr)
+                mac_vrf_mac_ip_binding_del(mac_vrf, existing->u.mac_only.ip_addr);
+            existing->u.mac_only.ip_addr = ip_addr;
+            mac_vrf_mac_ip_binding_add(mac_vrf, ip_addr, mac_addr);
+            tracer(node->cptr, DEVPN,
+                   "EVPN Type-2 local import route %s updated with IP %s, "
+                   "re-exporting to BGP\n",
+                   mac_str, ip_str);
+            evpn_route_export_to_bgp(node,
+                                     &mac_vrf->evpn_inst->rd,
+                                     &mac_vrf->evpn_inst->export_rt,
+                                     existing,
+                                     false);
+        } else {
+            tracer(node->cptr, DEVPN_DET,
+                   "EVPN Type-2 local import route %s skipped — already in RIB\n",
+                   mac_str);
+        }
         return;
     }
 
@@ -181,7 +269,7 @@ mac_vrf_evpn_route_type2_local_import(
     evpn_rt->flags = EVPN_RT_F_LOCAL;
     evpn_rt->vtep_ip = NODE_RTR_ID_INT(node);
     memcpy(evpn_rt->u.mac_only.mac.mac, mac_addr->mac, MAC_ADDR_SIZE);
-    evpn_rt->u.mac_only.ip_addr = 0;
+    evpn_rt->u.mac_only.ip_addr = ip_addr;
     evpn_rt->u.mac_only.label = mac_vrf->evpn_inst->bd_intf->vpn_svc_label;
 
     if (!hashtable_insert(mac_vrf->type2_rib, key, evpn_rt)) {
@@ -193,9 +281,12 @@ mac_vrf_evpn_route_type2_local_import(
         return;
     }
 
+    mac_vrf_mac_ip_binding_add(mac_vrf, ip_addr, mac_addr);
+
     tracer(node->cptr, DEVPN,
-           "EVPN Type-2 local import route %s installed label %u, exporting to BGP\n",
-           mac_str, evpn_rt->u.mac_only.label);
+           "EVPN Type-2 local import route %s ip %s installed label %u, "
+           "exporting to BGP\n",
+           mac_str, ip_str, evpn_rt->u.mac_only.label);
 
     evpn_route_export_to_bgp(node,
                              &mac_vrf->evpn_inst->rd,
@@ -261,6 +352,7 @@ mac_vrf_evpn_route_type2_delete (
     }
 
     hashtable_remove(mac_vrf->type2_rib, mac_addr);
+    mac_vrf_mac_ip_binding_del(mac_vrf, evpn_rt->u.mac_only.ip_addr);
     XFREE(evpn_rt);
 }
 
@@ -268,6 +360,7 @@ void
 mac_vrf_evpn_route_type2_remote_import(
         mac_vrf_t *mac_vrf,
         mac_addr_t *mac_addr,
+        uint32_t ip_addr,
         uint32_t vtep_ip,
         uint32_t label)
 {
@@ -301,6 +394,16 @@ mac_vrf_evpn_route_type2_remote_import(
             "local already exists in MAC VRF %d\n",
                 mac_str, mac_vrf->mac_vrf_id);
          }
+        else if (ip_addr && existing->u.mac_only.ip_addr != ip_addr) {
+            char host_ip_str[16];
+            if (existing->u.mac_only.ip_addr)
+                mac_vrf_mac_ip_binding_del(mac_vrf, existing->u.mac_only.ip_addr);
+            existing->u.mac_only.ip_addr = ip_addr;
+            mac_vrf_mac_ip_binding_add(mac_vrf, ip_addr, mac_addr);
+            tracer(node->cptr, DEVPN,
+                   "EVPN Type-2 remote import route %s updated with IP %s\n",
+                   mac_str, ip_ntop(ip_addr, (c_string)host_ip_str));
+        }
         else {
             tracer(node->cptr, DEVPN_DET,
                    "EVPN Type-2 remote import route %s skipped — already in RIB\n",
@@ -317,7 +420,7 @@ mac_vrf_evpn_route_type2_remote_import(
     evpn_rt->flags = EVPN_RT_F_REMOTE;
     evpn_rt->vtep_ip = vtep_ip;
     memcpy(evpn_rt->u.mac_only.mac.mac, mac_addr->mac, MAC_ADDR_SIZE);
-    evpn_rt->u.mac_only.ip_addr = 0;
+    evpn_rt->u.mac_only.ip_addr = ip_addr;
     evpn_rt->u.mac_only.label = label;
 
     if (!hashtable_insert(mac_vrf->type2_rib, key, evpn_rt)) {
@@ -328,6 +431,8 @@ mac_vrf_evpn_route_type2_remote_import(
         XFREE(evpn_rt);
         return;
     }
+
+    mac_vrf_mac_ip_binding_add(mac_vrf, ip_addr, mac_addr);
 
     {
         cmn_prefix_t prefix;
@@ -408,6 +513,7 @@ mac_vrf_evpn_route_type2_remote_delete(
 
         memcpy(key->mac, mac_addr->mac, MAC_ADDR_SIZE);
         if (!hashtable_insert(mac_vrf->type2_rib, key, evpn_rt)) {
+            mac_vrf_mac_ip_binding_del(mac_vrf, evpn_rt->u.mac_only.ip_addr);
             XFREE(key);
             XFREE(evpn_rt);
         }
@@ -458,6 +564,7 @@ mac_vrf_evpn_route_type2_remote_delete(
         }
     }
 
+    mac_vrf_mac_ip_binding_del(mac_vrf, evpn_rt->u.mac_only.ip_addr);
     XFREE(evpn_rt);
 }
 
@@ -837,6 +944,7 @@ mac_vrf_delete_all_remote_evpn_routes(mac_vrf_t *mac_vrf)
                 (evpn_exp_rt_t *)hashtable_remove(mac_vrf->type2_rib, &keys[i]);
             if (evpn_rt)
             {
+                mac_vrf_mac_ip_binding_del(mac_vrf, evpn_rt->u.mac_only.ip_addr);
                 XFREE(evpn_rt);
             }
         }

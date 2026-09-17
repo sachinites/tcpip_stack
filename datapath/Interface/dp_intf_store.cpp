@@ -19,6 +19,7 @@
 #include "../classifier/pkt_classifier.h"
 #include "../dp_const.h"
 #include "../dp_uapi.h"
+#include "../Layer2/bridge-domain/arp_sup_cache.h"
 #include "../../libs/libtimer/WheelTimer.h"
 
 typedef struct arp_table_ arp_table_t;
@@ -163,6 +164,8 @@ dp_delete_interface (dp_ctx_t *dp_ctx, dp_intf_t *intf) {
         assert(mac_table);
         intf->mac_table = NULL;
         destroy_mac_table(dp_ctx, mac_table);
+        dp_arp_sup_cache_db_destroy(intf->arp_sup_cache_db);
+        intf->arp_sup_cache_db = NULL;
     }
 
     dp_check_and_free_interface (intf);

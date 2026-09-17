@@ -43,7 +43,9 @@ bd_show (dp_intf_t *bd_intf) ;
 void
 bd_perform_mac_learning (dp_ctx_t *dp_ctx,
                          dp_intf_t *bd, 
-                         mac_addr_t *src_mac, dp_intf_t *ac);
+                         mac_addr_t *src_mac,
+                         dp_intf_t *ac,
+                         uint32_t ip_addr);
 
 void 
 bd_switch_forward_frame (dp_ctx_t *dp_ctx,

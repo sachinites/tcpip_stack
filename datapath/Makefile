@@ -32,6 +32,7 @@ OBJS=dp_init.o \
 	 Layer2/switching/mac_table.o \
 	 Layer2/MacNexthop/L2FwdObject.o \
 	 Layer2/bridge-domain/bd.o \
+	 Layer2/bridge-domain/arp_sup_cache.o \
 	 Layer2/vxlan/vlan_vni_ht.o \
 	 Layer2/vxlan/vxlan_dp.o \
 	 Layer2/l2fwd/ipv4-l2fwd.o \

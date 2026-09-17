@@ -39,6 +39,7 @@
 #include "../libs/common/protoIds.h"
 #include "classifier/pkt_classifier.h"
 #include "Layer2/switching/mac_table.h"
+#include "Layer2/bridge-domain/arp_sup_cache.h"
 #include "Layer2/MacNexthop/L2FwdObject.h"
 #include "../libs/Tree/libtree.h"
 #include "../libs/common/mpls_lstack.h"
@@ -55,6 +56,7 @@ extern graph_t *topo;
 #define CMDCODE_DEBUG_DP_CLASSIFIERS     7
 #define CMDCODE_SHOW_BD_MAC              8
 #define CMDCODE_DEBUG_DP_L2_FWD_OBJ_DB   9
+#define CMDCODE_SHOW_BD_ARP_SUP_CACHE   10
 
 /* -----  Interface display helpers  ----- */
 
@@ -747,6 +749,36 @@ dp_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable)
         break;
     }
 
+    case CMDCODE_SHOW_BD_ARP_SUP_CACHE:
+    {
+        char bd_name[DP_INTF_NAME];
+        snprintf(bd_name, sizeof(bd_name), "bd%u", bd_id);
+
+        dp_intf_t *bd_intf = NULL;
+        for (int _i = 0; _i < DP_MAX_INTF; _i++) {
+            dp_intf_t *intf = dp_ctx->intf_table[_i];
+            if (!intf || intf->if_type != DP_INTF_TYPE_BD)
+                continue;
+            if (strcmp(intf->if_name, bd_name) == 0) {
+                bd_intf = intf;
+                break;
+            }
+        }
+
+        if (!bd_intf) {
+            cprintf("Error: Bridge-domain %s not found\n", bd_name);
+            return -1;
+        }
+
+        cprintf("Bridge-domain %u ARP Suppression Cache\n", bd_id);
+        if (!bd_intf->arp_sup_cache_db) {
+            cprintf("(not initialized)\n");
+            break;
+        }
+        dp_arp_sup_cache_db_print(bd_intf->arp_sup_cache_db);
+        break;
+    }
+
     case CMDCODE_DEBUG_DP_L2_FWD_OBJ_DB:
         dp_show_l2_fwd_object_db(dp_ctx, (const char *)node_name);
         break;
@@ -848,6 +880,17 @@ dp_build_dp_show_cli_tree(param_t *node_name)
                 libcli_register_param(&bd_id, &bd_mac);
                 libcli_set_param_cmd_code(&bd_mac, CMDCODE_SHOW_BD_MAC);
                 libcli_set_user_flag(&bd_mac, CLI_F_DATA_PLANE);
+            }
+
+            /* ARP suppression cache of BD */
+            {
+                static param_t arp_sup;
+                init_param(&arp_sup, CMD, "arp-suppression-cache",
+                           dp_show_handler, 0, INVALID, 0,
+                           "ARP suppression cache");
+                libcli_register_param(&bd_id, &arp_sup);
+                libcli_set_param_cmd_code(&arp_sup, CMDCODE_SHOW_BD_ARP_SUP_CACHE);
+                libcli_set_user_flag(&arp_sup, CLI_F_DATA_PLANE);
             }
         }
     }

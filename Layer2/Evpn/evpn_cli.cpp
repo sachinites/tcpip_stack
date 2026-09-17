@@ -50,6 +50,9 @@
 /* show node <node-name> protocol l2vpn evpn instance <id> imet-routes */
 #define CMDCODE_SHOW_EVPN_IMET_ROUTES 9
 
+/* show node <node-name> protocol l2vpn evpn instance <id> arp-suppression-cache */
+#define CMDCODE_SHOW_EVPN_ARP_SUPPRESSION_CACHE 10
+
 extern graph_t *topo;
 
 static int
@@ -799,6 +802,7 @@ evpn_print_type2_route (evpn_exp_rt_t *evpn_rt,
 {
     char nh_str[16];
     char mac_str[18];
+    char ip_str[16];
     char label_str[16];
     const char *flags_str;
     const unsigned char *mac = evpn_rt->u.mac_only.mac.mac;
@@ -806,6 +810,11 @@ evpn_print_type2_route (evpn_exp_rt_t *evpn_rt,
 
     snprintf(mac_str, sizeof(mac_str), "%02x%02x.%02x%02x.%02x%02x",
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    if (evpn_rt->u.mac_only.ip_addr)
+        ip_ntop(evpn_rt->u.mac_only.ip_addr, (c_string)ip_str);
+    else
+        snprintf(ip_str, sizeof(ip_str), "-");
 
     flags_str = is_local ? "L" : "R";
 
@@ -817,10 +826,11 @@ evpn_print_type2_route (evpn_exp_rt_t *evpn_rt,
         snprintf(label_str, sizeof(label_str), "%u", evpn_rt->u.mac_only.label);
     }
 
-    /* BD  Mac Address       Flags  Seq No  Next-Hops      Label   ESI */
-    cprintf ("%-5u %-17s %-5s  %-6u  %-14s %-7s %s\n",
+    /* BD  Mac Address       IP Address     Flags  Seq No  Next-Hops      Label   ESI */
+    cprintf ("%-5u %-17s %-15s %-5s  %-6u  %-14s %-7s %s\n",
              bd_id,
              mac_str,
+             ip_str,
              flags_str,
              0,          /* Seq No */
              nh_str,
@@ -905,10 +915,10 @@ evpn_show_mac_routes (evpn_inst_t *evpn_inst, mac_addr_t *mac_filter)
     }
 
     cprintf ("\nFlags - (S):Sticky (L):Local (R):Remote (Dup):Duplicate\n");
-    cprintf ("%-5s %-17s %-5s  %-6s  %-14s %-7s %s\n",
-             "BD", "Mac Address", "Flags", "Seq No",
+    cprintf ("%-5s %-17s %-15s %-5s  %-6s  %-14s %-7s %s\n",
+             "BD", "Mac Address", "IP Address", "Flags", "Seq No",
              "Next-Hops", "Label", "ESI");
-    cprintf ("--------------------------------------------------------------------------------------\n");
+    cprintf ("----------------------------------------------------------------------------------------------------\n");
 
     if (mac_filter) {
         evpn_rt = (evpn_exp_rt_t *)hashtable_search(mac_vrf->type2_rib, mac_filter);
@@ -1026,6 +1036,56 @@ evpn_show_imet_routes (evpn_inst_t *evpn_inst)
     cprintf ("Total : %u\n", count);
 }
 
+static void
+evpn_show_arp_suppression_cache (evpn_inst_t *evpn_inst)
+{
+    mac_vrf_t *mac_vrf;
+    struct hashtable_itr *itr;
+    uint32_t count = 0;
+
+    mac_vrf = evpn_inst->mac_vrf;
+    if (!mac_vrf || !mac_vrf->mac_ip_binding) {
+        cprintf ("EVPN instance %u : ARP suppression cache not available\n",
+                 evpn_inst->evi);
+        return;
+    }
+
+    cprintf ("EVPN Instance %u ARP Suppression Cache\n", evpn_inst->evi);
+    cprintf ("%-16s  %-17s\n", "IP Address", "MAC Address");
+    cprintf ("%-16s  %-17s\n", "----------------", "-----------------");
+
+    if (hashtable_count(mac_vrf->mac_ip_binding) == 0) {
+        cprintf ("(empty)\n");
+        return;
+    }
+
+    itr = hashtable_iterator(mac_vrf->mac_ip_binding);
+    if (!itr) {
+        cprintf ("(empty)\n");
+        return;
+    }
+
+    do {
+        uint32_t *ip_key = (uint32_t *)hashtable_iterator_key(itr);
+        mac_addr_t *mac = (mac_addr_t *)hashtable_iterator_value(itr);
+        char ip_str[16];
+        char mac_str[18];
+
+        if (!ip_key || !mac)
+            break;
+
+        ip_ntop(*ip_key, (c_string)ip_str);
+        snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
+                 mac->mac[0], mac->mac[1], mac->mac[2],
+                 mac->mac[3], mac->mac[4], mac->mac[5]);
+        cprintf ("%-16s  %-17s\n", ip_str, mac_str);
+        count++;
+    } while (hashtable_iterator_advance(itr));
+
+    free(itr);
+    cprintf ("Total : %u\n", count);
+}
+
 static int
 evpn_show_handler (int64_t cmdcode,
                    Stack_t *tlv_stack,
@@ -1124,6 +1184,21 @@ evpn_show_handler (int64_t cmdcode,
             evpn_show_imet_routes (evpn_inst);
             break;
 
+        case CMDCODE_SHOW_EVPN_ARP_SUPPRESSION_CACHE:
+            if (!evpn_id_present) {
+                cprintf ("Error : EVPN instance id required\n");
+                return -1;
+            }
+
+            evpn_inst = evpn_get_instance (node, evpn_id, false);
+            if (!evpn_inst) {
+                cprintf ("Error : EVPN instance %u does not exist\n", evpn_id);
+                return -1;
+            }
+
+            evpn_show_arp_suppression_cache (evpn_inst);
+            break;
+
         default:
             break;
     }
@@ -1187,6 +1262,17 @@ evpn_show_cli_tree (param_t *param)
                         libcli_register_param (&evpn_id, &imet_routes);
                         libcli_set_param_cmd_code (&imet_routes,
                                                    CMDCODE_SHOW_EVPN_IMET_ROUTES);
+
+                        /* show ... instance <id> arp-suppression-cache */
+                        static param_t arp_sup_cache;
+                        init_param (&arp_sup_cache, CMD,
+                                    "arp-suppression-cache",
+                                    evpn_show_handler, 0, INVALID, 0,
+                                    "Show EVPN ARP suppression IP-MAC cache");
+                        libcli_register_param (&evpn_id, &arp_sup_cache);
+                        libcli_set_param_cmd_code (
+                            &arp_sup_cache,
+                            CMDCODE_SHOW_EVPN_ARP_SUPPRESSION_CACHE);
                     }
                 }
             }

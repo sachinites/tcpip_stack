@@ -43,6 +43,7 @@
 /* Data path files */
 #include "datapath/Layer2/arp/arp.h"
 #include "datapath/Layer2/switching/mac_table.h"
+#include "datapath/Layer2/bridge-domain/arp_sup_cache.h"
 
 /* Lib Hdr files */
 #include "libs/mtrie/mtrie.h"
@@ -65,6 +66,7 @@
 
 /* VRF files */
 #include "vrf/vrf.h"
+#include "vrf/mac_vrf.h"
 
 
 /* Create static array of vm_page_family_t */
@@ -133,9 +135,11 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(arp_table_t),
     MM_REG_STRUCT2(arp_pending_entry_t),
     MM_REG_STRUCT2(arp_entry_t),
+    MM_REG_STRUCT2(dp_arp_sup_cache_entry_t),
     MM_REG_STRUCT2(vlan_8021q_hdr_t),
     MM_REG_STRUCT2(vlan_ethernet_hdr_t),
     MM_REG_STRUCT2(mac_table_t),
+    MM_REG_STRUCT2(mac_vrf_t),
     //MM_REG_STRUCT2(mac_table_entry_t),
 
     /* VXLAN Structures */

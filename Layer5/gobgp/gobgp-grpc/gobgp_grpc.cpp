@@ -1114,7 +1114,10 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
             SetDefaultEthernetSegmentIdentifier(evpn->mutable_esi());
             evpn->set_ethernet_tag(0);
             evpn->set_mac_address(params.mac_addr);
-            evpn->clear_ip_address();
+            if (!params.pe_addr.empty())
+                evpn->set_ip_address(params.pe_addr);
+            else
+                evpn->clear_ip_address();
             if (params.evpn_label_present) {
                 evpn->add_labels(params.evpn_label);
             }

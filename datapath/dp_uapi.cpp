@@ -186,7 +186,8 @@ void
 dp_post_bd_mac_learn_job(dp_ctx_t *dp_ctx,
                       uint32_t bd_ifindex,
                       uint8_t *mac_addr,
-                      uint32_t oif_ifindex)
+                      uint32_t oif_ifindex,
+                      uint32_t ip_addr)
 {
     dp_msg_t *dp_msg = cp2dp_msg_alloc();
     dp_msg->component_type = BD_MAC_TABLE;
@@ -197,6 +198,7 @@ dp_post_bd_mac_learn_job(dp_ctx_t *dp_ctx,
     memcpy(m->mac_addr, mac_addr, 6);
     m->table_vlan_id = DEFAULT_VLAN_ID;
     m->bd_ifindex    = bd_ifindex;
+    m->ip_addr       = ip_addr;
     m->flags         = MAC_DATA_PLANE;
     mac_fwd_object_spec_from_ifindex(&m->fwd, oif_ifindex, 0, bd_ifindex);
 

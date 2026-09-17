@@ -114,6 +114,9 @@ typedef struct dp_ctx_ {
     /* Array of mempool buffer, indexed by Numa Node IDs*/
     struct rte_mempool **mbuf_pools;
 
+    /* ARP Suppression Caches, Keyed by BD-ID, its a HT of HT*/
+    hashtable_t *evpn_arp_suppression_cache_db;
+
     /* Memory pools to allocate nodes for FIB*/
     struct {
         struct rte_mempool *fib_mempool;
