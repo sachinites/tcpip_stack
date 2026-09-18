@@ -1021,7 +1021,7 @@ cp_rtm_install_route_advanced (
 
     fwd_flags |= rtm_set_fib_forwarding_action_flag (nh_template.action);
     nh_template.fwd_flags = fwd_flags;
-    
+
     /* Install the route */
     rc = cp_rtm_install_route(rtm, prefix, &nh_template);
     rtm_nh_template_free_internals (&nh_template);

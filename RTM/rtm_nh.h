@@ -74,7 +74,7 @@ typedef struct mpls_lstack_ mpls_lstack_t;
  * ======================================================================== */
 
 #define RTM_DNH_RTM_F_NO_PROPOGATE_UPSTREAM 1  /* Don't propagate DNH upstream */
-#define RTM_INH_F_RESOLVED_IN_FOREIGN_RTM 2    /* INH resolved in different RTM */
+#define RTM_INH_F_NO_ECMP                   2    /* INH after resolution will have only one DNH */
 
 /**
  * @brief Nexthop structure

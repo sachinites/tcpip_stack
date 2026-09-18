@@ -1406,6 +1406,11 @@ rtm_install_route (
     rtm_nh_proto_initialize (nh->rtm_nh_proto);
     rtm_nh_proto_copy (cp_nh_template->rtm_nh_proto, nh->rtm_nh_proto);
 
+    /* Disable ECMP for Broadcast MAC*/
+    if (rtm->afi == AF_MAC && cmn_prefix_is_broadcast_mac(prefix)) {
+        nh->rtm_flags |= RTM_INH_F_NO_ECMP;
+    }
+
     nh_proto = nh->rtm_nh_proto;
 
     rc = rtm_route_add_nh(rtm, route, nh);

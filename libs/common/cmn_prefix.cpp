@@ -82,6 +82,25 @@ cmn_prefix_to_string(cmn_prefix_t *prefix, char (*buffer)[48]) {
     return *buffer;
 }
 
+bool
+cmn_prefix_is_broadcast_mac(cmn_prefix_t *prefix)
+{
+    static const uint8_t broadcast_mac[6] =
+        {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+    if (!prefix)
+        return false;
+
+    /* Replace AFI_MAC with your actual MAC AFI enum */
+    if (prefix->afi != AF_MAC)
+        return false;
+
+    return memcmp(prefix->u.mac_addr,
+                  broadcast_mac,
+                  sizeof(broadcast_mac)) == 0;
+}
+
+
 int8_t
 cmn_prefix_compare(const cmn_prefix_t *p1, const cmn_prefix_t *p2) {
     

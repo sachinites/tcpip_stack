@@ -139,6 +139,7 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
     char route_str[48];
     int dnh_count = 0;
     glthread_t *nh_glue;
+    bool only_1_dnh = false;
     glthread_data_node_t *data_node;
     
     tracer(rtm->node->cptr, DRTM_DET,
@@ -146,6 +147,8 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
         rtm->name,
         rtm_format_prefix(&route->prefix, route_str, sizeof(route_str)),
         rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
+
+    only_1_dnh = (indirect_nh->rtm_flags & RTM_INH_F_NO_ECMP);
 
     ITERATE_GLTHREAD_BEGIN(&route->path_list, nh_glue) {
 
@@ -170,6 +173,7 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
                 rtm_nh_one_liner_trace(nh, route_str, sizeof(route_str)),
                 rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
             dnh_count++;
+            if (only_1_dnh) break;
         }
         else {
 
@@ -194,6 +198,7 @@ rtm_copy_route_active_nhs_to_inh_direct_nh_set(
                     rtm_nh_one_liner_trace(nh, route_str, sizeof(route_str)),
                     rtm_nh_one_liner_trace(indirect_nh, inh_str, sizeof(inh_str)));
                 dnh_count++;
+                if (only_1_dnh) break;
 
             } ITERATE_GLTHREAD_END(&nh->direct_nh_list, direct_nh_glue);
         }
