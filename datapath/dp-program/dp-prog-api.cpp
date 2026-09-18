@@ -111,19 +111,19 @@ dp_bd_mac_lookup(dp_ctx_t *dp_ctx, uint32_t bd_ifindex, uint8_t *mac)
 }
 
 /*
- * Before installing a DP-learned BD MAC: note any existing CP nexthops, and
+ * Before installing a DP-learned MAC: note any existing CP nexthops, and
  * detach a conflicting DP nexthop on a different port (MAC move).
  * Returns true if a CP-learned nexthop was present on the entry.
  */
 static bool
-dp_bd_mac_prepare_dp_learn(dp_ctx_t *dp_ctx,
-                           mac_table_entry_t *existing,
-                           const mac_fwd_object_t *new_fwd)
+dp_mac_prepare_dp_learn(dp_ctx_t *dp_ctx,
+                        mac_table_entry_t *existing,
+                        const mac_fwd_object_t *new_fwd)
 {
     bool had_cp_learned = false;
     int i;
 
-    if (!existing)
+    if (!existing || !new_fwd || new_fwd->fwd_type != L2_FWD_PORT)
         return false;
 
     for (i = 0; i < existing->oif_count; i++) {
@@ -132,21 +132,12 @@ dp_bd_mac_prepare_dp_learn(dp_ctx_t *dp_ctx,
         if (!fwdobj)
             continue;
 
-        if (fwdobj->flags & MAC_CONTROL_PLANE)
+        if (fwdobj->flags & EVPN_CONTROL_PLANE)
             had_cp_learned = true;
-
-        if (!(fwdobj->flags & MAC_DATA_PLANE))
-            continue;
-
-        assert(fwdobj->fwd_type == L2_FWD_PORT);
-
-        /* Same ingress port — keep; different port — MAC moved. */
-        if (new_fwd->u.dp_intf == fwdobj->u.dp_intf)
-            continue;
-
-        mac_table_entry_detach_fwd(dp_ctx, existing, fwdobj);
-        break;
     }
+
+    mac_table_entry_detach_conflicting_local_port(
+            dp_ctx, existing, new_fwd->u.dp_intf, true);
 
     return had_cp_learned;
 }
@@ -184,15 +175,18 @@ dp_mac_table_handle_create(dp_ctx_t *dp_ctx,
 {
     bool is_bd = (dp_msg->component_type == BD_MAC_TABLE);
     bool is_dp = (mac_update_msg->flags & MAC_DATA_PLANE) != 0;
-    bool is_cp = (mac_update_msg->flags & MAC_CONTROL_PLANE) != 0;
+    bool is_cp = (mac_update_msg->flags & EVPN_CONTROL_PLANE) != 0;
     bool had_cp_learned = false;
     mac_table_entry_t *existing = NULL;
     bool notify_cp;
 
-    if (is_bd && is_dp) {
-        existing = dp_bd_mac_lookup(dp_ctx, overlay_vlan,
-                                    (uint8_t *)mac_update_msg->mac_addr);
-        had_cp_learned = dp_bd_mac_prepare_dp_learn(dp_ctx, existing, tmpl);
+    if (is_dp) {
+        existing = is_bd ?
+            dp_bd_mac_lookup(dp_ctx, overlay_vlan,
+                             (uint8_t *)mac_update_msg->mac_addr) :
+            mac_table_lookup(mac_table, table_vlan,
+                             (uint8_t *)mac_update_msg->mac_addr);
+        had_cp_learned = dp_mac_prepare_dp_learn(dp_ctx, existing, tmpl);
     } else if (is_bd && is_cp) {
         existing = dp_bd_mac_lookup(dp_ctx, overlay_vlan,
                                     (uint8_t *)mac_update_msg->mac_addr);

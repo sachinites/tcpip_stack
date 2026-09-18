@@ -74,12 +74,22 @@ l2_switch_perform_mac_learning(dp_ctx_t *dp_ctx,
      */
     mac_table_entry_t *existing =
         mac_table_lookup(dp_ctx->mac_table, vlan_id, (uint8_t *)src_mac);
+
     if (existing) {
-        /* Refresh aging on source-MAC activity (standard switch behavior):
-         * seeing a frame *from* this MAC keeps its entry alive, independent
-         * of whether it is ever a forwarding destination. */
-        if (!(existing->flags & MAC_STATIC))
-            mac_table_entry_touch(existing);
+        if (mac_table_entry_skip_mac_learning(existing, oif->port_id)) {
+
+            tracer(dp_ctx->dptr, DL2SW, 
+                "Mac Table : Mac Learning Skipped, rec_intf:%s, cached intf:%s\n", 
+                oif->if_name, dp_ctx->intf_table[existing->lcl_ifindex]->if_name);
+
+            if (!(existing->flags & MAC_STATIC))
+                mac_table_entry_touch(existing);
+            return;
+        }
+
+        /* MAC moved to a different local port — post update job. */
+        dp_post_mac_learn_job(dp_ctx, (uint8_t *)src_mac, vlan_id,
+                              oif->port_id, src_ip);
         return;
     }
 
@@ -298,7 +308,6 @@ void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
                           dp_intf_t *interface,
                           struct rte_mbuf *mbuf)
 {
-    bool is_pkt_flooded;
     pkt_size_t pkt_size;
 
     if (pkt_mbuf_get_starting_hdr (mbuf) != ETHERNET_HEADER){
@@ -310,15 +319,35 @@ void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
     vlan_ethernet_hdr_t *vlan_ethernet_hdr = 
         (vlan_ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
 
-    c_string src_mac = (c_string)vlan_ethernet_hdr->src_mac.mac;
-
     pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, 
         "Pkt : %s : Layer 2 Frame Received on Interface %s in vlan %d\n", 
         pkt_mbuf_str (mbuf), interface->if_name, vlan_id);
 
-    is_pkt_flooded = !l2_switch_forward_frame(dp_ctx, dp_ctx->mac_table, NULL, interface, mbuf);
+    mac_table_entry_t *existing = mac_table_lookup(
+                                    dp_ctx->mac_table,
+                                    vlan_id,
+                                    (uint8_t *)vlan_ethernet_hdr->src_mac.mac);
 
-    if (is_pkt_flooded) {
-        l2_switch_perform_mac_learning(dp_ctx, vlan_id, src_mac, interface, 0);
+    /* perform mac learning */
+    if (!existing || 
+        !mac_table_entry_skip_mac_learning(existing, interface->port_id)) {
+
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, 
+                "Mac Table : Mac Learning, rec_intf:%s, cached intf:%s\n", 
+                interface->if_name, 
+                existing->lcl_ifindex ? dp_ctx->intf_table[existing->lcl_ifindex]->if_name : "Nil");
+
+        l2_switch_perform_mac_learning(dp_ctx, vlan_id,
+            vlan_ethernet_hdr->src_mac.mac, interface, 0);
     }
+    else {
+
+        pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, 
+                "Mac Table : Mac Learning Skipped, rec_intf:%s, cached intf:%s\n", 
+                interface->if_name, dp_ctx->intf_table[existing->lcl_ifindex]->if_name);
+
+        mac_table_entry_touch(existing);
+    }
+
+    l2_switch_forward_frame(dp_ctx, dp_ctx->mac_table, NULL, interface, mbuf);
 }

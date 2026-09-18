@@ -175,6 +175,99 @@ mac_table_gc_delete_entry(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
  * Write path — all callers must be on dp_ev_dis
  * ---------------------------------------------------------------------- */
 
+/* Recompute entry->flags from remaining oifs (set if any oif has the class). */
+static void
+mac_table_entry_refresh_flags(mac_table_entry_t *entry)
+{
+    uint16_t i;
+    uint16_t flags = 0;
+    bool was_static;
+
+    if (!entry)
+        return;
+
+    was_static = (entry->flags & MAC_STATIC) != 0;
+
+    for (i = 0; i < entry->oif_count; i++) {
+        if (!entry->oifs[i])
+            continue;
+        flags |= (entry->oifs[i]->flags & MAC_ORIGIN_FLAGS);
+    }
+
+    entry->flags = flags;
+
+    /* Aging: static entries are exempt (last_used == 0). */
+    if ((flags & MAC_STATIC) && !was_static)
+        entry->last_used = 0;
+    else if (!(flags & MAC_STATIC) && was_static)
+        entry->last_used = time(NULL);
+}
+
+/* Cache local attachment port (L2_FWD_PORT) for unicast entries. */
+static void
+mac_table_entry_refresh_lcl_ifindex(mac_table_entry_t *entry)
+{
+    uint16_t i;
+    uint32_t lcl_ifindex = 0;
+
+    if (!entry) {
+        return;
+    }
+
+    if (mac_table_entry_is_broadcast(entry)) {
+        entry->lcl_ifindex = 0;
+        return;
+    }
+
+    for (i = 0; i < entry->oif_count; i++) {
+        mac_fwd_object_t *fwd_obj = entry->oifs[i];
+
+        if (!fwd_obj || fwd_obj->fwd_type != L2_FWD_PORT)
+            continue;
+
+        lcl_ifindex = fwd_obj->u.dp_intf;
+        break;
+    }
+
+    entry->lcl_ifindex = lcl_ifindex;
+}
+
+void
+mac_table_entry_detach_conflicting_local_port(
+        dp_ctx_t *dp_ctx,
+        mac_table_entry_t *entry,
+        uint32_t keep_ifindex,
+        bool protect_static)
+{
+    uint16_t i;
+
+    if (!entry || !dp_ctx)
+        return;
+
+    for (i = 0; i < entry->oif_count; ) {
+        mac_fwd_object_t *fwdobj = entry->oifs[i];
+
+        if (!fwdobj ||
+            fwdobj->fwd_type != L2_FWD_PORT ||
+            fwdobj->u.dp_intf == keep_ifindex ||
+            (protect_static && (fwdobj->flags & MAC_STATIC))) {
+            i++;
+            continue;
+        }
+
+        tracer(dp_ctx->dptr, DL2SW,
+               "MAC Table Entry [%u %02x:%02x:%02x:%02x:%02x:%02x]: "
+               "MAC move — detach local port if%u, keep if%u\n",
+               entry->vlan_id,
+               entry->mac.mac[0], entry->mac.mac[1],
+               entry->mac.mac[2], entry->mac.mac[3],
+               entry->mac.mac[4], entry->mac.mac[5],
+               fwdobj->u.dp_intf, keep_ifindex);
+
+        mac_table_entry_detach_fwd(dp_ctx, entry, fwdobj);
+    }
+}
+
 void
 mac_table_entry_add(dp_ctx_t *dp_ctx,
                     mac_table_t *mac_table,
@@ -192,8 +285,6 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     mac_table_entry_t *existing = mac_table_lookup(mac_table, vlan_id, mac_addr);
 
     if (existing) {
-        if (flags & MAC_STATIC)
-            existing->flags |= MAC_STATIC;
         if (mac_table_entry_attach_fwd(dp_ctx, existing, fwd_tmpl)) {
             tracer(dp_ctx->dptr, DL2SW,
                    "MAC Table Entry [%u %02x:%02x:%02x:%02x:%02x:%02x]: fwd obj added\n",
@@ -208,9 +299,8 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     entry->vlan_id = vlan_id;
     entry->last_used = (flags & MAC_STATIC) ? 0 : time(NULL);
     memcpy(entry->mac.mac, mac_addr, sizeof(mac_addr_t));
-    /* Entry flags: only MAC_STATIC is retained for aging/GC; origin type
-       lives on each MacFwdObject. */
-    entry->flags = (flags & MAC_STATIC) ? MAC_STATIC : 0;
+    entry->flags = 0;
+    entry->lcl_ifindex = 0;
     entry->oifs = NULL;
     entry->oif_count = 0;
     entry->oif_cap = 0;
@@ -325,6 +415,8 @@ mac_table_entry_clone_static(const mac_table_entry_t *src)
         dst->oifs[dst->oif_count++] = src->oifs[i];
     }
 
+    mac_table_entry_refresh_flags(dst);
+    mac_table_entry_refresh_lcl_ifindex(dst);
     return dst;
 }
 
@@ -794,6 +886,12 @@ mac_table_entry_attach_fwd(dp_ctx_t *dp_ctx,
     if (!mac_entry || !fwd_tmpl || fwd_tmpl->fwd_type >= L2_FWD_MAX)
         return false;
 
+    if (fwd_tmpl->fwd_type == L2_FWD_PORT &&
+        (fwd_tmpl->flags & MAC_DATA_PLANE)) {
+        mac_table_entry_detach_conflicting_local_port(
+                dp_ctx, mac_entry, fwd_tmpl->u.dp_intf, true);
+    }
+
     fwd_obj = dp_l2fwd_object_acquire(dp_ctx, fwd_tmpl);
     if (!fwd_obj)
         return false;
@@ -808,10 +906,11 @@ mac_table_entry_attach_fwd(dp_ctx_t *dp_ctx,
             mac_entry->oifs[i]->flags = fwd_tmpl->flags;
 
         mac_fwd_object_dereference(dp_ctx, fwd_obj);
+        mac_table_entry_refresh_flags(mac_entry);
+        mac_table_entry_refresh_lcl_ifindex(mac_entry);
         return false;
     }
 
-    /* Origin type is a property of the L2 fwd object, not the MAC entry. */
     if (fwd_tmpl->flags)
         fwd_obj->flags = fwd_tmpl->flags;
 
@@ -822,6 +921,8 @@ mac_table_entry_attach_fwd(dp_ctx_t *dp_ctx,
     }
 
     mac_entry->oifs[mac_entry->oif_count++] = fwd_obj;
+    mac_table_entry_refresh_flags(mac_entry);
+    mac_table_entry_refresh_lcl_ifindex(mac_entry);
     return true;
 }
 
@@ -848,6 +949,8 @@ mac_table_entry_detach_fwd(dp_ctx_t *dp_ctx,
         if (mac_entry->nh_index >= mac_entry->oif_count)
             mac_entry->nh_index = 0;
 
+        mac_table_entry_refresh_flags(mac_entry);
+        mac_table_entry_refresh_lcl_ifindex(mac_entry);
         mac_fwd_object_dereference(dp_ctx, fwd_obj);
         return true;
     }

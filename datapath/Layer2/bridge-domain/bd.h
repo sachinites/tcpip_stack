@@ -5,7 +5,7 @@
 
 typedef struct dp_ctx_ dp_ctx_t;
 typedef struct dp_intf_ dp_intf_t;
-typedef struct rte_mbuf;
+struct rte_mbuf;
 typedef struct mac_table_ mac_table_t;
 typedef struct mac_addr_ mac_addr_t;
 

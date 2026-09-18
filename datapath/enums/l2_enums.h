@@ -1,13 +1,14 @@
 /*
  * =============================================================================
  * File: l2_enums.h
- * Description: L2 (datapath) MAC entry flags and helpers.
+ * Description: L2 (datapath) MAC origin flags and helpers.
  * =============================================================================
  *
  * Design:
- *   - MAC_STATIC, MAC_DATA_PLANE, MAC_CONTROL_PLANE: origin flags on
- *     MacFwdObject (how the nexthop was installed), not on the MAC entry.
- *   - mac_entry_flag(): return string for CLI/logging.
+ *   - These bits mark how a MacFwdObject was installed (STATIC / DP / EVPN-CP /
+ *     VPLS-CP).  The same bits are OR'd onto mac_table_entry_t.flags while any
+ *     oif of that class is present, and cleared when the last such oif is gone.
+ *   - mac_entry_flag(): return string for CLI/logging of a single origin bit.
  * =============================================================================
  */
 
@@ -16,18 +17,23 @@
 
 #include <stdint.h>
 
-/*L2 Switch Owns Mac Table*/
-#define MAC_STATIC  0x1
-#define MAC_DATA_PLANE 0x2
-#define MAC_CONTROL_PLANE   0x4
+/* Origin / install source — on MacFwdObject and aggregated on MAC entry */
+#define MAC_STATIC           0x1
+#define MAC_DATA_PLANE       0x2
+#define EVPN_CONTROL_PLANE   0x4
+#define VPLS_CONTROL_PLANE   0x8
 
-static inline const char * 
+#define MAC_ORIGIN_FLAGS \
+    (MAC_STATIC | MAC_DATA_PLANE | EVPN_CONTROL_PLANE | VPLS_CONTROL_PLANE)
+
+static inline const char *
 mac_entry_flag (uint16_t mac_entry_flag) {
 
     switch(mac_entry_flag) {
-        case MAC_STATIC : return "static";
-        case MAC_DATA_PLANE : return "data-plane";
-        case MAC_CONTROL_PLANE : return "control-plane";
+        case MAC_STATIC : return "STATIC";
+        case MAC_DATA_PLANE : return "DP";
+        case EVPN_CONTROL_PLANE : return "EVPN-CP";
+        case VPLS_CONTROL_PLANE : return "VPLS-CP";
         default: return "UNKNOWN";
     }
     return "nil";

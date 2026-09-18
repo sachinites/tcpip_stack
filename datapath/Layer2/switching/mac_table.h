@@ -23,6 +23,9 @@
  *    reader that fetched the pointer just before deletion can finish safely.
  *  - All functions that mutate the table assert that they run on dp_ev_dis.
  *  - Each MAC entry stores interned mac_fwd_object_t pointers directly.
+ *  - mac_table_entry_t.flags holds MAC_ORIGIN_FLAGS aggregated from oifs
+ *    (set while any oif of that class is present; cleared when the last
+ *    such oif is detached).  MAC_STATIC on the entry still gates aging/GC.
  *  - Unicast entries with multiple MacFwdObjects use per-entry nh_index for
  *    ECMP round-robin (hash key remains MAC only).  Broadcast MAC entries
  *    flood on all MacFwdObjects.
@@ -48,11 +51,11 @@ typedef struct mac_table_entry_ {
     mac_fwd_object_t **oifs;            /* interned forwarding objects */
     uint16_t oif_count;
     uint16_t oif_cap;
-    mac_addr_t mac;
-    uint16_t flags;     /* aging only: MAC_STATIC bit; origin type is on oifs[] */
+    uint16_t flags;     /* MAC_ORIGIN_FLAGS: OR of present oif origin classes */
     uint16_t vlan_id;
+    mac_addr_t mac;
     uint8_t nh_index;   /* round-robin ECMP index — not part of hash key */
-    uint8_t _pad[3];
+    uint8_t _pad[1];
     /* last_used: wall-clock seconds written by forwarding threads via
      * mac_table_entry_touch().  Read by the GC scan on dp_ev_dis.
      * Dynamic entries are stamped at creation and refreshed on both source
@@ -60,6 +63,9 @@ typedef struct mac_table_entry_ {
      * the moment the MAC was learned.  Static entries keep 0 (GC-exempt,
      * displayed as "never"). */
     time_t last_used;
+    /* Cached L2_FWD_PORT ifindex (local AC / access port). 0 if none.
+     * Used to skip redundant MAC learn when ingress == local attachment. */
+    uint32_t lcl_ifindex;
 } mac_table_entry_t;
 
 typedef struct mac_table_ {
@@ -125,6 +131,15 @@ mac_table_entry_touch(mac_table_entry_t *entry) {
     __atomic_store_n(&entry->last_used, time(NULL), __ATOMIC_RELAXED);
 }
 
+/* True when entry already has this MAC on the given local ingress port. */
+static inline bool
+mac_table_entry_skip_mac_learning(const mac_table_entry_t *entry,
+                                  uint32_t ingress_ifindex)
+{
+    return entry && entry->lcl_ifindex != 0 &&
+           entry->lcl_ifindex == ingress_ifindex;
+}
+
 /* -------------------------------------------------------------------------
  * Write path — must be called from dp_ev_dis thread ONLY
  * ---------------------------------------------------------------------- */
@@ -139,6 +154,15 @@ void mac_table_entry_delete(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
 
 void mac_table_entry_delete2(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                              uint16_t vlan_id, uint8_t *mac_addr);
+
+/* Remove L2_FWD_PORT nexthops on other local ifindexes (MAC move).
+ * protect_static: keep oifs marked MAC_STATIC. */
+void
+mac_table_entry_detach_conflicting_local_port(
+        dp_ctx_t *dp_ctx,
+        mac_table_entry_t *entry,
+        uint32_t keep_ifindex,
+        bool protect_static);
 
 /* GC delete — called from the periodic table GC scan on dp_ev_dis. */
 void mac_table_gc_delete_entry(dp_ctx_t *dp_ctx, mac_table_t *mac_table,

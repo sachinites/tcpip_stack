@@ -445,21 +445,33 @@ bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
     }
 
     /* If this is ARP Broadcast request, intercept it and see if we can reply to it*/
+    mac_table_entry_t *existing = mac_table_lookup(
+                                    ac->bd_intf->mac_table,
+                                    DEFAULT_VLAN_ID,
+                                    (uint8_t *)src_mac.mac);
+
     if (bd_process_arp_with_arp_supp_cache (dp_ctx, mbuf, ac)) {
-        bd_perform_mac_learning (dp_ctx, ac->bd_intf, &src_mac, ac, learn_ip);
+
+        if (!mac_table_entry_skip_mac_learning(existing, ac->port_id))
+            bd_perform_mac_learning(dp_ctx, ac->bd_intf, &src_mac, ac, learn_ip);
+
         return;
     }
 
+    if (!existing || 
+         !mac_table_entry_skip_mac_learning(existing, ac->port_id) ) {
+
+        bd_perform_mac_learning(dp_ctx, ac->bd_intf, &src_mac, ac, learn_ip);
+    }
+    else {
+        mac_table_entry_touch(existing);
+    }
+
     /* Forward the pkt in bridge domain */
-    bool is_pkt_flooded =  !bd_switch_forward_frame (
+    bd_switch_forward_frame (
             dp_ctx, 
             ac->bd_intf->mac_table,
             ac->bd_intf,
             ac,
-            mbuf);    
-
-    /* Perform MAC learning : To be done via DP manager thread */
-    if (is_pkt_flooded) {
-        bd_perform_mac_learning (dp_ctx, ac->bd_intf, &src_mac, ac, learn_ip);
-    }
+            mbuf);        
 }

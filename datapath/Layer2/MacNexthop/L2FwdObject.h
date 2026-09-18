@@ -40,7 +40,7 @@ struct MacFwdObject_ {
 
     /* Non-Comparable fields */
     uint32_t ref_count;
-    uint16_t flags;       /* MAC_STATIC / MAC_DATA_PLANE / MAC_CONTROL_PLANE */
+    uint16_t flags;       /* MAC_STATIC / MAC_DATA_PLANE / EVPN|VPLS_CONTROL_PLANE */
     uint16_t _pad;
     uint64_t hit_count;   /* packets forwarded via this object (8B aligned) */
     time_t install_time;  /* when this fwd object was first created */

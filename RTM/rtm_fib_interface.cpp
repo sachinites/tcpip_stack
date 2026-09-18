@@ -483,7 +483,7 @@ rtm_l2_fib_update(rtm_t *rtm, rtm_presentation_data_t *presentation_data) {
             presentation_data->route.u.mac_addr,
             bd_ifindex,
             &fwd_spec,
-            MAC_CONTROL_PLANE,
+            EVPN_CONTROL_PLANE,
             true);
     }
 
