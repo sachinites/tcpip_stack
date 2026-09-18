@@ -836,14 +836,19 @@ mac_table_entry_detach_fwd(dp_ctx_t *dp_ctx,
         return false;
 
     for (i = 0; i < mac_entry->oif_count; i++) {
+        uint16_t last;
+
         if (mac_entry->oifs[i] != fwd_obj)
             continue;
 
-        mac_fwd_object_dereference(dp_ctx, fwd_obj);
-        mac_entry->oifs[i] = mac_entry->oifs[mac_entry->oif_count - 1];
+        last = mac_entry->oif_count - 1;
+        mac_entry->oifs[i] = mac_entry->oifs[last];
+        mac_entry->oifs[last] = NULL;
         mac_entry->oif_count--;
         if (mac_entry->nh_index >= mac_entry->oif_count)
             mac_entry->nh_index = 0;
+
+        mac_fwd_object_dereference(dp_ctx, fwd_obj);
         return true;
     }
 

@@ -1147,6 +1147,7 @@ Original Topo:
     node_t *CE2 = Router_Create(topo, (const c_string)"CE2");
     node_t *H1 = Router_Create(topo, (const c_string)"H1");
     node_t *H2 = Router_Create(topo, (const c_string)"H2");
+    node_t *H3 = Router_Create(topo, (const c_string)"H3");
 
     insert_link_between_two_nodes(R0, R1, "eth0",  "eth1",  INTF_METRIC_DEFAULT);
     insert_link_between_two_nodes(R0, R5, "eth14", "eth15", INTF_METRIC_DEFAULT);
@@ -1160,6 +1161,7 @@ Original Topo:
     insert_link_between_two_nodes(R3, CE2, "eth1", "eth0",  INTF_METRIC_DEFAULT); 
     insert_link_between_two_nodes(CE1, H1, "eth1", "eth1",  INTF_METRIC_DEFAULT);    
     insert_link_between_two_nodes(CE2, H2, "eth1", "eth1",  INTF_METRIC_DEFAULT);       
+    insert_link_between_two_nodes(CE2, H3, "eth2", "eth1",  INTF_METRIC_DEFAULT); 
 
 
     node_set_rtr_id(R0, "122.1.1.0");
@@ -1172,6 +1174,7 @@ Original Topo:
     node_set_rtr_id(CE2, "10.0.0.2");
     node_set_rtr_id(H1, "100.0.0.1");
     node_set_rtr_id(H2, "100.0.0.2");
+    node_set_rtr_id(H3, "100.0.0.3");
 
     node_set_v6_rtr_id(R0, "2001::122:1:1:0");
     node_set_v6_rtr_id(R1, "2001::122:1:1:1");
@@ -1211,6 +1214,7 @@ Original Topo:
     node_set_intf_ip_address(CE2, "eth0","192.168.0.1", 24);
     node_set_intf_ip_address(CE2, "eth1","172.168.0.1", 24);
     node_set_intf_ip_address(H2, "eth1","172.168.0.2", 24);
+    node_set_intf_ip_address(H3, "eth1","172.168.0.3", 24);
 
     /* Run control plane schedulers in the end so as to avoid 
     Race condition between main thread and CP-Schedulers since 
@@ -1225,6 +1229,7 @@ Original Topo:
     event_dispatcher_run(&CE2->ev_dis, true, 0);
     event_dispatcher_run(&H1->ev_dis, true, 0);
     event_dispatcher_run(&H2->ev_dis, true, 0);
+    event_dispatcher_run(&H3->ev_dis, true, 0);
 
     event_dispatcher_run(&R0->purger_ev_dis, true, 0);
     event_dispatcher_run(&R1->purger_ev_dis, true, 0);
@@ -1236,6 +1241,7 @@ Original Topo:
     event_dispatcher_run(&CE2->purger_ev_dis, true, 0);
     event_dispatcher_run(&H1->purger_ev_dis, true, 0);
     event_dispatcher_run(&H2->purger_ev_dis, true, 0);
+    event_dispatcher_run(&H3->purger_ev_dis, true, 0);
 
 #if 1
 

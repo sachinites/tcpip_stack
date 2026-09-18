@@ -32,6 +32,8 @@ typedef struct bgp_route_params_ {
     uint32_t eth_tag_id;
     uint32_t pmsi_label;
     bool pmsi_label_present;
+    uint32_t mac_mobility_seq;
+    bool mac_mobility_seq_present;
 } bgp_route_params_t;
 
 typedef struct bgp_unified_rt_ {

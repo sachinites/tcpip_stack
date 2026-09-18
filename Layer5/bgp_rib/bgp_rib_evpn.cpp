@@ -506,6 +506,8 @@ bgp_evpn_install_to_mac_vrf(mac_vrf_t *mac_vrf,
                             const bgp_evpn_nlri_t *nlri,
                             uint32_t vtep_ip,
                             uint32_t label,
+                            uint32_t seq_no,
+                            bool seq_present,
                             bool is_add)
 {
     if (!mac_vrf || !nlri) {
@@ -519,10 +521,14 @@ bgp_evpn_install_to_mac_vrf(mac_vrf_t *mac_vrf,
                                                  (mac_addr_t *)&nlri->mac,
                                                  nlri->ip_addr,
                                                  vtep_ip,
-                                                 label);
+                                                 label,
+                                                 seq_no);
         } else {
             mac_vrf_evpn_route_type2_remote_delete(mac_vrf,
-                                                   (mac_addr_t *)&nlri->mac);
+                                                   (mac_addr_t *)&nlri->mac,
+                                                   nlri->ip_addr,
+                                                   seq_no,
+                                                   seq_present);
         }
         break;
 
@@ -558,6 +564,8 @@ bgp_global_rib_export_evpn_route_cb(void *ctx,
     rt_t import_rt;
     uint32_t vtep_ip = 0;
     uint32_t label = 0;
+    uint32_t seq_no = 0;
+    bool seq_present = false;
     bgp_evpn_nlri_t nlri;
     evpn_inst_t *evpn_inst;
     bgp_inst_t *bgp_inst = (bgp_inst_t *)ctx;
@@ -567,9 +575,13 @@ bgp_global_rib_export_evpn_route_cb(void *ctx,
         return;
     }
 
-    {
+    if (is_add) {
         uint32_t nh_int = ip_pton((c_string)attrs->nexthop);
         if (nh_int == 0 || nh_int == NODE_RTR_ID_INT(node)) {
+            tracer(bgp_inst->tr, DEVPN_DET,
+                   "%s : [%s] : Route skipped on add — nexthop %s is self/invalid\n",
+                   BGP_RTM_IM, BGP_EVPN_RIB_NAME,
+                   attrs->nexthop[0] ? attrs->nexthop : "-");
             return;
         }
     }
@@ -580,10 +592,6 @@ bgp_global_rib_export_evpn_route_cb(void *ctx,
 
     if (nlri.route_type != EVPN_RT_TYPE_MAC_ONLY &&
         nlri.route_type != EVPN_RT_TYPE_IMET) {
-        return;
-    }
-
-    if (is_add && !attrs->best) {
         return;
     }
 
@@ -612,6 +620,11 @@ bgp_global_rib_export_evpn_route_cb(void *ctx,
         label = attrs->pmsi_label;
     } else if (attrs->evpn_label1_present) {
         label = attrs->evpn_label1;
+    }
+
+    if (attrs->mac_mobility_seq_present) {
+        seq_no = attrs->mac_mobility_seq;
+        seq_present = true;
     }
 
     if (nlri.route_type == EVPN_RT_TYPE_MAC_ONLY) {
@@ -664,7 +677,8 @@ bgp_global_rib_export_evpn_route_cb(void *ctx,
             }
 
             bgp_evpn_install_to_mac_vrf(evpn_inst->mac_vrf,
-                                        &nlri, vtep_ip, label, is_add);
+                                        &nlri, vtep_ip, label, seq_no,
+                                        seq_present, is_add);
 
             tracer(node->cptr, DRTM_DET,
                    "EVPN[%u] : Type-%u %s %sInstalled into MAC VRF %u\n",
@@ -691,7 +705,8 @@ bgp_global_rib_export_evpn_route_cb(void *ctx,
     }
 
     bgp_evpn_install_to_mac_vrf(evpn_inst->mac_vrf,
-                                &nlri, vtep_ip, label, is_add);
+                                &nlri, vtep_ip, label, seq_no,
+                                seq_present, is_add);
 
     tracer(node->cptr, DRTM_DET,
            "EVPN[%u] : Type-%u %s %sInstalled into MAC VRF %u\n",

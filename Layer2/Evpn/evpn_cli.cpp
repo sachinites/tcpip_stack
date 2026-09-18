@@ -832,7 +832,7 @@ evpn_print_type2_route (evpn_exp_rt_t *evpn_rt,
              mac_str,
              ip_str,
              flags_str,
-             0,          /* Seq No */
+             evpn_rt->u.mac_only.seq_no,
              nh_str,
              label_str,
              "0");       /* ESI */
@@ -921,12 +921,29 @@ evpn_show_mac_routes (evpn_inst_t *evpn_inst, mac_addr_t *mac_filter)
     cprintf ("----------------------------------------------------------------------------------------------------\n");
 
     if (mac_filter) {
-        evpn_rt = (evpn_exp_rt_t *)hashtable_search(mac_vrf->type2_rib, mac_filter);
-        if (evpn_rt) {
-            evpn_print_type2_route(evpn_rt, bd_intf->bd_id,
-                                   bd_intf->vpn_svc_label);
-            count = 1;
+        if (hashtable_count(mac_vrf->type2_rib) == 0) {
+            cprintf ("(none)\n");
+            return;
         }
+
+        itr = hashtable_iterator(mac_vrf->type2_rib);
+        if (!itr) {
+            return;
+        }
+
+        do {
+            mac_vrf_type2_key_t *key =
+                (mac_vrf_type2_key_t *)hashtable_iterator_key(itr);
+            evpn_rt = (evpn_exp_rt_t *)hashtable_iterator_value(itr);
+            if (key && evpn_rt &&
+                memcmp(key->mac.mac, mac_filter->mac, MAC_ADDR_SIZE) == 0) {
+                evpn_print_type2_route(evpn_rt, bd_intf->bd_id,
+                                       bd_intf->vpn_svc_label);
+                count++;
+            }
+        } while (hashtable_iterator_advance(itr));
+
+        free(itr);
     } else {
         if (hashtable_count(mac_vrf->type2_rib) == 0) {
             cprintf ("(none)\n");

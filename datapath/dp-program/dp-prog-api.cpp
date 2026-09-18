@@ -103,23 +103,161 @@ dp_bd_mac_table_clear(dp_ctx_t *dp_ctx, uint32_t bd_ifindex)
            old_table->entry_count - new_table->entry_count);
 }
 
-/* Mac Table Updates*/
+static mac_table_entry_t *
+dp_bd_mac_lookup(dp_ctx_t *dp_ctx, uint32_t bd_ifindex, uint8_t *mac)
+{
+    return mac_table_lookup(dp_ctx->intf_table[bd_ifindex]->mac_table,
+                            DEFAULT_VLAN_ID, mac);
+}
+
+/*
+ * Before installing a DP-learned BD MAC: note any existing CP nexthops, and
+ * detach a conflicting DP nexthop on a different port (MAC move).
+ * Returns true if a CP-learned nexthop was present on the entry.
+ */
+static bool
+dp_bd_mac_prepare_dp_learn(dp_ctx_t *dp_ctx,
+                           mac_table_entry_t *existing,
+                           const mac_fwd_object_t *new_fwd)
+{
+    bool had_cp_learned = false;
+    int i;
+
+    if (!existing)
+        return false;
+
+    for (i = 0; i < existing->oif_count; i++) {
+        mac_fwd_object_t *fwdobj = existing->oifs[i];
+
+        if (!fwdobj)
+            continue;
+
+        if (fwdobj->flags & MAC_CONTROL_PLANE)
+            had_cp_learned = true;
+
+        if (!(fwdobj->flags & MAC_DATA_PLANE))
+            continue;
+
+        assert(fwdobj->fwd_type == L2_FWD_PORT);
+
+        /* Same ingress port — keep; different port — MAC moved. */
+        if (new_fwd->u.dp_intf == fwdobj->u.dp_intf)
+            continue;
+
+        mac_table_entry_detach_fwd(dp_ctx, existing, fwdobj);
+        break;
+    }
+
+    return had_cp_learned;
+}
+
+/* Before installing a CP-learned BD MAC: remove all DP-learned nexthops. */
+static void
+dp_bd_mac_detach_all_dp_nexthops(dp_ctx_t *dp_ctx, mac_table_entry_t *existing)
+{
+    int i;
+
+    if (!existing)
+        return;
+
+    for (i = 0; i < existing->oif_count; i++) {
+        mac_fwd_object_t *fwdobj = existing->oifs[i];
+
+        if (!fwdobj)
+            continue;
+        if (!(fwdobj->flags & MAC_DATA_PLANE))
+            continue;
+
+        assert(fwdobj->fwd_type == L2_FWD_PORT);
+        mac_table_entry_detach_fwd(dp_ctx, existing, fwdobj);
+    }
+}
+
+static void
+dp_mac_table_handle_create(dp_ctx_t *dp_ctx,
+                           dp_msg_t *dp_msg,
+                           mac_update_msg_t *mac_update_msg,
+                           mac_table_t *mac_table,
+                           uint16_t table_vlan,
+                           uint32_t overlay_vlan,
+                           mac_fwd_object_t *tmpl)
+{
+    bool is_bd = (dp_msg->component_type == BD_MAC_TABLE);
+    bool is_dp = (mac_update_msg->flags & MAC_DATA_PLANE) != 0;
+    bool is_cp = (mac_update_msg->flags & MAC_CONTROL_PLANE) != 0;
+    bool had_cp_learned = false;
+    mac_table_entry_t *existing = NULL;
+    bool notify_cp;
+
+    if (is_bd && is_dp) {
+        existing = dp_bd_mac_lookup(dp_ctx, overlay_vlan,
+                                    (uint8_t *)mac_update_msg->mac_addr);
+        had_cp_learned = dp_bd_mac_prepare_dp_learn(dp_ctx, existing, tmpl);
+    } else if (is_bd && is_cp) {
+        existing = dp_bd_mac_lookup(dp_ctx, overlay_vlan,
+                                    (uint8_t *)mac_update_msg->mac_addr);
+        dp_bd_mac_detach_all_dp_nexthops(dp_ctx, existing);
+    }
+
+    mac_table_entry_add(dp_ctx, mac_table,
+                        mac_update_msg->mac_addr,
+                        table_vlan,
+                        mac_update_msg->flags,
+                        tmpl);
+
+    /*
+     * Notify CP on BD DP learn when:
+     *  1. Fresh MAC (no prior entry), or
+     *  2. Prior entry had CP nexthops (so CP can withdraw tunnels).
+     */
+    notify_cp = is_bd && is_dp && (!existing || had_cp_learned);
+    if (notify_cp) {
+        dp_bd_mac_notify_cp(dp_ctx, overlay_vlan,
+                            mac_update_msg->mac_addr, true,
+                            mac_update_msg->ip_addr);
+    }
+}
+
+static void
+dp_mac_table_handle_delete(dp_ctx_t *dp_ctx,
+                           dp_msg_t *dp_msg,
+                           mac_update_msg_t *mac_update_msg,
+                           mac_table_t *mac_table,
+                           uint16_t table_vlan,
+                           uint32_t overlay_vlan,
+                           mac_fwd_object_t *tmpl)
+{
+    mac_table_entry_delete(dp_ctx, mac_table,
+                           mac_update_msg->mac_addr,
+                           table_vlan,
+                           tmpl);
+
+    if (dp_msg->component_type == BD_MAC_TABLE &&
+        (mac_update_msg->flags & MAC_DATA_PLANE)) {
+        dp_bd_mac_notify_cp(dp_ctx, overlay_vlan,
+                            mac_update_msg->mac_addr, false,
+                            mac_update_msg->ip_addr);
+    }
+}
+
+/* Mac Table Updates */
 void
-dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
-    
+dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)
+{
     mac_update_msg_t *mac_update_msg;
     mac_fwd_object_t tmpl;
+    mac_table_t *mac_table;
     uint16_t table_vlan;
     uint32_t overlay_vlan;
 
     mac_update_msg = (mac_update_msg_t *)dp_msg->data;
 
-    assert(dp_msg->component_type == MAC_TABLE || 
-           dp_msg->component_type == BD_MAC_TABLE );
+    assert(dp_msg->component_type == MAC_TABLE ||
+           dp_msg->component_type == BD_MAC_TABLE);
 
-    mac_table_t *mac_table = dp_msg->component_type == MAC_TABLE ?
-                             dp_ctx->mac_table :
-                             dp_ctx->intf_table[mac_update_msg->bd_ifindex]->mac_table;
+    mac_table = (dp_msg->component_type == MAC_TABLE) ?
+                dp_ctx->mac_table :
+                dp_ctx->intf_table[mac_update_msg->bd_ifindex]->mac_table;
 
     table_vlan = (dp_msg->component_type == BD_MAC_TABLE) ?
                  DEFAULT_VLAN_ID : mac_update_msg->table_vlan_id;
@@ -131,65 +269,33 @@ dp_mac_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg)  {
                                      &mac_update_msg->fwd,
                                      overlay_vlan);
 
-    if (dp_mac_table_is_invalid_l2_fwding (dp_ctx, 
-                (uint8_t)dp_msg->component_type, 
-                overlay_vlan, &tmpl)) {
-
-        assert (0);
+    if (dp_mac_table_is_invalid_l2_fwding(dp_ctx,
+                                          (uint8_t)dp_msg->component_type,
+                                          overlay_vlan, &tmpl)) {
+        assert(0);
     }
 
     switch (dp_msg->opr_type) {
-        
-        case DP_CLEAR:
-            dp_bd_mac_table_clear(dp_ctx, mac_update_msg->bd_ifindex);
+    case DP_CLEAR:
+        dp_bd_mac_table_clear(dp_ctx, mac_update_msg->bd_ifindex);
         break;
 
-        case DP_CREATE:
-            
-            mac_table_entry_add(dp_ctx, mac_table,
-                                mac_update_msg->mac_addr,
-                                table_vlan,
-                                mac_update_msg->flags,
-                                &tmpl);
+    case DP_CREATE:
+        dp_mac_table_handle_create(dp_ctx, dp_msg, mac_update_msg,
+                                   mac_table, table_vlan, overlay_vlan, &tmpl);
+        break;
 
-             /* Trap to control plane */
-            if (dp_msg->component_type == BD_MAC_TABLE && 
-                (mac_update_msg->flags & MAC_DATA_PLANE)) {
-                
-                dp_bd_mac_notify_cp(dp_ctx, overlay_vlan,
-                    mac_update_msg->mac_addr, true,
-                    mac_update_msg->ip_addr);
-            }
-            break;
-            
-        case DP_DEL:
-            
-            mac_table_entry_delete(dp_ctx, mac_table,
-                                   mac_update_msg->mac_addr,
-                                   table_vlan,
-                                   &tmpl);
-            
-            if (dp_msg->component_type == BD_MAC_TABLE && 
-                (mac_update_msg->flags & MAC_DATA_PLANE)) {
-                    
-                dp_bd_mac_notify_cp(dp_ctx, overlay_vlan,
-                                   mac_update_msg->mac_addr, false,
-                                   mac_update_msg->ip_addr);
-            }
-            break;
+    case DP_DEL:
+        dp_mac_table_handle_delete(dp_ctx, dp_msg, mac_update_msg,
+                                   mac_table, table_vlan, overlay_vlan, &tmpl);
+        break;
 
-        case DP_UPDATE:
-            // Handle MAC entry updates if needed
-            break;
-            
-        case DP_READ:
-            // Handle MAC table reads if needed
-            break;
-            
-        default:
-            break;
+    case DP_UPDATE:
+    case DP_READ:
+    default:
+        break;
     }
-    
+
     cp2dp_msg_free(dp_msg);
 }
 

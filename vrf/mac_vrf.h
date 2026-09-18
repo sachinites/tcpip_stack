@@ -8,6 +8,13 @@ typedef  struct hashtable hashtable_t;
 
 #pragma pack(push, 8)
 
+/* Type-2 RIB key: MAC + host IP (IP may be 0 for MAC-only routes). */
+typedef struct mac_vrf_type2_key_ {
+    mac_addr_t mac;
+    uint16_t _pad;
+    uint32_t ip_addr;
+} mac_vrf_type2_key_t;
+
 typedef struct mac_vrf_ {
 
     uint16_t mac_vrf_id;
@@ -18,7 +25,7 @@ typedef struct mac_vrf_ {
     /* Owning VPN instance*/
     evpn_inst_t *evpn_inst;
 
-    // RIB for type 2 routes.
+    // RIB for type 2 routes (keyed by MAC + IP).
     hashtable_t *type2_rib;
     /* IP → MAC bindings from Type-2 routes (key: uint32_t ip, value: mac_addr_t). */
     hashtable_t *mac_ip_binding;
@@ -56,6 +63,14 @@ void
 mac_vrf_evpn_route_type2_delete (
         node_t *node,
         mac_vrf_t *mac_vrf,
+        mac_addr_t *mac_addr,
+        uint32_t ip_addr);
+
+/* Withdraw/delete every Type-2 entry for this MAC (all IP variants). */
+void
+mac_vrf_evpn_route_type2_delete_by_mac (
+        node_t *node,
+        mac_vrf_t *mac_vrf,
         mac_addr_t *mac_addr);
 
 void
@@ -64,12 +79,18 @@ mac_vrf_evpn_route_type2_remote_import(
         mac_addr_t *mac_addr,
         uint32_t ip_addr,
         uint32_t vtep_ip,
-        uint32_t label);
+        uint32_t label,
+        uint32_t seq_no);
+
+#define MAC_VRF_TYPE2_WITHDRAW_SEQ_FORCE  ((uint32_t)-1)
 
 void
 mac_vrf_evpn_route_type2_remote_delete(
         mac_vrf_t *mac_vrf,
-        mac_addr_t *mac_addr);
+        mac_addr_t *mac_addr,
+        uint32_t ip_addr,
+        uint32_t withdraw_seq,
+        bool withdraw_seq_present);
 
 void
 mac_vrf_evpn_route_type3_local_import(

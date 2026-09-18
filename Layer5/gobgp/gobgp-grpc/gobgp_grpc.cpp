@@ -1176,11 +1176,27 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
             lp_attr->mutable_local_pref()->set_local_pref(params.local_pref);
         }
 
-        if (!params.rt.empty()) {
-            api::Attribute* rt_attr = path.add_pattrs();
-            api::ExtendedCommunity* community =
-                rt_attr->mutable_extended_communities()->add_communities();
-            SetRouteTargetCommunity(params.rt, community);
+        const bool add_mac_mobility =
+            params.safi == BgpSafi::kEvpn &&
+            params.evpn_route_type == 2 &&
+            params.mac_mobility_seq_present;
+
+        if (!params.rt.empty() || add_mac_mobility) {
+            api::Attribute* ext_attr = path.add_pattrs();
+            api::ExtendedCommunitiesAttribute* ecs =
+                ext_attr->mutable_extended_communities();
+
+            if (!params.rt.empty()) {
+                api::ExtendedCommunity* community = ecs->add_communities();
+                SetRouteTargetCommunity(params.rt, community);
+            }
+
+            if (add_mac_mobility) {
+                api::ExtendedCommunity* community = ecs->add_communities();
+                community->mutable_mac_mobility()->set_sequence_num(
+                    params.mac_mobility_seq);
+                community->mutable_mac_mobility()->set_is_sticky(false);
+            }
         }
 
         if (params.safi == BgpSafi::kEvpn &&

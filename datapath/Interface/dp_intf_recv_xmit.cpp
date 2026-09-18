@@ -80,10 +80,10 @@ BD_FloodPacketOut(
         dp_intf_t *intf, 
         struct rte_mbuf *mbuf, uint32_t ctx);
 
-extern void 
+extern void
 bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf);
 
-extern void
+extern bool
 l2_switch_forward_frame(
                         dp_ctx_t *dp_ctx,
                         mac_table_t *mac_table,

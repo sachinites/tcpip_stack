@@ -48,6 +48,8 @@ struct BgpRouteParams {
     std::string pe_addr;
     std::uint32_t pmsi_label = 0;
     bool pmsi_label_present = false;
+    std::uint32_t mac_mobility_seq = 0;
+    bool mac_mobility_seq_present = false;
     BgpAfi afi = BgpAfi::kIpv4;
     BgpSafi safi = BgpSafi::kUnicast;
 };

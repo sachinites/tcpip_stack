@@ -114,6 +114,11 @@ bgp_rib_route_add(bgp_rib_t *rib,
             rib->routes, (void *)key);
 
     if (existing) {
+        memcpy(existing, attrs, sizeof(*existing));
+        if (rib->export_route) {
+            rib->export_route(rib->bgp_instance, rib->afi, rib->safi,
+                              (bgp_nlri_key_t *)key, existing, true, 0);
+        }
         return BGP_RIB_OK;
     }
 

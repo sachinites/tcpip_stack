@@ -33,6 +33,7 @@ typedef struct evpn_rt_ {
             uint16_t _pad;
             uint32_t ip_addr;
             uint32_t label;
+            uint32_t seq_no;
 
         } mac_only; /* Type 2 */
 

@@ -14,11 +14,11 @@
 :PRINT:                                    +                                          eth4/  |eth7                   |
 :PRINT:                                    |10.1.1.1/24                       30.1.1.1/24/   |40.1.1.2/24            |
 :PRINT:                                    |eth0                                        /    |                  eth9 |50.1.1.2/24
-:PRINT:                                 +---+---+--+                                   /     |                  +----+-----+                    +-------+
-:PRINT:                                 |          |                                  /      |                  |    R3    |eth1      v10(Trunk)|       |
-:PRINT: +------+v10(Trunk)          eth1|   R0     |                                 /       |                  | 122.1.1.3+--------------------+       |
-:PRINT: |      |+------------------------+122.1.1.0 |                               /        |                  |          |AC-v20          eth0|  CE2  |
-:PRINT: | CE1  | eth0             AC-v10|          |                               /         |                  +----+-----+                    |10.0.0.2|
+:PRINT:                                 +---+---+--+                                   /     |                  +----+-----+                    +-------+                +-----+
+:PRINT:                                 |          |                                  /      |                  |    R3    |eth1      v10(Trunk)|       |eth2        eth1|     |
+:PRINT: +------+v10(Trunk)          eth1|   R0     |                                 /       |                  | 122.1.1.3+--------------------+       |----------------| H3  |
+:PRINT: |      |+------------------------+122.1.1.0 |                               /        |                  |          |AC-v20          eth0|  CE2  |v10  172.168.0.3|     |
+:PRINT: | CE1  | eth0             AC-v10|          |                               /         |                  +----+-----+                    |10.0.0.2|               +=====+
 :PRINT: |10.0.0.1|                      +---+---+--|               ---------------/          |                       |eth10                     +---+---+
 :PRINT: +--+---+                            |eth14                /                          |                       |60.1.1.1/24                   |eth1
 :PRINT:    |eth1                            |80.1.1.1/24         /                           |                       |                              |v10
@@ -128,11 +128,22 @@
 :CMD: config node CE2 transport-service-profile tsp10 vlan 10
 :CMD: config node CE2 interface ethernet eth0 transport-service-profile tsp10
 
+:CMD: config node CE2 no interface ethernet eth2 vrf 0
+:CMD: config node CE2 interface ethernet eth2 switchport
+:CMD: config node CE2 interface ethernet eth2 vlan 10
+
+
 :CMD: config node H1 no interface ethernet eth1 ip-address 172.168.0.2 24
 :CMD: config node H1 interface ethernet eth1 ip-address 172.168.0.1 24
 :CMD: config node H1 rtm-route prefix 0.0.0.0/0 0 0 0 2 0 gateway 172.168.0.254 interface eth1
 
 :CMD: config node H2 rtm-route prefix 0.0.0.0/0 0 0 0 2 0 gateway 172.168.0.254 interface eth1
+
+:CMD: config node H3 interface ethernet eth1 ip-address 172.168.0.3 24
+:CMD: config node H3 interface ethernet eth1 up
+:CMD: config node H3 rtm-route prefix 0.0.0.0/0 0 0 0 2 0 gateway 172.168.0.254 interface eth1
+
+
 
 :INFO: Disable installation of IMET routes using debug CLI after imet router support
 :INFO: debug node R0 protocol evpn install bridge-domain 10 route ff:ff:ff:ff:ff:ff mpls-label 144 17003
@@ -149,23 +160,18 @@
 
 :CMD: config node R3 protocol bgp 65000 neighbor 122.1.1.0 remote-as 65000
 :CMD: config node R3 protocol bgp 65000 neighbor 122.1.1.0 address-family l2vpn-evpn
+:CMD: config node R3 protocol bgp 65000 neighbor 122.1.1.2 remote-as 65000
+:CMD: config node R3 protocol bgp 65000 neighbor 122.1.1.2 address-family l2vpn-evpn
 :CMD: config node R3 protocol l2vpn evpn instance 1
 :CMD: config node R3 protocol l2vpn evpn instance 1 bridge-domain 10
 
 :CMD: config node R2 protocol bgp 65000 neighbor 122.1.1.0 remote-as 65000
 :CMD: config node R2 protocol bgp 65000 neighbor 122.1.1.0 address-family l2vpn-evpn
-:CMD: config node R2 protocol bgp 65000 neighbor 122.1.1.5 remote-as 65000
-:CMD: config node R2 protocol bgp 65000 neighbor 122.1.1.5 address-family l2vpn-evpn
+:CMD: config node R2 protocol bgp 65000 neighbor 122.1.1.3 remote-as 65000
+:CMD: config node R2 protocol bgp 65000 neighbor 122.1.1.3 address-family l2vpn-evpn
 :CMD: config node R2 protocol l2vpn evpn instance 1
 :CMD: config node R2 bridge-domain 10
 :CMD: config node R2 protocol l2vpn evpn instance 1 bridge-domain 10
-
-:CMD: config node R5 protocol bgp 65000 neighbor 122.1.1.2 remote-as 65000
-:CMD: config node R5 protocol bgp 65000 neighbor 122.1.1.2 address-family l2vpn-evpn
-:CMD: config node R5 protocol l2vpn evpn instance 1
-:CMD: config node R5 bridge-domain 10
-:CMD: config node R5 protocol l2vpn evpn instance 1 bridge-domain 10
-
 
 :INFO: run node H2 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:01 interface eth1
 :INFO: run node H2 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:02 interface eth1

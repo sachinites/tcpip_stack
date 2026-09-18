@@ -15,7 +15,7 @@ l2_switch_perform_mac_learning (dp_ctx_t *dp_ctx,
                                 uint16_t vlan_id, 
                                 c_string src_mac, 
                                 dp_intf_t *oif, uint32_t src_ip) ;
-extern void
+extern bool
 l2_switch_forward_frame(
                         dp_ctx_t *dp_ctx,
                         mac_table_t *mac_table,

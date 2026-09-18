@@ -385,5 +385,48 @@ BUM forwarding path updated
 
 
 
+Mac Mobility Handling 
+============================
 
+Update the below two functions with the below algorithm.
+mac_vrf_evpn_route_type2_local_import
+mac_vrf_evpn_route_type2_remote_import
+
+Installing New Locally generated MAC/IP route in MAC-VRF
+    if route do not exist in MAC VRF
+        install MAC/IP route with Sequence = 0 in MAC-VRF
+        export to BGP 
+        Update MAC-IP bindings
+    if route exist already in MAC VRF
+        If Existing-Route is Locally generated
+            No Op
+        IF existing Route is Remote 
+            Delete existing MAC VRF entry 
+            Uninstall from RTM 
+            Install new local route in MAC VRF with Remote Route's SEQ + 1
+            export to BGP 
+
+
+Installing incoming Remote MAC/IP route in MAC-VRF
+    if route do not exist in MAC VRF
+        Install MAC/IP route in MAC VRF
+        Send to RTM 
+        Update MAC-IP bindings
+    if route already Exist 
+        if existing Route is locally Generated
+            if incoming-route(seq_no) <= existing-route(seq-no)
+                Log and Ignore Remote Route
+            if Remote-route(seq_no) > Local-route(seq-no)
+                Withdraw from BGP 
+                Delete from MAC-VRF 
+                Install Remote Route in MAC VRF with its seq no 
+                Update RTM 
+        if existing is Remote
+            if incoming-route(seq_no) <= existing-route(seq-no)
+                Log and Ignore Remote Route 
+            if incoming-route(seq_no) > existing-route(seq-no)
+                Uninstall existing Route from RTM 
+                Delete from MAC-VRF 
+                Install the incoming route in MAC - VRF 
+                Send to RTM 
 

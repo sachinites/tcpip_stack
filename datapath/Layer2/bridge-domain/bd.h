@@ -47,7 +47,7 @@ bd_perform_mac_learning (dp_ctx_t *dp_ctx,
                          dp_intf_t *ac,
                          uint32_t ip_addr);
 
-void 
+bool
 bd_switch_forward_frame (dp_ctx_t *dp_ctx,
                          dp_intf_t *bd, 
                          dp_intf_t *recv_ac, 

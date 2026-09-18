@@ -177,7 +177,8 @@ l2_switch_flood_unknown_unicast(dp_ctx_t *dp_ctx,
     mac_table_entry_xmit_frame (dp_ctx, mac_flood_entry, mbuf);
 }
 
-void
+/* Return true if the pkt is unicast-ed */
+bool
 l2_switch_forward_frame(
                         dp_ctx_t *dp_ctx,
                         mac_table_t *mac_table,
@@ -228,7 +229,7 @@ l2_switch_forward_frame(
         if (!(mac_table_entry->flags & MAC_STATIC))
             mac_table_entry_touch(mac_table_entry); /* cheap timestamp store */
 
-        return;
+        return (!IS_MAC_BROADCAST_ADDR(mac_table_entry->mac.mac));
     }
 
     if (IS_MAC_BROADCAST_ADDR(ethernet_hdr->dst_mac.mac)) {
@@ -240,7 +241,7 @@ l2_switch_forward_frame(
 
             if (mac_table_entry) {
                 mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf);
-                return;
+                return false;
             }        
 
             mac_table_entry = mac_table_lookup(mac_table, 
@@ -249,11 +250,11 @@ l2_switch_forward_frame(
 
             if (!mac_table_entry) {
                 pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Mac Table : Flooding Disabled for Broadcast MAC");
-                return;
+                return false;
             }
        
             mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf);
-            return;
+            return false;
     }
 
     /* Check if the pkt matches the anycast gateway MAC (RMAC is in MAC table) */
@@ -269,11 +270,11 @@ l2_switch_forward_frame(
 
         if (!mac_table_entry) {
             pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Mac Table : Anycast GW MAC not programmed, Dropping the frame\n");
-            return;
+            return false;
         }
 
         mac_table_entry_xmit_frame (dp_ctx, mac_table_entry, mbuf);
-        return;
+        return true;
     }
 
     /* Handle Unknown Unicast */
@@ -288,7 +289,8 @@ l2_switch_forward_frame(
             ethernet_hdr->dst_mac.mac[4],
             ethernet_hdr->dst_mac.mac[5]);
 
-        l2_switch_flood_unknown_unicast(dp_ctx, vlan_bd_intf, mac_table, recv_intf, mbuf);
+    l2_switch_flood_unknown_unicast(dp_ctx, vlan_bd_intf, mac_table, recv_intf, mbuf);
+    return false;
 }
 
 void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
@@ -296,6 +298,7 @@ void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
                           dp_intf_t *interface,
                           struct rte_mbuf *mbuf)
 {
+    bool is_pkt_flooded;
     pkt_size_t pkt_size;
 
     if (pkt_mbuf_get_starting_hdr (mbuf) != ETHERNET_HEADER){
@@ -309,9 +312,13 @@ void l2_switch_recv_frame(dp_ctx_t *dp_ctx,
 
     c_string src_mac = (c_string)vlan_ethernet_hdr->src_mac.mac;
 
-    pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, "Pkt : %s : Layer 2 Frame Received on Interface %s in vlan %d\n", 
+    pkt_tracer(mbuf, dp_ctx->dptr, DL2SW, 
+        "Pkt : %s : Layer 2 Frame Received on Interface %s in vlan %d\n", 
         pkt_mbuf_str (mbuf), interface->if_name, vlan_id);
 
-    l2_switch_perform_mac_learning(dp_ctx, vlan_id, src_mac, interface, 0);
-    l2_switch_forward_frame(dp_ctx, dp_ctx->mac_table, NULL, interface, mbuf);
+    is_pkt_flooded = !l2_switch_forward_frame(dp_ctx, dp_ctx->mac_table, NULL, interface, mbuf);
+
+    if (is_pkt_flooded) {
+        l2_switch_perform_mac_learning(dp_ctx, vlan_id, src_mac, interface, 0);
+    }
 }

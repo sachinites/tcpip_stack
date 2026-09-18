@@ -186,11 +186,21 @@ bgp_global_rib_route_update(node_t *node,
     bgp_rib_attrs_t attrs;
     bgp_rib_err_t rc;
 
-    if (!node || !route || route->nlri_wire_len == 0) {
+    if (!node || !route) {
         return;
     }
 
     bgp = BGP_INST(node);
+
+    if (route->nlri_wire_len == 0) {
+        if (bgp && bgp->tr) {
+            tracer(bgp->tr, TR_BGP_RT_EVENTS | TR_BGP_RT_ERRORS,
+                   "%s : Route %s skipped — empty NLRI wire (%s)\n",
+                   BGP_RTM_IM, route->prefix,
+                   is_add ? "add" : "del");
+        }
+        return;
+    }
 
     rib = NULL;
     if (route->afi == AFI_IPV4 && route->safi == SAFI_UNICAST) {

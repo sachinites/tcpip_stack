@@ -125,6 +125,8 @@ bgp_route_to_sf_params(const bgp_route_params_t *params,
     out->eth_tag_id = params->eth_tag_id;
     out->pmsi_label = params->pmsi_label;
     out->pmsi_label_present = params->pmsi_label_present;
+    out->mac_mobility_seq = params->mac_mobility_seq;
+    out->mac_mobility_seq_present = params->mac_mobility_seq_present;
     strncpy(out->pe_addr, params->pe_addr, sizeof(out->pe_addr) - 1);
     if (out->prefix[0] == '\0' && out->pe_addr[0] != '\0') {
         strncpy(out->prefix, out->pe_addr, sizeof(out->prefix) - 1);

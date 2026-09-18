@@ -134,6 +134,8 @@ typedef struct sf_gobgp_route_params {
     char pe_addr[16];
     uint32_t pmsi_label;
     bool pmsi_label_present;
+    uint32_t mac_mobility_seq;
+    bool mac_mobility_seq_present;
     int afi;
     int safi;
 } sf_gobgp_route_params_t;

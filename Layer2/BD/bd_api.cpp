@@ -49,7 +49,7 @@ bd_recv_mac_learning_cbk(
                     lmac_data->ip_addr);
         }
         else {
-                mac_vrf_evpn_route_type2_delete (
+                mac_vrf_evpn_route_type2_delete_by_mac (
                     node,
                     node->evpn[bd_intf->evi_id]->mac_vrf,
                     &lmac_data->mac);

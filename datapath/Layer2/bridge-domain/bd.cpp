@@ -257,20 +257,6 @@ bd_perform_mac_learning (dp_ctx_t *dp_ctx,
                          dp_intf_t *ac,
                          uint32_t ip_addr){
 
-    mac_table_entry_t *existing =
-        mac_table_lookup(bd->mac_table, DEFAULT_VLAN_ID, (uint8_t *)src_mac);
-
-    if (existing) {
-        
-        if (!(existing->flags & MAC_STATIC))
-            mac_table_entry_touch(existing);
-        /* MAC already known — still trap IP if ARP-learned for Type-2 MAC+IP. */
-        if (ip_addr)
-            dp_bd_mac_notify_cp(dp_ctx, bd->port_id, (uint8_t *)src_mac->mac,
-                                true, ip_addr);
-        return;
-    }
-
     /* Post MAC learn job to dp_ev_dis (single-writer thread). */
     dp_post_bd_mac_learn_job(dp_ctx, 
                          bd->port_id,
@@ -279,7 +265,7 @@ bd_perform_mac_learning (dp_ctx_t *dp_ctx,
                          ip_addr);
 }
 
-extern void
+extern bool
 l2_switch_forward_frame(
                         dp_ctx_t *dp_ctx,
                         mac_table_t *mac_table,
@@ -287,14 +273,14 @@ l2_switch_forward_frame(
                         dp_intf_t *recv_intf, 
                         struct rte_mbuf *mbuf);
 
-static void 
+bool
 bd_switch_forward_frame (dp_ctx_t *dp_ctx,
                          mac_table_t *mac_table,
                          dp_intf_t *vlan_bd_intf,
                          dp_intf_t *recv_ac, 
                          struct rte_mbuf *mbuf) {
 
-    l2_switch_forward_frame(dp_ctx, mac_table, vlan_bd_intf, recv_ac, mbuf);
+    return l2_switch_forward_frame(dp_ctx, mac_table, vlan_bd_intf, recv_ac, mbuf);
 }
 
 int 
@@ -393,7 +379,7 @@ bd_process_arp_with_arp_supp_cache
 }
 
 
-void 
+void
 bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
 
     pkt_size_t pkt_size;
@@ -410,7 +396,7 @@ bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
             "Error : Non-Ethernet pkt %s Recvd on AC %s, dropped\n", 
             pkt_mbuf_str(mbuf), ac->if_name);
 
-        return;
+        return ;
     }
 
     ethernet_hdr_t *eth_hdr = (ethernet_hdr_t *)pkt_mbuf_get_pkt(mbuf, &pkt_size);
@@ -425,7 +411,7 @@ bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
             pkt_mbuf_str(mbuf), ac->if_name);
 
         ac->xmit_pkt_dropped++;
-        return;
+        return ;
     }
 
    uint16_t vlan_id = (uint16_t)TCI_VID(vlan_8021q_hdr->tci);
@@ -438,7 +424,7 @@ bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
             vlan_id, ac->encap_8021q_tag);
             
         ac->xmit_pkt_dropped++;
-        return;
+        return ;
     }
 
     /* Fetch Src and Dst MAC addresses */
@@ -458,14 +444,22 @@ bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
         learn_ip = ntohl(arp->src_ip);
     }
 
-    /* Perform MAC learning : To be done via DP manager thread */
-    bd_perform_mac_learning (dp_ctx, ac->bd_intf, &src_mac, ac, learn_ip);
-
     /* If this is ARP Broadcast request, intercept it and see if we can reply to it*/
     if (bd_process_arp_with_arp_supp_cache (dp_ctx, mbuf, ac)) {
+        bd_perform_mac_learning (dp_ctx, ac->bd_intf, &src_mac, ac, learn_ip);
         return;
     }
 
     /* Forward the pkt in bridge domain */
-    BD_SendPacketOut (dp_ctx, ac->bd_intf, mbuf, 0);
+    bool is_pkt_flooded =  !bd_switch_forward_frame (
+            dp_ctx, 
+            ac->bd_intf->mac_table,
+            ac->bd_intf,
+            ac,
+            mbuf);    
+
+    /* Perform MAC learning : To be done via DP manager thread */
+    if (is_pkt_flooded) {
+        bd_perform_mac_learning (dp_ctx, ac->bd_intf, &src_mac, ac, learn_ip);
+    }
 }

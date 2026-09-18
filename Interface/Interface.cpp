@@ -51,7 +51,7 @@ access_group_unconfig (node_t *node,
                        char *dirn, 
                        access_list_t *acc_lst) ;
 
-extern void 
+extern bool 
 l2_switch_forward_frame(
                         node_t *node,
                         mac_table_t *mac_table,

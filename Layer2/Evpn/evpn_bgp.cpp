@@ -74,6 +74,10 @@ evpn_route_export_to_bgp(node_t *node,
         params.evpn_label_present = true;
         if (evpn_rt->u.mac_only.ip_addr)
             ip_ntop(evpn_rt->u.mac_only.ip_addr, (c_string)params.pe_addr);
+        if (evpn_rt->u.mac_only.seq_no > 0) {
+            params.mac_mobility_seq = evpn_rt->u.mac_only.seq_no;
+            params.mac_mobility_seq_present = true;
+        }
 
         if (bgp_route_apply_to_gobgp(node, &params, AFI_L2VPN,
                                      SAFI_MPLS_EVPN, is_delete) != 0) {
