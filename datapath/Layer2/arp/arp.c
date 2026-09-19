@@ -843,7 +843,13 @@ create_update_arp_sane_entry(dp_ctx_t *dp_ctx,
 
     if (entry) {
         if (!arp_entry_sane(entry))
-            assert(0); /* caller should have forwarded, not called us */
+        {
+            if (mbuf)
+            {
+                pkt_mbuf_dereference(mbuf); /* release the extra ref taken by the caller */
+            }
+            return;
+        }
 
         /* Sane entry exists — append pending packet. */
         add_arp_pending_entry(dp_ctx, entry,

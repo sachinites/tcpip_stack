@@ -652,8 +652,12 @@ cmdtc_collect_all_matching_params (cmd_tree_cursor_t *cmdtc, unsigned char c, bo
 
             if (child_param->flags & PARAM_F_DISABLE_PARAM) continue;
 
+            /* Pipe is attached to show/debug handlers (callback set) and to
+             * filter leaves (include/exclude/grep pattern) for cascading
+             * "| include ... | include ..." chains. */
             if (cmd_tree_is_param_pipe (child_param) &&
-                    !cmdtc->curr_param->callback[0]) {
+                    !cmdtc->curr_param->callback[0] &&
+                    !cmd_tree_is_filter_param (cmdtc->curr_param)) {
                 continue;
             }
 

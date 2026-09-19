@@ -94,7 +94,7 @@ render_line (unsigned char *Obuffer, int msg_len) {
         return;
     }
 
-     printw("%s", Obuffer);
+     printw("%.*s", msg_len, (char *)Obuffer);
 }
 
 void 

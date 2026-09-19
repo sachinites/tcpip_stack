@@ -906,10 +906,11 @@ bool
 cmd_tree_is_filter_param (param_t *param) {
 
     return (param == &pipe || param == &count || param == &save ||
-                param == &save_file || param == &include || 
+                param == &save_file || param == &include ||
                 param == &include_leaf || param == &exclude ||
                 param == &exclude_leaf ||
-                param == &grepx || param == &grepx_leaf);
+                param == &grepx || param == &grepx_leaf ||
+                param == &xinclude || param == &xinclude_leaf);
 }
 
 void 
