@@ -94,7 +94,6 @@ typedef enum struct_index_
     MM_INDEX(rtm_t),
     MM_INDEX(cp_nexthop_template_t),
     MM_INDEX(rtm_nh_proto_t),
-    MM_INDEX(rtm_proto_info_t),
     MM_INDEX(rtm_nh),
     MM_INDEX(rtm_route),
     MM_INDEX(cmn_prefix_t),

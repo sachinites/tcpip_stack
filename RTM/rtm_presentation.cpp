@@ -1255,12 +1255,13 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
     rtm_schedule_presentation_job(rtm);
 }
 
-static void 
+void 
 rtm_check_and_delete_presentation_data (rtm_t *rtm,
         rtm_presentation_data_t *presentation_data) {
 
 #if 0
-    /* presentation_data never takes reference on rtm_nh */
+    /* presentation_data never takes reference on rtm_nh, because
+        deleted rtm_nh may have already in GC queue */
     if (presentation_data->nh) 
         rtm_nh_dereference(rtm, presentation_data->nh);
 
@@ -1360,7 +1361,8 @@ rtm_advt_dispatch_job_cbk(event_dispatcher_t *ev __attribute__((unused)),
 void 
 rtm_schedule_presentation_job (rtm_t *rtm) {
 
-    if (rtm->advt_job) return;
+    if (rtm->advt_job || 
+        rtm->flags & RTM_F_STOPPED) return;
 
     rtm->advt_job = task_create_new_job ( EV(rtm->node),
              (void *)rtm,
@@ -1409,6 +1411,8 @@ void
 rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route) {
 
     char prefix_str[48];
+
+    if (rtm->flags & RTM_F_STOPPED) return;
 
     if (IS_QUEUED_UP_IN_THREAD (&route->advt_glue)) {
 
@@ -1462,6 +1466,8 @@ rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx) {
     char prefix_str[48];
     rtm_ppt_route_t *ppt_route;
     rtm_ppt_route_t ppt_route_template;
+
+    if (rtm->flags & RTM_F_STOPPED) return;
 
     /* Validate prefix before proceeding */
     if (!prefix) {
@@ -1566,7 +1572,7 @@ rtm_presentation_data_trace(rtm_t *rtm, rtm_presentation_data_t *presentation_da
            "gateway=%s oif=%s\n",
            rtm->name,
            inh ? inh->mac_table_id : 0,
-           rt_str,
+           rtm_format_prefix(&presentation_data->route, rt_str, sizeof(rt_str)),
            inh ? (unsigned)inh->vpn_label : 0,
            pe_lbl_str[0] ? pe_lbl_str : "-",
            (!cmn_prefix_is_null(&nh->prefix))

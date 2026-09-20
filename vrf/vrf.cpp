@@ -89,19 +89,19 @@ void vrf_delete(vrf_t* vrf, bool _free) {
     assert (vrf->vrf_id != RTM_DEFAULT_VRF);
 
     rtm_stop(vrf->inet0);
-    rtm_check_and_delete (vrf->inet0, true);
+    //rtm_check_and_delete (vrf->inet0, true);
     vrf->inet0 = NULL;
 
     rtm_stop(vrf->inet3);
-    rtm_check_and_delete (vrf->inet3, true);
+    //rtm_check_and_delete (vrf->inet3, true);
     vrf->inet3 = NULL;
 
     rtm_stop(vrf->inet63);
-    rtm_check_and_delete (vrf->inet63, true);
+    //rtm_check_and_delete (vrf->inet63, true);
     vrf->inet63 = NULL;
 
     rtm_stop(vrf->inet6);
-    rtm_check_and_delete (vrf->inet6, true);
+    //rtm_check_and_delete (vrf->inet6, true);
     vrf->inet6 = NULL;
 
     /* Remove interfaces from VRF */

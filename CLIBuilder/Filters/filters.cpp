@@ -73,8 +73,8 @@ SetFilterContext (tlv_struct_t **lfilter_array, int lsize) {
 
     filter_array = lfilter_array;
     filter_array_size = lsize;
-    /* Reset the Cum buffer for the next show command */
-    memset (Cumbuffer, 0, cum_buffer_byte_cnt);
+    /* Full clear: partial memset of old count leaves stale bytes when count is 0 */
+    memset (Cumbuffer, 0, sizeof(Cumbuffer));
     cum_buffer_byte_cnt = 0;
 }
 
@@ -120,6 +120,17 @@ UnsetFilterContext () {
         fileptr = NULL;
     }
 
+    /* Flush any pending ABmgr output into Cum *before* mq_send so it is
+     * part of this command's payload, not the next show's Cum buffer. */
+    if (abmgr) {
+
+        if (ABmgr_is_printable (abmgr)) { 
+            ABmgr_print(abmgr, render_line);
+        }
+        ABmgr_destroy(abmgr);
+        abmgr = NULL;
+    }
+
     if (TC_RUNNING) {
 
         /* The show output of the command has come to an end , push all the show output data to
@@ -129,17 +140,8 @@ UnsetFilterContext () {
         }
 
         /* Reset the Cum buffer for the next show command */
-        memset (Cumbuffer, 0, cum_buffer_byte_cnt);
+        memset (Cumbuffer, 0, sizeof(Cumbuffer));
         cum_buffer_byte_cnt = 0;
-    }
-
-     if (abmgr) {
-
-        if (ABmgr_is_printable (abmgr)) { 
-            ABmgr_print(abmgr, render_line);
-        }
-        ABmgr_destroy(abmgr);
-        abmgr = NULL;
     }
 }
 

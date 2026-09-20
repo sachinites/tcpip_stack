@@ -808,7 +808,7 @@ evpn_print_type2_route (evpn_exp_rt_t *evpn_rt,
     const unsigned char *mac = evpn_rt->u.mac_only.mac.mac;
     bool is_local = (evpn_rt->flags & EVPN_RT_F_LOCAL) != 0;
 
-    snprintf(mac_str, sizeof(mac_str), "%02x%02x.%02x%02x.%02x%02x",
+    snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     if (evpn_rt->u.mac_only.ip_addr)

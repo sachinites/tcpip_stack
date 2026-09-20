@@ -105,16 +105,6 @@ rtm_nh_proto_avl_tree_comp_fn (const avltree_node_t *node1, const avltree_node_t
     return rtm_nh_proto_is_equal(nh_proto1, nh_proto2);
 }
 
-/* Wrapper for proto info compare */
-static int
-rtm_proto_info_avl_tree_comp_fn (const avltree_node_t *node1, const avltree_node_t *node2) {
-
-    rtm_proto_info_t *proto_info1 = avltree_container_of(node1, rtm_proto_info_t, proto_glue);
-    rtm_proto_info_t *proto_info2 = avltree_container_of(node2, rtm_proto_info_t, proto_glue);
-
-    return rtm_proto_compare(proto_info1, proto_info2);
-}
-
 /* ========================================================================
  * RTM Initialization and Lifecycle
  * ======================================================================== */
@@ -168,17 +158,14 @@ rtm_initialize(node_t *node,
 
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
         init_glthread(&rtm->nhs_by_src[i]);
-        avltree_init(&rtm->proto_info_tree[i], rtm_proto_info_avl_tree_comp_fn);
         init_Fglthread (&rtm->advt_nhs[i]);
     }
     
     rtm->node = node;
 
     init_Fglthread(&rtm->unresolvable_paths);
-    init_Fglthread(&rtm->resolved_unpropogated_routes);
 
     rtm->nh_resolution_job = NULL;
-    rtm->rt_resolution_job = NULL;
 
     rtm_ppt_db_initialize(rtm);
 
@@ -231,17 +218,14 @@ rtm_check_and_delete (rtm_t *rtm, bool free_rtm) {
     assert (avltree_is_empty (&rtm->nhs_by_idx));
 
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
-        assert (avltree_is_empty (&rtm->proto_info_tree[i]) );
         assert (IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[i]) );
         assert (Fglthread_list_is_empty (&rtm->advt_nhs[i]) );
     }
     
     assert (Fglthread_list_is_empty(&rtm->unresolvable_paths) );
-    assert (Fglthread_list_is_empty(&rtm->resolved_unpropogated_routes) );
     assert (Fglthread_list_is_empty(&rtm->route_advt_queue) );
     
     assert (rtm->nh_resolution_job == NULL);
-    assert (rtm->rt_resolution_job == NULL);
     assert (rtm->route_advt_prep_job == NULL);
     assert (rtm->advt_job == NULL);
     assert (rtm->gc_job == NULL);
@@ -250,12 +234,15 @@ rtm_check_and_delete (rtm_t *rtm, bool free_rtm) {
     assert (avltree_is_empty (&rtm->ppt_db_route_tree));
     
     assert (Fglthread_list_is_empty(&rtm->gc_queue) );
-    assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_resolved_routes));
-    assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_unresolved_routes));
-    assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_resolved_nhs));
-    assert (!IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_unresolved_nhs));
+    assert (IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_resolved_routes));
+    assert (IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_unresolved_routes));
+    assert (IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_resolved_nhs));
+    assert (IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_unresolved_nhs));
 
-    if (free_rtm) XFREE(rtm);
+    if (free_rtm) {
+        tracer(rtm->node->cptr, DRTM, "RTM[%s] : Deleted\n", rtm->name);
+        XFREE(rtm);
+    }
 }
 
 /* Destroy an RTM instance */
@@ -265,8 +252,24 @@ rtm_stop (rtm_t *rtm) {
     int i; 
     rtm_nh *nh;
     glthread_t *curr;
+    rtm_route *route;
     node_t *node = rtm->node;
 
+    assert (!(rtm->flags & RTM_F_STOPPED));
+
+    bool delete_immediate = 
+        avltree_is_empty (&rtm->nh_proto_info_tree) ? true : false;
+
+    if (!delete_immediate) {
+        rtm->flags |= RTM_F_STOPPED;
+        tracer(rtm->node->cptr, DRTM, "RTM[%s] : Marked for Deletion\n", rtm->name);
+    }
+
+    /* Setting RTM_F_STOPPED will not allow queue-ing any new work
+        in any of the RTM work queues.
+        And whatever work is queued now, we will abort them, For example
+        deleting nexthop would try to queue routes to advt_queue .
+    */
     for (i = RTM_PROTO_STATIC; i < RTM_PROTO_MAX; i++) {
 
         ITERATE_GLTHREAD_BEGIN(&rtm->nhs_by_src[i], curr) {
@@ -283,29 +286,59 @@ rtm_stop (rtm_t *rtm) {
         rtm->nh_resolution_job = NULL;
     }
 
-    if (rtm->rt_resolution_job) {
-        task_cancel_job(EV(node), rtm->rt_resolution_job);
-        rtm->rt_resolution_job = NULL;
-    }    
+    /* Cancel the Queued work */
+    while ((curr = dequeue_Fglthread_first (&rtm->unresolvable_paths))) {
+        nh = unresolvable_list_glue_to_rtm_nh (curr);
+        rtm_nh_dereference (rtm, nh);
+    }
 
     if (rtm->route_advt_prep_job) {
         task_cancel_job(EV(node), rtm->route_advt_prep_job);
         rtm->route_advt_prep_job = NULL;
     }    
 
+    /* Cancel the Queued work */
+    ITERATE_GLTHREAD_BEGIN(&rtm->route_advt_queue.head, curr) {
+
+        route = advt_glue_to_route(curr);
+        rtm_route_remove_Fglthread(rtm, route, &rtm->route_advt_queue, curr);
+
+    } ITERATE_GLTHREAD_END(&rtm->route_advt_queue.head, curr);
+
+
     if (rtm->advt_job) {
         task_cancel_job(EV(node), rtm->advt_job);
         rtm->advt_job = NULL;
     }    
 
-    if (rtm->gc_job) {
+    /* Cleanup all the presentation data */
+    for (uint8_t i = (uint8_t )RTM_PROTO_FIRST; 
+            i < (uint8_t)RTM_PROTO_MAX; i++ ) {
+
+        Fglthread_t *Fglthread = &rtm->advt_nhs[(RTM_PROTO_T)i];
+
+        ITERATE_GLTHREAD_BEGIN(&Fglthread->head, curr) {
+
+            rtm_presentation_data_t *pres_data = rtm_presentation_data_to_glue(curr);
+            remove_Fglthread (Fglthread, curr);
+            rtm_check_and_delete_presentation_data(rtm, pres_data);
+
+        } ITERATE_GLTHREAD_END(&Fglthread->head, curr);
+    }
+
+    /* IF only RTM was already empty, no work then you may 
+        cancel GC job*/
+    if (rtm->gc_job && delete_immediate) {
         task_cancel_job(EV(node), rtm->gc_job);
         rtm->gc_job = NULL;
-    }        
+    }
 
     rtm_ppt_db_destroy(rtm);
     rtm_clear_stats (rtm);
-    rtm_check_and_delete(rtm, false);
+
+    if (delete_immediate) {
+        rtm_check_and_delete (rtm, true);
+    }
 }
 
 void 

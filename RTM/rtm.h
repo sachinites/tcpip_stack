@@ -61,6 +61,7 @@ typedef struct rtm_ppt_db_ rtm_ppt_db_t;
  * ======================================================================== */
 
 #define RTM_F_INHS_RE_RESOLVE   1  /* Flag to trigger re-resolution of all INHs */
+#define RTM_F_STOPPED           2  /* This instance of RTM is no more operational, candidate for free */
 
 #pragma pack(push, 8)
 
@@ -109,9 +110,6 @@ typedef struct rtm_ {
     /* Nexthops grouped by their source protocol */
     glthread_t nhs_by_src[RTM_PROTO_MAX];
 
-    /* Protocol information registered in this RTM */
-    avltree_t proto_info_tree[RTM_PROTO_MAX];
-
     /* List of rtm_presentation_data_t objects, to be advertised to 
         protocols */
     Fglthread_t advt_nhs[RTM_PROTO_MAX];
@@ -122,14 +120,8 @@ typedef struct rtm_ {
     /* List of Orphan Indirect NHs which have no route to resolve over */
     Fglthread_t unresolvable_paths;
     
-    /* List of routes whose resolved INHs are to be propogated upstream in Resolution Graph*/
-    Fglthread_t resolved_unpropogated_routes;
-    
     /* Job to resolve INHs */
     task_t *nh_resolution_job;
-
-    /* Job to propogate resolved route Active NH upstream in Resolution Graph */
-    task_t *rt_resolution_job;
 
     /* Advertisement Related Fields */
     /* Route trees for presentation. It contains Routes from all Srcs */
@@ -206,13 +198,5 @@ void rtm_log_stats (rtm_t *rtm);
  * @param rtm RTM to clear stats for
  */
 void rtm_clear_stats(rtm_t *rtm);
-
-/**
- * @brief Check RTM state and delete if requested
- * 
- * @param rtm RTM to check/delete
- * @param free_rtm If true, free RTM structure
- */
-void rtm_check_and_delete (rtm_t *rtm, bool free_rtm) ;
 
 #endif /* __RTM__ */

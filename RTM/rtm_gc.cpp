@@ -11,6 +11,9 @@
 #include "../libs/LinuxMemoryManager/uapi_mm.h"
 #include "../libs/Tracer/tracer.h"
 
+extern void 
+rtm_check_and_delete (rtm_t *rtm, bool free_rtm) ;
+
 static void
 rtm_gc_job_cbk(
         event_dispatcher_t *ev, 
@@ -40,6 +43,19 @@ rtm_gc_job_cbk(
         }
 
         XFREE (gc);
+    }
+
+    if (rtm->flags & RTM_F_STOPPED) {
+
+        /* *check_and_delete() of GC objects may queue up more objects for GC. For ex, 
+            rtm_nh release resources may results in rtm_nh->owner_route queue up in
+            GC. In this case, Simply cancel the job */
+        if (rtm->gc_job) {
+            task_cancel_job(EV(rtm->node), rtm->gc_job);
+            rtm->gc_job = NULL;
+        }
+
+        rtm_check_and_delete (rtm, true);
     }
 }
 

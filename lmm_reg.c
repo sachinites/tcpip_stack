@@ -164,7 +164,6 @@ vm_page_family_t vm_page_family_array[] =
     MM_REG_STRUCT2(rtm_t),
     MM_REG_STRUCT2(cp_nexthop_template_t),
     MM_REG_STRUCT2(rtm_nh_proto_t),
-    MM_REG_STRUCT2(rtm_proto_info_t),
     MM_REG_STRUCT2(rtm_nh),
     MM_REG_STRUCT2(rtm_route),
     MM_REG_STRUCT2(cmn_prefix_t),

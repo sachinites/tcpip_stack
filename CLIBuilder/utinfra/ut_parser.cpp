@@ -315,11 +315,19 @@ run_test_case(char *file_name, uint16_t tc_no) {
                 fflush(ut_log_file);
                 cmdtc_parse_raw_command ((unsigned char *)token, strlen (token));
 
-                /* Block if it is show command. 
-                    All commands are operational except config command */
-                if ( ( pattern_match(token, strlen(token), "show") )
-                        && 
-                        TC_RUNNING) {   /* You can load the cmds without testcase script */
+                /* Operational cmds (show, run/ping, ...) always mq_send Cum
+                 * via UnsetFilterContext. Config cmds do not. With
+                 * MAX_MESSAGES=1, skipping the receive after run/ping fills
+                 * the queue (EAGAIN) and the next show drains stale ping
+                 * output instead of its own show data. */
+                {
+                const char *cmdp = token;
+                while (*cmdp == ' ' || *cmdp == '\t') cmdp++;
+                bool is_config_cmd =
+                    (strncmp(cmdp, "config", 6) == 0 &&
+                     (cmdp[6] == '\0' || cmdp[6] == ' ' || cmdp[6] == '\t'));
+
+                if ( !is_config_cmd && TC_RUNNING) {
 
                     if (ut_parser_debug) {
                         rc = sprintf(buff, "Waiting for backend data\n");
@@ -327,13 +335,17 @@ run_test_case(char *file_name, uint16_t tc_no) {
                         fwrite(buff, 1, rc, ut_log_file);
                     }
 
+                    /* Clear recv buffer so stale bytes never leak into the log */
+                    memset(ut_parser_recv_buff, 0, sizeof(ut_parser_recv_buff));
+                    ut_parser_recv_buff_data_size = 0;
+
                     if ((ut_parser_recv_buff_data_size =
                              mq_timedreceive(UT_PARSER_MSG_Q_FD,
                                         ut_parser_recv_buff, MAX_MSG_SIZE, NULL,
                                         &mq_wait_time)) == -1) {
 
                             //printw ("Msg Q  Time out : No Data Recvd from Backend\n");
-                            rc += sprintf(buff, "Msg Q  Time out : No Data Recvd from Backend\n");
+                            rc = sprintf(buff, "Msg Q  Time out : No Data Recvd from Backend\n");
                             fwrite(buff, 1, rc, ut_log_file);
                             ut_parser_recv_buff_data_size = 0;
                             memset(ut_parser_recv_buff, 0, sizeof(ut_parser_recv_buff));
@@ -348,13 +360,17 @@ run_test_case(char *file_name, uint16_t tc_no) {
                         if (ut_parser_debug) {
                             //printw("Mq Data Recvd by UT Parser : \n");
                             //printw("%s", ut_parser_recv_buff);
-                            rc += sprintf(buff, "Mq Data Recvd by UT Parser : \n");
+                            /* Must use rc = (not rc +=): fwrite writes rc bytes and
+                             * does not stop at NUL, so += would dump leftover CMD
+                             * text still sitting in buff after the previous sprintf. */
+                            rc = sprintf(buff, "Mq Data Recvd by UT Parser : \n");
                             fwrite(buff, 1, rc, ut_log_file);
                             /* Write buffer while filtering out null bytes */
                             write_buffer_filtered(ut_log_file, ut_parser_recv_buff, ut_parser_recv_buff_data_size);
                         }
                     }
                 }
+                } /* is_config_cmd scope */
                 fflush(ut_log_file);
             }
 

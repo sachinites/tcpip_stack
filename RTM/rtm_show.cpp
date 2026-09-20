@@ -857,49 +857,6 @@ void rtm_show_nh_proto_info(rtm_t *rtm) {
     printw("\n");
 }
 
-/* Display general protocol information */
-void rtm_show_proto_info(rtm_t *rtm) {
-    
-    cprintf("\nRTM :: %s\n", rtm->name); 
-
-    bool found_any = false;
-
-    /* Iterate through all protocol types */
-    for (int proto = 0; proto < RTM_PROTO_MAX; proto++) {
-        
-        if (avltree_is_empty(&rtm->proto_info_tree[proto])) {
-            continue;
-        }
-
-        if (!found_any) {
-            cprintf("%-15s %-12s %-8s\n",
-                   "Protocol", "Instance", "VRF");
-            cprintf("%-15s %-12s %-8s\n",
-                   "--------", "--------", "---");
-            found_any = true;
-        }
-
-        /* Iterate through all instances of this protocol */
-        avltree_node_t *curr_node = NULL;
-        ITERATE_AVL_TREE_BEGIN(&rtm->proto_info_tree[proto], curr_node) {
-            
-            rtm_proto_info_t *proto_info = avltree_container_of(curr_node, rtm_proto_info_t, proto_glue);
-
-            cprintf("%-15s %-12u %-8u\n",
-                   rtm_proto_to_string(proto_info->proto),
-                   proto_info->instance_no,
-                   proto_info->vrf_id);
-
-        } ITERATE_AVL_TREE_END(&rtm->proto_info_tree[proto], curr_node);
-    }
-
-    if (!found_any) {
-        cprintf("  No protocol info registered\n");
-    }
-
-    printw("\n");
-}
-
 /* Display unresolvable nexthops */
 
 /* Display unresolvable routes (indirect nexthops that cannot be resolved) */

@@ -117,37 +117,4 @@ rtm_t *rtm_get_route_target_rtm(
                           RTM_PROTO_T proto, 
                           RTM_SUB_PROTO_T sub_proto);
 
-/* ----------------------------------------------------------------  */
-
-
-#pragma pack(push, 8)
-
-typedef struct rtm_proto_info_ {
-
-    /* Keys */
-    RTM_PROTO_T proto;
-    uint32_t instance_no;
-    uint8_t vrf_id;
-    
-    avltree_node_t proto_glue;
-    
-} rtm_proto_info_t;
-
-#pragma pack(pop)
-
-rtm_proto_info_t *
-rtm_proto_info_create (rtm_t *rtm, RTM_PROTO_T proto, uint32_t inst_no);
-
-int8_t
-rtm_proto_compare (rtm_proto_info_t* nh_proto1, rtm_proto_info_t* nh_proto2);
-
-rtm_error_t 
-rtm_proto_info_add (const rtm_t* rtm, rtm_proto_info_t* proto_info);
-
-rtm_error_t 
-rtm_proto_info_del (const rtm_t* rtm, RTM_PROTO_T proto, uint32_t inst_no);
-
-rtm_proto_info_t *
-rtm_proto_lookup(const rtm_t* rtm, RTM_PROTO_T proto, uint32_t inst_no);
-
 #endif 

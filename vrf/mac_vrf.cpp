@@ -233,7 +233,7 @@ mac_vrf_destroy (mac_vrf_t *mac_vrf) {
     }
 
     rtm_stop(mac_vrf->mac_rtm);
-    rtm_check_and_delete(mac_vrf->mac_rtm, true);
+    //rtm_check_and_delete(mac_vrf->mac_rtm, true);
     mac_vrf->mac_rtm = NULL;
 
     mac_vrf->evpn_inst = NULL;

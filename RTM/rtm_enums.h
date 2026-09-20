@@ -8,7 +8,8 @@
     
 typedef enum protocols_ {
 
-    RTM_PROTO_STATIC,
+    RTM_PROTO_FIRST,
+    RTM_PROTO_STATIC = RTM_PROTO_FIRST,
     RTM_PROTO_CONNECTED,
     RTM_PROTO_LOCAL,
     RTM_PROTO_BGP,  

@@ -13,7 +13,6 @@ void rtm_show_rib (rtm_t *rtm);
 void rtm_show_rib_standard(rtm_t *rtm, char *prefix_filter);
 void rtm_show_rib_detail (rtm_t *rtm, const char *prefix_filter);
 void rtm_show_nh_proto_info (rtm_t *rtm);
-void rtm_show_proto_info(rtm_t *rtm);
 void rtm_show_unresolvable_routes(rtm_t *rtm);
 void rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter);
 void rtm_show_dist_mgr_database (dist_mgr_t *dist_mgr);
