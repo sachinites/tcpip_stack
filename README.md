@@ -47,7 +47,7 @@ Visit : www.csepracticals.com for more projects and courses.
 
 ## Project 20 : IPV4 L3VPN using MPLS Transport in the core
 
-## Project 21 : L2VPN EVPN Dataplane Implementation (Route Type 2,3,5 ) Over MPLS Transport in ISP core. 
+## Project 21 : L2VPN EVPN Singe Homing (RT Type 2,3) Over MPLS Transport. 
 
 ## Project 22 : GoBGP Integration
 
@@ -76,6 +76,7 @@ Make sure you have C++ compiler and Makefile utility installed in your system. I
 
 Installation of standard libraries:  
 1. `sudo apt-get install libncurses5-dev`  # For ncurses library
+2. install DPDK library
 
 
 Rest of the standard libraries are installed by default on any linux distro which are listed below. So you need  
