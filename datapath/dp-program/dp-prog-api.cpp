@@ -197,7 +197,8 @@ dp_mac_table_handle_create(dp_ctx_t *dp_ctx,
                         mac_update_msg->mac_addr,
                         table_vlan,
                         mac_update_msg->flags,
-                        tmpl);
+                        tmpl,
+                        mac_update_msg->ip_addr);
 
     /*
      * Notify CP on BD DP learn when:
@@ -645,7 +646,8 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                             mac_addr.mac,
                             DEFAULT_VLAN_ID,
                             MAC_STATIC,
-                            &tmpl);
+                            &tmpl,
+                            0);
 
                     /* EVPN ARP Suppression Cache init */
                     arp_sup_cache_init(&intf->arp_sup_cache_db);
@@ -1046,6 +1048,9 @@ dp_intf_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg){
                         intf->lmac_queue = (pkt_q_t *)trap_q->pkt_q_ptr;
                         tracer(dp_ctx->dptr, DCONF, "Trap Q %p Enabled for BD:%s\n",
                             (void *)intf->lmac_queue, intf->if_name);
+
+                        /* Replay all local entries to control plane */
+                        bd_mac_table_replay_local_macs(intf);
                     }
                     else {
                         assert (intf->lmac_queue);

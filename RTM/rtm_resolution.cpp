@@ -781,7 +781,7 @@ rtm_re_resolve_inhs_per_protocol (rtm_t *rtm, cmn_prefix_t *route, RTM_PROTO_T p
     rtm_route *resolver_route;
     char nh_str[128], from_rt_str[48], to_rt_str[48];
 
-    if (rtm->flags & RTM_F_STOPPED) return 0;
+    if (rtm->flags & RTM_F_HARD_STOPPED) return 0;
 
     ITERATE_GLTHREAD_BEGIN (&rtm->nhs_by_src[proto], curr) {
 

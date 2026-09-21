@@ -1362,7 +1362,7 @@ void
 rtm_schedule_presentation_job (rtm_t *rtm) {
 
     if (rtm->advt_job || 
-        rtm->flags & RTM_F_STOPPED) return;
+        rtm->flags & RTM_F_HARD_STOPPED) return;
 
     rtm->advt_job = task_create_new_job ( EV(rtm->node),
              (void *)rtm,
@@ -1412,7 +1412,7 @@ rtm_schedule_route_advertisement (rtm_t *rtm, rtm_route *route) {
 
     char prefix_str[48];
 
-    if (rtm->flags & RTM_F_STOPPED) return;
+    if (rtm->flags & RTM_F_HARD_STOPPED) return;
 
     if (IS_QUEUED_UP_IN_THREAD (&route->advt_glue)) {
 
@@ -1467,7 +1467,7 @@ rtm_ppt_register_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx) {
     rtm_ppt_route_t *ppt_route;
     rtm_ppt_route_t ppt_route_template;
 
-    if (rtm->flags & RTM_F_STOPPED) return;
+    if (rtm->flags & RTM_F_HARD_STOPPED) return;
 
     /* Validate prefix before proceeding */
     if (!prefix) {

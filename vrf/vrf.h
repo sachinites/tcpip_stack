@@ -105,7 +105,7 @@ char* vrf_name (node_t *node, uint8_t vrf_id);
 bool node_register_vrf(node_t *node, vrf_t *vrf);
 void show_vrfs(node_t *node);
 int vrf_alloc_new_vrf_id (node_t *node) ;
-
+bool vrf_has_l3_config(vrf_t *vrf);
 vrf_t *NODE_DEF_VRF(node_t *node);
 
 #define NODE_DEF_VRF_VRF_MEMBER(node_ptr, member)  \

@@ -66,6 +66,9 @@ typedef struct mac_table_entry_ {
     /* Cached L2_FWD_PORT ifindex (local AC / access port). 0 if none.
      * Used to skip redundant MAC learn when ingress == local attachment. */
     uint32_t lcl_ifindex;
+    /* Host IPv4 learned with this MAC (ARP/local learn). 0 if unknown.
+     * Used when notifying CP (incl. trap-Q replay of local MACs). */
+    uint32_t ip_addr;
 } mac_table_entry_t;
 
 typedef struct mac_table_ {
@@ -146,7 +149,8 @@ mac_table_entry_skip_mac_learning(const mac_table_entry_t *entry,
 void mac_table_entry_add(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                          uint8_t *mac_addr, uint16_t vlan_id,
                          uint16_t flags,
-                         mac_fwd_object_t *fwd_tmpl);
+                         mac_fwd_object_t *fwd_tmpl,
+                         uint32_t ip_addr);
 
 void mac_table_entry_delete(dp_ctx_t *dp_ctx, mac_table_t *mac_table,
                             uint8_t *mac_addr, uint16_t vlan_id,

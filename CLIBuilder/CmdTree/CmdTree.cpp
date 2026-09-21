@@ -515,6 +515,11 @@ cmd_tree_display_all_complete_commands(
         if (!root)
             return;
 
+        /* tokens[] is sized MAX_CMD_TREE_DEPTH; deeper walk is a cycle or
+         * oversized tree and would OOB in untokenize/tokenize. */
+        if (index >= MAX_CMD_TREE_DEPTH)
+            return;
+
         if (root->flags & PARAM_F_NO_EXPAND) return;
         
         if (IS_PARAM_CMD(root)){

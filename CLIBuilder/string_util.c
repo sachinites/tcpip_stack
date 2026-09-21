@@ -50,7 +50,10 @@ re_init_tokens(int token_cnt){
 
 void
 tokenize(char *token, unsigned int size, unsigned int index){
-    
+
+    if (index >= MAX_CMD_TREE_DEPTH)
+        return;
+
     if(size > LEAF_VALUE_HOLDER_SIZE)
         assert(0);
 
@@ -59,6 +62,9 @@ tokenize(char *token, unsigned int size, unsigned int index){
 
 void
 untokenize(unsigned int index){
+
+    if (index >= MAX_CMD_TREE_DEPTH)
+        return;
 
     memset(tokens[index], 0, LEAF_VALUE_HOLDER_SIZE);
 }

@@ -211,8 +211,18 @@ vrf_config_handler (int64_t cmdcode,
                 break;
                 case CONFIG_DISABLE:
                 {
-                    //cp2dp_vpnv4_steering_interface_delete(node);
-                    //cp2dp_vrf_delete(node, vrf->vrf_id);
+                    vrf_t *vrf = vrf_get_by_name(node, (char *)vrf_name);
+                    if (!vrf) {
+                        cprintf ("Error : vrf do not exist\n");
+                        return -1;
+                    }
+
+                    if (vrf_has_l3_config (vrf)) {
+                        cprintf ("Error : Remove L3 config first\n");
+                        return -1;
+                    }
+
+                    vrf_delete(vrf, true);
                 }
                 break;
             }
@@ -240,7 +250,7 @@ vrf_config_handler (int64_t cmdcode,
             }
 
             rt_type1_fill(&new_import_rt,
-                          ip_pton((char *)rt_ip),
+                          ip_pton((c_string)rt_ip),
                           (uint16_t)strtoul((const char *)rt_assigned,
                                             NULL, 10));
 

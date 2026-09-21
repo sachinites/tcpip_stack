@@ -1333,7 +1333,8 @@ rtm_install_route (
     rtm_error_t rc = RTM_SUCCESS;
     bool rtm_rt_was_resolved = false;
 
-    if (rtm->flags & RTM_F_STOPPED) return RTM_ERROR_RTM_STOPPED;
+    if (rtm->flags & RTM_F_HARD_STOPPED) return RTM_ERROR_RTM_STOPPED;
+    if (rtm->flags & RTM_F_SOFT_STOPPED) return RTM_ERROR_RTM_STOPPED;
 
     rc = rtm_validate_cp_nexthop_template(cp_nh_template);
 
@@ -1530,8 +1531,9 @@ rtm_uninstall_route ( rtm_t *rtm, cmn_prefix_t *prefix,
     char prefix_str[48];
     char gw_str[48];
 
-    if (rtm->flags & RTM_F_STOPPED) return RTM_ERROR_RTM_STOPPED;
-    
+    if (rtm->flags & RTM_F_HARD_STOPPED) return RTM_ERROR_RTM_STOPPED;
+    if (rtm->flags & RTM_F_SOFT_STOPPED) return RTM_ERROR_RTM_STOPPED;
+
     rc = rtm_validate_cp_nexthop_template(nh_template);
 
     if (rc != RTM_SUCCESS) {

@@ -117,6 +117,11 @@ mac_vrf_evpn_route_type3_remote_delete(
 void
 mac_vrf_delete_all_remote_evpn_routes(mac_vrf_t *mac_vrf);
 
+/* Delete local Type-2/3 from MAC VRF and withdraw them from BGP.
+ * Local routes are never installed in RTM. */
+void
+mac_vrf_delete_all_local_evpn_routes(node_t *node, mac_vrf_t *mac_vrf);
+
 void 
 mac_vrf_export_evpn_local_evpn_routes_to_bgp(node_t *node, evpn_inst_t *evpn);
 

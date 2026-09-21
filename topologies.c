@@ -1246,12 +1246,12 @@ Original Topo:
 #if 1
 
     /* launch GoBGP for each PE router  */
-    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:22000 --pprof-host=127.0.0.1:22001 --log-level=debug &");
-    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:23000 --pprof-host=127.0.0.1:23001 --log-level=debug &");
-    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:24000 --pprof-host=127.0.0.1:24001 --log-level=debug &");
-    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:25000 --pprof-host=127.0.0.1:25001 --log-level=debug &");
-    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:26000 --pprof-host=127.0.0.1:26001 --log-level=debug &");
-    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:27000 --pprof-host=127.0.0.1:27001 --log-level=debug &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:22000 --pprof-host=127.0.0.1:22001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp0.log 2>&1 &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:23000 --pprof-host=127.0.0.1:23001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp1.log 2>&1 &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:24000 --pprof-host=127.0.0.1:24001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp2.log 2>&1 &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:25000 --pprof-host=127.0.0.1:25001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp3.log 2>&1 &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:26000 --pprof-host=127.0.0.1:26001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp4.log 2>&1 &");
+    system("/home/vm/OpenSrc-Codes/GoBGP/gobgp/gobgpd --api-hosts=127.0.0.1:27000 --pprof-host=127.0.0.1:27001 --log-level=debug >> /home/vm/GitProjects/tcpip_stack/logs/gobgp5.log 2>&1 &");
 
     /* Create linux loop backs and set IPs because GoBGP needs them */
     system("ip link add lo0 type dummy");

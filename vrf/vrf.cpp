@@ -88,29 +88,31 @@ void vrf_delete(vrf_t* vrf, bool _free) {
 
     assert (vrf->vrf_id != RTM_DEFAULT_VRF);
 
-    rtm_stop(vrf->inet0);
+    rtm_soft_stop(vrf->inet0);
     //rtm_check_and_delete (vrf->inet0, true);
     vrf->inet0 = NULL;
 
-    rtm_stop(vrf->inet3);
+    rtm_soft_stop(vrf->inet3);
     //rtm_check_and_delete (vrf->inet3, true);
     vrf->inet3 = NULL;
 
-    rtm_stop(vrf->inet63);
+    rtm_soft_stop(vrf->inet63);
     //rtm_check_and_delete (vrf->inet63, true);
     vrf->inet63 = NULL;
 
-    rtm_stop(vrf->inet6);
+    rtm_soft_stop(vrf->inet6);
     //rtm_check_and_delete (vrf->inet6, true);
     vrf->inet6 = NULL;
 
     /* Remove interfaces from VRF */
     if (vrf->intf_by_name) {
+        assert (vrf->intf_by_name->empty());
         delete vrf->intf_by_name;
         vrf->intf_by_name = nullptr;
     }
     
     if (vrf->intf_by_ifindex) {
+        assert (vrf->intf_by_ifindex->empty());
         delete vrf->intf_by_ifindex;
         vrf->intf_by_ifindex = nullptr;
     }
@@ -306,3 +308,66 @@ vrf_t *
 NODE_DEF_VRF(node_t *node) {
     return (vrf_t *)node->node_nw_prop.def_vrf;
 }
+
+bool 
+vrf_has_l3_config(vrf_t *vrf) {
+
+    /* Static/local/connected route in any RTM */
+    
+    rtm_t *rtm = vrf->inet0;
+
+    if (rtm && 
+        ((!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_STATIC])) ||
+          (!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_CONNECTED])) ||
+          (!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_LOCAL])))
+       ) {
+
+        return true;
+    }
+
+    rtm = vrf->inet3;
+    if (rtm && 
+        ((!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_STATIC])) ||
+          (!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_CONNECTED])) ||
+          (!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_LOCAL])))
+       ) {
+
+        return true;
+    }    
+
+    rtm = vrf->inet63;
+    if (rtm && 
+        ((!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_STATIC])) ||
+          (!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_CONNECTED])) ||
+          (!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_LOCAL])))
+       ) {
+
+        return true;
+    }
+
+    rtm = vrf->inet6;
+    if (rtm && 
+        ((!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_STATIC])) ||
+          (!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_CONNECTED])) ||
+          (!IS_GLTHREAD_LIST_EMPTY (&rtm->nhs_by_src[RTM_PROTO_LOCAL])))
+       ) {
+
+        return true;
+    }        
+
+    /* Interface DBs*/
+    if (!vrf->intf_by_name->empty()) return true;
+    if (!vrf->intf_by_ifindex->empty()) return true;
+
+    /* Protocols */
+    if (vrf->isis_node_info) return true;
+    if (vrf->srv6_node_info) return true;
+
+    if (vrf->vrf_id == DEFAULT_VRF) {
+
+        def_vrf_t *def_vrf = (def_vrf_t *)vrf;
+        if (def_vrf->bgp_inst) return true;
+    }
+
+    return false;
+ }

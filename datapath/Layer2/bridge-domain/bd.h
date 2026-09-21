@@ -54,4 +54,8 @@ bd_switch_forward_frame (dp_ctx_t *dp_ctx,
                          mac_addr_t *dst_mac,
                          struct rte_mbuf *mbuf);
 
+
+void
+bd_mac_table_replay_local_macs(dp_intf_t *bd_intf) ;
+
 #endif 

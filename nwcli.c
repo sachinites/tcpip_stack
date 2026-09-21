@@ -138,7 +138,7 @@ display_mem_usage(int64_t cmdcode, Stack_t *tlv_stack,
  * to develop a CLI under a non-trivial hook point in a CLI tree.
  */
 
-/* config node <node-name> protocol .... */
+/* config <node-name> protocol .... */
 typedef int (*cli_register_cb)(param_t *);
 static cli_register_cb
 	cli_register_cb_arr_config_node_node_name_protocol_level[] =
@@ -156,7 +156,7 @@ static cli_register_cb
         0 /* Last member must be NULL */
 	};
 
-/* show node <node-name> protocol ... */
+/* show <node-name> protocol ... */
 static cli_register_cb
 	cli_register_cb_arr_show_node_node_name_protcol_level[] =
 	{
@@ -173,7 +173,7 @@ static cli_register_cb
         0 /*  Last member must be NULL */
 	};
 
-/* clear node <node-name> protocol ... */
+/* clear <node-name> protocol ... */
 static cli_register_cb
 	cli_register_cb_arr_clear_node_node_name_protcol_level[] =
 	{
@@ -194,7 +194,7 @@ static cli_register_cb
 		/* Add more CB here */
 	};
 
-/* debug node <node-name> protocol .... */
+/* debug <node-name> protocol .... */
 static cli_register_cb
 	cli_register_cb_arr_debug_node_node_name_protocol_level[] =
 	{
@@ -617,7 +617,7 @@ clear_rt_handler(int64_t cmdcode, Stack_t *tlv_stack,
     return 0;
 }
 
-/* config node <node-name> distributed-anycast-gateway <mac-address> */
+/* config <node-name> distributed-anycast-gateway <mac-address> */
 static int
 distributed_anycast_gateway_config_handler(int64_t cmdcode,
                                            Stack_t *tlv_stack,
@@ -1004,14 +1004,11 @@ nw_init_cli(){
 
     /* Debug commands */
     {
-        static param_t node;
-        init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
-        libcli_register_param(debug, &node);
         {
-            /* debug node <node-name> . . .*/
+            /* debug <node-name> . . .*/
             static param_t node_name;
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
-            libcli_register_param(&node, &node_name);
+            libcli_register_param(debug, &node_name);
             libcli_register_display_callback(&node_name, display_graph_nodes);
 
             {
@@ -1019,12 +1016,12 @@ nw_init_cli(){
                 init_param(&show, CMD, "show", NULL, NULL, INVALID, NULL, "Display debug data");
                 libcli_register_param(&node_name, &show);
 
-                /* debug node <node-name> show mpool <numa-id> */
-                /* debug node <node-name> l2-fwd-object database */
+                /* debug <node-name> show mpool <numa-id> */
+                /* debug <node-name> l2-fwd-object database */
                 dp_build_dp_debug_cli_tree(&node_name, &show);
 
                 {
-                    /* debug node <node-name> show cp-scheduler */
+                    /* debug <node-name> show cp-scheduler */
                     static param_t cps;
                     init_param(&cps, CMD, "cp-scheduler", show_scheduler, NULL, INVALID, NULL, "Show Scheduler info");
                     libcli_register_param(&show, &cps);
@@ -1033,12 +1030,12 @@ nw_init_cli(){
             }
 
             {
-                /*debug node <node-name> access-list...*/
+                /*debug <node-name> access-list...*/
                 static param_t access_lst;
                 init_param(&access_lst, CMD, "access-list", 0, 0, INVALID, 0, "Access List");
                 libcli_register_param(&node_name, &access_lst);
                 {
-                    /*debug node <node-name> access-list <access-list-name> ...*/
+                    /*debug <node-name> access-list <access-list-name> ...*/
                     static param_t access_list_name;
                     init_param(&access_list_name, LEAF, 0, 0, 0, STRING, "access-list-name", "Access List Name");
                     libcli_register_param(&access_lst, &access_list_name);
@@ -1051,7 +1048,7 @@ nw_init_cli(){
                 }
             }
              {
-                 /*debug node <node-name> mtrie ...*/
+                 /*debug <node-name> mtrie ...*/
                 static param_t mtrie;
                 init_param(&mtrie, CMD, "mtrie", 0, 0, INVALID, 0, "mtrie");
                 libcli_register_param(&node_name, &mtrie);
@@ -1069,13 +1066,13 @@ nw_init_cli(){
                 }                
             }
             {
-                /*debug node <node-name> timer*/
+                /*debug <node-name> timer*/
                 static param_t timer;
                 init_param(&timer, CMD, "timer", debug_show_node_handler, 0, INVALID, 0, "Timer State");
                 libcli_register_param(&node_name, &timer);
                 libcli_set_param_cmd_code(&timer, CMDCODE_DEBUG_SHOW_NODE_TIMER);
 				{
-					/*debug show node <node-name> timer logs*/
+					/*debug show <node-name> timer logs*/
 					static param_t logs;
 					init_param(&logs, CMD, "logging", debug_show_node_handler, 0, INVALID, 0, "Timer Logging");
 					libcli_register_param(&timer, &logs);
@@ -1083,12 +1080,12 @@ nw_init_cli(){
 				}
             }
 		    {
-			    /* debug node <node-name> protocol */
+			    /* debug <node-name> protocol */
 				static param_t protocol;
 				init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App protocol");
 				libcli_register_param(&node_name, &protocol);
 
-				/* debug node <node-name> protocol ...*/
+				/* debug <node-name> protocol ...*/
 				cli_register_application_cli_trees(&protocol, 
 							 cli_register_cb_arr_debug_node_node_name_protocol_level);
 			}
@@ -1105,31 +1102,28 @@ nw_init_cli(){
             libcli_register_param(clear, &log_file);
             libcli_set_param_cmd_code(&log_file, CMDCODE_CLEAR_LOG_FILE);
         }
-        /*clear node ...*/    
-        static param_t node;
-        init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
-        libcli_register_param(clear, &node);
+        /*clear ...*/    
         {
-            /*clear node <node-name>*/ 
+            /*clear <node-name>*/ 
             static param_t node_name;
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
-            libcli_register_param(&node, &node_name);	
+            libcli_register_param(clear, &node_name);	
             libcli_register_display_callback(&node_name, display_graph_nodes);
             
             static param_t protocol;
 
 		    {
-			    /* clear node <node-name> protocol */
+			    /* clear <node-name> protocol */
 				init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App protocol");
 				libcli_register_param(&node_name, &protocol);
 
-				/* clear node <node-name> protocol ...*/
+				/* clear <node-name> protocol ...*/
 				cli_register_application_cli_trees(&protocol, 
 							 cli_register_cb_arr_clear_node_node_name_protcol_level);
 			}
 
             {
-                /* clear node <node-name> vrf <vrf-name> . . . */
+                /* clear <node-name> vrf <vrf-name> . . . */
                 static param_t vrf;
                 init_param(&vrf, CMD, "vrf", NULL, NULL, INVALID, NULL, "Clear VRF information");
                 libcli_register_param(&node_name, &vrf);
@@ -1181,30 +1175,26 @@ nw_init_cli(){
          }
          
          {
-            /*show node*/    
-             static param_t node;
-             init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
-             libcli_register_param(show, &node);
              {
-                /*show node <node-name>*/ 
+                /*show <node-name>*/ 
                  static param_t node_name;
                  init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
-                 libcli_register_param(&node, &node_name);
+                 libcli_register_param(show, &node_name);
 				 libcli_register_display_callback(&node_name, display_graph_nodes);
                  {
                      static param_t protocol;
                      {
-                         /* show node <node-name> protocol */
+                         /* show <node-name> protocol */
                          init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "App protocol");
                          libcli_register_param(&node_name, &protocol);
 
-                         /* show node <node-name> protocol ...*/
+                         /* show <node-name> protocol ...*/
                          cli_register_application_cli_trees(&protocol,
                                                             cli_register_cb_arr_show_node_node_name_protcol_level);
                      }
 
                      {
-                        /* show node <node-name> mpls-label-mgr */
+                        /* show <node-name> mpls-label-mgr */
                         static param_t mplslabel_mgr;
                         init_param(&mplslabel_mgr, CMD, "mpls-label-mgr", mpls_label_mgr_show_handler, 0, INVALID, 0, "MPLS Label Manager");
                         libcli_register_param(&node_name, &mplslabel_mgr);
@@ -1212,7 +1202,7 @@ nw_init_cli(){
                      }
 
                      {
-                         /* show node <node-name> vrf <vrf-name> . . . */
+                         /* show <node-name> vrf <vrf-name> . . . */
                          static param_t vrf;
                          init_param(&vrf, CMD, "vrf", show_vrf_handler, NULL, INVALID, NULL, "Show VRF information");
                          libcli_register_param(&node_name, &vrf);
@@ -1225,7 +1215,7 @@ nw_init_cli(){
                              libcli_register_param(&vrf, &vrf_name);
                              {
                                  {
-                                     /* show node <node-name> vrf <vrf-name> protocol . . .*/
+                                     /* show <node-name> vrf <vrf-name> protocol . . .*/
                                      libcli_register_param(&vrf_name, &protocol);
                                  }
                              }
@@ -1254,7 +1244,7 @@ nw_init_cli(){
                  }
                  {
                     #if 0
-                    /*show node <node-name> spf-result*/
+                    /*show <node-name> spf-result*/
                     static param_t spf_result;
                     init_param(&spf_result, CMD, "spf-result", spf_algo_handler, 0, INVALID, 0, "SPF Results");
                     libcli_register_param(&node_name, &spf_result);
@@ -1267,7 +1257,7 @@ nw_init_cli(){
                  }
 
                  {
-                    /*show node <node-name> mac*/
+                    /*show <node-name> mac*/
                     static param_t mac;
                     init_param(&mac, CMD, "mac", show_mac_handler, 0, INVALID, 0, "Dump Mac Table");
                     libcli_register_param(&node_name, &mac);
@@ -1288,20 +1278,20 @@ nw_init_cli(){
                  }
 
                  {
-                    /*show node <node-name> rtm ...*/
+                    /*show <node-name> rtm ...*/
                     static param_t rtm;
                     init_param(&rtm, CMD, "rtm", 0, 0, INVALID, 0, "RTM information");
                     libcli_register_param(&node_name, &rtm);
                     {
                         {
-                            /* show node <node-name> rtm dist-mgr-db */
+                            /* show <node-name> rtm dist-mgr-db */
                             static param_t dist_mgr_db;
                             init_param(&dist_mgr_db, CMD, "dist-mgr-db", rtm_show_dist_mgr_database_handler, 0, INVALID, 0, "Show Distribution Manager Database");
                             libcli_register_param(&rtm, &dist_mgr_db);
                             libcli_set_param_cmd_code(&dist_mgr_db, CMDCODE_SHOW_NODE_RTM_DIST_MGR_DB);
                         }
                         {
-                            /* show node <node-name> rtm dist-mgr-policies */
+                            /* show <node-name> rtm dist-mgr-policies */
                             static param_t dist_mgr_policies;
                             init_param(&dist_mgr_policies, CMD, "dist-mgr-policies",
                                        rtm_show_dist_mgr_policies_handler, 0, INVALID,
@@ -1310,13 +1300,13 @@ nw_init_cli(){
                             libcli_set_param_cmd_code(&dist_mgr_policies, CMDCODE_SHOW_NODE_RTM_DIST_MGR_POLICIES);
                         }
                         {
-                            /* show node <node-name> rtm dist-mgr-target <proto-name> [<vrf-name> [<instance-no>]] */
+                            /* show <node-name> rtm dist-mgr-target <proto-name> [<vrf-name> [<instance-no>]] */
                             static param_t dist_mgr_target;
                             init_param(&dist_mgr_target, CMD, "dist-mgr-target", 0, 0, INVALID, 0,
                                        "Show routes advertised to a redistribution target");
                             libcli_register_param(&rtm, &dist_mgr_target);
                             {
-                                /* show node <node-name> rtm dist-mgr-target route <prefix> */
+                                /* show <node-name> rtm dist-mgr-target route <prefix> */
                                 static param_t dist_target_route;
                                 init_param(&dist_target_route, CMD, "route", 0, 0, INVALID, 0,
                                            "Per-prefix redistribution: clients and advertised attributes");
@@ -1333,7 +1323,7 @@ nw_init_cli(){
                                 }
                             }
                             {
-                                /* show node <node-name> rtm dist-mgr-target <proto-name> */
+                                /* show <node-name> rtm dist-mgr-target <proto-name> */
                                 static param_t proto_name;
                                 init_param(&proto_name, LEAF, 0, rtm_show_dist_mgr_targets_handler,
                                            0, STRING, "proto-name",
@@ -1341,7 +1331,7 @@ nw_init_cli(){
                                 libcli_register_param(&dist_mgr_target, &proto_name);
                                 libcli_set_param_cmd_code(&proto_name, CMDCODE_SHOW_NODE_RTM_DIST_MGR_TARGETS);
                                 {
-                                    /* show node <node-name> rtm dist-mgr-target <proto-name> <vrf-name> */
+                                    /* show <node-name> rtm dist-mgr-target <proto-name> <vrf-name> */
                                     static param_t vrf_name;
                                     init_param(&vrf_name, LEAF, 0, rtm_show_dist_mgr_targets_handler,
                                                validate_vrf_existence, STRING, "vrf-name",
@@ -1350,7 +1340,7 @@ nw_init_cli(){
                                     libcli_register_param(&proto_name, &vrf_name);
                                     libcli_set_param_cmd_code(&vrf_name, CMDCODE_SHOW_NODE_RTM_DIST_MGR_TARGETS);
                                     {
-                                        /* show node <node-name> rtm dist-mgr-target <proto-name> <vrf-name> <instance-no> */
+                                        /* show <node-name> rtm dist-mgr-target <proto-name> <vrf-name> <instance-no> */
                                         static param_t instance_no;
                                         init_param(&instance_no, LEAF, 0, rtm_show_dist_mgr_targets_handler,
                                                    0, INT, "instance-no",
@@ -1362,19 +1352,19 @@ nw_init_cli(){
                             }
                         }
 
-                         /*show node <node-name> rtm <Rib name> */
+                         /*show <node-name> rtm <Rib name> */
                         static param_t rib_name;
                         init_param(&rib_name, LEAF, 0, show_rtm_route_cli_handler, 0, STRING, "rib-name", "Show RTM table");
                         libcli_register_param(&rtm, &rib_name);
                         libcli_set_param_cmd_code(&rib_name, CMDCODE_SHOW_NODE_RTM_ROUTE);
                         {
-                             /*show node <node-name> rtm <Rib name> detail*/
+                             /*show <node-name> rtm <Rib name> detail*/
                              static param_t detail;
                              init_param(&detail, CMD, "detail", show_rtm_route_cli_handler, 0, INVALID, 0, "Show RTM table detail");
                              libcli_register_param(&rib_name, &detail);
                              libcli_set_param_cmd_code(&detail, CMDCODE_SHOW_NODE_RTM_ROUTE_DETAIL);
                              {
-                                 /*show node <node-name> rt <Rib name> detail <prefix/mask>*/
+                                 /*show <node-name> rt <Rib name> detail <prefix/mask>*/
                                  static param_t prefix_mask;
                                  init_param(&prefix_mask, LEAF, 0, show_rtm_route_cli_handler, 0, STRING, 
                                     "prefix-mask", "Prefix/mask filter (e.g., 192.168.1.0/24 or 2001:db8::/64)");
@@ -1383,7 +1373,7 @@ nw_init_cli(){
                              }
                         }
                         {
-                            /*show node <node-name> rtm <Rib name> unresolvable-routes*/
+                            /*show <node-name> rtm <Rib name> unresolvable-routes*/
                             static param_t unresolvable_routes;
                             init_param(&unresolvable_routes, CMD, "unresolvable-routes", 
                                        show_rtm_route_cli_handler, 0, INVALID, 0, 
@@ -1392,7 +1382,7 @@ nw_init_cli(){
                             libcli_set_param_cmd_code(&unresolvable_routes, CMDCODE_SHOW_NODE_RTM_UNRESOLVABLE_ROUTES);
                         }
                         {
-                            /*show node <node-name> rtm <Rib name> ppt-db */
+                            /*show <node-name> rtm <Rib name> ppt-db */
                             static param_t ppt_db;
                             init_param(&ppt_db, CMD, "ppt-db", 
                                        show_rtm_presentation_db_handler, 0, INVALID, 0, 
@@ -1400,7 +1390,7 @@ nw_init_cli(){
                             libcli_register_param(&rib_name, &ppt_db);
                             libcli_set_param_cmd_code(&ppt_db, CMDCODE_SHOW_NODE_RTM_PPT_DB);
                             {
-                                /*show node <node-name> rtm <Rib name> ppt-db <prefix filter> */
+                                /*show <node-name> rtm <Rib name> ppt-db <prefix filter> */
                                 static param_t prefix_filter;
                                 init_param(&prefix_filter, LEAF, 0, 
                                            show_rtm_presentation_db_handler, 0, STRING, "prefix-filter", 
@@ -1434,15 +1424,11 @@ nw_init_cli(){
     }
 
     {
-        /*run node*/
-        static param_t node;
-        init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
-        libcli_register_param(run, &node);
         {
             /*run node <node-name>*/
             static param_t node_name;
             init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
-            libcli_register_param(&node, &node_name);
+            libcli_register_param(run, &node_name);
             libcli_register_display_callback(&node_name, display_graph_nodes);
 			{
 				/* run node <node-name> protocol */	
@@ -1626,15 +1612,11 @@ nw_init_cli(){
         }
     }
     {
-      /*config node*/
-      static param_t node;
-      init_param(&node, CMD, "node", 0, 0, INVALID, 0, "\"node\" keyword");
-      libcli_register_param(config, &node);  
       {
-        /*config node <node-name>*/
+        /*config <node-name>*/
         static param_t node_name;
         init_param(&node_name, LEAF, 0, 0, validate_node_extistence, STRING, "node-name", "Node Name");
-        libcli_register_param(&node, &node_name);
+        libcli_register_param(config, &node_name);
         libcli_param_list(&node_name);
         libcli_register_display_callback(&node_name, display_graph_nodes);
         {
@@ -1674,7 +1656,7 @@ nw_init_cli(){
         }
 
         {
-            /* config node <node-name> router-id <ipv4-addr> */
+            /* config <node-name> router-id <ipv4-addr> */
             static param_t router_id;
             init_param(&router_id, CMD, "router-id", 0, 0, INVALID, NULL, "IPV4 Router ID");
             libcli_register_param(&node_name, &router_id);
@@ -1688,7 +1670,7 @@ nw_init_cli(){
         }
 
         {
-            /* config node <node-name> distributed-anycast-gateway <mac-address> */
+            /* config <node-name> distributed-anycast-gateway <mac-address> */
             static param_t dagw;
             init_param(&dagw, CMD, "distributed-anycast-gateway", 0, 0, INVALID, NULL,
                        "EVPN distributed anycast gateway MAC");
@@ -1706,23 +1688,23 @@ nw_init_cli(){
 
 
         {
-            /* config node <node-name> rtm-route */
+            /* config <node-name> rtm-route */
             static param_t rtm_route;
             init_param(&rtm_route, CMD, "rtm-route", 0, 0, INVALID, 0, "RTM Route Configuration");
             libcli_register_param(&node_name, &rtm_route);
             libcli_register_param(vrf_config_name, &rtm_route);
             {
-                /* config node <node-name> rtm-route prefix */
+                /* config <node-name> rtm-route prefix */
                 static param_t prefix;
                 init_param(&prefix, CMD, "prefix", 0, 0, INVALID, 0, "Route prefix");
                 libcli_register_param(&rtm_route, &prefix);
                 {
-                    /* config node <node-name> rtm-route prefix <prefix/mask> */
+                    /* config <node-name> rtm-route prefix <prefix/mask> */
                     static param_t prefix_mask;
                     init_param(&prefix_mask, LEAF, 0, 0, 0, STRING, "prefix-mask", "IP prefix/mask (10.0.0.0/24) or MPLS label (100 or Label:100)");
                     libcli_register_param(&prefix, &prefix_mask);
                     {
-                        /* config node <node-name> rtm-route prefix <prefix/mask> <proto-id> */
+                        /* config <node-name> rtm-route prefix <prefix/mask> <proto-id> */
                         static param_t proto_id;
                         init_param(&proto_id, LEAF, 0, 0, 0, INT, "proto-id", "Protocol ID (0-9)");
                         libcli_register_param(&prefix_mask, &proto_id);
@@ -1846,7 +1828,7 @@ nw_init_cli(){
         }
 
         {
-            /* config node <node-name> ip-traffic <src-addr> <dst-addr> <protocol>*/
+            /* config <node-name> ip-traffic <src-addr> <dst-addr> <protocol>*/
             static param_t traffic;
             init_param(&traffic, CMD, "ip-traffic", 0, 0, INVALID, 0, "IP Traffic Generator");
             libcli_register_param(&node_name, &traffic);
@@ -1881,7 +1863,7 @@ nw_init_cli(){
         }
 
         {
-            /* config node <node-name> mac-table install <vlan-id> <mac-addr> <OIF> [<remote-vtep>] */
+            /* config <node-name> mac-table install <vlan-id> <mac-addr> <OIF> [<remote-vtep>] */
             static param_t mac_table;
             init_param(&mac_table, CMD, "mac-table", 0, 0, INVALID, 0, "Mac Table Entry");
             libcli_register_param(&node_name, &mac_table);
@@ -1939,14 +1921,14 @@ nw_init_cli(){
 
         {
             {
-                /*config node <node-name> [no] protocol*/
+                /*config <node-name> [no] protocol*/
                 static param_t protocol;
                 init_param(&protocol, CMD, "protocol", 0, 0, INVALID, 0, "protocol");
                 libcli_register_param(&node_name, &protocol);
                 libcli_register_param(vrf_config_name, &protocol);
                 
 				
-				/* config node <node-name> protocol....*/
+				/* config <node-name> protocol....*/
 				cli_register_application_cli_trees(&protocol, 
 						cli_register_cb_arr_config_node_node_name_protocol_level);
                 libcli_support_cmd_negation(&protocol);
@@ -1957,29 +1939,29 @@ nw_init_cli(){
         }
         
         {
-            /*config node <node-name> route*/
+            /*config <node-name> route*/
             static param_t route;
             init_param(&route, CMD, "route", 0, 0, INVALID, 0, "L3 route");
             libcli_register_param(&node_name, &route);
             {
-                /*config node <node-name> route <ip-address>*/    
+                /*config <node-name> route <ip-address>*/    
                 static param_t ip_addr;
                 init_param(&ip_addr, LEAF, 0, 0, 0, IPV4, "ip-address", "IPv4 Address");
                 libcli_register_param(&route, &ip_addr);
                 {
-                     /*config node <node-name> route <ip-address> <mask>*/
+                     /*config <node-name> route <ip-address> <mask>*/
                     static param_t mask;
                     init_param(&mask, LEAF, 0, l3_config_handler, validate_mask_value, INT, "mask", "mask(0-32");
                     libcli_register_param(&ip_addr, &mask);
                     libcli_set_param_cmd_code(&mask, CMDCODE_CONF_NODE_L3ROUTE);
                     {
-                        /*config node <node-name> route <ip-address> <mask> <gw-ip>*/
+                        /*config <node-name> route <ip-address> <mask> <gw-ip>*/
                         static param_t gwip;
                         init_param(&gwip, LEAF, 0, l3_config_handler, 0, IPV4, "gw-ip", "IPv4 Address");
                         libcli_register_param(&mask, &gwip);
                         libcli_set_param_cmd_code(&gwip, CMDCODE_CONF_NODE_L3ROUTE);
                         {
-                            /*config node <node-name> route <ip-address> <mask> <gw-ip> <oif>*/
+                            /*config <node-name> route <ip-address> <mask> <gw-ip> <oif>*/
                             static param_t oif;
                             init_param(&oif, LEAF, 0, l3_config_handler, 0, STRING, "oif", "Out-going intf Name");
                             libcli_register_param(&gwip, &oif);

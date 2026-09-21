@@ -274,7 +274,8 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
                     uint8_t *mac_addr,
                     uint16_t vlan_id,
                     uint16_t flags,
-                    mac_fwd_object_t *fwd_tmpl)
+                    mac_fwd_object_t *fwd_tmpl,
+                    uint32_t ip_addr)
 {
     ASSERT_ON_DP_EV_DIS(dp_ctx);
 
@@ -292,6 +293,9 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
                    mac_addr[0], mac_addr[1], mac_addr[2],
                    mac_addr[3], mac_addr[4], mac_addr[5]);
         }
+        /* Refresh host IP on re-learn when known (do not clear on 0). */
+        if (ip_addr && (flags & MAC_DATA_PLANE))
+            existing->ip_addr = ip_addr;
         return;
     }
 
@@ -301,6 +305,7 @@ mac_table_entry_add(dp_ctx_t *dp_ctx,
     memcpy(entry->mac.mac, mac_addr, sizeof(mac_addr_t));
     entry->flags = 0;
     entry->lcl_ifindex = 0;
+    entry->ip_addr = (flags & MAC_DATA_PLANE) ? ip_addr : 0;
     entry->oifs = NULL;
     entry->oif_count = 0;
     entry->oif_cap = 0;
@@ -400,6 +405,7 @@ mac_table_entry_clone_static(const mac_table_entry_t *src)
     dst->flags = src->flags;
     dst->last_used = src->last_used;
     dst->nh_index = 0;
+    dst->ip_addr = src->ip_addr;
     memcpy(dst->mac.mac, src->mac.mac, sizeof(dst->mac.mac));
 
     for (i = 0; i < src->oif_count; i++) {

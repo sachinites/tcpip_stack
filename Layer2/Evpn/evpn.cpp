@@ -11,6 +11,8 @@
 #include "evpn_priv_api.h"
 #include "../../vrf/mac_vrf.h"
 #include "../../RTM/rtm.h"
+#include "../../Layer5/bgp_rtr.h"
+#include "../../Layer5/bgp_global_rib.h"
 
 extern int cprintf (const char* format, ...);
 
@@ -140,29 +142,59 @@ evpn_connect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf) {
     evpn_inst->mac_vrf->evpn_inst = evpn_inst;
 
     mac_vrf_evpn_route_type3_local_import(bd_intf->vrf->node, evpn_inst->mac_vrf);
+
+    if (BGP_INST(evpn_inst->node))
+    {
+        bgp_global_rib_export_all(
+            BGP_INST(evpn_inst->node),
+            AFI_L2VPN,
+            SAFI_MPLS_EVPN,
+            evpn_inst->evi);
+    }
 }
 
+/* 
+1. Delete local Routes from MAC VRF - Type 2 and 3 both 
+2. They never installed in RTM in the first place, do dont bother to delete from RTM
+3. Withdraw local route advertisement from BGP for both Type 2 and Type 3
+4. BGP will withdraw and delete Imet/Mac local routes from Global RIBs
+5. Delete Remote routes Type2/3 from MAC VRF
+6. Withdraw all Remote Routes from RTM
+7. Delete MAC VRF
+8. All Remote Routes must stay in BGP GLobal RIB
+*/
 bool 
 evpn_disconnect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf)
 {
     assert (evpn_inst->bd_intf.get() == bd_intf);
+    assert (evpn_inst->mac_vrf);
 
     node_t *node = evpn_inst->node;
+    mac_vrf_t *mac_vrf = evpn_inst->mac_vrf;
 
-    /* Reset RT */
-    evpn_inst->export_rt.rtr_id = 0;
-    evpn_inst->export_rt.sub_type = 0;
-    evpn_inst->export_rt.vrf_id = 0;
-    evpn_inst->import_rt = evpn_inst->export_rt;
-
-    bd_intf->disable_lmac_queue();
+    /* Stop learning before tearing down MAC VRF routes */
     cp2dp_enable_bd_lmac_learning_queue(bd_intf, false);
-    mac_vrf_evpn_route_type3_delete(node, evpn_inst->mac_vrf);
-    mac_vrf_destroy(evpn_inst->mac_vrf);
+    bd_intf->disable_lmac_queue();
 
+    /*
+     * 1-3. Delete local Type-2/3 from MAC VRF and withdraw from BGP.
+     *      Locals were never installed in RTM.
+     * Must happen before clearing RD/RT used by BGP withdraw.
+     */
+    mac_vrf_delete_all_local_evpn_routes(node, mac_vrf);
+
+    /*
+     * 4-5. Delete remote Type-2/3 from MAC VRF and uninstall them from RTM.
+     * 7.   Do not touch BGP Global RIB — remotes stay there.
+     */
+    mac_vrf_delete_all_remote_evpn_routes(mac_vrf);
+
+    /* 6. Delete MAC VRF */
+    mac_vrf_destroy(mac_vrf);
     evpn_inst->mac_vrf = NULL;
+
     bd_intf->evi_id = 0;
     evpn_inst->bd_intf = nullptr;
-    
+
     return true;
 }

@@ -245,9 +245,15 @@ rtm_check_and_delete (rtm_t *rtm, bool free_rtm) {
     }
 }
 
-/* Destroy an RTM instance */
+/* Destroy an RTM instance : Hard stop means RTM all scheduled 
+    jobs are cancelled, all Queued work is destroyed and no more
+    acceptance of new work by RTM. RTM delete/clear all its internal 
+    state and self destroy itself. When RTM is hard-stopped, RTM will
+    not publish any path delete notif to other components - 
+    Dist-Mgr / L3FIB / L2FIB. So, Dist-Mgr / L3FIB / L2FIB will have
+    the entries which belong to this RTM intact */
 void 
-rtm_stop (rtm_t *rtm) {
+rtm_hard_stop (rtm_t *rtm) {
 
     int i; 
     rtm_nh *nh;
@@ -255,13 +261,13 @@ rtm_stop (rtm_t *rtm) {
     rtm_route *route;
     node_t *node = rtm->node;
 
-    assert (!(rtm->flags & RTM_F_STOPPED));
+    if (rtm->flags & RTM_F_HARD_STOPPED) return;
 
     bool delete_immediate = 
         avltree_is_empty (&rtm->nh_proto_info_tree) ? true : false;
 
     if (!delete_immediate) {
-        rtm->flags |= RTM_F_STOPPED;
+        rtm->flags |= RTM_F_HARD_STOPPED;
         tracer(rtm->node->cptr, DRTM, "RTM[%s] : Marked for Deletion\n", rtm->name);
     }
 
@@ -270,7 +276,7 @@ rtm_stop (rtm_t *rtm) {
         And whatever work is queued now, we will abort them, For example
         deleting nexthop would try to queue routes to advt_queue .
     */
-    for (i = RTM_PROTO_STATIC; i < RTM_PROTO_MAX; i++) {
+    for (i = RTM_PROTO_FIRST; i < RTM_PROTO_MAX; i++) {
 
         ITERATE_GLTHREAD_BEGIN(&rtm->nhs_by_src[i], curr) {
 
@@ -339,6 +345,34 @@ rtm_stop (rtm_t *rtm) {
     if (delete_immediate) {
         rtm_check_and_delete (rtm, true);
     }
+}
+
+/* This function also eventually destroy the RTM but allow
+    RTM to finish the pending/queued work. After calling this 
+    API, caller must set the holding pointer to RTM = NULL. 
+    This RTM will continue to breathe until all work Queued
+    is finished */
+void 
+rtm_soft_stop (rtm_t *rtm)  {
+
+    int i;
+    rtm_nh *nh;
+    glthread_t *curr;
+
+    if (rtm->flags & RTM_F_SOFT_STOPPED) return;
+
+    rtm->flags |= RTM_F_SOFT_STOPPED;
+
+    for (i = RTM_PROTO_FIRST; i < RTM_PROTO_MAX; i++) {
+
+        ITERATE_GLTHREAD_BEGIN(&rtm->nhs_by_src[i], curr) {
+
+            nh = src_glue_to_rtm_nh(curr);
+            cp_rtm_uninstall_route_by_idx(rtm, nh->idx);
+
+        } ITERATE_GLTHREAD_END(&rtm->nhs_by_src[i], curr);
+    }
+
 }
 
 void 

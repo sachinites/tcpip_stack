@@ -61,7 +61,9 @@ typedef struct rtm_ppt_db_ rtm_ppt_db_t;
  * ======================================================================== */
 
 #define RTM_F_INHS_RE_RESOLVE   1  /* Flag to trigger re-resolution of all INHs */
-#define RTM_F_STOPPED           2  /* This instance of RTM is no more operational, candidate for free */
+#define RTM_F_HARD_STOPPED      2  /* This instance of RTM is no more operational, candidate for free */
+#define RTM_F_SOFT_STOPPED      4
+
 
 #pragma pack(push, 8)
 
@@ -183,7 +185,8 @@ rtm_initialize(node_t *node,
  * 
  * @param rtm RTM to stop
  */
-void rtm_stop (rtm_t *rtm);
+void rtm_hard_stop (rtm_t *rtm);
+void rtm_soft_stop (rtm_t *rtm);
 
 /**
  * @brief Log RTM statistics

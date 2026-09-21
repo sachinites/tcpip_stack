@@ -232,7 +232,7 @@ mac_vrf_destroy (mac_vrf_t *mac_vrf) {
         mac_vrf->mac_ip_binding = NULL;
     }
 
-    rtm_stop(mac_vrf->mac_rtm);
+    rtm_soft_stop(mac_vrf->mac_rtm);
     //rtm_check_and_delete(mac_vrf->mac_rtm, true);
     mac_vrf->mac_rtm = NULL;
 
@@ -1243,6 +1243,62 @@ mac_vrf_evpn_route_type3_remote_delete(
     }
 
     XFREE(evpn_rt);
+}
+
+void
+mac_vrf_delete_all_local_evpn_routes(node_t *node, mac_vrf_t *mac_vrf)
+{
+    struct hashtable_itr *itr;
+    mac_vrf_type2_key_t *keys = NULL;
+    unsigned int count;
+    unsigned int n = 0;
+    unsigned int i;
+
+    if (!node || !mac_vrf) {
+        return;
+    }
+
+    if (mac_vrf->type2_rib &&
+        (count = hashtable_count(mac_vrf->type2_rib)) > 0) {
+
+        keys = (mac_vrf_type2_key_t *)XCALLOC_BUFF(
+                    0, count * sizeof(mac_vrf_type2_key_t));
+        if (keys) {
+            itr = hashtable_iterator(mac_vrf->type2_rib);
+            if (itr) {
+                do {
+                    mac_vrf_type2_key_t *key =
+                        (mac_vrf_type2_key_t *)hashtable_iterator_key(itr);
+                    evpn_exp_rt_t *evpn_rt =
+                        (evpn_exp_rt_t *)hashtable_iterator_value(itr);
+
+                    if (!key || !evpn_rt) {
+                        break;
+                    }
+
+                    if (!(evpn_rt->flags & EVPN_RT_F_LOCAL)) {
+                        continue;
+                    }
+
+                    if (n < count) {
+                        keys[n++] = *key;
+                    }
+                } while (hashtable_iterator_advance(itr));
+
+                free(itr);
+
+                for (i = 0; i < n; i++) {
+                    mac_vrf_evpn_route_type2_delete(node, mac_vrf,
+                                                    &keys[i].mac,
+                                                    keys[i].ip_addr);
+                }
+            }
+            XFREE(keys);
+        }
+    }
+
+    /* Local Type-3 IMET (withdraws BGP, removes from MAC VRF; not in RTM) */
+    mac_vrf_evpn_route_type3_delete(node, mac_vrf);
 }
 
 void 

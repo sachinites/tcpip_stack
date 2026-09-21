@@ -45,7 +45,7 @@ rtm_gc_job_cbk(
         XFREE (gc);
     }
 
-    if (rtm->flags & RTM_F_STOPPED) {
+    if (rtm->flags & (RTM_F_HARD_STOPPED | RTM_F_SOFT_STOPPED)) {
 
         /* *check_and_delete() of GC objects may queue up more objects for GC. For ex, 
             rtm_nh release resources may results in rtm_nh->owner_route queue up in

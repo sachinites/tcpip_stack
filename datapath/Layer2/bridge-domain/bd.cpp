@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <assert.h>
+#include <rte_hash.h>
 #include "bd.h"
 
 #include "../../../libs/common/l2_hdrs.h"
@@ -474,4 +475,55 @@ bd_ac_recv_pkt (dp_ctx_t *dp_ctx, dp_intf_t *ac, struct rte_mbuf *mbuf) {
             ac->bd_intf,
             ac,
             mbuf);        
+}
+
+void
+bd_mac_table_replay_local_macs(dp_intf_t *bd_intf) {
+
+    mac_table_t *mac_table;
+    uint32_t next = 0;
+    const void *key;
+    void *data;
+
+    if (!bd_intf)
+        return;
+
+    mac_table = bd_intf->mac_table;
+    if (!mac_table || !mac_table->hash)
+        return;
+
+    /*
+     * Trap-Q just enabled: replay DP-learned local AC MACs so CP can
+     * (re)import Type-2 routes. Skip broadcast and non-local nexthops
+     * (MPLS/VxLAN/EVPN-CP, etc.).
+     */
+    while (rte_hash_iterate(mac_table->hash, &key, &data, &next) >= 0) {
+        mac_table_entry_t *entry = (mac_table_entry_t *)data;
+        uint16_t i;
+        bool has_local_ac = false;
+
+        if (!entry || mac_table_entry_is_broadcast(entry))
+            continue;
+
+        for (i = 0; i < entry->oif_count; i++) {
+            mac_fwd_object_t *fwd = entry->oifs[i];
+
+            if (!fwd || fwd->fwd_type != L2_FWD_PORT)
+                continue;
+            if (!(fwd->flags & MAC_DATA_PLANE))
+                continue;
+
+            has_local_ac = true;
+            break;
+        }
+
+        if (!has_local_ac)
+            continue;
+
+        dp_bd_mac_notify_cp(bd_intf->dp_ctx,
+                            bd_intf->port_id,
+                            entry->mac.mac,
+                            true,
+                            entry->ip_addr);
+    }
 }
