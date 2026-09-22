@@ -43,18 +43,16 @@ evpn_instance_init (node_t *node, uint8_t evpn_id) {
 }
 
 void
-evpn_instance_deinit (evpn_inst_t **_evpn_inst)
+evpn_instance_deinit (evpn_inst_t *evpn_inst)
 {
-    evpn_inst_t *evpn_inst;
-    node_t *node;
+    node_t *node = evpn_inst->node;
 
-    evpn_inst = *_evpn_inst;
-    node = evpn_inst->node;
-
-    /* BD should be disconnected from EVI*/
-    assert (evpn_inst->bd_intf == nullptr);
     assert (node->evpn[evpn_inst->evi] == evpn_inst);
 
+    /* Disconnect BD */
+    evpn_disconnect_bd(evpn_inst, evpn_inst->bd_intf.get());
+    assert (evpn_inst->mac_vrf == NULL);
+    
     node->evpn[evpn_inst->evi] = NULL;
     evpn_inst->node = NULL;
 

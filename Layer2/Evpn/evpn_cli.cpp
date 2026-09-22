@@ -382,7 +382,7 @@ evpn_config_handler (int64_t cmdcode,
                         cprintf ("Error : EVPN instance %u does not exist\n", evpn_id);
                         return -1;
                     }
-                    evpn_instance_deinit (&evpn_inst);
+                    evpn_instance_deinit (evpn_inst);
                     break;
 
                 default:

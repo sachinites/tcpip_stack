@@ -72,7 +72,7 @@ evpn_inst_t *
 evpn_instance_init (node_t *node, uint8_t evpn_id) ;
 
 void
-evpn_instance_deinit (evpn_inst_t **evpn_inst);
+evpn_instance_deinit (evpn_inst_t *evpn_inst);
 
 bool 
 evpn_config_rd (evpn_inst_t *evpn_inst, rd_t rd);
