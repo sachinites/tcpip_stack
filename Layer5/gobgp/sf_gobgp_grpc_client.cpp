@@ -366,7 +366,13 @@ to_c_route_info(const gobgp_client::BgpRouteInfo& in,
     out->mac_mobility_seq_present = in.mac_mobility_seq_present;
     out->pmsi_label = in.pmsi_label;
     out->pmsi_label_present = in.pmsi_label_present;
+    out->pmsi_flags = in.pmsi_flags;
     out->pmsi_tunnel_type = in.pmsi_tunnel_type;
+    out->pmsi_tunnel_id_len = in.pmsi_tunnel_id_len;
+    if (in.pmsi_tunnel_id_len > 0) {
+        std::memcpy(out->pmsi_tunnel_id, in.pmsi_tunnel_id,
+                    in.pmsi_tunnel_id_len);
+    }
     out->tunnel_encap_type = in.tunnel_encap_type;
     out->tunnel_encap_present = in.tunnel_encap_present;
     switch (in.safi) {

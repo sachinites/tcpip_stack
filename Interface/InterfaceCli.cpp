@@ -381,7 +381,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
             /* Install local routes in RIB if interface goes up.
              * GRE tunnels install routes only when fully activated. */
             if (interface->iftype != INTF_TYPE_GRE_TUNNEL) {
-                if (interface->is_up && interface->IsIpConfigured()) {
+                if (interface->is_up) {
                     interface_install_local_v4_routes  (node, interface);
                     interface_install_local_v6_routes  (node, interface);
                     rtm_install_mpls_xconnect_bd_evpn_local_route(interface, true);
@@ -390,7 +390,7 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     interface_vlan_install_router_mac(node, interface);
                     interface_install_anycast_gw_mac(node, interface);
                 }
-                else if (!interface->is_up && interface->IsIpConfigured()) {
+                else if (!interface->is_up) {
                     interface_uninstall_local_v4_routes  (node, interface);
                     interface_uninstall_local_v6_routes  (node, interface);
                     rtm_install_mpls_xconnect_bd_evpn_local_route(interface, false);
@@ -400,8 +400,6 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     interface_uninstall_anycast_gw_mac(node, interface);
                 }
             }
-
-            
 
             if (minor_code) {
                 cp_ips_send (node, IPC_INTERFACE, minor_code, 

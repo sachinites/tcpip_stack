@@ -86,7 +86,10 @@ struct BgpRouteInfo {
     bool mac_mobility_seq_present = false;
     std::uint32_t pmsi_label = 0;
     bool pmsi_label_present = false;
+    std::uint8_t pmsi_flags = 0;
     std::uint8_t pmsi_tunnel_type = 0;
+    std::uint8_t pmsi_tunnel_id_len = 0;
+    std::uint8_t pmsi_tunnel_id[16] = {};
     std::uint16_t tunnel_encap_type = 0;
     bool tunnel_encap_present = false;
 };

@@ -597,7 +597,13 @@ bgp_route_walk_adapter(const sf_gobgp_route_info_t *route, void *userdata)
     }
     info.pmsi_label = route->pmsi_label;
     info.pmsi_label_present = route->pmsi_label_present;
+    info.pmsi_flags = route->pmsi_flags;
     info.pmsi_tunnel_type = route->pmsi_tunnel_type;
+    info.pmsi_tunnel_id_len = route->pmsi_tunnel_id_len;
+    if (route->pmsi_tunnel_id_len > 0) {
+        memcpy(info.pmsi_tunnel_id, route->pmsi_tunnel_id,
+               route->pmsi_tunnel_id_len);
+    }
     info.evpn_label1 = route->evpn_label1;
     info.evpn_label1_present = route->evpn_label1_present;
     info.evpn_label1_from_ext_comm = route->evpn_label1_from_ext_comm;
@@ -836,7 +842,13 @@ bgp_monitor_dispatch(bgp_monitor_ctx_t *mon,
             update->route.mac_mobility_seq_present;
         info.pmsi_label = update->route.pmsi_label;
         info.pmsi_label_present = update->route.pmsi_label_present;
+        info.pmsi_flags = update->route.pmsi_flags;
         info.pmsi_tunnel_type = update->route.pmsi_tunnel_type;
+        info.pmsi_tunnel_id_len = update->route.pmsi_tunnel_id_len;
+        if (update->route.pmsi_tunnel_id_len > 0) {
+            memcpy(info.pmsi_tunnel_id, update->route.pmsi_tunnel_id,
+                   update->route.pmsi_tunnel_id_len);
+        }
         info.tunnel_encap_type = update->route.tunnel_encap_type;
         info.tunnel_encap_present = update->route.tunnel_encap_present;
 

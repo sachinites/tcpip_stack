@@ -369,45 +369,6 @@ void dp_arp_cli_resolve_ex_sync(dp_ctx_t *dp_ctx,
 }
 
 static int
-show_mac_handler(int64_t cmdcode, Stack_t *tlv_stack,
-                    op_mode enable_or_disable){
-
-    node_t *node;
-    c_string node_name;
-    uint32_t vni_id = 0;
-    vlan_id_t vlan_id = 0;
-    tlv_struct_t *tlv = NULL;
-    
-    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv){
-
-        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
-            node_name = tlv->value;
-
-        else if (parser_match_leaf_id(tlv->leaf_id, "vni-id")) {
-
-            vni_id = atoi(tlv->value);
-            if (vni_id == 0) {
-                cprintf ("Error : Invalid vni\n");
-                return -1;
-            }
-        }
-
-    }TLV_LOOP_END;
-
-    node = node_get_node_by_name(topo, node_name);
-    vlan_id = vni_to_vlan_lookup(node, vni_id);
-
-    if (vni_id && vlan_id == 0) {
-        cprintf ("Error : No VLAN associated with VNI %d\n", vni_id);
-        return -1;
-    }
-
-    /* Route through dp_ev_dis for consistent view (no races with hash writers) */
-    dp_show_mac_table_sync(node->dp_ctx, vlan_id);
-    return 0;
-}
-
-static int
 arp_handler(int64_t cmdcode, Stack_t *tlv_stack,
                 op_mode enable_or_disable){
 
@@ -1254,27 +1215,6 @@ nw_init_cli(){
                  {
                     dp_build_dp_show_cli_tree (&node_name);
                     bd_show_cli_tree (&node_name);
-                 }
-
-                 {
-                    /*show <node-name> mac*/
-                    static param_t mac;
-                    init_param(&mac, CMD, "mac", show_mac_handler, 0, INVALID, 0, "Dump Mac Table");
-                    libcli_register_param(&node_name, &mac);
-                    libcli_set_param_cmd_code(&mac, CMDCODE_SHOW_NODE_MAC_TABLE);
-                    {
-                        /* Keyword 'vni' . . .*/
-                        static param_t vni;
-                        init_param(&vni, CMD, "vni", 0, 0, INVALID, 0, "Show Mac Table for VNI");
-                        libcli_register_param(&mac, &vni);
-                        {
-                            /* Value of vni */
-                            static param_t vni_id;
-                            init_param(&vni_id, LEAF, 0, show_mac_handler, 0, INT, "vni-id", "vni id(1-16777215)");
-                            libcli_register_param(&vni, &vni_id);
-                            libcli_set_param_cmd_code(&vni_id, CMDCODE_SHOW_NODE_MAC_VNI_TABLE);
-                        }
-                    }
                  }
 
                  {

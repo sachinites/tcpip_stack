@@ -1124,12 +1124,93 @@ bgp_tunnel_encap_type_str(uint16_t tunnel_type)
     }
 }
 
+#define BGP_EVPN_EC_TYPE_ESI_LABEL  0x0601U
+#define BGP_EVPN_EC_TYPE_ES_IMPORT  0x0602U
+
+static const char *
+bgp_pmsi_tunnel_type_str(uint8_t tunnel_type)
+{
+    switch (tunnel_type) {
+    case 1:
+        return "RSVP-TE P2MP";
+    case 2:
+        return "mLDP P2MP";
+    case 3:
+        return "PIM-SSM";
+    case 4:
+        return "PIM-SM";
+    case 5:
+        return "PIM-Bidir";
+    case 6:
+        return "Ingress Replication";
+    case 7:
+        return "mLDP MP2MP";
+    default:
+        return "Unknown";
+    }
+}
+
+static void
+bgp_format_pmsi_tunnel_id(const bgp_rib_attrs_t *attrs,
+                          char *buf,
+                          size_t buflen)
+{
+    uint8_t i;
+    size_t offset;
+
+    if (!attrs || !buf || buflen == 0) {
+        return;
+    }
+
+    if (attrs->pmsi_tunnel_id_len == 0) {
+        snprintf(buf, buflen, "-");
+        return;
+    }
+
+    if (attrs->pmsi_tunnel_id_len == 4) {
+        snprintf(buf, buflen, "%u.%u.%u.%u",
+                 attrs->pmsi_tunnel_id[0],
+                 attrs->pmsi_tunnel_id[1],
+                 attrs->pmsi_tunnel_id[2],
+                 attrs->pmsi_tunnel_id[3]);
+        return;
+    }
+
+    offset = 0;
+    for (i = 0; i < attrs->pmsi_tunnel_id_len && offset + 2 < buflen; i++) {
+        offset += snprintf(buf + offset, buflen - offset, "%02x",
+                           attrs->pmsi_tunnel_id[i]);
+    }
+}
+
+static const bgp_rib_ext_comm_t *
+bgp_evpn_find_es_import_ext_comm(const bgp_rib_attrs_t *attrs)
+{
+    uint8_t i;
+
+    if (!attrs) {
+        return NULL;
+    }
+
+    for (i = 0; i < attrs->ext_comm_count; i++) {
+        const bgp_rib_ext_comm_t *ec = &attrs->ext_comms[i];
+
+        if (ec->type == BGP_EVPN_EC_TYPE_ES_IMPORT) {
+            return ec;
+        }
+    }
+
+    return NULL;
+}
+
 static void
 bgp_show_global_rib_print_evpn_detail(const bgp_nlri_key_t *key,
                                       const bgp_rib_attrs_t *attrs)
 {
     bgp_evpn_nlri_t nlri;
     char esi_hex[21];
+    char pmsi_tunnel_id[48];
+    const bgp_rib_ext_comm_t *es_import_ec;
     uint8_t i;
     uint32_t label1 = 0;
     bool label1_present = false;
@@ -1151,10 +1232,36 @@ bgp_show_global_rib_print_evpn_detail(const bgp_nlri_key_t *key,
         label1_present = true;
     }
 
-    if (label1_present) {
-        cprintf("      EVPN ESI: %s, Label1 %u\n", esi_hex, label1);
+    es_import_ec = bgp_evpn_find_es_import_ext_comm(attrs);
+    if (es_import_ec) {
+        cprintf("      EVPN ESI (Extended Community): %s "
+                "(type 0x%04x subtype 0x%04x)\n",
+                es_import_ec->text[0] ? es_import_ec->text : "-",
+                es_import_ec->type, es_import_ec->subtype);
     } else {
-        cprintf("      EVPN ESI: %s\n", esi_hex);
+        if (label1_present) {
+            cprintf("      EVPN ESI (NLRI): %s, Label1 %u\n",
+                    esi_hex, label1);
+        } else {
+            cprintf("      EVPN ESI (NLRI): %s\n", esi_hex);
+        }
+        if (attrs->evpn_label1_from_ext_comm && label1_present) {
+            cprintf("      EVPN ESI-Label (Extended Community): "
+                    "type 0x%04x subtype 0x%04x\n",
+                    BGP_EVPN_EC_TYPE_ESI_LABEL,
+                    (uint16_t)(BGP_EVPN_EC_TYPE_ESI_LABEL & 0xffffU));
+        }
+    }
+
+    if (nlri.route_type == 3 && attrs->pmsi_label_present) {
+        bgp_format_pmsi_tunnel_id(attrs, pmsi_tunnel_id,
+                                  sizeof(pmsi_tunnel_id));
+        cprintf("      PMSI Flags: %u\n", attrs->pmsi_flags);
+        cprintf("      PMSI Tunnel-Type: %s (%u)\n",
+                bgp_pmsi_tunnel_type_str(attrs->pmsi_tunnel_type),
+                attrs->pmsi_tunnel_type);
+        cprintf("      PMSI Label: %u\n", attrs->pmsi_label);
+        cprintf("      PMSI Tunnel-ID: %s\n", pmsi_tunnel_id);
     }
 
     if (attrs->mac_mobility_seq_present) {

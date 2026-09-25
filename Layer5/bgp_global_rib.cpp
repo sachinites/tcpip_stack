@@ -76,7 +76,13 @@ bgp_global_rib_fill_attrs(const bgp_unified_rt_t *route,
     attrs->mac_mobility_seq_present = route->mac_mobility_seq_present;
     attrs->pmsi_label = route->pmsi_label;
     attrs->pmsi_label_present = route->pmsi_label_present;
+    attrs->pmsi_flags = route->pmsi_flags;
     attrs->pmsi_tunnel_type = route->pmsi_tunnel_type;
+    attrs->pmsi_tunnel_id_len = route->pmsi_tunnel_id_len;
+    if (route->pmsi_tunnel_id_len > 0) {
+        memcpy(attrs->pmsi_tunnel_id, route->pmsi_tunnel_id,
+               route->pmsi_tunnel_id_len);
+    }
     attrs->tunnel_encap_type = route->tunnel_encap_type;
     attrs->tunnel_encap_present = route->tunnel_encap_present;
 }

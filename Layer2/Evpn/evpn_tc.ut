@@ -208,10 +208,36 @@
 :CMD:show R0 protocol bgp global-rib l2vpn-evpn
 :STEP:8
 :PATTERN-MATCH:[3][122.1.1.0:10][10][0][000000000000][32][122.1.1.0]/144
+:STEP:81
+:PATTERN-MATCH:PMSI Flags: 0
+:STEP:82
+:PATTERN-MATCH:PMSI Tunnel-Type: Ingress Replication (6)
+:STEP:83
+:PATTERN-MATCH:PMSI Label: 145
+:STEP:84
+:PATTERN-MATCH:PMSI Tunnel-ID: 122.1.1.0
+
 :STEP:9
 :PATTERN-MATCH:[3][122.1.1.3:10][10][0][000000000000][32][122.1.1.3]/144
+:STEP:91
+:PATTERN-MATCH:PMSI Flags: 0
+:STEP:92
+:PATTERN-MATCH:PMSI Tunnel-Type: Ingress Replication (6)
+:STEP:93
+:PATTERN-MATCH:PMSI Label: 145
+:STEP:94
+:PATTERN-MATCH:PMSI Tunnel-ID: 122.1.1.3
+
 :STEP:10
 :PATTERN-MATCH:[3][122.1.1.2:10][10][0][000000000000][32][122.1.1.2]/144
+:STEP:101
+:PATTERN-MATCH:PMSI Flags: 0
+:STEP:102
+:PATTERN-MATCH:PMSI Tunnel-Type: Ingress Replication (6)
+:STEP:103
+:PATTERN-MATCH:PMSI Label: 145
+:STEP:104
+:PATTERN-MATCH:PMSI Tunnel-ID: 122.1.1.2
 
 :CMD:show R0 protocol bgp global-rib l2vpn-evpn | include Total
 :STEP:11
@@ -219,13 +245,13 @@
 
 
 :PRINT: Extended Communities of IMET Routes are as expected 
-:CMD:show R0 protocol bgp global-rib l2vpn-evpn | xinclude -B 3 32\]\[122.1.1.0
+:CMD:show R0 protocol bgp global-rib l2vpn-evpn | xinclude -B 8 32\]\[122.1.1.0
 :STEP:12
 :PATTERN-MATCH:Extended Community: RT:0.0.0.0:10 (type 0x0102 subtype 0x0002)
-:CMD:show R0 protocol bgp global-rib l2vpn-evpn | xinclude -B 3 32\]\[122.1.1.3
+:CMD:show R0 protocol bgp global-rib l2vpn-evpn | xinclude -B 8 32\]\[122.1.1.3
 :STEP:13
 :PATTERN-MATCH:Extended Community: RT:0.0.0.0:10 (type 0x0102 subtype 0x0002)
-:CMD:show R0 protocol bgp global-rib l2vpn-evpn | xinclude -B 3 32\]\[122.1.1.2
+:CMD:show R0 protocol bgp global-rib l2vpn-evpn | xinclude -B 8 32\]\[122.1.1.2
 :STEP:14
 :PATTERN-MATCH:Extended Community: RT:0.0.0.0:10 (type 0x0102 subtype 0x0002)
 
@@ -345,3 +371,37 @@
 
 :TESTCASE-END:2
 
+
+
+:TESTCASE-BEGIN:3
+:DESC: Test case to test MAC Mobility
+
+:CMD:show H2 data-path interface-table eth1 | include MAC
+:STRING_STORE1:3
+:CMD:run H1 resolve-arp 172.168.0.4 source-ip-address 172.168.0.2 src-mac $STRING_STORE1 interface eth1
+:PRINT: Waiting for MAC-Mobility to take effect
+:SLEEP:5
+:CMD:show R0 protocol l2vpn evpn instance 1 mac-routes | include $STRING_STORE1
+:STEP:1
+:PATTERN-MATCH:$STRING_STORE1 172.168.0.2     L      1       0.0.0.0      144     0
+:CMD:show R3 protocol l2vpn evpn instance 1 mac-routes | include $STRING_STORE1
+:STEP:2
+:PATTERN-NOT-MATCH:$STRING_STORE1
+:CMD:show R3 data-path bridge-domain 10 mac-address-table | include $STRING_STORE1
+:STEP:3
+:PATTERN-MATCH:$STRING_STORE1
+:STEP:4
+:PATTERN-MATCH:EVPN-CP
+:STEP:5
+:PATTERN-MATCH:mpls(oif=eth9 nh=50.1.1.1 labels=144,17000)
+
+:PRINT: Checking $STRING_STORE1 is installed in DP on R0
+:CMD:show R0 data-path bridge-domain 10 mac-address-table | include $STRING_STORE1 | include DP
+:STEP:6
+:PATTERN-MATCH:$STRING_STORE1
+:STEP:7
+:PATTERN-MATCH:eth1
+:STEP:8
+:PATTERN-NOT-MATCH:mpls
+
+:TESTCASE-END:3

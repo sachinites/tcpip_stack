@@ -212,20 +212,20 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
             /* replace the $INT_STOREX in a line with actual integer value*/
             rc = sprintf(buff, "%lu", int_store1);
-            replaceSubstring(line, "$INT_STORE1", buff);
+            assert(replaceSubstring(line, "$INT_STORE1", buff, sizeof(buff)) >= 0);
             rc = sprintf(buff, "%lu", int_store2);
-            replaceSubstring(line, "$INT_STORE2", buff);
+            assert (replaceSubstring(line, "$INT_STORE2", buff, sizeof(buff))  >= 0);
             rc = sprintf(buff, "%lu", int_store3);
-            replaceSubstring(line, "$INT_STORE3", buff);
+            assert(replaceSubstring(line, "$INT_STORE3", buff, sizeof(buff))  >= 0);
 
 
             /* replace the $STRING_STOREX in a line with actual string value*/
             rc = sprintf(buff, "%s", string_store1);
-            replaceSubstring(line, "$STRING_STORE1", buff);
+            assert(replaceSubstring(line, "$STRING_STORE1", buff, sizeof(buff)) >= 0);
             rc = sprintf(buff, "%s", string_store2);
-            replaceSubstring(line, "$STRING_STORE2", buff);
+            assert(replaceSubstring(line, "$STRING_STORE2", buff, sizeof(buff)) >= 0);
             rc = sprintf(buff, "%s", string_store3);
-            replaceSubstring(line, "$STRING_STORE3", buff);
+            assert(replaceSubstring(line, "$STRING_STORE3", buff, sizeof(buff)) >= 0);
 
             if (strncmp (line, ":TESTCASE-BEGIN:", strlen(":TESTCASE-BEGIN:")) == 0) {
 

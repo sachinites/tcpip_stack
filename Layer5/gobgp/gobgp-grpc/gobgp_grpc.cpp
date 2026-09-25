@@ -1,6 +1,7 @@
 #include "gobgp_grpc.h"
 
 #include <arpa/inet.h>
+#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <cstring>
@@ -1300,12 +1301,24 @@ void GoBgpGrpcClient::FillRouteInfo(const api::Path& path,
                 info->local_pref = attr.local_pref().local_pref();
                 info->local_pref_present = true;
                 break;
-            case api::Attribute::kPmsiTunnel:
-                info->pmsi_label = attr.pmsi_tunnel().label();
+            case api::Attribute::kPmsiTunnel: {
+                const api::PmsiTunnelAttribute& pmsi = attr.pmsi_tunnel();
+                const std::string& tunnel_id = pmsi.id();
+
+                info->pmsi_label = pmsi.label();
                 info->pmsi_label_present = true;
+                info->pmsi_flags =
+                    static_cast<std::uint8_t>(pmsi.flags());
                 info->pmsi_tunnel_type =
-                    static_cast<std::uint8_t>(attr.pmsi_tunnel().type());
+                    static_cast<std::uint8_t>(pmsi.type());
+                info->pmsi_tunnel_id_len = static_cast<std::uint8_t>(
+                    std::min(tunnel_id.size(), sizeof(info->pmsi_tunnel_id)));
+                if (info->pmsi_tunnel_id_len > 0) {
+                    std::memcpy(info->pmsi_tunnel_id, tunnel_id.data(),
+                                info->pmsi_tunnel_id_len);
+                }
                 break;
+            }
             default:
                 break;
         }

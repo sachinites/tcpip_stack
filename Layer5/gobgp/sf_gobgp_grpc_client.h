@@ -141,6 +141,7 @@ typedef struct sf_gobgp_route_params {
 } sf_gobgp_route_params_t;
 
 #define SF_GOBGP_NLRI_WIRE_MAX 256
+#define SF_GOBGP_PMSI_TUNNEL_ID_MAX 16
 #define SF_GOBGP_EXT_COMM_MAX 16
 #define SF_GOBGP_EXT_COMM_TEXT_MAX 80
 
@@ -176,7 +177,10 @@ typedef struct sf_gobgp_route_info {
     bool mac_mobility_seq_present;
     uint32_t pmsi_label;
     bool pmsi_label_present;
+    uint8_t pmsi_flags;
     uint8_t pmsi_tunnel_type;
+    uint8_t pmsi_tunnel_id_len;
+    uint8_t pmsi_tunnel_id[SF_GOBGP_PMSI_TUNNEL_ID_MAX];
     uint16_t tunnel_encap_type;
     bool tunnel_encap_present;
 } sf_gobgp_route_info_t;

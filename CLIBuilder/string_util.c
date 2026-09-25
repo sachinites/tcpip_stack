@@ -167,46 +167,41 @@ print_tokens(unsigned int index){
     }
 }
 
-void replaceSubstring(char string[], const char sub[], char new_str[])
+
+int replaceSubstring(char *str,
+                  const char *old_sub,
+                  const char *new_sub,
+                  size_t buf_size)
 {
-    int stringLen, subLen, newLen;
-    int i = 0, j, k;
-    int flag = 0, start, end;
-    stringLen = strlen(string);
-    subLen = strlen(sub);
-    newLen = strlen(new_str);
+    char *pos = strstr(str, old_sub);
+    if (!pos)
+        return 0;   // not found
 
-    for (i = 0; i < stringLen; i++)
-    {
-        flag = 0;
-        start = i;
-        for (j = 0; string[i] == sub[j]; j++, i++)
-            if (j == subLen - 1)
-                flag = 1;
-        end = i;
-        if (flag == 0)
-            i -= j;
-        else
-        {
-            for (j = start; j < end; j++)
-            {
-                for (k = start; k < stringLen; k++)
-                    string[k] = string[k + 1];
-                stringLen--;
-                i--;
-            }
+    size_t old_len = strlen(old_sub);
+    size_t new_len = strlen(new_sub);
+    size_t cur_len = strlen(str);
 
-            for (j = start; j < start + newLen; j++)
-            {
-                for (k = stringLen; k >= j; k--)
-                    string[k + 1] = string[k];
-                string[j] = new_str[j - start];
-                stringLen++;
-                i++;
-            }
-        }
+    /* Check if destination buffer can accommodate growth */
+    if (cur_len - old_len + new_len >= buf_size)
+        return -1;
+
+    if (new_len > old_len) {
+        /* Shift tail right */
+        memmove(pos + new_len,
+                pos + old_len,
+                strlen(pos + old_len) + 1);
+    } else if (new_len < old_len) {
+        /* Shift tail left */
+        memmove(pos + new_len,
+                pos + old_len,
+                strlen(pos + old_len) + 1);
     }
+
+    memcpy(pos, new_sub, new_len);
+
+    return 1;
 }
+
 
 
 bool
@@ -305,6 +300,40 @@ string_fetch_integer(char *string, int string_size, int index) {
     return 0;
 }
 
+#define IS_TRIM_CHAR(c) ((c)==' ' || (c)=='\n' || (c)=='\r')
+
+static char* trim(char *str)
+{
+    char *start = str;
+    char *end;
+
+    /* Skip leading whitespace */
+    while (*start && IS_TRIM_CHAR((unsigned char)*start))
+        start++;
+
+    /* All spaces */
+    if (*start == '\0') {
+        *str = '\0';
+        return str;
+    }
+
+    /* Find end of string */
+    end = start + strlen(start) - 1;
+
+    /* Remove trailing whitespace */
+    while (end > start && IS_TRIM_CHAR((unsigned char)*end))
+        end--;
+
+    *(end + 1) = '\0';
+
+    /* Move trimmed string to beginning if needed */
+    if (start != str)
+        memmove(str, start, strlen(start) + 1);
+
+    return str;
+}
+
+
 void 
 string_fetch_string(char *string, int string_size, int index, char *buff_out) {
 
@@ -318,7 +347,8 @@ string_fetch_string(char *string, int string_size, int index, char *buff_out) {
     memcpy(temp_buff, string, string_size);
     
     token = strtok(temp_buff, " ");
-
+    trim (token);
+    
     while (token) {
 
         count++;

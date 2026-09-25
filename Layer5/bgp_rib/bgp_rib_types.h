@@ -8,6 +8,7 @@
 #define BGP_NLRI_WIRE_MAX      320
 #define BGP_RIB_EXT_COMM_MAX   16
 #define BGP_RIB_EXT_COMM_TEXT_MAX 80
+#define BGP_PMSI_TUNNEL_ID_MAX    16
 
 typedef enum bgp_rib_err_ {
     BGP_RIB_OK = 0,
@@ -52,7 +53,10 @@ typedef struct bgp_rib_attrs_ {
     bool     mac_mobility_seq_present;
     uint32_t pmsi_label;
     bool     pmsi_label_present;
+    uint8_t  pmsi_flags;
     uint8_t  pmsi_tunnel_type;
+    uint8_t  pmsi_tunnel_id_len;
+    uint8_t  pmsi_tunnel_id[BGP_PMSI_TUNNEL_ID_MAX];
     uint16_t tunnel_encap_type;
     bool     tunnel_encap_present;
 } bgp_rib_attrs_t;

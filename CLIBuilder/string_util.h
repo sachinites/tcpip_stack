@@ -50,7 +50,10 @@ untokenize(unsigned int index);
 char *
 get_token(unsigned int index);
 
-void replaceSubstring(char string[], const char sub[], char new_str[]);
+int replaceSubstring(char *str,
+                    const char *old_sub,
+                    const char *new_sub,
+                    size_t buf_size);
 
 bool
 pattern_match(char string[], int string_size, const char pattern[]);

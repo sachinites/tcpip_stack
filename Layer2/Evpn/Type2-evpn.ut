@@ -173,11 +173,11 @@
 :CMD: config R2 bridge-domain 10
 :CMD: config R2 protocol l2vpn evpn instance 1 bridge-domain 10
 
-:INFO: run H2 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:01 interface eth1
-:INFO: run H2 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:02 interface eth1
-:INFO: run H2 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:03 interface eth1
-:INFO: run H2 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:04 interface eth1
-:INFO: run H2 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:05 interface eth1
+:INFO: run H1 resolve-arp 172.168.0.4 source-ip-address 172.168.0.2 src-mac e8:32:1a:0b:bd:fa interface eth1
+:INFO: run H1 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:02 interface eth1
+:INFO: run H1 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:03 interface eth1
+:INFO: run H1 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:04 interface eth1
+:INFO: run H1 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:05 interface eth1
 
 :INFO: Test : 
 :INFO: run H1 ping source-address 172.168.0.1 172.168.0.2
