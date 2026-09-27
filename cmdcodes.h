@@ -208,6 +208,9 @@
 /* config node <node-name> distributed-anycast-gateway <mac-address> */
 #define CMDCODE_CONFIG_DISTRIBUTED_ANYCAST_GATEWAY 86
 
+/* show <node-name> ip interface brief */
+#define CMDCODE_SHOW_IP_INTERFACE_BRIEF 87
+
 /* Flag to distinguish if the CLI typed should go to
    control plane scheduler or data plane scheduler*/
 #define CLI_F_CONTROL_PLANE 1

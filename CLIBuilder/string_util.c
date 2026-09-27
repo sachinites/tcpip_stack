@@ -333,6 +333,41 @@ static char* trim(char *str)
     return str;
 }
 
+void
+string_sanitize_token(char *s)
+{
+    size_t len;
+    char *start;
+
+    if (!s || !*s) {
+        return;
+    }
+
+    start = s;
+    while (*start &&
+           (isspace((unsigned char)*start) || *start == '\b')) {
+        start++;
+    }
+    if (start != s) {
+        memmove(s, start, strlen(start) + 1);
+    }
+
+    len = strlen(s);
+    while (len > 0) {
+        unsigned char c = (unsigned char)s[len - 1];
+
+        if (isspace(c) || c == '\b') {
+            s[--len] = '\0';
+        } else {
+            break;
+        }
+    }
+
+    len = strlen(s);
+    if (len >= 2 && s[len - 2] == '\\' && s[len - 1] == 'b') {
+        s[len - 2] = '\0';
+    }
+}
 
 void 
 string_fetch_string(char *string, int string_size, int index, char *buff_out) {
@@ -353,7 +388,11 @@ string_fetch_string(char *string, int string_size, int index, char *buff_out) {
 
         count++;
         if (index == count) {
-            strncpy(buff_out, token, strlen(token));
+            size_t tlen = strlen(token);
+
+            strncpy(buff_out, token, tlen);
+            buff_out[tlen] = '\0';
+            string_sanitize_token(buff_out);
             free(temp_buff);
             return;
         }

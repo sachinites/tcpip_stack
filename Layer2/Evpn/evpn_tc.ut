@@ -383,25 +383,84 @@
 :SLEEP:5
 :CMD:show R0 protocol l2vpn evpn instance 1 mac-routes | include $STRING_STORE1
 :STEP:1
-:PATTERN-MATCH:$STRING_STORE1 172.168.0.2     L      1       0.0.0.0      144     0
-:CMD:show R3 protocol l2vpn evpn instance 1 mac-routes | include $STRING_STORE1
+:PATTERN-MATCH:$STRING_STORE1 172.168.0.2     L      1       0.0.0.0        144
+:CMD:show R3 data-path bridge-domain 10 mac-address-table | xinclude -B 1 $STRING_STORE1
 :STEP:2
-:PATTERN-NOT-MATCH:$STRING_STORE1
-:CMD:show R3 data-path bridge-domain 10 mac-address-table | include $STRING_STORE1
-:STEP:3
 :PATTERN-MATCH:$STRING_STORE1
-:STEP:4
+:STEP:3
 :PATTERN-MATCH:EVPN-CP
-:STEP:5
+:STEP:4
 :PATTERN-MATCH:mpls(oif=eth9 nh=50.1.1.1 labels=144,17000)
+:STEP:5
+:PATTERN-MATCH:mpls(oif=eth10 nh=60.1.1.2 labels=144,17000)
+:STEP:6
+:PATTERN-NOT-MATCH:DP
 
 :PRINT: Checking $STRING_STORE1 is installed in DP on R0
 :CMD:show R0 data-path bridge-domain 10 mac-address-table | include $STRING_STORE1 | include DP
-:STEP:6
-:PATTERN-MATCH:$STRING_STORE1
 :STEP:7
-:PATTERN-MATCH:eth1
+:PATTERN-MATCH:$STRING_STORE1
 :STEP:8
-:PATTERN-NOT-MATCH:mpls
+:PATTERN-MATCH:eth1
 
 :TESTCASE-END:3
+
+
+:TESTCASE-BEGIN:4
+
+:PRINT: TC to check Disabling EVPN Cleanly
+:CMD:config R0 no protocol l2vpn evpn instance 1
+:CMD:config R3 no protocol l2vpn evpn instance 1
+:CMD:config R0 no protocol bgp 65000
+:CMD:config R3 no protocol bgp 65000
+:CMD:config R2 no protocol l2vpn evpn instance 1
+
+:CMD:show R0 protocol l2vpn evpn instance 1
+:STEP:1
+:PATTERN-MATCH:VPN instance 1 does not exist
+
+:CMD:show R3 protocol l2vpn evpn instance 1
+:STEP:2
+:PATTERN-MATCH:VPN instance 1 does not exist
+
+:CMD:show R0 protocol bgp running-config
+:STEP:3
+:PATTERN-MATCH:BGP is not configured
+
+:CMD:show R3 protocol bgp running-config
+:STEP:4
+:PATTERN-MATCH:BGP is not configured
+
+:CMD:show R0 protocol bgp global-rib l2vpn-evpn mac
+:STEP:5
+:PATTERN-MATCH:BGP is not running
+
+:CMD:show R3 protocol bgp global-rib l2vpn-evpn mac
+:STEP:6
+:PATTERN-MATCH:BGP is not running
+
+:CMD:show R0 data-path bridge-domain 10 mac-address-table | include EVPN-CP
+:STEP:7
+:PATTERN-NOT-MATCH:EVPN-CP
+
+:CMD:show R3 data-path bridge-domain 10 mac-address-table | include EVPN-CP
+:STEP:8
+:PATTERN-NOT-MATCH:EVPN-CP
+
+:CMD:show R2 data-path bridge-domain 10 mac-address-table | include EVPN-CP
+:STEP:9
+:PATTERN-NOT-MATCH:EVPN-CP
+
+:CMD:show R0 rtm 0.mac.10
+:STEP:10
+:PATTERN-MATCH:RTM 0.mac.10 not found
+
+:CMD:show R3 rtm 0.mac.10
+:STEP:11
+:PATTERN-MATCH:RTM 0.mac.10 not found
+
+:CMD:show R2 rtm 0.mac.10
+:STEP:12
+:PATTERN-MATCH:RTM 0.mac.10 not found
+
+:TESTCASE-END:4

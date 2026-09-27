@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <arpa/inet.h>
 #include "../CLIBuilder/cmdtlv.h"
 #include "../CLIBuilder/libcli.h"
 #include "../cmdcodes.h"
@@ -116,6 +117,176 @@ display_node_interfaces (param_t *param, Stack_t *tlv_stack){
         printw (" %s\n", intf->if_name.c_str());
 
     }  ITERATE_NODE_INTERFACES_END(node, intf);
+}
+
+static bool
+intf_eligible_for_ip_brief(Interface *intf)
+{
+    if (!intf) {
+        return false;
+    }
+
+    switch (intf->iftype) {
+    case INTF_TYPE_PHY:
+    case INTF_TYPE_VLAN:
+    case INTF_TYPE_LOOPBACK:
+    case INTF_TYPE_GRE_TUNNEL:
+    case INTF_TYPE_VIRTUAL_PORT:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static void
+intf_brief_vrf_column(Interface *intf, char *buf, size_t buflen)
+{
+    if (!buf || buflen == 0) {
+        return;
+    }
+
+    if (intf && intf->vrf) {
+        snprintf(buf, buflen, "%s", intf->vrf->vrf_name);
+    } else {
+        snprintf(buf, buflen, "%s", DEF_VRF_NAME);
+    }
+}
+
+static void
+display_node_ip_interface_brief(node_t *node)
+{
+    Interface *intf;
+    char vrf_str[32];
+
+    if (!node) {
+        cprintf("Error : Node not found\n");
+        return;
+    }
+
+    cprintf("%-12s %-12s %-22s %s\n",
+            "Ifname", "VRF", "IP-Address", "Admin-status");
+
+    cprintf("------------ ------------ --------------------- --------------- \n");
+
+    ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
+
+        uint32_t ipv4_addr = 0;
+        uint8_t ipv4_mask = 0;
+        uint8_t ipv6_addr[16] = {0};
+        uint8_t ipv6_prefix = 0;
+        char ipv4_line[32] = {0};
+        char ipv6_line[48] = {0};
+        const char *admin_status;
+
+        if (!intf_eligible_for_ip_brief(intf)) {
+            continue;
+        }
+
+        intf_brief_vrf_column(intf, vrf_str, sizeof(vrf_str));
+        admin_status = intf->is_up ? "Up" : "Down";
+
+        intf->InterfaceGetIpAddressMask(&ipv4_addr, &ipv4_mask);
+        if (ipv4_addr) {
+            byte ipv4_str[IPV4_ADDR_LEN_STR];
+
+            ip_ntop(ipv4_addr, ipv4_str);
+            snprintf(ipv4_line, sizeof(ipv4_line), "%s/%u",
+                     (char *)ipv4_str, ipv4_mask);
+        }
+
+        if (intf->IsIpv6Configured()) {
+            intf->InterfaceGetIpv6AddressMask(&ipv6_addr, &ipv6_prefix);
+            if (inet_ntop(AF_INET6, ipv6_addr, ipv6_line, sizeof(ipv6_line))) {
+                char tmp[56];
+
+                snprintf(tmp, sizeof(tmp), "%s/%u", ipv6_line, ipv6_prefix);
+                strncpy(ipv6_line, tmp, sizeof(ipv6_line) - 1);
+                ipv6_line[sizeof(ipv6_line) - 1] = '\0';
+            } else {
+                ipv6_line[0] = '\0';
+            }
+        }
+
+        if (!ipv4_line[0] && !ipv6_line[0]) {
+            cprintf("%-12s %-12s %-22s %s\n",
+                    intf->if_name.c_str(), vrf_str, "-", admin_status);
+            continue;
+        }
+
+        if (ipv4_line[0]) {
+            cprintf("%-12s %-12s %-22s %s\n",
+                    intf->if_name.c_str(), vrf_str, ipv4_line,
+                    admin_status);
+        } else {
+            cprintf("%-12s %-12s %-22s %s\n",
+                    intf->if_name.c_str(), vrf_str, ipv6_line,
+                    admin_status);
+            ipv6_line[0] = '\0';
+        }
+
+        if (ipv6_line[0]) {
+            cprintf("%-12s %-12s %-22s\n", "", "", ipv6_line);
+        }
+
+    } ITERATE_NODE_INTERFACES_END(node, intf);
+}
+
+static int
+show_ip_interface_brief_handler(int64_t cmdcode, Stack_t *tlv_stack,
+                                op_mode enable_or_disable)
+{
+    node_t *node;
+    tlv_struct_t *tlv = NULL;
+    c_string node_name = NULL;
+
+    (void)cmdcode;
+    (void)enable_or_disable;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv) {
+
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name")) {
+            node_name = tlv->value;
+        }
+
+    } TLV_LOOP_END;
+
+    node = node_get_node_by_name(topo, node_name);
+    if (!node) {
+        cprintf("Error : Node %s not found\n",
+                node_name ? (const char *)node_name : "?");
+        return -1;
+    }
+
+    display_node_ip_interface_brief(node);
+    return 0;
+}
+
+void
+Interface_show_ip_cli_tree(param_t *node_name)
+{
+    static param_t ip;
+
+    if (!node_name) {
+        return;
+    }
+
+    init_param(&ip, CMD, "ip", 0, 0, INVALID, 0, "IP information");
+    libcli_register_param(node_name, &ip);
+    {
+        static param_t interface;
+
+        init_param(&interface, CMD, "interface", 0, 0, INVALID, 0,
+                   "Interface information");
+        libcli_register_param(&ip, &interface);
+        {
+            static param_t brief;
+
+            init_param(&brief, CMD, "brief", show_ip_interface_brief_handler,
+                       0, INVALID, 0, "Brief interface control-plane summary");
+            libcli_register_param(&interface, &brief);
+            libcli_set_param_cmd_code(&brief, CMDCODE_SHOW_IP_INTERFACE_BRIEF);
+        }
+    }
 }
 
 static Interface *

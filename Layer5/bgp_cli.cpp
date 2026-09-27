@@ -418,13 +418,13 @@ bgp_config_handler(int64_t cmdcode,
                 case CONFIG_DISABLE:
                 {
                     if (!BGP_INST(node)) {
-                        cprintf("BGP is not running\n");
+                        cprintf("Error : BGP is not running\n");
                         break;
                     }
 
                     bgp_node_config_t *cfg = bgp_config_get(node);
                     if (!cfg->started) {
-                        cprintf("BGP is not running\n");
+                        cprintf("Error : BGP is not running\n");
                         break;
                     }
 
@@ -1409,7 +1409,7 @@ bgp_show_global_rib(node_t *node, int afi, int safi, const char *af_label)
     bgp_show_global_rib_ctx_t ctx;
 
     if (!BGP_INST(node)) {
-        cprintf("Error : BGP is not running on %s\n", node->node_name);
+        cprintf("Error : BGP is not running\n");
         return -1;
     }
 

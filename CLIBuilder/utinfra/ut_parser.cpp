@@ -146,7 +146,7 @@ tc_print_result (uint16_t tc_no, glthread_t *head) {
 
         res = glue_to_tc_result(curr);
         rc = sprintf(buff, "%s  STEP: %d : %s\n", 
-            res->pattern_match ? "PATTERN-MATCH" : "PATTERN-NOT-PRESENT",
+            res->pattern_match ? "PATTERN-MATCH" : "PATTERN-NOT-MATCH",
             res->step_no, res->pass ? "PASS" : "FAIL");
         //printw("%s", buff);
         fwrite(buff, 1, rc, ut_log_file);
@@ -220,10 +220,13 @@ run_test_case(char *file_name, uint16_t tc_no) {
 
 
             /* replace the $STRING_STOREX in a line with actual string value*/
+            string_sanitize_token(string_store1);
             rc = sprintf(buff, "%s", string_store1);
             assert(replaceSubstring(line, "$STRING_STORE1", buff, sizeof(buff)) >= 0);
+            string_sanitize_token(string_store2);
             rc = sprintf(buff, "%s", string_store2);
             assert(replaceSubstring(line, "$STRING_STORE2", buff, sizeof(buff)) >= 0);
+            string_sanitize_token(string_store3);
             rc = sprintf(buff, "%s", string_store3);
             assert(replaceSubstring(line, "$STRING_STORE3", buff, sizeof(buff)) >= 0);
 

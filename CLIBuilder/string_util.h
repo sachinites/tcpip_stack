@@ -67,6 +67,9 @@ string_fetch_integer(char *string, int string_size, int index);
 void 
 string_fetch_string(char *string, int string_size, int index, char *buff_out);
 
+void
+string_sanitize_token(char *s);
+
 bool 
 ignore_sole_new_line (unsigned char *Obuffer, int msg_len) ;
 
