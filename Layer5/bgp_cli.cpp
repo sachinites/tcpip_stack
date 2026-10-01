@@ -1410,7 +1410,7 @@ bgp_show_global_rib(node_t *node, int afi, int safi, const char *af_label)
 
     if (!BGP_INST(node)) {
         cprintf("Error : BGP is not running\n");
-        return -1;
+        return 0;
     }
 
     rib = bgp_global_rib_get(node, afi, safi);

@@ -431,11 +431,11 @@
 :STEP:4
 :PATTERN-MATCH:BGP is not configured
 
-:CMD:show R0 protocol bgp global-rib l2vpn-evpn mac
+:CMD:show R0 protocol bgp global-rib l2vpn-evpn
 :STEP:5
 :PATTERN-MATCH:BGP is not running
 
-:CMD:show R3 protocol bgp global-rib l2vpn-evpn mac
+:CMD:show R3 protocol bgp global-rib l2vpn-evpn
 :STEP:6
 :PATTERN-MATCH:BGP is not running
 
