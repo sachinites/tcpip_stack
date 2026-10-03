@@ -26,6 +26,9 @@
 #include "bgp_enums.h"
 #include "gobgp/sf_gobgp_grpc_client.h"
 #include "../Layer2/Evpn/evpn_bgp.h"
+#include "../Layer2/Evpn/evpn_enums.h"
+#include "../Interface/Interface.h"
+#include "../Interface/InterfaceUApi.h"
 #include "../utils.h"
 
 void
@@ -95,7 +98,8 @@ bgp_route_parse_safi(const char *safi)
     }
     if (strcmp(safi, "evpn") == 0 ||
         strcmp(safi, "mac") == 0 ||
-        strcmp(safi, "imet") == 0) {
+        strcmp(safi, "imet") == 0 ||
+        strcmp(safi, "prefix") == 0) {
         return SAFI_MPLS_EVPN; /* SAFI_EVPN */
     }
     return -1;
@@ -280,6 +284,10 @@ bgp_route_export_eligible(rt_advert_info_t *rt_advert, uint8_t safi)
         return rt_advert->src_vrf_id != RTM_DEFAULT_VRF;
     }
 
+    if (safi == SAFI_MPLS_EVPN) {
+        return rt_advert->src_vrf_id != RTM_DEFAULT_VRF;
+    }
+
     if (safi == SAFI_UNICAST) {
         return rt_advert->src_vrf_id == RTM_DEFAULT_VRF;
     }
@@ -419,6 +427,7 @@ bgp_route_notif_parse_af(uint8_t wire_afi, uint8_t *afi_out)
     switch (wire_afi) {
         case AFI_IPV4:
         case AFI_IPV6:
+        case AFI_L2VPN:
             *afi_out = wire_afi;
             return true;
         default:
@@ -436,6 +445,7 @@ bgp_route_notif_parse_safi(uint8_t wire_safi, uint8_t *safi_out)
     switch (wire_safi) {
         case SAFI_UNICAST:
         case SAFI_MPLS_VPN:
+        case SAFI_MPLS_EVPN:
             *safi_out = wire_safi;
             return true;
         default:
@@ -452,12 +462,10 @@ bgp_route_vrf_fill_rd_rt(vrf_t *vrf,
         return false;
     }
 
-    /* IPv4/IPv6 unicast does not carry RD. VPNv4 requires RD + export RT. */
-    if (safi != SAFI_MPLS_VPN) {
+    /* IPv4/IPv6 unicast does not carry RD. VPNv4/EVPN requires RD + export RT. */
+    if (safi != SAFI_MPLS_VPN && safi != SAFI_MPLS_EVPN) {
         params->rd[0] = '\0';
         params->rt[0] = '\0';
-        params->l3_vpn_label = 0;
-        params->l3_vpn_label_present = false;
         return true;
     }
 
@@ -467,17 +475,81 @@ bgp_route_vrf_fill_rd_rt(vrf_t *vrf,
     if (vrf->export_rt.rtr_id == 0 && vrf->export_rt.vrf_id == 0) {
         return false;
     }
-    if (!vrf->l3_vpn_label) {
-        return false;
-    }
 
     snprintf(params->rd, sizeof(params->rd), "%u:%u",
              vrf->rd.rtr_id, vrf->rd.vrf_id);
     snprintf(params->rt, sizeof(params->rt), "%u:%u",
              vrf->export_rt.rtr_id, vrf->export_rt.vrf_id);
-    params->l3_vpn_label = vrf->l3_vpn_label;
-    params->l3_vpn_label_present = true;
+
     return true;
+}
+
+static mpls_label_val_t
+bgp_get_vpn_service_label(vrf_t *vrf,  // src_vrf to which the route belongs
+                          rt_advert_info_t  *rt_advert, 
+                          bool *eligible) {
+
+    *eligible = false;
+
+    /* VPN V4 case */
+    if (rt_advert->afi == AFI_IPV4 && rt_advert->safi == SAFI_MPLS_VPN) {
+
+        if (vrf->l3_vpn_label) {
+
+            *eligible = true;
+            return vrf->l3_vpn_label;
+        }
+    }
+
+    /* VPN V6 case */
+    if (rt_advert->afi == AFI_IPV6 && rt_advert->safi == SAFI_MPLS_VPN) {
+
+        if (vrf->l3_vpnv6_label) {
+
+            *eligible = true;
+            return vrf->l3_vpnv6_label;
+        }
+    }
+
+    /* EVPN case */
+    if (rt_advert->afi == AFI_L2VPN && rt_advert->safi == SAFI_MPLS_EVPN) {
+
+        /* EVPN Service label is hidden in RTM Nh*/
+        rtm_nh *nh = rtm_nh_lookup_by_idx(vrf->inet0, (uint32_t)rt_advert->Cnhidx);
+        if (!nh) return 0;
+
+        if (!nh->rtm_nh_proto ||
+            nh->rtm_nh_proto->proto != RTM_PROTO_CONNECTED) {
+            return 0;
+        }
+
+        mpls_label_val_t label =
+            nh->rtm_nh_proto->u.connected.l3_evpn_label;
+
+        if (!label && nh->oif) {
+            Interface *intf =
+                node_get_intf_by_ifindex(vrf->node, nh->oif);
+            if (intf && intf->iftype == INTF_TYPE_BD) {
+                BDInterface *bd = dynamic_cast<BDInterface *>(intf);
+                if (bd) {
+                    label = bd->l3_evpn_label;
+                }
+            }
+        }
+
+        if (label) {
+            *eligible = true;
+            return label;
+        }
+        return 0;
+    }
+
+    if (rt_advert->safi == SAFI_MPLS_VPN) {
+        return 0;
+    }
+
+    *eligible = true;
+    return 0;
 }
 
 int
@@ -529,13 +601,16 @@ bgp_route_apply_to_gobgp(node_t *node,
 
     tracer(tr, TR_BGP_GRPC_TALK | TR_BGP_RT_EVENTS,
            "%s : %s RPC → prefix=%s nh=%s afi=%d safi=%d rd=%s rt=%s "
-           "label=%s%u med=%s%u lp=%s%u\n",
+           "label=%s%u evpn_type=%u evpn_label=%s%u med=%s%u lp=%s%u\n",
            BGP_RTM_TAG, op, sf_params.prefix, sf_params.nexthop,
            sf_params.afi, sf_params.safi,
            sf_params.rd[0] ? sf_params.rd : "-",
            sf_params.rt[0] ? sf_params.rt : "-",
            sf_params.l3_vpn_label_present ? "" : "(none)",
            sf_params.l3_vpn_label_present ? sf_params.l3_vpn_label : 0,
+           sf_params.evpn_route_type,
+           sf_params.evpn_label_present ? "" : "(none)",
+           sf_params.evpn_label_present ? sf_params.evpn_label : 0,
            sf_params.med_present ? "" : "(none)",
            sf_params.med_present ? sf_params.med : 0,
            sf_params.local_pref_present ? "" : "(none)",
@@ -1063,6 +1138,7 @@ bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
     rtm_nh *nh;
     bgp_inst_t *bgp_inst;
     bgp_node_config_t *cfg;
+    bool eligible = false;
     bool is_delete;
     uint8_t afi;
     uint8_t safi;
@@ -1161,6 +1237,31 @@ bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
         return;
     }
 
+    /* Service label: per-VRF for VPN, per-BD (connected NH) for EVPN Type-5. */
+    mpls_label_val_t svc_label = !is_delete ? \
+        bgp_get_vpn_service_label(vrf, rt_advert, &eligible) : 0;
+
+    if (!eligible && !is_delete) {
+        tracer(bgp_inst->tr, TR_BGP_RT_EVENTS | TR_BGP_EVENTS,
+               "%s : Eror : Route %s not eligible for %s advertise (no service label)\n",
+               BGP_RTM_TAG, prefix_str,
+               bgp_route_af_str_for_print(afi, safi));
+        return;
+    }
+
+    if (afi == AFI_L2VPN && safi == SAFI_MPLS_EVPN) {
+
+        params.evpn_route_type = EVPN_RT_TYPE_IP_PREFIX;
+        params.evpn_label = svc_label;
+        params.evpn_label_present = true;
+        params.eth_tag_id = 0;
+    }
+    else if (afi == AFI_IPV4 && safi == SAFI_MPLS_VPN) {
+
+        params.l3_vpn_label = svc_label;
+        params.l3_vpn_label_present = true;
+    }
+
     if (rt_advert->out_cost != 0) {
         params.med = rt_advert->out_cost;
         params.med_present = true;
@@ -1177,7 +1278,10 @@ bgp_rtm_route_notif (vrf_t *vrf, rt_advert_info_t  *rt_advert) {
         return;
     }
 
-    if (params.l3_vpn_label_present) {
+    if (safi == SAFI_MPLS_EVPN && params.evpn_label_present) {
+        snprintf(label_buf, sizeof(label_buf), " label %u",
+                 params.evpn_label);
+    } else if (params.l3_vpn_label_present) {
         snprintf(label_buf, sizeof(label_buf), " label %u",
                  params.l3_vpn_label);
     }

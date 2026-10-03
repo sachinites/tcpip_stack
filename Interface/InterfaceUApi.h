@@ -61,6 +61,12 @@ interface_bd_install_router_mac(node_t *node, Interface *bd);
 void
 interface_bd_uninstall_router_mac(node_t *node, Interface *bd);
 
+void 
+interface_bd_assign_evpn_l3_label(Interface *bd);
+
+void 
+interface_bd_unassign_evpn_l3_label(Interface *bd);
+
 void
 interface_vlan_install_router_mac(node_t *node, Interface *intf);
 

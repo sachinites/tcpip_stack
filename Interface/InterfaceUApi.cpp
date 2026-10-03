@@ -8,6 +8,7 @@
 #include "../tcpip_notif.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../vrf/vrf.h"
+#include "../LabelMgr/label_mgr.h"
 #include "../libs/common/ipv6_utils.h"
 #include "../dpal/cp2dp.h"
 #include "../datapath/enums/l2_enums.h"
@@ -99,6 +100,32 @@ interface_bd_uninstall_router_mac(node_t *node, Interface *bd) {
                                  bd->ifindex,
                                  BD_RMAC_INTF_INDEX,
                                  true);
+}
+
+void 
+interface_bd_assign_evpn_l3_label(Interface *bd) {
+
+    node_t *node = bd->att_node;
+    if (bd->iftype != INTF_TYPE_BD) return;
+
+    BDInterface *bdP = dynamic_cast<BDInterface *>(bd);
+
+    assert (label_mgr_block_alloc_label(
+        node->l2vpn_lbl_block, &bdP->l3_evpn_label) == LABEL_MGR_OK);
+}
+
+void 
+interface_bd_unassign_evpn_l3_label(Interface *bd) {
+
+    node_t *node = bd->att_node;
+    if (bd->iftype != INTF_TYPE_BD) return;
+
+    BDInterface *bdP = dynamic_cast<BDInterface *>(bd);
+
+    if (bdP->l3_evpn_label) {
+        label_mgr_block_release_label(node->l2vpn_lbl_block, bdP->l3_evpn_label);
+        bdP->l3_evpn_label = 0;
+    }
 }
 
 static bool
@@ -292,6 +319,8 @@ interface_set_ip_addr(node_t *node,
         interface_bd_install_router_mac(node, intf);
         interface_vlan_install_router_mac(node, intf);
         interface_install_anycast_gw_mac(node, intf);
+        interface_bd_assign_evpn_l3_label(intf);
+        rtm_install_mpls_xconnect_vrf_evpn_type5_route (intf, true);
         return;
     }
 
@@ -346,6 +375,8 @@ interface_unset_ip_addr(node_t *node, Interface *intf,
     intf->InterfaceSetIpAddressMask(0, 0);
     cp2dp_send_intf_ipv4_addr_update(node, intf->ifindex, 0, 0);
     interface_bd_uninstall_router_mac(node, intf);
+    rtm_install_mpls_xconnect_vrf_evpn_type5_route (intf, false);
+    interface_bd_unassign_evpn_l3_label(intf);
 }
 
 void

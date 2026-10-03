@@ -36,10 +36,14 @@ typedef struct bgp_rib_ bgp_rib_t;
 bgp_rib_t *
 bgp_global_rib_get(node_t *node, int afi, int safi);
 
+/* Unused for VPN AFI/SAFI; for L2VPN EVPN, EVPN route type (2, 3, or 5). */
+#define BGP_GLOBAL_RIB_EXPORT_ROUTE_TYPE_ANY  0
+
 void
 bgp_global_rib_export_all(bgp_inst_t *bgp,
                           uint8_t afi,
                           uint8_t safi,
-                          uint16_t target_vrf_id);
+                          uint16_t target_vrf_id,
+                          uint8_t export_route_type);
 
 #endif /* BGP_GLOBAL_RIB_H_ */

@@ -472,6 +472,7 @@ class BDInterface : public VirtualInterface {
         uint32_t ip_addr;
         uint32_t vpn_svc_label;
         uint32_t vpn_bum_label;
+        uint32_t l3_evpn_label;
         uint16_t bd_id;
         uint8_t evi_id;
         uint8_t mask;

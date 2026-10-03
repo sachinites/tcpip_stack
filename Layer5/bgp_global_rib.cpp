@@ -344,7 +344,8 @@ void
 bgp_global_rib_export_all(bgp_inst_t *bgp,
                           uint8_t afi,
                           uint8_t safi,
-                          uint16_t target_vrf_id)
+                          uint16_t target_vrf_id,
+                          uint8_t export_route_type)
 {
     bgp_rib_t **rib_slot;
     bgp_rib_t *rib;
@@ -363,5 +364,5 @@ bgp_global_rib_export_all(bgp_inst_t *bgp,
         return;
     }
 
-    bgp_rib_export_all(rib, target_vrf_id);
+    bgp_rib_export_all(rib, target_vrf_id, export_route_type);
 }

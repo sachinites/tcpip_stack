@@ -31,7 +31,10 @@ typedef struct rtm_nh_proto_
 
         struct
         {
-
+            /* This is Connected route configured on a BD interface, 
+                store L3 EVPN label here so that on redistributing to bgp we can 
+                advertise the label */
+            uint32_t l3_evpn_label;
         } connected;
 
         struct

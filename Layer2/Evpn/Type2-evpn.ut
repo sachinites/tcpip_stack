@@ -87,6 +87,10 @@
 :CMD: config R0 no interface ethernet eth1 vrf 0
 :CMD: config R0 distributed-anycast-gateway 00:02:00:02:00:02
 :CMD: config R0 bridge-domain 10
+:CMD: config R0 interface bridge-domain 10 no vrf 0
+:CMD: config R0 vrf red 
+:CMD: config R0 interface bridge-domain 10 vrf red
+:CMD: config R0 interface bridge-domain 10 ip-address 172.168.0.10 24
 :CMD: config R0 interface ethernet eth1 switchport
 :CMD: config R0 bridge-domain 10 member eth1 encapsulation dot1q 10
 
@@ -95,6 +99,11 @@
 :CMD: config R3 no interface ethernet eth1 vrf 0
 :CMD: config R3 distributed-anycast-gateway 00:02:00:02:00:02
 :CMD: config R3 bridge-domain 10
+:CMD: config R3 interface bridge-domain 10 no vrf 0
+:CMD: config R3 vrf red 
+:CMD: config R3 interface bridge-domain 10 vrf red
+:CMD: config R3 interface bridge-domain 10 ip-address 172.168.0.10 24
+
 :CMD: config R3 interface ethernet eth1 switchport
 :CMD: config R3 bridge-domain 10 member eth1 encapsulation dot1q 10
 
@@ -157,6 +166,8 @@
 :CMD: config R0 protocol bgp 65000 neighbor 122.1.1.2 address-family l2vpn-evpn
 :CMD: config R0 protocol l2vpn evpn instance 1
 :CMD: config R0 protocol l2vpn evpn instance 1 bridge-domain 10
+:CMD: config R0 protocol bgp 65000 neighbor 122.1.1.3 address-family l2vpn-evpn redistribute connected vrf red
+:CMD: config R0 protocol bgp 65000 neighbor 122.1.1.2 address-family l2vpn-evpn redistribute connected vrf red
 
 :CMD: config R3 protocol bgp 65000 neighbor 122.1.1.0 remote-as 65000
 :CMD: config R3 protocol bgp 65000 neighbor 122.1.1.0 address-family l2vpn-evpn
@@ -164,6 +175,8 @@
 :CMD: config R3 protocol bgp 65000 neighbor 122.1.1.2 address-family l2vpn-evpn
 :CMD: config R3 protocol l2vpn evpn instance 1
 :CMD: config R3 protocol l2vpn evpn instance 1 bridge-domain 10
+:CMD: config R3 protocol bgp 65000 neighbor 122.1.1.0 address-family l2vpn-evpn redistribute connected vrf red
+:CMD: config R3 protocol bgp 65000 neighbor 122.1.1.2 address-family l2vpn-evpn redistribute connected vrf red
 
 :CMD: config R2 protocol bgp 65000 neighbor 122.1.1.0 remote-as 65000
 :CMD: config R2 protocol bgp 65000 neighbor 122.1.1.0 address-family l2vpn-evpn
@@ -172,6 +185,7 @@
 :CMD: config R2 protocol l2vpn evpn instance 1
 :CMD: config R2 bridge-domain 10
 :CMD: config R2 protocol l2vpn evpn instance 1 bridge-domain 10
+:CMD: config R2 vrf red
 
 :INFO: run H1 resolve-arp 172.168.0.4 source-ip-address 172.168.0.2 src-mac e8:32:1a:0b:bd:fa interface eth1
 :INFO: run H1 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:02 interface eth1

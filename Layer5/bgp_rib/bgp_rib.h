@@ -56,7 +56,8 @@ bgp_rib_route_walk(bgp_rib_t *rib,
 
 void
 bgp_rib_export_all(bgp_rib_t *rib,
-                   uint16_t target_vrf_id);
+                   uint16_t target_vrf_id,
+                   uint8_t export_route_type);
 
 unsigned int
 bgp_rib_route_count(const bgp_rib_t *rib);

@@ -56,6 +56,7 @@ extern graph_t *topo;
 
 /* show node <node-name> protocol bgp routes l2vpn-evpn imet */
 #define CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_IMET 17
+#define CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_PREFIX 18
 
 /* show node <node-name> protocol bgp global-rib <ipv4-vpn|l2vpn-evpn> */
 #define CMDCODE_SHOW_BGP_GLOBAL_RIB_IPV4_VPN 15
@@ -832,6 +833,7 @@ typedef struct bgp_show_route_ctx_ {
     bool show_label;
     bool evpn_mac;
     bool evpn_imet;
+    bool evpn_prefix;
     int count;
 } bgp_show_route_ctx_t;
 
@@ -843,6 +845,40 @@ bgp_show_evpn_route_type(const bgp_unified_rt_t *route)
         return route->nlri_wire[0];
     }
     return 0;
+}
+
+static bool
+bgp_show_evpn_type5_l3_label(const bgp_unified_rt_t *route, uint32_t *label_out)
+{
+    bgp_nlri_key_t key;
+    bgp_evpn_nlri_t nlri;
+
+    if (!route || !label_out) {
+        return false;
+    }
+
+    if (route->evpn_label1_present) {
+        *label_out = route->evpn_label1;
+        return true;
+    }
+    if (route->l3_vpn_label_present) {
+        *label_out = route->l3_vpn_label;
+        return true;
+    }
+    if (route->nlri_wire_len == 0) {
+        return false;
+    }
+
+    memset(&key, 0, sizeof(key));
+    key.wire_len = route->nlri_wire_len;
+    memcpy(key.wire, route->nlri_wire, route->nlri_wire_len);
+    if (bgp_evpn_nlri_decode(&key, &nlri) != BGP_RIB_OK ||
+        nlri.route_type != EVPN_RT_TYPE_IP_PREFIX || !nlri.label_present) {
+        return false;
+    }
+
+    *label_out = nlri.label;
+    return true;
 }
 
 /* GoBGP may return RD/RT already as "a.b.c.d:N", or as numeric "N:N".
@@ -899,7 +935,11 @@ bgp_show_evpn_mac_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
     }
 
     rt_type = bgp_show_evpn_route_type(route);
-    if (rt_type == 3) {
+    if (rt_type == 3 || rt_type == 5) {
+        return 0;
+    }
+    if (rt_type == 0 && route->prefix[0] &&
+        strchr(route->prefix, '/') != NULL) {
         return 0;
     }
     if (rt_type == 0 && route->prefix[0] &&
@@ -937,6 +977,69 @@ bgp_show_evpn_mac_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
                                       seq_fmt_buffer,
                                       sizeof(seq_fmt_buffer),
                                       dash));
+
+    if (route->med_present) {
+        cprintf("%-6u ", route->med);
+    } else {
+        cprintf("%-6s ", dash);
+    }
+
+    if (route->local_pref_present) {
+        cprintf("%-10u ", route->local_pref);
+    } else {
+        cprintf("%-10s ", dash);
+    }
+
+    cprintf("%s\n", route->best ? "*" : "");
+    ctx->count++;
+    return 0;
+}
+
+static int
+bgp_show_evpn_prefix_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
+{
+    bgp_show_route_ctx_t *ctx = (bgp_show_route_ctx_t *)userdata;
+    const char *dash = "-";
+    char rd_fmt_buffer[48];
+    char rt_fmt_buffer[48];
+    uint8_t rt_type;
+
+    if (!route || !ctx) {
+        return 0;
+    }
+
+    rt_type = bgp_show_evpn_route_type(route);
+    if (rt_type != 5) {
+        return 0;
+    }
+
+    if (ctx->count == 0) {
+        cprintf("\nBGP routes (%s %s):\n", ctx->afi, ctx->safi);
+        cprintf("%-20s %-14s %-14s %-16s %-8s %-6s %-10s %s\n",
+                "Prefix", "RD", "RT", "Nexthop", "Label", "MED",
+                "LocalPref", "Best");
+        cprintf("%-20s %-14s %-14s %-16s %-8s %-6s %-10s %s\n",
+                "------", "--", "--", "-------", "-----", "---",
+                "---------", "----");
+    }
+
+    cprintf("%-20s %-14s %-14s %-16s ",
+            route->prefix[0] ? route->prefix : dash,
+            bgp_show_format_rd_rt(route->rd, true, rd_fmt_buffer,
+                                  sizeof(rd_fmt_buffer), dash),
+            bgp_show_format_rd_rt(route->rt, false, rt_fmt_buffer,
+                                  sizeof(rt_fmt_buffer), dash),
+            route->nexthop[0] ? route->nexthop : dash);
+
+    {
+        uint32_t l3_label;
+
+        if (bgp_show_evpn_type5_l3_label(route, &l3_label)) {
+            cprintf("%-8u ", l3_label);
+        } else {
+            cprintf("%-8s ", dash);
+        }
+    }
 
     if (route->med_present) {
         cprintf("%-6u ", route->med);
@@ -1046,6 +1149,10 @@ bgp_show_route_print_cb(const bgp_unified_rt_t *route, void *userdata)
 
     if (ctx->evpn_imet) {
         return bgp_show_evpn_imet_route_print_cb(route, userdata);
+    }
+
+    if (ctx->evpn_prefix) {
+        return bgp_show_evpn_prefix_route_print_cb(route, userdata);
     }
 
     if (ctx->count == 0) {
@@ -1224,7 +1331,11 @@ bgp_show_global_rib_print_evpn_detail(const bgp_nlri_key_t *key,
         snprintf(esi_hex + (i * 2), 3, "%02x", nlri.esi[i]);
     }
 
-    if (attrs->evpn_label1_present && attrs->evpn_label1_from_ext_comm) {
+    if (nlri.route_type == EVPN_RT_TYPE_IP_PREFIX && nlri.label_present) {
+        label1 = nlri.label;
+        label1_present = true;
+    } else if (attrs->evpn_label1_present &&
+               attrs->evpn_label1_from_ext_comm) {
         label1 = attrs->evpn_label1;
         label1_present = true;
     } else if (nlri.label_present) {
@@ -1448,6 +1559,8 @@ bgp_show_routes(node_t *node, const char *afi, const char *safi)
                     safi && strcmp(safi, "mac") == 0);
     ctx.evpn_imet = (afi && strcmp(afi, "l2vpn-evpn") == 0 &&
                      safi && strcmp(safi, "imet") == 0);
+    ctx.evpn_prefix = (afi && strcmp(afi, "l2vpn-evpn") == 0 &&
+                       safi && strcmp(safi, "prefix") == 0);
 
     if (bgp_node_walk_routes(node, afi, safi, bgp_show_route_print_cb, &ctx) != 0) {
         cprintf("ListPath RPC failed for %s %s\n", afi, safi);
@@ -1701,6 +1814,9 @@ bgp_show_handler(int64_t cmdcode,
         case CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_IMET:
             return bgp_show_routes(node, "l2vpn-evpn", "imet");
 
+        case CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_PREFIX:
+            return bgp_show_routes(node, "l2vpn-evpn", "prefix");
+
         default:
             break;
     }
@@ -1829,6 +1945,9 @@ bgp_config_cli_tree(param_t *param)
                             libcli_set_param_cmd_code(
                                 &l2vpn_evpn,
                                 CMDCODE_CONFIG_BGP_NEIGHBOR_AF_L2VPN_EVPN);
+                            {
+                                rtm_build_distribution_policy_cli_tree(&l2vpn_evpn, RTM_PROTO_BGP);
+                            }
                         }                        
                     }
                 }
@@ -1947,6 +2066,15 @@ bgp_show_cli_tree(param_t *param)
                     libcli_set_param_cmd_code(
                         &safi_imet,
                         CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_IMET);
+
+                    static param_t safi_prefix;
+                    init_param(&safi_prefix, CMD, "prefix", bgp_show_handler,
+                               0, INVALID, 0,
+                               "EVPN Type-5 IP prefix routes");
+                    libcli_register_param(&afi_l2vpn_evpn, &safi_prefix);
+                    libcli_set_param_cmd_code(
+                        &safi_prefix,
+                        CMDCODE_SHOW_BGP_ROUTES_L2VPN_EVPN_PREFIX);
                 }
             }
         }

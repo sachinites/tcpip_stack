@@ -19,6 +19,7 @@
 #include "../../Layer5/bgp_global_rib.h"
 #include "../../RTM/rtm_nb_integ.h"
 #include "evpn.h"
+#include "evpn_enums.h"
 #include "evpn_rt.h"
 
 /* config node <node-name> protocol l2vpn evpn instance <id> */
@@ -474,7 +475,14 @@ evpn_config_handler (int64_t cmdcode,
                                     BGP_INST(node),
                                     AFI_L2VPN,
                                     SAFI_MPLS_EVPN,
-                                    evpn_inst->evi);
+                                    evpn_inst->evi,
+                                    (uint8_t)EVPN_RT_TYPE_MAC_ONLY);
+                                bgp_global_rib_export_all(
+                                    BGP_INST(node),
+                                    AFI_L2VPN,
+                                    SAFI_MPLS_EVPN,
+                                    evpn_inst->evi,
+                                    (uint8_t)EVPN_RT_TYPE_IMET);
                             }
                         }
                     } else {
@@ -527,7 +535,14 @@ evpn_config_handler (int64_t cmdcode,
                                     BGP_INST(node),
                                     AFI_L2VPN,
                                     SAFI_MPLS_EVPN,
-                                    evpn_inst->evi);
+                                    evpn_inst->evi,
+                                    (uint8_t)EVPN_RT_TYPE_MAC_ONLY);
+                                bgp_global_rib_export_all(
+                                    BGP_INST(node),
+                                    AFI_L2VPN,
+                                    SAFI_MPLS_EVPN,
+                                    evpn_inst->evi,
+                                    (uint8_t)EVPN_RT_TYPE_IMET);
                             }
                         }
                     } else {

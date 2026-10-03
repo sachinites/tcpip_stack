@@ -431,6 +431,11 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
             afi = AFI_IPV4;
             safi = SAFI_MPLS_VPN;
         }
+        else if ((parser_match_param(tlv, L2VPN_EVPN_AF_STR) && 
+            target_proto == RTM_PROTO_BGP)) {
+            afi = AFI_L2VPN;
+            safi = SAFI_MPLS_EVPN;
+        }        
         else if (parser_match_leaf_id(tlv->leaf_id, "bgp-neighbor-addr") &&
             target_proto == RTM_PROTO_BGP){
             bgp_nbr = tlv->value;

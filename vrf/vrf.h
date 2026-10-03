@@ -64,6 +64,7 @@ typedef struct vrf_ {
     std::unordered_map<uint32_t, InterfaceP> *intf_by_ifindex;
     /* L3 VPN service label */
     mpls_label_val_t l3_vpn_label;
+    mpls_label_val_t l3_vpnv6_label;
     /* Route Distinguisher Type 0 */
     rd_t rd;
     /* Route target */

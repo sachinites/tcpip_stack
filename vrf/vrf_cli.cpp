@@ -11,6 +11,7 @@
 #include "vrf.h"
 #include "../Layer5/bgp_rtr.h"
 #include "../Layer5/bgp_global_rib.h"
+#include "../Layer2/Evpn/evpn_enums.h"
 #include "../RTM/rtm_priv_api.h"
 #include "../RTM/rtm_nb_integ.h"
 #include "../dpal/cp2dp.h"
@@ -205,8 +206,15 @@ vrf_config_handler (int64_t cmdcode,
                     }
                     cp2dp_vrf_create(node, (char *)vrf_name, vrf->vrf_id);
                     rtm_install_xconnect_vpnv4_route (vrf, true);
-                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV4, SAFI_MPLS_VPN, vrf->vrf_id);
-                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV6, SAFI_MPLS_VPN, vrf->vrf_id);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV4, SAFI_MPLS_VPN,
+                                              vrf->vrf_id,
+                                              BGP_GLOBAL_RIB_EXPORT_ROUTE_TYPE_ANY);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV6, SAFI_MPLS_VPN,
+                                              vrf->vrf_id,
+                                              BGP_GLOBAL_RIB_EXPORT_ROUTE_TYPE_ANY);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_L2VPN, SAFI_MPLS_EVPN,
+                                              vrf->vrf_id,
+                                              (uint8_t)EVPN_RT_TYPE_IP_PREFIX);
                 }
                 break;
                 case CONFIG_DISABLE:
@@ -271,10 +279,18 @@ vrf_config_handler (int64_t cmdcode,
                     /* Flush existing BGP VPN routes from VRF RIBs */
                     cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_VPN, 0);
                     cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_VPN, 0);
+                    cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_EVPN, 0);
                     
                     /* Re-import routes with new import RT */
-                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV4, SAFI_MPLS_VPN, vrf->vrf_id);
-                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV6, SAFI_MPLS_VPN, vrf->vrf_id);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV4, SAFI_MPLS_VPN,
+                                              vrf->vrf_id,
+                                              BGP_GLOBAL_RIB_EXPORT_ROUTE_TYPE_ANY);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV6, SAFI_MPLS_VPN,
+                                              vrf->vrf_id,
+                                              BGP_GLOBAL_RIB_EXPORT_ROUTE_TYPE_ANY);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_L2VPN, SAFI_MPLS_EVPN,
+                                              vrf->vrf_id,
+                                              (uint8_t)EVPN_RT_TYPE_IP_PREFIX);
                 }
                 break;
                 
@@ -299,10 +315,18 @@ vrf_config_handler (int64_t cmdcode,
                     /* Flush existing BGP VPN routes from VRF RIBs */
                     cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_VPN, 0);
                     cp_rtm_uninstall_routes_by_proto(vrf->inet6, RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_VPN, 0);
+                    cp_rtm_uninstall_routes_by_proto(vrf->inet0, RTM_PROTO_BGP, RTM_SUB_PROTO_BGP_EVPN, 0);
                     
                     /* Re-import routes with restored import RT */
-                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV4, SAFI_MPLS_VPN, vrf->vrf_id);
-                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV6, SAFI_MPLS_VPN, vrf->vrf_id);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV4, SAFI_MPLS_VPN,
+                                              vrf->vrf_id,
+                                              BGP_GLOBAL_RIB_EXPORT_ROUTE_TYPE_ANY);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_IPV6, SAFI_MPLS_VPN,
+                                              vrf->vrf_id,
+                                              BGP_GLOBAL_RIB_EXPORT_ROUTE_TYPE_ANY);
+                    bgp_global_rib_export_all(BGP_INST(node), AFI_L2VPN, SAFI_MPLS_EVPN,
+                                              vrf->vrf_id,
+                                              (uint8_t)EVPN_RT_TYPE_IP_PREFIX);
                 }
                 break;
                 

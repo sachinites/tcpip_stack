@@ -6,6 +6,8 @@
 #include "../../libs/c-hashtable/hashtable.h"
 #include "../../libs/c-hashtable/hashtable_itr.h"
 
+#include "../../tcpconst.h"
+
 #include "bgp_rib.h"
 #include "bgp_nlri_key.h"
 #include "bgp_nlri_wire.h"
@@ -193,6 +195,7 @@ bgp_rib_route_lookup(const bgp_rib_t *rib,
 typedef struct bgp_rib_export_all_ctx_ {
     bgp_rib_t *rib;
     uint16_t   target_vrf_id;
+    uint8_t    export_route_type;
 } bgp_rib_export_all_ctx_t;
 
 static int
@@ -207,6 +210,13 @@ bgp_rib_export_all_walk_cb(const bgp_nlri_key_t *key,
         return 0;
     }
 
+    if (rib->safi == SAFI_MPLS_EVPN && ctx->export_route_type != 0) {
+        if (!key || key->wire_len == 0 ||
+            key->wire[0] != ctx->export_route_type) {
+            return 0;
+        }
+    }
+
     rib->export_route(rib->bgp_instance, rib->afi, rib->safi,
                       (bgp_nlri_key_t *)key,
                       (bgp_rib_attrs_t *)attrs,
@@ -217,7 +227,8 @@ bgp_rib_export_all_walk_cb(const bgp_nlri_key_t *key,
 
 void
 bgp_rib_export_all(bgp_rib_t *rib,
-                   uint16_t target_vrf_id)
+                   uint16_t target_vrf_id,
+                   uint8_t export_route_type)
 {
     bgp_rib_export_all_ctx_t ctx;
 
@@ -227,6 +238,7 @@ bgp_rib_export_all(bgp_rib_t *rib,
 
     ctx.rib = rib;
     ctx.target_vrf_id = target_vrf_id;
+    ctx.export_route_type = export_route_type;
     bgp_rib_route_walk(rib, bgp_rib_export_all_walk_cb, &ctx);
 }
 

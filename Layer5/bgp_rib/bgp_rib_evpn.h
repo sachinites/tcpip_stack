@@ -17,6 +17,7 @@ typedef struct bgp_evpn_nlri_ {
     mac_addr_t   mac;
     uint8_t      ip_len;
     uint32_t     ip_addr;
+    uint32_t     gw_addr;
     uint32_t     label;
     bool         label_present;
 } bgp_evpn_nlri_t;

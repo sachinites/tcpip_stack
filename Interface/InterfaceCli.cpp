@@ -120,7 +120,7 @@ display_node_interfaces (param_t *param, Stack_t *tlv_stack){
 }
 
 static bool
-intf_eligible_for_ip_brief(Interface *intf)
+intf_eligible_for_ip_brief_from_node_map(Interface *intf)
 {
     if (!intf) {
         return false;
@@ -128,14 +128,20 @@ intf_eligible_for_ip_brief(Interface *intf)
 
     switch (intf->iftype) {
     case INTF_TYPE_PHY:
-    case INTF_TYPE_VLAN:
     case INTF_TYPE_LOOPBACK:
     case INTF_TYPE_GRE_TUNNEL:
     case INTF_TYPE_VIRTUAL_PORT:
+    case INTF_TYPE_BD:
         return true;
     default:
         return false;
     }
+}
+
+static bool
+intf_eligible_for_ip_brief_vlan(Interface *intf)
+{
+    return intf && intf->iftype == INTF_TYPE_VLAN;
 }
 
 static void
@@ -153,10 +159,72 @@ intf_brief_vrf_column(Interface *intf, char *buf, size_t buflen)
 }
 
 static void
+display_ip_interface_brief_line(Interface *intf)
+{
+    char vrf_str[32];
+    uint32_t ipv4_addr = 0;
+    uint8_t ipv4_mask = 0;
+    uint8_t ipv6_addr[16] = {0};
+    uint8_t ipv6_prefix = 0;
+    char ipv4_line[32] = {0};
+    char ipv6_line[48] = {0};
+    const char *admin_status;
+
+    if (!intf) {
+        return;
+    }
+
+    intf_brief_vrf_column(intf, vrf_str, sizeof(vrf_str));
+    admin_status = intf->is_up ? "Up" : "Down";
+
+    intf->InterfaceGetIpAddressMask(&ipv4_addr, &ipv4_mask);
+    if (ipv4_addr) {
+        byte ipv4_str[IPV4_ADDR_LEN_STR];
+
+        ip_ntop(ipv4_addr, ipv4_str);
+        snprintf(ipv4_line, sizeof(ipv4_line), "%s/%u",
+                 (char *)ipv4_str, ipv4_mask);
+    }
+
+    if (intf->IsIpv6Configured()) {
+        intf->InterfaceGetIpv6AddressMask(&ipv6_addr, &ipv6_prefix);
+        if (inet_ntop(AF_INET6, ipv6_addr, ipv6_line, sizeof(ipv6_line))) {
+            char tmp[56];
+
+            snprintf(tmp, sizeof(tmp), "%s/%u", ipv6_line, ipv6_prefix);
+            strncpy(ipv6_line, tmp, sizeof(ipv6_line) - 1);
+            ipv6_line[sizeof(ipv6_line) - 1] = '\0';
+        } else {
+            ipv6_line[0] = '\0';
+        }
+    }
+
+    if (!ipv4_line[0] && !ipv6_line[0]) {
+        cprintf("%-12s %-12s %-22s %s\n",
+                intf->if_name.c_str(), vrf_str, "-", admin_status);
+        return;
+    }
+
+    if (ipv4_line[0]) {
+        cprintf("%-12s %-12s %-22s %s\n",
+                intf->if_name.c_str(), vrf_str, ipv4_line,
+                admin_status);
+    } else {
+        cprintf("%-12s %-12s %-22s %s\n",
+                intf->if_name.c_str(), vrf_str, ipv6_line,
+                admin_status);
+        ipv6_line[0] = '\0';
+    }
+
+    if (ipv6_line[0]) {
+        cprintf("%-12s %-12s %-22s\n", "", "", ipv6_line);
+    }
+}
+
+static void
 display_node_ip_interface_brief(node_t *node)
 {
     Interface *intf;
-    char vrf_str[32];
 
     if (!node) {
         cprintf("Error : Node not found\n");
@@ -170,65 +238,24 @@ display_node_ip_interface_brief(node_t *node)
 
     ITERATE_NODE_INTERFACES_BEGIN(node, intf) {
 
-        uint32_t ipv4_addr = 0;
-        uint8_t ipv4_mask = 0;
-        uint8_t ipv6_addr[16] = {0};
-        uint8_t ipv6_prefix = 0;
-        char ipv4_line[32] = {0};
-        char ipv6_line[48] = {0};
-        const char *admin_status;
-
-        if (!intf_eligible_for_ip_brief(intf)) {
+        if (!intf_eligible_for_ip_brief_from_node_map(intf)) {
             continue;
         }
 
-        intf_brief_vrf_column(intf, vrf_str, sizeof(vrf_str));
-        admin_status = intf->is_up ? "Up" : "Down";
-
-        intf->InterfaceGetIpAddressMask(&ipv4_addr, &ipv4_mask);
-        if (ipv4_addr) {
-            byte ipv4_str[IPV4_ADDR_LEN_STR];
-
-            ip_ntop(ipv4_addr, ipv4_str);
-            snprintf(ipv4_line, sizeof(ipv4_line), "%s/%u",
-                     (char *)ipv4_str, ipv4_mask);
-        }
-
-        if (intf->IsIpv6Configured()) {
-            intf->InterfaceGetIpv6AddressMask(&ipv6_addr, &ipv6_prefix);
-            if (inet_ntop(AF_INET6, ipv6_addr, ipv6_line, sizeof(ipv6_line))) {
-                char tmp[56];
-
-                snprintf(tmp, sizeof(tmp), "%s/%u", ipv6_line, ipv6_prefix);
-                strncpy(ipv6_line, tmp, sizeof(ipv6_line) - 1);
-                ipv6_line[sizeof(ipv6_line) - 1] = '\0';
-            } else {
-                ipv6_line[0] = '\0';
-            }
-        }
-
-        if (!ipv4_line[0] && !ipv6_line[0]) {
-            cprintf("%-12s %-12s %-22s %s\n",
-                    intf->if_name.c_str(), vrf_str, "-", admin_status);
-            continue;
-        }
-
-        if (ipv4_line[0]) {
-            cprintf("%-12s %-12s %-22s %s\n",
-                    intf->if_name.c_str(), vrf_str, ipv4_line,
-                    admin_status);
-        } else {
-            cprintf("%-12s %-12s %-22s %s\n",
-                    intf->if_name.c_str(), vrf_str, ipv6_line,
-                    admin_status);
-            ipv6_line[0] = '\0';
-        }
-
-        if (ipv6_line[0]) {
-            cprintf("%-12s %-12s %-22s\n", "", "", ipv6_line);
-        }
+        display_ip_interface_brief_line(intf);
 
     } ITERATE_NODE_INTERFACES_END(node, intf);
+
+    if (node->vlan_intf_db) {
+        for (auto it = node->vlan_intf_db->begin();
+             it != node->vlan_intf_db->end(); ++it) {
+            intf = it->second.get();
+            if (!intf_eligible_for_ip_brief_vlan(intf)) {
+                continue;
+            }
+            display_ip_interface_brief_line(intf);
+        }
+    }
 }
 
 static int
@@ -560,6 +587,8 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     interface_bd_install_router_mac(node, interface);
                     interface_vlan_install_router_mac(node, interface);
                     interface_install_anycast_gw_mac(node, interface);
+                    interface_bd_assign_evpn_l3_label(interface);
+                    rtm_install_mpls_xconnect_vrf_evpn_type5_route (interface, true);
                 }
                 else if (!interface->is_up) {
                     interface_uninstall_local_v4_routes  (node, interface);
@@ -569,6 +598,8 @@ intf_config_handler(int64_t cmdcode, Stack_t *tlv_stack,
                     interface_bd_uninstall_router_mac(node, interface);
                     interface_vlan_uninstall_router_mac(node, interface);
                     interface_uninstall_anycast_gw_mac(node, interface);
+                    rtm_install_mpls_xconnect_vrf_evpn_type5_route (interface, false);
+                    interface_bd_unassign_evpn_l3_label(interface);
                 }
             }
 

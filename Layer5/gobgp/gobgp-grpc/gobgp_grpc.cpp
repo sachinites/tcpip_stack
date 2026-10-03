@@ -322,6 +322,63 @@ bool ExtractNlriWire(const api::NLRI& nlri,
         return true;
     }
 
+    if (nlri.has_evpn_ip_prefix()) {
+        const api::EVPNIPPrefixRoute& ip_pfx = nlri.evpn_ip_prefix();
+        std::uint8_t ip[4] = {};
+
+        info->nlri_wire[offset++] = 5;
+
+        if (!ip_pfx.has_rd() ||
+            !EncodeRouteDistinguisherWire(ip_pfx.rd(), &info->nlri_wire[offset])) {
+            return false;
+        }
+        offset += 8;
+
+        std::memset(&info->nlri_wire[offset], 0, 10);
+        offset += 10;
+
+        const std::uint32_t eth_tag = ip_pfx.ethernet_tag();
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>((eth_tag >> 24) & 0xff);
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>((eth_tag >> 16) & 0xff);
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>((eth_tag >> 8) & 0xff);
+        info->nlri_wire[offset++] =
+            static_cast<std::uint8_t>(eth_tag & 0xff);
+
+        const std::uint32_t prefix_len = ip_pfx.ip_prefix_len();
+        const std::uint8_t prefix_bytes = Ipv4PrefixByteCount(prefix_len);
+
+        if (!ParseIpv4Address(ip_pfx.ip_prefix(), ip)) {
+            return false;
+        }
+
+        info->nlri_wire[offset++] = static_cast<std::uint8_t>(prefix_len);
+        for (std::uint8_t i = 0; i < prefix_bytes; ++i) {
+            info->nlri_wire[offset++] = ip[i];
+        }
+
+        {
+            std::uint8_t gw[4] = {};
+
+            if (!ip_pfx.gw_address().empty() &&
+                ParseIpv4Address(ip_pfx.gw_address(), gw)) {
+                /* use parsed GW */
+            }
+            for (std::uint8_t i = 0; i < 4; ++i) {
+                info->nlri_wire[offset++] = gw[i];
+            }
+        }
+
+        if (ip_pfx.label() != 0) {
+            AppendMplsLabel(ip_pfx.label(), info->nlri_wire, &offset);
+        }
+
+        info->nlri_wire_len = offset;
+        return true;
+    }
+
     (void)safi;
     return false;
 }
@@ -1089,6 +1146,10 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
             if (params.pe_addr.empty()) {
                 return path;
             }
+        } else if (params.evpn_route_type == 5) {
+            if (!has_prefix) {
+                return path;
+            }
         } else if (params.mac_addr.empty()) {
             return path;
         }
@@ -1112,6 +1173,26 @@ api::Path GoBgpGrpcClient::BuildPath(const BgpRouteParams& params,
             }
             imet->set_ethernet_tag(params.eth_tag_id);
             imet->set_ip_address(params.pe_addr);
+        } else if (params.evpn_route_type == 5) {
+            api::EVPNIPPrefixRoute* ip_pfx =
+                nlri->mutable_evpn_ip_prefix();
+            if (!params.rd.empty()) {
+                SetRouteDistinguisher(params.rd, ip_pfx->mutable_rd());
+            }
+            SetDefaultEthernetSegmentIdentifier(ip_pfx->mutable_esi());
+            ip_pfx->set_ethernet_tag(params.eth_tag_id);
+            ip_pfx->set_ip_prefix(addr);
+            ip_pfx->set_ip_prefix_len(prefix_len);
+            /* GoBGP parses gw_address with netip.ParseAddr; empty string is invalid.
+             * RFC 9136: GW is 0.0.0.0 / :: when not used as overlay index. */
+            if (addr.find(':') != std::string::npos) {
+                ip_pfx->set_gw_address("::");
+            } else {
+                ip_pfx->set_gw_address("0.0.0.0");
+            }
+            if (params.evpn_label_present && params.evpn_label != 0) {
+                ip_pfx->set_label(params.evpn_label);
+            }
         } else {
             api::EVPNMACIPAdvertisementRoute* evpn =
                 nlri->mutable_evpn_macadv();
@@ -1275,6 +1356,17 @@ void GoBgpGrpcClient::FillRouteInfo(const api::Path& path,
             if (imet.has_rd()) {
                 info->rd = FormatRouteDistinguisher(imet.rd());
             }
+        } else if (nlri.has_evpn_ip_prefix()) {
+            const api::EVPNIPPrefixRoute& ip_pfx = nlri.evpn_ip_prefix();
+            info->prefix = ip_pfx.ip_prefix() + "/" +
+                           std::to_string(ip_pfx.ip_prefix_len());
+            if (ip_pfx.has_rd()) {
+                info->rd = FormatRouteDistinguisher(ip_pfx.rd());
+            }
+            if (ip_pfx.label() != 0) {
+                info->evpn_label1 = ip_pfx.label();
+                info->evpn_label1_present = true;
+            }
         }
     }
 
@@ -1328,6 +1420,29 @@ void GoBgpGrpcClient::FillRouteInfo(const api::Path& path,
 
     if (path.has_nlri()) {
         ExtractNlriWire(path.nlri(), safi, info);
+    }
+
+    /* FillExtendedCommunities() resets evpn_label1; restore Type-5 service label. */
+    if (path.has_nlri() && path.nlri().has_evpn_ip_prefix()) {
+        const api::EVPNIPPrefixRoute& ip_pfx = path.nlri().evpn_ip_prefix();
+
+        if (!info->evpn_label1_from_ext_comm && ip_pfx.label() != 0) {
+            info->evpn_label1 = ip_pfx.label();
+            info->evpn_label1_present = true;
+        } else if (!info->evpn_label1_present && info->nlri_wire_len >= 3 &&
+                   info->nlri_wire[0] == 5) {
+            const std::uint16_t off = info->nlri_wire_len;
+            const std::uint32_t entry =
+                (static_cast<std::uint32_t>(info->nlri_wire[off - 3]) << 16) |
+                (static_cast<std::uint32_t>(info->nlri_wire[off - 2]) << 8) |
+                static_cast<std::uint32_t>(info->nlri_wire[off - 1]);
+            const std::uint32_t lbl = (entry >> 4) & 0xfffffU;
+
+            if (lbl != 0) {
+                info->evpn_label1 = lbl;
+                info->evpn_label1_present = true;
+            }
+        }
     }
 }
 

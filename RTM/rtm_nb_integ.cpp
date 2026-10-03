@@ -299,6 +299,14 @@ cp_rtm_install_local_or_connected_v4_routes (
 
     nh_template.rtm_nh_proto = nh_proto;
 
+    if (nh_template.proto == RTM_PROTO_CONNECTED &&
+        Oif->iftype == INTF_TYPE_BD) {
+        BDInterface *bd_intf = dynamic_cast<BDInterface *>(Oif.get());
+        if (bd_intf && bd_intf->l3_evpn_label) {
+            nh_proto->u.connected.l3_evpn_label = bd_intf->l3_evpn_label;
+        }
+    }
+
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route %s  Gw:null recvd route installation request\n",  
         rtm->name, 
@@ -375,6 +383,14 @@ cp_rtm_install_local_or_connected_v6_routes (
     assert(rc == RTM_SUCCESS);
 
     nh_template.rtm_nh_proto = nh_proto;
+
+    if (nh_template.proto == RTM_PROTO_CONNECTED &&
+        Oif->iftype == INTF_TYPE_BD) {
+        BDInterface *bd_intf = dynamic_cast<BDInterface *>(Oif.get());
+        if (bd_intf && bd_intf->l3_evpn_label) {
+            nh_proto->u.connected.l3_evpn_label = bd_intf->l3_evpn_label;
+        }
+    }
 
     tracer(rtm->node->cptr, DRTM,
         "RTM[%s] : Route %s  Gw:null recvd IPv6 route installation request\n",
@@ -1389,6 +1405,75 @@ rtm_install_mpls_xconnect_bd_evpn_bum_local_route (Interface *intf, bool install
                         0);
     }
 }
+
+void
+rtm_install_mpls_xconnect_vrf_evpn_type5_route (
+        Interface *_bd_intf,
+        bool install) {
+
+    cmn_prefix_t gateway;
+    cmn_prefix_t mpls_in_label;
+
+    if (_bd_intf->iftype != INTF_TYPE_BD) return;
+    
+    BDInterface *bd_intf = dynamic_cast<BDInterface *>(_bd_intf);
+
+    assert (bd_intf->l3_evpn_label);
+
+    cmn_prefix_initialize_label(&mpls_in_label, bd_intf->l3_evpn_label);
+
+    /* Encode VRF ID in the gateway for display VRF as nexthop at 
+        RTM and FIB level */
+    cmn_prefix_initialize_v4(&gateway, bd_intf->vrf->vrf_id, 32);
+
+    rtm_error_t rc = RTM_SUCCESS;
+    
+    if (install) {
+
+        if (!bd_intf->is_up || !bd_intf->IsIpConfigured()) return; 
+
+        rc = cp_rtm_install_route_advanced (
+                    ((def_vrf_t *)bd_intf->vrf->node->vrf[0])->mpls0,
+                    &mpls_in_label,
+                    RTM_PROTO_STATIC,
+                    RTM_SUB_PROTO_BGP_EVPN,
+                    0, 0,
+                    RTM_NH_ACTION_FORWARD,
+                    0,
+                    &gateway,
+                    MPLS_TO_VRF_INTF_STEER_IFINDEX, 
+                    INTF_TYPE_MPLS_TO_VRF_STEER, 
+                    NULL,
+                    0,
+                    0, 
+                    MPLS_OP_POP,
+                    0);
+
+        assert (rc == RTM_SUCCESS);
+    }
+    else {
+
+        if (!bd_intf->l3_evpn_label) return;
+
+        rc = cp_rtm_uninstall_route_advanced (
+                    ((def_vrf_t *)bd_intf->vrf->node->vrf[0])->mpls0,
+                    &mpls_in_label,
+                    RTM_PROTO_STATIC,
+                    RTM_SUB_PROTO_BGP_EVPN,
+                    0,
+                    RTM_NH_ACTION_FORWARD,
+                    0,
+                    &gateway,
+                    MPLS_TO_VRF_INTF_STEER_IFINDEX, 
+                    INTF_TYPE_MPLS_TO_VRF_STEER, 
+                    NULL,
+                    0,
+                    0, 
+                    MPLS_OP_POP,
+                    0);
+    }
+}
+
 
 uint32_t
 rtm_proto_seed_update (rtm_t *rtm, 

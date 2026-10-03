@@ -399,8 +399,13 @@ sf_gobgp_add_route(sf_gobgp_grpc_client_t *client,
         return {false, -1, "invalid arguments"};
     }
     if (params->safi == 70) {
-        /* Type-2 uses mac_addr; Type-3 IMET uses pe_addr. */
-        if (params->mac_addr[0] == '\0' && params->pe_addr[0] == '\0') {
+        /* Type-2: mac_addr; Type-3 IMET: pe_addr; Type-5: IP prefix. */
+        if (params->evpn_route_type == 5) {
+            if (params->prefix[0] == '\0') {
+                return {false, -1, "invalid arguments"};
+            }
+        } else if (params->mac_addr[0] == '\0' &&
+                   params->pe_addr[0] == '\0') {
             return {false, -1, "invalid arguments"};
         }
     } else if (params->prefix[0] == '\0') {
@@ -434,7 +439,12 @@ sf_gobgp_delete_route(sf_gobgp_grpc_client_t *client,
         return {false, -1, "invalid arguments"};
     }
     if (params->safi == 70) {
-        if (params->mac_addr[0] == '\0' && params->pe_addr[0] == '\0') {
+        if (params->evpn_route_type == 5) {
+            if (params->prefix[0] == '\0') {
+                return {false, -1, "invalid arguments"};
+            }
+        } else if (params->mac_addr[0] == '\0' &&
+                   params->pe_addr[0] == '\0') {
             return {false, -1, "invalid arguments"};
         }
     } else if (params->prefix[0] == '\0') {

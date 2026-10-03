@@ -8,6 +8,7 @@
 #include "../../dpal/cp2dp.h"
 
 #include "evpn.h"
+#include "evpn_enums.h"
 #include "evpn_priv_api.h"
 #include "../../vrf/mac_vrf.h"
 #include "../../RTM/rtm.h"
@@ -139,6 +140,9 @@ evpn_connect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf) {
     evpn_inst->mac_vrf =  mac_vrf_create(bd_intf->vrf, bd_intf->bd_id);
     evpn_inst->mac_vrf->evpn_inst = evpn_inst;
 
+    /* Save local IMET route in MAC VRF RIB and advertise to BGP, BGP in-turn will
+        echo it back into its evpn global RIB. We dont import local routes from BGP 
+        Global RIBs. */
     mac_vrf_evpn_route_type3_local_import(bd_intf->vrf->node, evpn_inst->mac_vrf);
 
     if (BGP_INST(evpn_inst->node))
@@ -147,7 +151,15 @@ evpn_connect_bd (evpn_inst_t *evpn_inst, BDInterface *bd_intf) {
             BGP_INST(evpn_inst->node),
             AFI_L2VPN,
             SAFI_MPLS_EVPN,
-            evpn_inst->evi);
+            evpn_inst->evi,
+            (uint8_t)EVPN_RT_TYPE_MAC_ONLY);
+
+        bgp_global_rib_export_all(
+            BGP_INST(evpn_inst->node),
+            AFI_L2VPN,
+            SAFI_MPLS_EVPN,
+            evpn_inst->evi,
+            (uint8_t)EVPN_RT_TYPE_IMET);
     }
 }
 
