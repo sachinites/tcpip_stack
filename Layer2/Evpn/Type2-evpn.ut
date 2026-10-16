@@ -1,6 +1,6 @@
 
-:INFO: This topology demonstrated Type 2 EVPN route advertisement by BGP, and establish end to end 
-:INFO: Bridge domain bridging on PE routers. IMET route is installed using CLI though.
+:INFO: This topology demonstrated Type 2/3/5 EVPN route advertisement by BGP, and establish end to end communication.
+:INFO: Bridge domain bridging on PE routers.
 
 :PRINT: Topology - cross_link_topology
 :PRINT:
@@ -90,7 +90,7 @@
 :CMD: config R0 interface bridge-domain 10 no vrf 0
 :CMD: config R0 vrf red 
 :CMD: config R0 interface bridge-domain 10 vrf red
-:CMD: config R0 interface bridge-domain 10 ip-address 172.168.0.10 24
+:CMD: config R0 interface bridge-domain 10 ip-address 172.168.0.254 24
 :CMD: config R0 interface ethernet eth1 switchport
 :CMD: config R0 bridge-domain 10 member eth1 encapsulation dot1q 10
 
@@ -102,7 +102,12 @@
 :CMD: config R3 interface bridge-domain 10 no vrf 0
 :CMD: config R3 vrf red 
 :CMD: config R3 interface bridge-domain 10 vrf red
-:CMD: config R3 interface bridge-domain 10 ip-address 172.168.0.10 24
+:CMD: config R3 interface bridge-domain 10 ip-address 172.168.0.254 24
+:CMD: config R3 bridge-domain 20
+:CMD: config R3 interface bridge-domain 20 no vrf 0
+:CMD: config R3 interface bridge-domain 20 vrf red
+:CMD: config R3 interface bridge-domain 20 ip-address 182.168.0.254 24
+
 
 :CMD: config R3 interface ethernet eth1 switchport
 :CMD: config R3 bridge-domain 10 member eth1 encapsulation dot1q 10
@@ -194,6 +199,7 @@
 :INFO: run H1 resolve-arp 172.168.0.4 source-ip-address 172.168.0.5 src-mac ff:ff:ff:ff:01:05 interface eth1
 
 :INFO: Test : 
-:INFO: run H1 ping source-address 172.168.0.1 172.168.0.2
+:INFO: run H1 ping source-address 172.168.0.1 172.168.0.2 (L2 Bridging)
+:INFO: run H1 ping source-address 172.168.0.1 182.168.0.254 (IRB routing)
 :INFO: Ping must succeed.
 

@@ -1459,12 +1459,26 @@ bgp_show_global_rib_print_cb(const bgp_nlri_key_t *key,
         return 0;
     }
 
+    bool is_evpn = (ctx->safi == SAFI_MPLS_EVPN);
+
     if (ctx->count == 0) {
         cprintf("\nBGP global RIB (%s):\n", ctx->af_label);
-        /* Two-line route layout: Network alone, then NH/attrs indented. */
-        cprintf("    %-17s %-20s %6s %6s %6s %s\n",
-                "Network", "Next Hop", "Metric", "LocPrf", "Weight", "Path");
-    } else {
+        if (is_evpn) {
+            /* Cisco-style EVPN brief header (see notes.txt). */
+            cprintf("Status codes: * valid, > best, i - internal\n");
+            cprintf("Origin codes: i - IGP, ? - incomplete\n");
+            cprintf("\n");
+            cprintf("   %-45s %-15s %6s %7s %6s %s\n",
+                    "Network", "Next Hop", "Metric", "LocPrf",
+                    "Weight", "Path");
+            cprintf("---------------------------------------------------"
+                    "----------------------------------------\n");
+        } else {
+            /* Two-line route layout: Network alone, then NH/attrs indented. */
+            cprintf("    %-17s %-20s %6s %6s %6s %s\n",
+                    "Network", "Next Hop", "Metric", "LocPrf", "Weight", "Path");
+        }
+    } else if (!is_evpn) {
         cprintf("\n");
     }
 
@@ -1486,15 +1500,36 @@ bgp_show_global_rib_print_cb(const bgp_nlri_key_t *key,
         if (attrs->local_pref_present) {
             local_pref = attrs->local_pref;
         }
-        if (!attrs->is_from_external) {
+        if (attrs->origin_present) {
+            /* BGP Origin: 0=IGP(i), 1=EGP(e), 2=INCOMPLETE(?) */
+            path = (attrs->origin == 0) ? "i" :
+                   (attrs->origin == 1) ? "e" : "?";
+        } else if (!attrs->is_from_external) {
             path = "i";
         }
     }
 
-    cprintf("  %s\n", network);
-    cprintf("                      %-20s %6u %6u %6u %s\n",
-            nexthop[0] ? nexthop : "-",
-            metric, local_pref, 0U, path);
+    if (is_evpn) {
+        /* Status: * valid, > best, i internal (iBGP, non-local). */
+        char status[4];
+        bool is_local = (nexthop[0] == '\0' ||
+                         strcmp(nexthop, "0.0.0.0") == 0);
+        bool is_internal = (attrs && !attrs->is_from_external && !is_local);
+
+        snprintf(status, sizeof(status), "*%s%s",
+                 (attrs && attrs->best) ? ">" : "",
+                 is_internal ? "i" : "");
+        cprintf(" %-4s%s\n", status, network);
+        /* Next Hop column starts at offset 49 (3 + 45 + 1). */
+        cprintf("%49s%-15s %6u %7u %6u %s\n",
+                "", nexthop[0] ? nexthop : "-",
+                metric, local_pref, 0U, path);
+    } else {
+        cprintf("  %s\n", network);
+        cprintf("                      %-20s %6u %6u %6u %s\n",
+                nexthop[0] ? nexthop : "-",
+                metric, local_pref, 0U, path);
+    }
 
     if (attrs) {
         if (ctx->safi == SAFI_MPLS_EVPN) {

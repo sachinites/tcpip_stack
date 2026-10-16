@@ -173,7 +173,6 @@ vrf_config_handler (int64_t cmdcode,
                 {
                     if (vrf)
                     {
-                        cprintf("Error : VRF already exists\n");
                         return -1;
                     }
                     

@@ -474,6 +474,69 @@ bgp_evpn_nlri_format_bracket(const bgp_nlri_key_t *key,
         return 0;
     }
 
+    /*
+     * Length in bits of the EVPN NLRI key fields, excluding the
+     * trailing MPLS label (shown separately as the last bracket).
+     */
+    {
+        uint16_t bit_len = bgp_nlri_key_bit_length(key);
+
+        if (nlri.label_present && bit_len >= 24) {
+            bit_len = (uint16_t)(bit_len - 24);
+        }
+
+        if (nlri.route_type == EVPN_RT_TYPE_IMET) {
+            /* Type 3: [3][RD][EthTag][IPLen][Originating-IP]/bits
+             * (no ESI / MAC fields, per RFC 7432 IMET format). */
+            if (nlri.ip_len == 32) {
+                format_ipv4(nlri.ip_addr, ip_str, sizeof(ip_str));
+                snprintf(buf, buflen,
+                         "[%u][%s][%u][%u][%s]/%u",
+                         nlri.route_type, rd_str, nlri.eth_tag_id,
+                         nlri.ip_len, ip_str, bit_len);
+            } else {
+                snprintf(buf, buflen,
+                         "[%u][%s][%u][%u][*]/%u",
+                         nlri.route_type, rd_str, nlri.eth_tag_id,
+                         nlri.ip_len, bit_len);
+            }
+            return 0;
+        }
+
+        if (nlri.route_type == EVPN_RT_TYPE_MAC_ONLY) {
+            /* Type 2: [2][RD][ESI][EthTag][MACLen][MAC][IPLen][IP|*][Label]/bits */
+            char esi_br[24];
+            char mac_colon[20];
+
+            format_evpn_esi_bracket(nlri.esi, esi_br, sizeof(esi_br));
+            snprintf(mac_colon, sizeof(mac_colon),
+                     "%02X:%02X:%02X:%02X:%02X:%02X",
+                     nlri.mac.mac[0], nlri.mac.mac[1], nlri.mac.mac[2],
+                     nlri.mac.mac[3], nlri.mac.mac[4], nlri.mac.mac[5]);
+
+            if (nlri.ip_len == 32) {
+                format_ipv4(nlri.ip_addr, ip_str, sizeof(ip_str));
+            }
+
+            if (nlri.label_present) {
+                snprintf(buf, buflen,
+                         "[%u][%s][%s][%u][%u][%s][%u][%s][%u]/%u",
+                         nlri.route_type, rd_str, esi_br, nlri.eth_tag_id,
+                         nlri.mac_len, mac_colon, nlri.ip_len,
+                         nlri.ip_len == 32 ? ip_str : "*", nlri.label,
+                         bit_len);
+            } else {
+                snprintf(buf, buflen,
+                         "[%u][%s][%s][%u][%u][%s][%u][%s]/%u",
+                         nlri.route_type, rd_str, esi_br, nlri.eth_tag_id,
+                         nlri.mac_len, mac_colon, nlri.ip_len,
+                         nlri.ip_len == 32 ? ip_str : "*",
+                         bit_len);
+            }
+            return 0;
+        }
+    }
+
     if (nlri.ip_len == 32) {
         format_ipv4(nlri.ip_addr, ip_str, sizeof(ip_str));
     }
@@ -483,10 +546,6 @@ bgp_evpn_nlri_format_bracket(const bgp_nlri_key_t *key,
              nlri.mac.mac[0], nlri.mac.mac[1], nlri.mac.mac[2],
              nlri.mac.mac[3], nlri.mac.mac[4], nlri.mac.mac[5]);
 
-    /*
-     * Length in bits of the EVPN NLRI key fields, excluding the
-     * trailing MPLS label (shown separately as Label1).
-     */
     {
         uint16_t bit_len = bgp_nlri_key_bit_length(key);
 

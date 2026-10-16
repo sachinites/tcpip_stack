@@ -42,6 +42,7 @@
 #include "tcpconst.h"
 #include "utils.h"
 #include "vrf/vrf.h"
+#include "libs/common/cmn_prefix.h"
 
 /*Apply mask on prefix, and store result in 'str_prefix'
  *For eg : prefix = 122.1.1.1, mask 24, then str_prefix
@@ -485,8 +486,25 @@ afi_stride_len (AFI_T afi) {
 const char *
 bgp_addr_family_str(uint8_t afi, uint8_t safi)
 {
+    /* Redistribution targets may store RTM prefix AFI (AF_IPV4=0) or BGP AFI. */
+    if (afi == (uint8_t)AF_IPV4)
+        afi = AFI_IPV4;
+    if (safi == 0)
+        safi = SAFI_UNICAST;
+
     switch (afi)
     {
+        case AFI_L2VPN:
+            switch (safi)
+            {
+                case SAFI_MPLS_EVPN:
+                    return L2VPN_EVPN_AF_STR;
+
+                default:
+                    break;
+            }
+            break;
+
         case AFI_IPV4:
             switch (safi)
             {

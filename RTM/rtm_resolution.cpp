@@ -557,7 +557,8 @@ rtm_schedule_nh_resolution_worker_of_dependent_rtms (rtm_t *rtm) {
     INH/DNH do not contribute to the resolution of any route in RTM, also
     it is not even on rtm->unresolvable list. 
     This API is Fully synchronous and must be used when NHs are being
-    deleted from RTM
+    deleted from RTM. This fn assumes that if inh is inactive then it must
+    be in unresolved state.
 */
 void
 rtm_resolution_nh_withdraw (rtm_t *rtm, rtm_nh *nh) {

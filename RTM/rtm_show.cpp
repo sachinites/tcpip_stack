@@ -1090,6 +1090,39 @@ rtm_dist_rule_format_cli(const dist_rule_t *rule, char *buf, size_t buflen)
     }
 }
 
+/* Client key for a redistribution target (matches dist-mgr policy / target show). */
+static void
+rtm_format_redist_target_client_id(
+    const redist_target_t *target,
+    char *buf,
+    size_t buflen)
+{
+    const char *vrf_str = target->vrf->vrf_name;
+
+    if (target->proto == RTM_PROTO_BGP) {
+        char nbr_str[48];
+
+        rtm_format_nexthop(&target->bgp_nbr, nbr_str, sizeof(nbr_str));
+        snprintf(
+            buf,
+            buflen,
+            "%s.%s.%u.%s.%s",
+            vrf_str,
+            rtm_proto_to_string(target->proto),
+            (unsigned)target->instance_no,
+            nbr_str,
+            bgp_addr_family_str(target->afi, target->safi));
+    } else {
+        snprintf(
+            buf,
+            buflen,
+            "%s.%s.%u",
+            vrf_str,
+            rtm_proto_to_string(target->proto),
+            (unsigned)target->instance_no);
+    }
+}
+
 void
 rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
 {
@@ -1111,34 +1144,9 @@ rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
     }
 
     for (target = dist_mgr->target_lst; target; target = target->next) {
-        char vrf_buf[48];
         char client_id[160];
-        const char *vrf_str = target->vrf->vrf_name;
 
-        snprintf(vrf_buf, sizeof(vrf_buf), "%s", vrf_str);
-
-        if (target->proto == RTM_PROTO_BGP) {
-            char nbr_str[48];
-
-            rtm_format_nexthop(&target->bgp_nbr, nbr_str, sizeof(nbr_str));
-            snprintf(
-                client_id,
-                sizeof(client_id),
-                "%s.%s.%u.%s.%s",
-                vrf_buf,
-                rtm_proto_to_string(target->proto),
-                (unsigned)target->instance_no,
-                nbr_str,
-                bgp_addr_family_str(target->afi, target->safi));
-        } else {
-            snprintf(
-                client_id,
-                sizeof(client_id),
-                "%s.%s.%u",
-                vrf_buf,
-                rtm_proto_to_string(target->proto),
-                (unsigned)target->instance_no);
-        }
+        rtm_format_redist_target_client_id(target, client_id, sizeof(client_id));
 
         cprintf("\nClient : %s\n", client_id);
         cprintf(
@@ -1271,24 +1279,10 @@ rtm_show_dist_mgr_targets (dist_mgr_t *dist_mgr,
         redist_target_t *target = group[g];
 
         if (target_proto == RTM_PROTO_BGP) {
-            char nbr_str[48];
-            const char *afi_str;
-            const char *safi_str;
+            char client_id[160];
 
-            rtm_format_nexthop(&target->bgp_nbr, nbr_str, sizeof(nbr_str));
-
-            switch (target->afi) {
-                case AFI_IPV6: afi_str = "ipv6"; break;
-                default:       afi_str = "ipv4"; break;
-            }
-            switch (target->safi) {
-                case SAFI_MPLS_VPN: safi_str = "mpls-vpn"; break;
-                case SAFI_MULTICAST: safi_str = "multicast"; break;
-                default:             safi_str = "unicast"; break;
-            }
-
-            cprintf("\n  BGP peer %s  afi %s  safi %s\n",
-                    nbr_str, afi_str, safi_str);
+            rtm_format_redist_target_client_id(target, client_id, sizeof(client_id));
+            cprintf("\n  Client : %s\n", client_id);
         }
 
         if (avltree_is_empty(&target->rt_advertised)) {

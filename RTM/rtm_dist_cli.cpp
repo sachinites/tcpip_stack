@@ -415,29 +415,24 @@ rtm_protocol_rt_distribution_policy_config_cli_handler(
             metric_str = tlv->value;
         else if (parser_match_param(tlv, "protocol"))
             proto_readname = true;
-        else if (parser_match_param(tlv, IPV4_UNICAST_AF_STR) &&
-            target_proto == RTM_PROTO_BGP) {
+        else if (parser_match_param(tlv, IPV4_UNICAST_AF_STR)) {
             afi = AFI_IPV4;
             safi = SAFI_UNICAST;
         }
-        else if (parser_match_param(tlv, IPV6_UNICAST_AF_STR) &&
-            target_proto == RTM_PROTO_BGP) {
+        else if (parser_match_param(tlv, IPV6_UNICAST_AF_STR)) {
             afi = AFI_IPV6;
             safi = SAFI_UNICAST;
         }
-        else if ((parser_match_param(tlv, VPNV4_UNICAST_AF_STR) ||
-                  parser_match_param(tlv, "ipv4-vpn")) &&
-            target_proto == RTM_PROTO_BGP) {
+        else if (parser_match_param(tlv, VPNV4_UNICAST_AF_STR) ||
+                 parser_match_param(tlv, "ipv4-vpn")) {
             afi = AFI_IPV4;
             safi = SAFI_MPLS_VPN;
         }
-        else if ((parser_match_param(tlv, L2VPN_EVPN_AF_STR) && 
-            target_proto == RTM_PROTO_BGP)) {
+        else if (parser_match_param(tlv, L2VPN_EVPN_AF_STR)) {
             afi = AFI_L2VPN;
             safi = SAFI_MPLS_EVPN;
-        }        
-        else if (parser_match_leaf_id(tlv->leaf_id, "bgp-neighbor-addr") &&
-            target_proto == RTM_PROTO_BGP){
+        }
+        else if (parser_match_leaf_id(tlv->leaf_id, "bgp-neighbor-addr")) {
             bgp_nbr = tlv->value;
             uint32_t nbr_ip_addr_int = ip_pton(bgp_nbr);
             cmn_prefix_initialize_v4(&bgp_nbr_pfx, nbr_ip_addr_int, 32);

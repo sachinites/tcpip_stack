@@ -450,8 +450,6 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
             rtm_format_prefix(&nh->owner_route->prefix, prefix_str, sizeof(prefix_str)),
             rtm_format_nexthop(&nh->prefix, gw_str, sizeof(gw_str)),
             rtm_proto_to_string(nh->proto));
-    
-    nh->is_active = false;
 
     /* The INH is switched from Active to Inactive state , Possible Cases : 
         1. It is already awaiting resolution , Action : Dont bother to resolve it anymore
@@ -465,6 +463,8 @@ rtm_nh_set_inactive(rtm_t *rtm, rtm_nh *nh) {
         /* Handled by caller by calling rtm_resolve_routes_recursively ( )*/
     }
 
+    nh->is_active = false;
+    
     rtm_schedule_route_advertisement (nh->rtm, nh->owner_route);
     
     tracer(rtm->node->cptr, DRTM,

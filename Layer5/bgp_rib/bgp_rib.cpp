@@ -1,6 +1,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ncurses.h>
 
 /* Hashtable is compiled with g++ into libs/libstd.a (C++ linkage). */
 #include "../../libs/c-hashtable/hashtable.h"
@@ -279,6 +280,9 @@ bgp_rib_route_walk(bgp_rib_t *rib,
         if (cb(key, attrs, userdata) != 0) {
             break;
         }
+
+        printw("\n\r");
+
     } while (hashtable_iterator_advance(itr));
 
     free(itr);
