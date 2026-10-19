@@ -47,7 +47,7 @@ Visit : www.csepracticals.com for more projects and courses.
 
 ## Project 20 : IPV4 L3VPN using MPLS Transport in the core
 
-## Project 21 : L2VPN EVPN Singe Homing (RT Type 2,3) Over MPLS Transport. 
+## Project 21 : L2VPN EVPN Singe Homing (RT Type 2,3,5) Over MPLS Transport. 
 
 ## Project 22 : GoBGP Integration
 
