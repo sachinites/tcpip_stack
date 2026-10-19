@@ -19,12 +19,12 @@
 #include <unistd.h>
 #include <sched.h>
 
-/* Not every DPDK header declares C linkage for all of its symbols. */
-extern "C" {
+/* DPDK headers manage extern "C" themselves. Do not wrap these includes:
+ * rte_bitops.h defines C++ overloads after closing extern "C"; an outer wrapper
+ * forces C linkage and breaks the build (conflicting rte_bit_test declarations). */
 #include <rte_ring.h>
 #include <rte_ring_elem.h>
 #include <rte_pause.h>
-}
 
 #include "LockLessEvDis.h"
 

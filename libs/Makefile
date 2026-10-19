@@ -6,6 +6,9 @@ export DPDK_CFLAGS := $(shell pkg-config --cflags libdpdk)
 CFLAGS = -g -Wcast-align -fpermissive -Wall -Wextra -Wmissing-prototypes \
          -Wold-style-definition -Wold-style-declaration -gdwarf-2 -g3 \
          -Wignored-qualifiers $(SANITIZER_FLAGS) ${DPDK_CFLAGS} -MMD -MP
+CXXFLAGS = -g -Wcast-align -fpermissive -Wall -Wextra -gdwarf-2 -g3 \
+         -Wignored-qualifiers $(SANITIZER_FLAGS) ${DPDK_CFLAGS} -MMD -MP \
+         -std=c++17
 
 TARGET_LIB = libstd.a 
 TARGET_MEXPR_LIB = MathExpressionParser/libMexpr.a 
@@ -67,7 +70,7 @@ EventDispatcher/event_dispatcher.o: EventDispatcher/event_dispatcher.c
 		EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o
 
 EventDispatcher/LockLessEvDis.o: EventDispatcher/LockLessEvDis.cpp EventDispatcher/LockLessEvDis.h
-	$(CC) $(CFLAGS) -std=c++17 -c -I EventDispatcher \
+	$(CC) $(CXXFLAGS) -c -I EventDispatcher \
 		EventDispatcher/LockLessEvDis.cpp -o EventDispatcher/LockLessEvDis.o
 
 # gluethread
