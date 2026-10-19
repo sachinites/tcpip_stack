@@ -21,5 +21,11 @@
     of mtrie.*/
 #define MAX_FIB_MTRIE_NODES 10000
 
+/* DPDK RX ring depth (must match dp_intf_recv_xmit RX_RING_SIZE). */
+#define DP_DPDK_RX_RING_SIZE 1024
+
+/* Lower bound and extra mbufs for stack/TX when sizing per-NUMA mbuf pools. */
+#define DP_MBUF_POOL_MIN_ELTS   8192
+#define DP_MBUF_POOL_HEADROOM   8192
 
 #endif /* __DP_CONST__ */

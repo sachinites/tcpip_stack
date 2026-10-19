@@ -32,6 +32,7 @@
 #include "dp_intf_log.h"
 #include "dp_intf_store.h"
 #include "../Vrfs/dp_vrf.h"
+#include "../dp_const.h"
 
 #include "../Layer2/l2fwd/ipv4-l2fwd.h"
 #include "../Layer3/layer3.h"
@@ -53,7 +54,7 @@ typedef int (*SendPacketOut_fptr)(
 extern bool LinuxRtr;
 extern int cprintf (const char* format, ...);
 
-#define RX_RING_SIZE 1024
+#define RX_RING_SIZE DP_DPDK_RX_RING_SIZE
 #define TX_RING_SIZE 1024
 
 extern void
@@ -2202,8 +2203,9 @@ dpdk_port_configure(dp_intf_t *dp_intf,
     struct rte_eth_conf port_conf;
     struct rte_eth_dev_info dev_info;
 
-    cprintf ("%s: Configuring NIC:%s(%u) ...\n", 
-            __FUNCTION__, dp_intf->if_name, port_id);
+    assert (mbuf_pool);
+
+    cprintf ("%s: Configuring NIC:%s(%u) ...\n",  __FUNCTION__, dp_intf->if_name, port_id);
 
     /* Step 1: Sanity check — confirm port_id maps to a recognized DPDK device */
     assert (rte_eth_dev_is_valid_port(port_id));

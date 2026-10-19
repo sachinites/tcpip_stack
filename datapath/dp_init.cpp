@@ -27,7 +27,10 @@
 #include "Interface/dp_intf_store.h"
 #include "../libs/mtrie/atomic_mtrie.h"
 #include <rte_errno.h>
+#include <rte_ethdev.h>
+#include <assert.h>
 #include "dp_uapi.h"
+#include "../libs/pkt-block/pkt_mbuf.h"
 
 typedef struct hashtable hashtable_t;
 typedef struct nf_hook_db_ nf_hook_db_t;
@@ -51,8 +54,35 @@ extern dp_intf_t *bd_flood_intf_create () ;
 extern uint8_t 
 system_get_max_numa_node_count ();
 
-#define NUM_MBUFS_PER_PORT 32
-#define MBUF_CACHE_SIZE 32
+#define MBUF_CACHE_SIZE 256
+
+/* RX descriptor mbuf demand + headroom for the datapath on this NUMA node. */
+static uint32_t
+dp_mbuf_pool_num_elts_for_numa(int numa_node)
+{
+    uint16_t n_ports = rte_eth_dev_count_avail();
+    uint32_t rx_ring_mbufs = 0;
+    struct rte_eth_dev_info dev_info;
+
+    for (uint16_t pid = 0; pid < n_ports; pid++) {
+        int socket_id = rte_eth_dev_socket_id(pid);
+        int port_numa = socket_id < 0 ? DEFAULT_NUMA_NODE : socket_id;
+
+        if (port_numa != numa_node)
+            continue;
+
+        if (rte_eth_dev_info_get(pid, &dev_info) != 0)
+            continue;
+
+        rx_ring_mbufs += (uint32_t)dev_info.max_rx_queues * DP_DPDK_RX_RING_SIZE;
+    }
+
+    uint32_t total = rx_ring_mbufs + DP_MBUF_POOL_HEADROOM;
+    if (total < DP_MBUF_POOL_MIN_ELTS)
+        total = DP_MBUF_POOL_MIN_ELTS;
+
+    return total;
+}
 
 static void
 dp_init_pkt_mbuf_memory_pools(dp_ctx_t *dp_ctx)
@@ -66,6 +96,8 @@ dp_init_pkt_mbuf_memory_pools(dp_ctx_t *dp_ctx)
 
     for (int i = 0; i < max_numa_nodes; i++) {
 
+        uint32_t n_mbufs = dp_mbuf_pool_num_elts_for_numa(i);
+
         memset (mpool_name, 0, sizeof (mpool_name));
         snprintf (mpool_name, 
             sizeof (mpool_name), 
@@ -73,16 +105,20 @@ dp_init_pkt_mbuf_memory_pools(dp_ctx_t *dp_ctx)
 
         dp_ctx->mbuf_pools[i] = rte_pktmbuf_pool_create(
                     (const char *)mpool_name,
-                    NUM_MBUFS_PER_PORT *  32 /* port cnt on device*/,
+                    n_mbufs,
                     MBUF_CACHE_SIZE, 
                     sizeof (pkt_mbuf_pvt_data_t), 
                     RTE_MBUF_DEFAULT_BUF_SIZE, i );
 
         if (!dp_ctx->mbuf_pools[i]) {
-            cprintf ("%s : Error : Memory pool creation failed on Numa Node %d, err=%s\n", 
-                dp_ctx->ctx_name, i, rte_strerror(rte_errno));
+            cprintf ("%s : Error : Memory pool creation failed on Numa Node %d "
+                     "(%u mbufs), err=%s\n",
+                dp_ctx->ctx_name, i, n_mbufs, rte_strerror(rte_errno));
+            assert (0);
         }
-        //assert (dp_ctx->mbuf_pools[i]);
+
+        cprintf ("%s : mbuf pool on NUMA %d : %u elements\n",
+                 dp_ctx->ctx_name, i, n_mbufs);
     }
 }
 
