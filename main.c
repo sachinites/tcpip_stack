@@ -91,6 +91,7 @@ main(int argc, char **argv){
     (void )argc; (void) argv;
 
     rte_eal_init(argc, argv);
+    rte_log_set_global_level(RTE_LOG_DEBUG);
 
     libcli_init ();
     std_lib_init(cprintf);
