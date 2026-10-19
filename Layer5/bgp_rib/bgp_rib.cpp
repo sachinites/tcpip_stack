@@ -281,8 +281,6 @@ bgp_rib_route_walk(bgp_rib_t *rib,
             break;
         }
 
-        printw("\n\r");
-
     } while (hashtable_iterator_advance(itr));
 
     free(itr);

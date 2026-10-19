@@ -1327,44 +1327,49 @@ bgp_show_global_rib_print_evpn_detail(const bgp_nlri_key_t *key,
         return;
     }
 
-    for (i = 0; i < 10; i++) {
-        snprintf(esi_hex + (i * 2), 3, "%02x", nlri.esi[i]);
-    }
+    /* Type-3 IMET NLRI has no ESI; only Type-2 MAC/IP and Type-5 IP-prefix do. */
+    if (nlri.route_type == EVPN_RT_TYPE_MAC_ONLY ||
+        nlri.route_type == EVPN_RT_TYPE_IP_PREFIX) {
 
-    if (nlri.route_type == EVPN_RT_TYPE_IP_PREFIX && nlri.label_present) {
-        label1 = nlri.label;
-        label1_present = true;
-    } else if (attrs->evpn_label1_present &&
-               attrs->evpn_label1_from_ext_comm) {
-        label1 = attrs->evpn_label1;
-        label1_present = true;
-    } else if (nlri.label_present) {
-        label1 = nlri.label;
-        label1_present = true;
-    }
+        for (i = 0; i < 10; i++) {
+            snprintf(esi_hex + (i * 2), 3, "%02x", nlri.esi[i]);
+        }
 
-    es_import_ec = bgp_evpn_find_es_import_ext_comm(attrs);
-    if (es_import_ec) {
-        cprintf("      EVPN ESI (Extended Community): %s "
-                "(type 0x%04x subtype 0x%04x)\n",
-                es_import_ec->text[0] ? es_import_ec->text : "-",
-                es_import_ec->type, es_import_ec->subtype);
-    } else {
-        if (label1_present) {
-            cprintf("      EVPN ESI (NLRI): %s, Label1 %u\n",
-                    esi_hex, label1);
+        if (nlri.route_type == EVPN_RT_TYPE_IP_PREFIX && nlri.label_present) {
+            label1 = nlri.label;
+            label1_present = true;
+        } else if (attrs->evpn_label1_present &&
+                   attrs->evpn_label1_from_ext_comm) {
+            label1 = attrs->evpn_label1;
+            label1_present = true;
+        } else if (nlri.label_present) {
+            label1 = nlri.label;
+            label1_present = true;
+        }
+
+        es_import_ec = bgp_evpn_find_es_import_ext_comm(attrs);
+        if (es_import_ec) {
+            cprintf("      EVPN ESI (Extended Community): %s "
+                    "(type 0x%04x subtype 0x%04x)\n",
+                    es_import_ec->text[0] ? es_import_ec->text : "-",
+                    es_import_ec->type, es_import_ec->subtype);
         } else {
-            cprintf("      EVPN ESI (NLRI): %s\n", esi_hex);
-        }
-        if (attrs->evpn_label1_from_ext_comm && label1_present) {
-            cprintf("      EVPN ESI-Label (Extended Community): "
-                    "type 0x%04x subtype 0x%04x\n",
-                    BGP_EVPN_EC_TYPE_ESI_LABEL,
-                    (uint16_t)(BGP_EVPN_EC_TYPE_ESI_LABEL & 0xffffU));
+            if (label1_present) {
+                cprintf("      EVPN ESI (NLRI): %s, Label1 %u\n",
+                        esi_hex, label1);
+            } else {
+                cprintf("      EVPN ESI (NLRI): %s\n", esi_hex);
+            }
+            if (attrs->evpn_label1_from_ext_comm && label1_present) {
+                cprintf("      EVPN ESI-Label (Extended Community): "
+                        "type 0x%04x subtype 0x%04x\n",
+                        BGP_EVPN_EC_TYPE_ESI_LABEL,
+                        (uint16_t)(BGP_EVPN_EC_TYPE_ESI_LABEL & 0xffffU));
+            }
         }
     }
 
-    if (nlri.route_type == 3 && attrs->pmsi_label_present) {
+    if (nlri.route_type == EVPN_RT_TYPE_IMET && attrs->pmsi_label_present) {
         bgp_format_pmsi_tunnel_id(attrs, pmsi_tunnel_id,
                                   sizeof(pmsi_tunnel_id));
         cprintf("      PMSI Flags: %u\n", attrs->pmsi_flags);
@@ -1545,6 +1550,7 @@ bgp_show_global_rib_print_cb(const bgp_nlri_key_t *key,
     }
 
     ctx->count++;
+    printw("\n\r");
     return 0;
 }
 

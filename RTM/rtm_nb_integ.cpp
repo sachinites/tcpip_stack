@@ -1418,7 +1418,9 @@ rtm_install_mpls_xconnect_vrf_evpn_type5_route (
     
     BDInterface *bd_intf = dynamic_cast<BDInterface *>(_bd_intf);
 
-    assert (bd_intf->l3_evpn_label);
+    /* If ip address was removed from BD interface, then l3_evpn_label must
+        have de-allocated */
+    if (bd_intf->l3_evpn_label == 0) return;
 
     cmn_prefix_initialize_label(&mpls_in_label, bd_intf->l3_evpn_label);
 
