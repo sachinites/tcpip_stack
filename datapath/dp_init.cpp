@@ -51,8 +51,8 @@ extern dp_intf_t *bd_flood_intf_create () ;
 extern uint8_t 
 system_get_max_numa_node_count ();
 
-#define NUM_MBUFS_PER_PORT 8191
-#define MBUF_CACHE_SIZE 250
+#define NUM_MBUFS_PER_PORT 32
+#define MBUF_CACHE_SIZE 32
 
 static void
 dp_init_pkt_mbuf_memory_pools(dp_ctx_t *dp_ctx)
