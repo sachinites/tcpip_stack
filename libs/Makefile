@@ -16,6 +16,7 @@ OBJS = std_lib_init.o 					  \
        c-hashtable/hashtable.o            \
        c-hashtable/hashtable_itr.o        \
        EventDispatcher/event_dispatcher.o \
+       EventDispatcher/LockLessEvDis.o \
        gluethread/glthread.o              \
        libtimer/WheelTimer.o             \
        libtimer/timerlib.o               \
@@ -64,6 +65,10 @@ c-hashtable/hashtable_itr.o: c-hashtable/hashtable_itr.c
 EventDispatcher/event_dispatcher.o: EventDispatcher/event_dispatcher.c
 	$(CC) $(CFLAGS) -c -I EventDispatcher -I gluethread \
 		EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o
+
+EventDispatcher/LockLessEvDis.o: EventDispatcher/LockLessEvDis.cpp EventDispatcher/LockLessEvDis.h
+	$(CC) $(CFLAGS) -std=c++17 -c -I EventDispatcher \
+		EventDispatcher/LockLessEvDis.cpp -o EventDispatcher/LockLessEvDis.o
 
 # gluethread
 gluethread/glthread.o: gluethread/glthread.c
