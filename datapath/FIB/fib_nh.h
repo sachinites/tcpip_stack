@@ -29,11 +29,11 @@ typedef struct dp_intf_ dp_intf_t;
 
 typedef struct fib_nh_fwd_info_ {
 
-    dp_intf_t  *oif;                 /* offset 0, size 16, naturally 8-byte aligned */
-    cmn_prefix_t nh_addr;           /* offset 16, size 24 */
+    dp_intf_t  *oif;                     /* offset 0, size 16, naturally 8-byte aligned */
+    cmn_prefix_t nh_addr;        /* offset 16, size 24 */
     uint32_t fwd_flags;             /* offset 40, size 4 */
-    uint32_t _pad1;                 /* padding to align union to 8 bytes */
-
+    uint32_t _pad1;                   /* offset 44, size 4 */
+    
     union {
         
         /*MPLS  Label Stack*/
@@ -66,6 +66,7 @@ typedef struct fib_nh_fwd_info_ {
 
 typedef struct fib_nh_ {
 
+    uint64_t cnhidx;
     fib_nh_fwd_info_t *fwd_info;
     avltree_node_t idx_glue;
     uint32_t hit_count;

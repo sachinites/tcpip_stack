@@ -113,6 +113,8 @@ fib_nh_create(fib_t *fib, fib_nh_t *nh_template) {
     
     /* Allocate memory for new FIB nexthop */
     fib_nh_t *new_nh = (fib_nh_t *)XCALLOC2(0, 1, fib_nh_t);
+    new_nh->cnhidx = nh_template->cnhidx;
+    
     new_nh->fwd_info = (fib_nh_fwd_info_t *)calloc(1, sizeof(fib_nh_fwd_info_t));
 
     /* Copy forwarding flags */

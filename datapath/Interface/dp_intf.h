@@ -32,6 +32,7 @@ typedef struct mtrie_ mtrie_t;
 typedef struct trap_rule_ trap_rule_t;
 typedef struct mac_table_ mac_table_t;
 typedef struct pkt_q_ pkt_q_t;
+typedef struct lflow_db_ lflow_db_t;
 
 #pragma pack(push, 8)
 
@@ -115,6 +116,8 @@ typedef struct dp_intf_ {
     mac_table_t *mac_table;
     pkt_q_t *lmac_queue;
     struct rte_hash *arp_sup_cache_db;
+
+    lflow_db_t *lflow_db;
 
     /* Logging */
     log_t log_info;

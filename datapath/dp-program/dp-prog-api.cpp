@@ -46,6 +46,9 @@ dp_uapi_trace_dp_msg ( dp_ctx_t *dp_ctx, dp_msg_t *dp_msg);
 extern void 
 dp_handle_ping_request (dp_ctx_t *dp_ctx, ping_ctx_t *pctx);
 
+extern inline void
+fib_set_nh_idx( uint64_t *p, uint32_t inhidx, uint32_t nhidx);
+
 static inline bool 
 dp_bitmap_at(uint8_t *bit_array, uint16_t index) {
 
@@ -387,6 +390,9 @@ dp_fib_table_process_msg(dp_ctx_t *dp_ctx, dp_msg_t *dp_msg) {
             fib_nh_t nh_template;
             memset (&nh_template, 0, sizeof(fib_nh_t));
             avltree_node_init (&nh_template.idx_glue);
+
+            fib_set_nh_idx (&nh_template.cnhidx, 
+                    fib_update_msg->inhidx, fib_update_msg->nhidx);
 
             nh_template.fwd_info = 
                 (fib_nh_fwd_info_t *)calloc(1, sizeof(fib_nh_fwd_info_t));
