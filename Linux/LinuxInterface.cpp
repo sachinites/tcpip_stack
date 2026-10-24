@@ -39,7 +39,7 @@
 #include "../RTM/rtm_nb_integ.h"
 
 
-bool LinuxRtr = true;
+bool LinuxRtr = false;
 
 // Structure to hold interface socket information
 typedef struct linux_intf_socket_ {

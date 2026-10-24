@@ -116,9 +116,6 @@ dp_init_pkt_mbuf_memory_pools(dp_ctx_t *dp_ctx)
                 dp_ctx->ctx_name, i, n_mbufs, rte_strerror(rte_errno));
             assert (0);
         }
-
-        cprintf ("%s : mbuf pool on NUMA %d : %u elements\n",
-                 dp_ctx->ctx_name, i, n_mbufs);
     }
 }
 
