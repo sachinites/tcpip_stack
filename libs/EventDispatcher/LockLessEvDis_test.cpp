@@ -96,7 +96,7 @@ demo1_basic(void) {
     CHECK(ll_init_pkt_q(&ev_dis, &q1, d1_pkt_receiver), "q1");
     CHECK(ll_init_pkt_q(&ev_dis, &q2, d1_pkt_receiver), "q2");
     CHECK(ll_init_pkt_q(&ev_dis, &q3, d1_pkt_receiver), "q3");
-    ll_event_dispatcher_run(&ev_dis, false, -1);
+    ll_event_dispatcher_run(&ev_dis);
 
     const char *msgs[] = { "first pkt", "second pkt", "third pkt" };
     ll_pkt_q_t *qs[] = { &q1, &q2, &q3 };
@@ -175,7 +175,7 @@ demo2_priority(void) {
     /* Static strings here: do not let de_init free() them. */
     blocker_q.free_cbk = crit_q.free_cbk = med_q.free_cbk = low_q.free_cbk =
         [](void *) {};
-    ll_event_dispatcher_run(&ev_dis, false, -1);
+    ll_event_dispatcher_run(&ev_dis);
 
     ll_pkt_q_enqueue(&ev_dis, &blocker_q, dummy, sizeof(dummy));
     while (!d2_blocker_running) usleep(1000);
@@ -277,7 +277,7 @@ demo3_mpsc_stress(void) {
         CHECK(ll_init_pkt_q(&ev_dis, &d3_q[q], d3_cbk, prio[q]), "q");
         d3_q[q].free_cbk = [](void *) {};   /* pkts are fake pointers */
     }
-    ll_event_dispatcher_run(&ev_dis, false, -1);
+    ll_event_dispatcher_run(&ev_dis);
 
     uint64_t retries[D3_N_PRODUCERS] = {0};
     std::vector<std::thread> producers;
@@ -347,7 +347,7 @@ demo4_wait_signal(void) {
     CHECK(ll_event_dispatcher_init(&ev_dis, "demo4"), "init");
     CHECK(ll_init_pkt_q(&ev_dis, &q, d4_cbk), "q");
     q.free_cbk = [](void *) {};
-    ll_event_dispatcher_run(&ev_dis, false, -1);
+    ll_event_dispatcher_run(&ev_dis);
 
     usleep(100 * 1000);
     printf("    after 100ms with no work  : state=%s sleeping=%d signals sent=%u\n",
@@ -406,7 +406,7 @@ demo5_delete_under_load(void) {
     CHECK(ll_event_dispatcher_init(&ev_dis, "demo5"), "init");
     CHECK(ll_init_pkt_q(&ev_dis, &q, d5_cbk), "q");
     q.free_cbk = [](void *p) { free(p); d5_freed_by_deinit++; };
-    ll_event_dispatcher_run(&ev_dis, false, -1);
+    ll_event_dispatcher_run(&ev_dis);
 
     std::vector<std::thread> producers;
     for (int p = 0; p < 4; p++) {

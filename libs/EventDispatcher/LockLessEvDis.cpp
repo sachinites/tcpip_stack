@@ -395,12 +395,14 @@ ll_event_dispatcher_thread(void *arg) {
 /* ========================================================================== */
 
 bool
-ll_event_dispatcher_init(ll_event_dispatcher_t *ev_dis, const char *name) {
+ll_event_dispatcher_init(ll_event_dispatcher_t *ev_dis, const char *name,
+                         int core_id) {
 
     char ring_name[RTE_RING_NAMESIZE];
 
     memset((void *)ev_dis, 0, sizeof(*ev_dis));
     strncpy(ev_dis->name, name, sizeof(ev_dis->name) - 1);
+    ev_dis->core_id = core_id;
 
     for (int pri = LL_TASK_PRIORITY_FIRST; pri < LL_TASK_PRIORITY_MAX; pri++) {
 
@@ -430,15 +432,8 @@ ll_event_dispatcher_init(ll_event_dispatcher_t *ev_dis, const char *name) {
     return true;
 }
 
-static int
-ll_event_dispatcher_get_high_perf_core(void) {
-
-    int num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-    return (num_cpus <= 0) ? -1 : num_cpus - 1;
-}
-
 void
-ll_event_dispatcher_run(ll_event_dispatcher_t *ev_dis, bool pin_to_core, int core_id) {
+ll_event_dispatcher_run(ll_event_dispatcher_t *ev_dis) {
 
     pthread_mutex_lock(&ev_dis->ev_dis_mutex);
     if (ev_dis->thread_running) {
@@ -459,17 +454,12 @@ ll_event_dispatcher_run(ll_event_dispatcher_t *ev_dis, bool pin_to_core, int cor
         return;
     }
 
-    if (pin_to_core) {
-        if (core_id < 0) core_id = ll_event_dispatcher_get_high_perf_core();
-        if (core_id >= 0) {
-            cpu_set_t cpuset;
-            CPU_ZERO(&cpuset);
-            CPU_SET(core_id, &cpuset);
-            if (pthread_setaffinity_np(ev_dis->thread, sizeof(cpuset), &cpuset) != 0) {
-                fprintf(stderr, "%s : failed to pin dispatcher to core %d\n",
-                        ev_dis->name, core_id);
-            }
-        }
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(ev_dis->core_id, &cpuset);
+    if (pthread_setaffinity_np(ev_dis->thread, sizeof(cpuset), &cpuset) != 0) {
+        fprintf(stderr, "%s : failed to pin dispatcher to core %d\n",
+                ev_dis->name, ev_dis->core_id);
     }
 }
 
@@ -564,7 +554,8 @@ bool
 ll_init_pkt_q(ll_event_dispatcher_t *ev_dis,
               ll_pkt_q_t *pkt_q,
               ll_event_cbk cbk,
-              ll_task_priority_t priority) {
+              ll_task_priority_t priority,
+              void (*free_fn)(void *)) {
 
     char ring_name[RTE_RING_NAMESIZE];
 
@@ -579,7 +570,7 @@ ll_init_pkt_q(ll_event_dispatcher_t *ev_dis,
     pkt_q->ev_dis = ev_dis;
     pkt_q->cbk = cbk;
     pkt_q->priority = priority;
-    pkt_q->free_cbk = NULL;
+    pkt_q->free_cbk = free_fn;
     pkt_q->n_inflight_producers.store(0);
     pkt_q->scheduled.store(false);
     pkt_q->drop_count.store(0);
@@ -670,7 +661,7 @@ ll_de_init_pkt_q(ll_pkt_q_t *pkt_q) {
     while (rte_ring_dequeue_elem(pkt_q->ring, &elem, sizeof(elem)) == 0) {
         if (!elem.pkt) continue;
         if (pkt_q->free_cbk) pkt_q->free_cbk(elem.pkt);
-        else free(elem.pkt);
+        /* else: application owns leftover data; do not free() it here */
     }
     ll_ring_free(pkt_q->ring);
     pkt_q->ring = NULL;

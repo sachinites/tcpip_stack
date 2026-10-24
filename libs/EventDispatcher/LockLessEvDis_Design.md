@@ -500,7 +500,7 @@ plane event, and never on the packet path. Who does it?
   the request between callbacks.
 
 **Steps 3 and 4.** The pkt_q is unregistered. Packets still in its ring are
-freed with `free_cbk` (or `free()`), and the ring memory is released.
+freed with `free_cbk` if set (otherwise left for the application), and the ring memory is released.
 
 Demo 5 deletes a pkt_q while 4 producers are hammering it and checks:
 `accepted == consumed by callback + freed by de_init`. Every packet is
@@ -556,10 +556,10 @@ instruction) is required.
 | `pkt_q_t` | `ll_pkt_q_t` | |
 | `event_cbk` | `ll_event_cbk` | same signature |
 | `task_priority_t`, `TASK_PRIORITY_*` | `ll_task_priority_t`, `LL_TASK_PRIORITY_*` | same levels and aliases |
-| `event_dispatcher_init(ev, name)` | `ll_event_dispatcher_init(ev, name)` | returns `bool` |
-| `event_dispatcher_run(ev, pin, core)` | `ll_event_dispatcher_run(ev, pin, core)` | pinning actually applied |
+| `event_dispatcher_init(ev, name)` | `ll_event_dispatcher_init(ev, name [, core_id])` | returns `bool`; `core_id` defaults to 0 |
+| `event_dispatcher_run(ev, pin, core)` | `ll_event_dispatcher_run(ev)` | always pins to `core_id` from init |
 | — | `ll_event_dispatcher_stop(ev)`, `ll_event_dispatcher_destroy(ev)` | new: clean shutdown |
-| `init_pkt_q(ev, q, cbk)` | `ll_init_pkt_q(ev, q, cbk [, priority])` | priority defaults to `PKT_PROCESSING`; returns `bool` |
+| `init_pkt_q(ev, q, cbk)` | `ll_init_pkt_q(ev, q, cbk [, priority [, free_fn]])` | priority defaults to `PKT_PROCESSING`; `free_fn` NULL => leftover data not freed; returns `bool` |
 | `de_init_pkt_q(q)` | `ll_de_init_pkt_q(q)` | safe under concurrent producers |
 | `pkt_q_enqueue(ev, q, pkt, sz)` | `ll_pkt_q_enqueue(ev, q, pkt, sz)` | lock-free |
 | `task_get_next_pkt(ev, &sz)` | `ll_task_get_next_pkt(ev, &sz)` | |

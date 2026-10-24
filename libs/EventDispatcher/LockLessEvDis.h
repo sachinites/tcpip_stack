@@ -152,7 +152,7 @@ struct ll_pkt_q_ {
     ll_event_cbk cbk;               /* NULL => passive queue, never scheduled */
     ll_task_priority_t priority;    /* Which ready queue this pkt_q goes to */
     void (*free_cbk)(void *);       /* Frees left-over pkts in ll_de_init_pkt_q().
-                                       NULL => free() is used, like the original */
+                                       NULL => leftover user data is not freed */
 
     /* ---------------- Shared: producers + dispatcher ---------------- */
 
@@ -201,6 +201,7 @@ struct ll_event_dispatcher_ {
     pthread_t thread;
     bool thread_running;               /* Protected by ev_dis_mutex */
     std::atomic<bool> stop_req;
+    int core_id;                       /* CPU the dispatcher thread is pinned to */
 
     /* ---------- Control plane: pkt_q registry and deletion ---------- */
     pthread_mutex_t ctrl_mutex;        /* Guards pkt_q_list / n_pkt_q only */
@@ -226,15 +227,17 @@ struct ll_event_dispatcher_ {
 /* ============================ Public APIs ============================ */
 
 /* Initialize a dispatcher. Must be called once before anything else.
+ * core_id : CPU the dispatcher thread will be pinned to when started
+ *           (default 0).
  * Returns false if memory for the ready queues could not be allocated. */
 bool
-ll_event_dispatcher_init(ll_event_dispatcher_t *ev_dis, const char *name);
+ll_event_dispatcher_init(ll_event_dispatcher_t *ev_dis, const char *name,
+                         int core_id = 0);
 
-/* Start the dispatcher (consumer) thread.
- * If pin_to_core is true, the thread is pinned to core_id
- * (core_id < 0 => highest numbered online CPU). */
+/* Start the dispatcher (consumer) thread. The thread is pinned to the
+ * core_id passed to ll_event_dispatcher_init(). */
 void
-ll_event_dispatcher_run(ll_event_dispatcher_t *ev_dis, bool pin_to_core, int core_id);
+ll_event_dispatcher_run(ll_event_dispatcher_t *ev_dis);
 
 /* Stop and join the dispatcher thread. Packets still queued are kept. */
 void
@@ -263,6 +266,8 @@ ll_scheduler_task_queue(ll_event_dispatcher_t *ev_dis);
 
 /* Create a pkt_q and register it with ev_dis.
  * priority defaults to LL_TASK_PRIORITY_PKT_PROCESSING, same as the original.
+ * free_fn : frees left-over user data in ll_de_init_pkt_q(); NULL => not freed
+ *           (application retains ownership).
  * cbk == NULL creates a passive queue which is never scheduled.
  * Returns false if the ring cannot be allocated or the dispatcher already has
  * LL_EV_DIS_MAX_PKT_Q pkt_qs. */
@@ -270,12 +275,13 @@ bool
 ll_init_pkt_q(ll_event_dispatcher_t *ev_dis,
               ll_pkt_q_t *pkt_q,
               ll_event_cbk cbk,
-              ll_task_priority_t priority = LL_TASK_PRIORITY_PKT_PROCESSING);
+              ll_task_priority_t priority = LL_TASK_PRIORITY_PKT_PROCESSING,
+              void (*free_fn)(void *) = NULL);
 
 /* Tear down a pkt_q. Safe to call from any thread, including from inside a
  * callback (even the pkt_q's own callback), while producers are still
  * enqueueing (their enqueues start failing). Left-over packets are freed via
- * pkt_q->free_cbk, or free() if free_cbk is NULL. */
+ * pkt_q->free_cbk only; if free_cbk is NULL they are not freed. */
 void
 ll_de_init_pkt_q(ll_pkt_q_t *pkt_q);
 
