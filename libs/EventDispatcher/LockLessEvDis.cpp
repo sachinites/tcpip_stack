@@ -6,8 +6,9 @@
  *    Description:  Lock-less (DPDK rte_ring based) Event Dispatcher for packet
  *                  queues. Multi-Producer / Single-Consumer.
  *
- *                  See LockLessEvDis.h for the API and LockLessEvDis_Design.md
- *                  for the design walk-through.
+ *                  See PubLockLessEvDis.h for the public API,
+ *                  LockLessEvDis.h for private types, and
+ *                  LockLessEvDis_Design.md for the design walk-through.
  *
  * =====================================================================================
  */
@@ -18,6 +19,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <sched.h>
+#include <new>
 
 /*
  * DPDK 26.x header hygiene under C++:
@@ -405,15 +407,27 @@ ll_event_dispatcher_thread(void *arg) {
 /*                         Dispatcher public APIs                             */
 /* ========================================================================== */
 
-bool
+static bool
 ll_event_dispatcher_init(ll_event_dispatcher_t *ev_dis, const char *name,
                          int core_id) {
 
     char ring_name[RTE_RING_NAMESIZE];
 
-    memset((void *)ev_dis, 0, sizeof(*ev_dis));
-    strncpy(ev_dis->name, name, sizeof(ev_dis->name) - 1);
+    memset(ev_dis->name, 0, sizeof(ev_dis->name));
+    if (name) strncpy(ev_dis->name, name, sizeof(ev_dis->name) - 1);
     ev_dis->core_id = core_id;
+    ev_dis->n_pkt_q = 0;
+    ev_dis->n_task_exec = 0;
+    ev_dis->signal_recv_cnt = 0;
+    ev_dis->app_data = NULL;
+    ev_dis->current_pkt_q = NULL;
+    ev_dis->thread_running = false;
+    memset(&ev_dis->current_task_start_time, 0,
+           sizeof(ev_dis->current_task_start_time));
+
+    for (int pri = LL_TASK_PRIORITY_FIRST; pri < LL_TASK_PRIORITY_MAX; pri++) {
+        ev_dis->ready_q[pri] = NULL;
+    }
 
     for (int pri = LL_TASK_PRIORITY_FIRST; pri < LL_TASK_PRIORITY_MAX; pri++) {
 
@@ -437,10 +451,21 @@ ll_event_dispatcher_init(ll_event_dispatcher_t *ev_dis, const char *name,
     ev_dis->sleeping.store(false);
     ev_dis->signal_sent_cnt.store(0);
     ev_dis->stop_req.store(false);
-    ev_dis->thread_running = false;
     ev_dis->del_req.store(NULL);
-    ev_dis->current_pkt_q = NULL;
     return true;
+}
+
+ll_event_dispatcher_t *
+ll_event_dispatcher_create(const char *name, int core_id) {
+
+    ll_event_dispatcher_t *ev_dis = new (std::nothrow) ll_event_dispatcher_t();
+    if (!ev_dis) return NULL;
+
+    if (!ll_event_dispatcher_init(ev_dis, name, core_id)) {
+        delete ev_dis;
+        return NULL;
+    }
+    return ev_dis;
 }
 
 void
@@ -492,6 +517,8 @@ ll_event_dispatcher_stop(ll_event_dispatcher_t *ev_dis) {
 void
 ll_event_dispatcher_destroy(ll_event_dispatcher_t *ev_dis) {
 
+    if (!ev_dis) return;
+
     ll_event_dispatcher_stop(ev_dis);
     assert(ev_dis->n_pkt_q == 0);
 
@@ -503,6 +530,7 @@ ll_event_dispatcher_destroy(ll_event_dispatcher_t *ev_dis) {
     pthread_mutex_destroy(&ev_dis->ctrl_mutex);
     pthread_cond_destroy(&ev_dis->ev_dis_cond_wait);
     pthread_cond_destroy(&ev_dis->del_done_cond);
+    delete ev_dis;
 }
 
 bool
@@ -561,8 +589,8 @@ ll_scheduler_task_queue(ll_event_dispatcher_t *ev_dis) {
 /*                            pkt_q public APIs                               */
 /* ========================================================================== */
 
-bool
-ll_init_pkt_q(ll_event_dispatcher_t *ev_dis,
+static bool
+ll_pkt_q_init(ll_event_dispatcher_t *ev_dis,
               ll_pkt_q_t *pkt_q,
               ll_event_cbk cbk,
               ll_task_priority_t priority,
@@ -604,12 +632,30 @@ ll_init_pkt_q(ll_event_dispatcher_t *ev_dis,
     return true;
 }
 
-void
-ll_de_init_pkt_q(ll_pkt_q_t *pkt_q) {
+ll_pkt_q_t *
+ll_pkt_q_create(ll_event_dispatcher_t *ev_dis,
+                ll_event_cbk cbk,
+                ll_task_priority_t priority,
+                void (*free_fn)(void *)) {
 
-    ll_event_dispatcher_t *ev_dis = pkt_q->ev_dis;
+    ll_pkt_q_t *pkt_q = new (std::nothrow) ll_pkt_q_t();
+    if (!pkt_q) return NULL;
+
+    if (!ll_pkt_q_init(ev_dis, pkt_q, cbk, priority, free_fn)) {
+        delete pkt_q;
+        return NULL;
+    }
+    return pkt_q;
+}
+
+void
+ll_pkt_q_destroy(ll_pkt_q_t *pkt_q) {
+
+    ll_event_dispatcher_t *ev_dis;
     ll_pkt_elem_t elem;
 
+    if (!pkt_q) return;
+    ev_dis = pkt_q->ev_dis;
     if (!ev_dis) return;
 
     /*
@@ -687,7 +733,7 @@ ll_pkt_q_enqueue(ll_event_dispatcher_t *ev_dis,
     (void)ev_dis; /* pkt_q->ev_dis is authoritative; kept for API parity */
 
     /* Announce ourselves before checking `active` (pairs with Step 1 of
-     * ll_de_init_pkt_q). */
+     * ll_pkt_q_destroy). */
     pkt_q->n_inflight_producers.fetch_add(1, std::memory_order_seq_cst);
 
     if (!pkt_q->active.load(std::memory_order_seq_cst)) {
@@ -736,5 +782,18 @@ ll_task_get_next_pkt(ll_event_dispatcher_t *ev_dis, uint32_t *pkt_size) {
 uint32_t
 ll_pkt_q_count(ll_pkt_q_t *pkt_q) {
 
+    if (!pkt_q || !pkt_q->ring) return 0;
     return rte_ring_count(pkt_q->ring);
+}
+
+void
+ll_pkt_q_free(ll_pkt_q_t *pkt_q) {
+
+    delete pkt_q;
+}
+
+uint32_t
+ll_ptk_q_drop_count(ll_pkt_q_t *pkt_q) {
+
+    return pkt_q->drop_count.load(std::memory_order_relaxed);
 }

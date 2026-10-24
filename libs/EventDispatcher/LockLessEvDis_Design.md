@@ -4,9 +4,10 @@ Files in this directory:
 
 | File | What it is |
 |------|------------|
-| `LockLessEvDis.h` | Public API and data structures (all names prefixed `ll_` / `LL_`) |
+| `PubLockLessEvDis.h` | **Public API** — opaque handles; application code includes only this |
+| `LockLessEvDis.h` | Private struct layouts + `ll_pkt_elem_t` (library `.cpp` only) |
 | `LockLessEvDis.cpp` | Implementation |
-| `LockLessEvDis_test.cpp` | Five self-checking demos |
+| `LockLessEvDis_test.cpp` | Self-checking demos (include `PubLockLessEvDis.h`) |
 | `compile_ll.sh` | Builds `ll_ev_dis_test.exe` |
 | `event_dispatcher.h/.c` | The **original** dispatcher, left unchanged, for comparison |
 

@@ -66,7 +66,8 @@ EventDispatcher/event_dispatcher.o: EventDispatcher/event_dispatcher.c
 	$(CC) $(CFLAGS) -c -I EventDispatcher -I gluethread \
 		EventDispatcher/event_dispatcher.c -o EventDispatcher/event_dispatcher.o
 
-EventDispatcher/LockLessEvDis.o: EventDispatcher/LockLessEvDis.cpp EventDispatcher/LockLessEvDis.h
+EventDispatcher/LockLessEvDis.o: EventDispatcher/LockLessEvDis.cpp \
+		EventDispatcher/LockLessEvDis.h EventDispatcher/PubLockLessEvDis.h
 	$(CC) $(CFLAGS) -std=c++17 -c -I EventDispatcher \
 		EventDispatcher/LockLessEvDis.cpp -o EventDispatcher/LockLessEvDis.o
 
