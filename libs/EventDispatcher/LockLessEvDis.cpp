@@ -19,7 +19,18 @@
 #include <unistd.h>
 #include <sched.h>
 
-/* Not every DPDK header declares C linkage for all of its symbols. */
+/*
+ * DPDK 26.x header hygiene under C++:
+ *  - rte_bitops.h ends its extern "C" block, then defines C++ overloads.
+ *    Including it inside an outer extern "C" makes those overloads illegal.
+ *  - rte_ring.h includes rte_ring_elem.h *before* its own extern "C", so
+ *    rte_ring_get_memsize_elem() would get C++ linkage and fail to link.
+ *
+ * Fix: pull bitops in as C++ first, then include the ring headers under
+ * extern "C" so every ring symbol has C linkage matching the libraries.
+ */
+#include <rte_bitops.h>
+
 extern "C" {
 #include <rte_ring.h>
 #include <rte_ring_elem.h>
