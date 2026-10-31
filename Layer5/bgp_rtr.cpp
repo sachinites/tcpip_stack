@@ -51,5 +51,9 @@ bgp_init(node_t *node) {
 void 
 bgp_deinit (bgp_inst_t *bgp_inst) {
 
+    if (!bgp_inst) {
+        return;
+    }
+
     bgp_global_rib_deinit(bgp_inst);
 }

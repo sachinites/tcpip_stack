@@ -7,12 +7,193 @@
 #include "../tcpconst.h"
 #include "../vrf/vrf.h"
 #include "../net.h"
+#include "../RTM/rtm_nhtracker.h"
+#include "../RTM/rtm_priv_api.h"
+#include "../RTM/rtm_show.h"
 
 #include "bgp_enums.h"
 #include "bgp_global_rib.h"
 #include "bgp_rib/bgp_rib.h"
 #include "bgp_rib/bgp_rib_types.h"
 #include "bgp_rtr.h"
+
+static void
+bgp_global_rib_nhtracker_callback(cmn_prefix_t *prefix,
+                                  rtm_tracker_client_id_t *client_id,
+                                  rtm_tracker_client_data_t *client_data)
+{
+    tracer_t *tr;
+    char inh_str[64];
+    char tracked_str[64];
+    char route_str[64];
+    char client_key[160];
+    char vrf_str[16];
+    const char *proto_str = "?";
+    const char *sub_proto_str = "?";
+    unsigned vrf_id = 0;
+    unsigned instance_no = 0;
+    unsigned dnhidx = 0;
+    const char *add_str = "?";
+
+    bgp_inst_t *bgp = (bgp_inst_t *)client_id->opaque_data;
+
+    tr = bgp->tr;
+
+    if (prefix) {
+        rtm_format_prefix(prefix, inh_str, sizeof(inh_str));
+    } else {
+        strncpy(inh_str, "-", sizeof(inh_str) - 1);
+        inh_str[sizeof(inh_str) - 1] = '\0';
+    }
+
+    if (client_data) {
+        rtm_format_prefix(&client_data->tracked_prefix,
+                          tracked_str, sizeof(tracked_str));
+        rtm_format_prefix(&client_data->route, route_str, sizeof(route_str));
+        dnhidx = client_data->dnhidx;
+        add_str = client_data->add ? "true" : "false";
+    } else {
+        strncpy(tracked_str, "-", sizeof(tracked_str) - 1);
+        tracked_str[sizeof(tracked_str) - 1] = '\0';
+        strncpy(route_str, "-", sizeof(route_str) - 1);
+        route_str[sizeof(route_str) - 1] = '\0';
+    }
+
+    client_key[0] = '\0';
+    if (client_id) {
+        proto_str = rtm_proto_to_string(client_id->proto);
+        sub_proto_str = rtm_sub_proto_to_string(client_id->sub_proto);
+        vrf_id = (unsigned)client_id->vrf_id;
+        instance_no = (unsigned)client_id->instance_no;
+        snprintf(vrf_str, sizeof(vrf_str), "%u", vrf_id);
+        rtm_format_redist_target_client_id(
+            client_id->proto,
+            vrf_str,
+            client_id->instance_no,
+            client_key,
+            sizeof(client_key));
+    }
+
+    tracer(tr, TR_BGP_RT_EVENTS,
+           "%s : nh-tracker callback "
+           "INH=%s client_key=%s "
+           "proto=%s sub_proto=%s vrf_id=%u instance_no=%u "
+           "tracked_prefix=%s route=%s dnhidx=%u add=%s\n",
+           BGP_RTM_TAG,
+           inh_str,
+           client_key[0] ? client_key : "-",
+           proto_str,
+           sub_proto_str,
+           vrf_id,
+           instance_no,
+           tracked_str,
+           route_str,
+           dnhidx,
+           add_str);
+}
+
+/*
+ * RTM used for nh-tracker registration / track / untrack, by global RIB AFI/SAFI:
+ *   IPv4 unicast  -> def_vrf->inet0
+ *   VPNv4         -> def_vrf->inet0
+ *   L2VPN EVPN    -> def_vrf->inet0
+ */
+static rtm_t *
+bgp_global_rib_nhtracker_rtm(node_t *node, int afi, int safi)
+{
+    def_vrf_t *def_vrf;
+
+    if (!node) {
+        return NULL;
+    }
+
+    def_vrf = (def_vrf_t *)NODE_DEF_VRF(node);
+    if (!def_vrf) {
+        return NULL;
+    }
+
+    if (afi == AFI_IPV4 && safi == SAFI_UNICAST) {
+        return def_vrf->vrf.inet0;
+    }
+    if (afi == AFI_IPV4 && safi == SAFI_MPLS_VPN) {
+        return def_vrf->vrf.inet0;
+    }
+    if (afi == AFI_L2VPN && safi == SAFI_MPLS_EVPN) {
+        return def_vrf->vrf.inet0;
+    }
+
+    return NULL;
+}
+
+static bool
+bgp_global_rib_nhtracker_client_id(int afi,
+                                   int safi,
+                                   uint16_t vrf_id,
+                                   rtm_tracker_client_id_t *client_id)
+{
+    if (!client_id) {
+        return false;
+    }
+
+    memset(client_id, 0, sizeof(*client_id));
+    client_id->proto = RTM_PROTO_BGP;
+    client_id->vrf_id = vrf_id;
+    client_id->instance_no = 0;
+
+    if (afi == AFI_IPV4 && safi == SAFI_UNICAST) {
+        client_id->sub_proto = RTM_SUB_PROTO_BGP_INT;
+        return true;
+    }
+    if (afi == AFI_IPV4 && safi == SAFI_MPLS_VPN) {
+        client_id->sub_proto = RTM_SUB_PROTO_BGP_VPN;
+        return true;
+    }
+    if (afi == AFI_L2VPN && safi == SAFI_MPLS_EVPN) {
+        client_id->sub_proto = RTM_SUB_PROTO_BGP_EVPN;
+        return true;
+    }
+
+    return false;
+}
+
+static void
+bgp_global_rib_nhtracker_register(bgp_inst_t *bgp,
+                                  bgp_rib_t *rib,
+                                  int afi,
+                                  int safi)
+{
+    rtm_t *rtm;
+    def_vrf_t *def_vrf;
+    rtm_tracker_client_id_t client_id;
+    uintptr_t reg_id;
+
+    if (!bgp || !rib || bgp_rib_nh_tracker_reg_id(rib)) {
+        return;
+    }
+
+    rtm = bgp_global_rib_nhtracker_rtm(bgp->node, afi, safi);
+    if (!rtm) {
+        return;
+    }
+
+    def_vrf = (def_vrf_t *)NODE_DEF_VRF(bgp->node);
+    if (!bgp_global_rib_nhtracker_client_id(
+            afi, safi,
+            def_vrf ? def_vrf->vrf.vrf_id : 0,
+            &client_id)) {
+        return;
+    }
+
+    client_id.opaque_data = (uintptr_t)bgp;
+
+    reg_id = rtm_tracker_register_client(
+        rtm, &client_id, bgp_global_rib_nhtracker_callback);
+    if (!reg_id) {
+        return;
+    }
+
+    bgp_rib_set_nh_tracker(rib, reg_id);
+}
 
 typedef struct bgp_route_processing_info_ {
 
@@ -112,6 +293,7 @@ bgp_global_rib_af_enable(node_t *node, int afi, int safi, bgp_rib_export_route_c
         if (cbk) {
             bgp_rib_set_export_route(*rib_slot, bgp, cbk);
         }
+        bgp_global_rib_nhtracker_register(bgp, *rib_slot, afi, safi);
         return 0;
     }
 
@@ -121,6 +303,7 @@ bgp_global_rib_af_enable(node_t *node, int afi, int safi, bgp_rib_export_route_c
     }
 
     bgp_rib_set_export_route(rib, bgp, cbk);
+    bgp_global_rib_nhtracker_register(bgp, rib, afi, safi);
 
     *rib_slot = rib;
 

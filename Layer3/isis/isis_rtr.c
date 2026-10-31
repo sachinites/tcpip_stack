@@ -404,7 +404,9 @@ isis_rtm_nhtracker_register (vrf_t *vrf) {
     if (node_info->rtm_tracker_reg_id)
         return;
 
+    memset(&client_id, 0, sizeof(client_id));
     client_id.proto = RTM_PROTO_ISIS;
+    client_id.sub_proto = RTM_SUB_PROTO_L1_ISIS_INT;   /* wildcard */
     client_id.vrf_id = vrf->vrf_id;
     client_id.instance_no = 0;
 

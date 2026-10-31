@@ -4,6 +4,8 @@
 
 #include "../../tcpconst.h"
 
+#include "../../libs/common/cmn_prefix.h"
+
 #include "bgp_rib.h"
 #include "bgp_rib_evpn.h"
 #include "bgp_rib_vpnv4.h"
@@ -51,6 +53,13 @@ test_evpn_rib(void)
     assert(found);
     assert(found->med == 100);
 
+    {
+        cmn_prefix_t nh;
+
+        cmn_prefix_initialize_v4(&nh, 0x0a000001, 32);
+        assert(bgp_rib_route_count_by_nh(rib, &nh) == 1);
+    }
+
     assert(bgp_evpn_nlri_to_evpn_rt(&nlri, 0x0a000001, &evpn_rt) == BGP_RIB_OK);
     assert(evpn_rt.type == EVPN_RT_TYPE_MAC_ONLY);
     assert(evpn_rt.u.mac_only.ip_addr == 0xc0a8010a);
@@ -88,6 +97,24 @@ test_vpnv4_rib(void)
 
     assert(bgp_vpnv4_rib_route_add(rib, &nlri, &attrs) == BGP_RIB_OK);
     assert(bgp_vpnv4_rib_route_lookup(rib, &nlri) != NULL);
+
+    {
+        cmn_prefix_t nh;
+        bgp_vpnv4_nlri_t nlri2;
+
+        cmn_prefix_initialize_v4(&nh, 0x0a000002, 32);
+        assert(bgp_rib_route_count_by_nh(rib, &nh) == 1);
+
+        memset(&nlri2, 0, sizeof(nlri2));
+        nlri2.rd = nlri.rd;
+        nlri2.prefix_len = 32;
+        nlri2.prefix = 0x0a010200;
+        nlri2.label = 2000;
+        nlri2.label_present = true;
+        assert(bgp_vpnv4_rib_route_add(rib, &nlri2, &attrs) == BGP_RIB_OK);
+        assert(bgp_rib_route_count_by_nh(rib, &nh) == 2);
+        assert(bgp_rib_route_count(rib) == 2);
+    }
 
     {
         bgp_nlri_key_t key;

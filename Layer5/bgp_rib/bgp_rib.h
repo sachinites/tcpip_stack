@@ -4,7 +4,10 @@
 #include <stdio.h>
 
 #include "bgp_rib_types.h"
+#include "../../libs/common/cmn_prefix.h"
+#include <stdint.h>
 
+typedef struct rtm_ rtm_t;
 typedef struct bgp_rib_ bgp_rib_t;
 
 bgp_rib_t *
@@ -32,6 +35,16 @@ bgp_rib_set_export_route(bgp_rib_t *rib,
                          void *bgp_instance,
                          bgp_rib_export_route_cb export_route);
 
+void
+bgp_rib_set_nh_tracker(bgp_rib_t *rib,
+                       uintptr_t nh_tracker_reg_id);
+
+uintptr_t
+bgp_rib_nh_tracker_reg_id(const bgp_rib_t *rib);
+
+void
+bgp_rib_nh_tracker_unregister(bgp_rib_t *rib);
+
 bgp_rib_err_t
 bgp_rib_route_add(bgp_rib_t *rib,
                   const bgp_nlri_key_t *key,
@@ -53,6 +66,25 @@ void
 bgp_rib_route_walk(bgp_rib_t *rib,
                    bgp_rib_walk_cb cb,
                    void *userdata);
+
+typedef int (*bgp_rib_nh_walk_cb)(const cmn_prefix_t *nexthop,
+                                  unsigned int route_count,
+                                  void *userdata);
+
+void
+bgp_rib_nh_walk(bgp_rib_t *rib,
+                bgp_rib_nh_walk_cb cb,
+                void *userdata);
+
+void
+bgp_rib_route_walk_by_nh(bgp_rib_t *rib,
+                         const cmn_prefix_t *nh_prefix,
+                         bgp_rib_walk_cb cb,
+                         void *userdata);
+
+unsigned int
+bgp_rib_route_count_by_nh(const bgp_rib_t *rib,
+                          const cmn_prefix_t *nh_prefix);
 
 void
 bgp_rib_export_all(bgp_rib_t *rib,
