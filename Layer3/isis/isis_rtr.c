@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stdint.h>
 #include <unistd.h>
 #include "../../tcp_public.h"
 #include "isis_utils.h"
@@ -20,6 +21,8 @@
 #include "isis_srv6.h"
 #include "isis_sr.h"
 #include "../../RTM/rtm_nb_integ.h"
+#include "../../RTM/rtm_nhtracker.h"
+#include "../../libs/common/cmn_prefix.h"
 #include "../../datapath/dp_uapi.h"
 
 extern void isis_recv_ipc_updates(node_t *node,
@@ -364,7 +367,59 @@ isis_de_init(vrf_t *vrf) {
             vrf->node->dist_mgr, RTM_PROTO_ISIS,
             vrf->vrf_id, 0);
 
+    if (vrf->isis_node_info->rtm_tracker_reg_id && vrf->inet0) {
+        rtm_tracker_unregister_client(
+                vrf->inet0, vrf->isis_node_info->rtm_tracker_reg_id);
+        vrf->isis_node_info->rtm_tracker_reg_id = 0;
+    }
+
     isis_protocol_shut_down(vrf->isis_node_info);
+}
+
+static void isis_tracker_callback 
+    (cmn_prefix_t *prefix, 
+    rtm_tracker_client_id_t *client_id, 
+    rtm_tracker_client_data_t *client_data) {
+
+    cprintf ("%s() : called \n", __FUNCTION__);
+}
+
+void
+isis_rtm_nhtracker_register (vrf_t *vrf) {
+
+    rtm_t *rtm;
+    rtm_tracker_client_id_t client_id;
+    uintptr_t reg_id;
+    cmn_prefix_t tracking_prefix;
+    isis_node_info_t *node_info;
+
+    if (!vrf || !vrf->isis_node_info)
+        return;
+
+    rtm = vrf->inet0;
+    if (!rtm)
+        return;
+
+    node_info = vrf->isis_node_info;
+    if (node_info->rtm_tracker_reg_id)
+        return;
+
+    client_id.proto = RTM_PROTO_ISIS;
+    client_id.vrf_id = vrf->vrf_id;
+    client_id.instance_no = 0;
+
+    reg_id = rtm_tracker_register_client(rtm, &client_id, isis_tracker_callback);
+    if (!reg_id)
+        return;
+
+    node_info->rtm_tracker_reg_id = reg_id;
+
+    if (!cmn_parse_prefix_string("80.1.1.2/32", &tracking_prefix))
+        return;
+    rtm_track(rtm, &tracking_prefix, reg_id);
+    if (!cmn_parse_prefix_string("80.1.1.3/32", &tracking_prefix))
+        return;
+    rtm_track(rtm, &tracking_prefix, reg_id);
 }
 
 void
@@ -424,6 +479,9 @@ isis_init (vrf_t *vrf) {
     ISIS_INCREMENT_NODE_STATS(node_info,
         isis_event_count[isis_event_admin_config_changed]);
     node_info->lsdb_advt_block = false;
+    node_info->rtm_tracker_reg_id = 0;
+
+    isis_rtm_nhtracker_register(vrf);
 }
 
 void

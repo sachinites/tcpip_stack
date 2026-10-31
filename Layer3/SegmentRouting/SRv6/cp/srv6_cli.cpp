@@ -410,7 +410,7 @@ srv6_prefix_sid_config_handler
             rc = mtrie_delete_prefix(node_info->configured_pfx_sids,
                              &prefix_bm,
                              &mask_bm,
-                             (void **)&pfxsid);
+                             (void **)&pfxsid, 0);
 
             bitmap_free_internal(&prefix_bm);
             bitmap_free_internal(&mask_bm);
@@ -655,7 +655,7 @@ srv6_adjacency_sid_config_handler
             rc = mtrie_delete_prefix(node_info->configured_adj_sids,
                              &prefix_bm,
                              &mask_bm,
-                             (void **)&adjsid);
+                             (void **)&adjsid, 0);
 
             bitmap_free_internal(&prefix_bm);
             bitmap_free_internal(&mask_bm);
@@ -965,7 +965,7 @@ srv6_end_dt4_sid_config_handler(int64_t cmdcode,
             rc = mtrie_delete_prefix(node_info->configured_pfx_sids,
                                      &prefix_bm,
                                      &mask_bm,
-                                     (void **)&pfxsid);
+                                     (void **)&pfxsid, 0);
 
             bitmap_free_internal(&prefix_bm);
             bitmap_free_internal(&mask_bm);

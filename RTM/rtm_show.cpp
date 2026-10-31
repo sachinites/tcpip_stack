@@ -75,6 +75,7 @@
 #include "rtm_priv_api.h"
 #include "rtm_presentation.h"
 #include "rtm_dist_mgr.h"
+#include "rtm_nhtracker.h"
 #include "../libs/prefix-list/prefixlst.h"
 #include "../libs/common/mpls_lstack.h"
 #include "../libs/common/cmn_prefix.h"
@@ -929,6 +930,43 @@ void rtm_show_unresolvable_routes(rtm_t *rtm) {
     cprintf("\nTotal Unresolvable Routes: %d\n\n", count);
 }
 
+void
+rtm_show_tracker_db (rtm_t *rtm) {
+
+    avltree_node_t *node;
+    int client_count = 0;
+
+    if (!rtm) {
+        cprintf("RTM is NULL\n");
+        return;
+    }
+
+    printw("\n");
+    cprintf("RTM Nexthop Tracker Client DB :: %s\n", rtm->name);
+
+    if (!rtm->nh_tracker) {
+        cprintf("  (tracker not initialized)\n\n");
+        return;
+    }
+
+    if (avltree_is_empty(&rtm->nh_tracker->client_db_by_client_id)) {
+        cprintf("  (no clients)\n");
+    } else {
+        ITERATE_AVL_TREE_BEGIN(&rtm->nh_tracker->client_db_by_client_id, node) {
+
+            rtm_tracker_client_db_t *client_db =
+                avltree_container_of(node, rtm_tracker_client_db_t,
+                                     avlnode_glue_client_id);
+
+            show_rtm_tracker_client_db(client_db);
+            client_count++;
+
+        } ITERATE_AVL_TREE_END;
+    }
+
+    cprintf("\nTotal tracker clients: %d\n\n", client_count);
+}
+
 void 
 rtm_show_presentation_db(rtm_t *rtm, char *prefix_filter) {
     
@@ -1091,8 +1129,25 @@ rtm_dist_rule_format_cli(const dist_rule_t *rule, char *buf, size_t buflen)
 }
 
 /* Client key for a redistribution target (matches dist-mgr policy / target show). */
-static void
+void
 rtm_format_redist_target_client_id(
+    RTM_PROTO_T proto,
+    const char *vrf_str,
+    uint32_t instance_no,
+    char *buf,
+    size_t buflen)
+{
+    snprintf(
+        buf,
+        buflen,
+        "%s.%s.%u",
+        vrf_str ? vrf_str : "?",
+        rtm_proto_to_string(proto),
+        (unsigned)instance_no);
+}
+
+static void
+rtm_format_redist_target_client_id_full(
     const redist_target_t *target,
     char *buf,
     size_t buflen)
@@ -1102,7 +1157,7 @@ rtm_format_redist_target_client_id(
     if (target->proto == RTM_PROTO_BGP) {
         char nbr_str[48];
 
-        rtm_format_nexthop(&target->bgp_nbr, nbr_str, sizeof(nbr_str));
+        rtm_format_nexthop((cmn_prefix_t *)&target->bgp_nbr, nbr_str, sizeof(nbr_str));
         snprintf(
             buf,
             buflen,
@@ -1113,13 +1168,8 @@ rtm_format_redist_target_client_id(
             nbr_str,
             bgp_addr_family_str(target->afi, target->safi));
     } else {
-        snprintf(
-            buf,
-            buflen,
-            "%s.%s.%u",
-            vrf_str,
-            rtm_proto_to_string(target->proto),
-            (unsigned)target->instance_no);
+        rtm_format_redist_target_client_id(
+            target->proto, vrf_str, target->instance_no, buf, buflen);
     }
 }
 
@@ -1146,7 +1196,7 @@ rtm_show_dist_mgr_policies(dist_mgr_t *dist_mgr)
     for (target = dist_mgr->target_lst; target; target = target->next) {
         char client_id[160];
 
-        rtm_format_redist_target_client_id(target, client_id, sizeof(client_id));
+        rtm_format_redist_target_client_id_full(target, client_id, sizeof(client_id));
 
         cprintf("\nClient : %s\n", client_id);
         cprintf(
@@ -1281,7 +1331,7 @@ rtm_show_dist_mgr_targets (dist_mgr_t *dist_mgr,
         if (target_proto == RTM_PROTO_BGP) {
             char client_id[160];
 
-            rtm_format_redist_target_client_id(target, client_id, sizeof(client_id));
+            rtm_format_redist_target_client_id_full(target, client_id, sizeof(client_id));
             cprintf("\n  Client : %s\n", client_id);
         }
 
@@ -1566,5 +1616,54 @@ rtm_show_dist_mgr_target_route_handler(int64_t cmdcode,
 
     node = node_get_node_by_name(topo, node_name);
     rtm_show_dist_mgr_target_route(node->dist_mgr, (const char *)route_prefix);
+    return 0;
+}
+
+int
+rtm_show_tracker_db_handler (int64_t cmdcode,
+                             Stack_t *tlv_stack,
+                             op_mode enable_or_disable)
+{
+    node_t *node = NULL;
+    rtm_t *rtm = NULL;
+    c_string node_name = NULL;
+    c_string rib_name = NULL;
+    tlv_struct_t *tlv = NULL;
+
+    (void)cmdcode;
+    (void)enable_or_disable;
+
+    TLV_LOOP_STACK_BEGIN(tlv_stack, tlv)
+    {
+        if (parser_match_leaf_id(tlv->leaf_id, "node-name"))
+            node_name = tlv->value;
+        else if (parser_match_leaf_id(tlv->leaf_id, "rib-name"))
+            rib_name = tlv->value;
+    }
+    TLV_LOOP_END;
+
+    if (!node_name) {
+        cprintf("Error : node-name missing\n");
+        return -1;
+    }
+
+    if (!rib_name) {
+        cprintf("Error : rtm-name missing\n");
+        return -1;
+    }
+
+    node = node_get_node_by_name(topo, node_name);
+    if (!node) {
+        cprintf("Error : Node %s not found\n", node_name);
+        return -1;
+    }
+
+    rtm = rtm_get_by_name(node, (char *)rib_name);
+    if (!rtm) {
+        cprintf("Error : RTM %s not found for node %s\n", rib_name, node_name);
+        return -1;
+    }
+
+    rtm_show_tracker_db(rtm);
     return 0;
 }

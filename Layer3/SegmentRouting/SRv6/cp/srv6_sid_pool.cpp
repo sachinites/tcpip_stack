@@ -443,7 +443,7 @@ srv6_pool_delete_locator (srv6_sid_pools_t *srv6_sid_pools,
     /* Remove from LPM Tree*/
     mtrie_ops_result_code_t res = mtrie_delete_prefix (
                                                 &srv6_sid_pools->locators_lpm_tree, 
-                                                &bm_pfx, &bm_wc, (void **)&loc1);
+                                                &bm_pfx, &bm_wc, (void **)&loc1, 0);
 
     bitmap_free_internal (&bm_pfx);
     bitmap_free_internal (&bm_wc);

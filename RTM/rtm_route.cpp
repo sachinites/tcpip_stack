@@ -93,7 +93,7 @@ rtm_ppt_unregister_route (rtm_t *rtm, cmn_prefix_t *prefix, uint32_t ridx);
  */
 static void 
 rtm_route_release_all_resources(rtm_t *rtm, rtm_route *route) {
-
+    
     rtm_ppt_unregister_route (rtm, &route->prefix, route->ridx);
 }
 
@@ -807,7 +807,7 @@ rtm_lpm_tree_delete(rtm_t *rtm, cmn_prefix_t *prefix) {
     result = mtrie_delete_prefix(rtm->lpm_rt_tree, 
                                   &prefix_bm, 
                                   &wildcard_bm,
-                                  &app_data);
+                                  &app_data, 0);
     
     bitmap_free_internal(&prefix_bm);
     bitmap_free_internal(&wildcard_bm);

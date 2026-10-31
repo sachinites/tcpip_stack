@@ -72,6 +72,7 @@
 #include "rtm_proto.h"
 #include "rtm_nh.h"
 #include "rtm_presentation.h"
+#include "rtm_nhtracker.h"
 #include "../lmm_enums.h"
 #include "../libs/mtrie/mtrie.h"
 #include "../libs/Tracer/tracer.h"
@@ -155,6 +156,7 @@ rtm_initialize(node_t *node,
     avltree_init(&rtm->route_tree, rtm_route_compare);
     avltree_init (&rtm->nh_proto_info_tree, rtm_nh_proto_avl_tree_comp_fn);
     avltree_init (&rtm->nhs_by_idx, rtm_nh_compare_by_idx);
+    rtm_tracker_init (&rtm->nh_tracker);
 
     for (int i = 0; i < RTM_PROTO_MAX; i++) {
         init_glthread(&rtm->nhs_by_src[i]);
@@ -238,6 +240,8 @@ rtm_check_and_delete (rtm_t *rtm, bool free_rtm) {
     assert (IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_unresolved_routes));
     assert (IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_resolved_nhs));
     assert (IS_GLTHREAD_LIST_EMPTY (&rtm->stats.new_unresolved_nhs));
+
+    rtm_tracker_deinit (&rtm->nh_tracker);
 
     if (free_rtm) {
         tracer(rtm->node->cptr, DRTM, "RTM[%s] : Deleted\n", rtm->name);

@@ -100,6 +100,7 @@ extern int rtm_show_dist_mgr_database_handler (int64_t cmdcode, Stack_t *tlv_sta
 extern int rtm_show_dist_mgr_policies_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int rtm_show_dist_mgr_targets_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int rtm_show_dist_mgr_target_route_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
+extern int rtm_show_tracker_db_handler (int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 extern int mpls_label_mgr_show_handler(int64_t cmdcode, Stack_t *tlv_stack, op_mode enable_or_disable);
 
 static int
@@ -1340,6 +1341,16 @@ nw_init_cli(){
                                 libcli_register_param(&ppt_db, &prefix_filter);
                                 libcli_set_param_cmd_code(&prefix_filter, CMDCODE_SHOW_NODE_RTM_PPT_DB_FILTER);
                             }
+                        }
+                        {
+                            /* show <node-name> rtm <rtm-name> tracker-db */
+                            static param_t tracker_db;
+                            init_param(&tracker_db, CMD, "tracker-db",
+                                       rtm_show_tracker_db_handler, 0, INVALID, 0,
+                                       "Display nexthop tracker client database");
+                            libcli_register_param(&rib_name, &tracker_db);
+                            libcli_set_param_cmd_code(&tracker_db,
+                                                        CMDCODE_SHOW_NODE_RTM_TRACKER_DB);
                         }
                     }
                 }

@@ -29,6 +29,7 @@ OBJS=rtm.o \
 	 rtm_dist_mgr.o \
 	 rtm_dist_cli.o \
 	 rtm_ext_calls.o \
+	 rtm_nhtracker.o \
 
 all: $(TARGET)
 

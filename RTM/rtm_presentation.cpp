@@ -68,6 +68,7 @@
 #include "rtm_gc.h"
 #include "rtm_priv_api.h"
 #include "rtm_fib_interface.h"
+#include "rtm_nhtracker.h"
 #include "../libs/prefix-list/prefixlst.h"
 #include "../libs/EventDispatcher/event_dispatcher.h"
 #include "../libs/Tracer/tracer.h"
@@ -79,7 +80,7 @@ typedef struct dist_mgr_ dist_mgr_t;
 extern void 
 rtm_distribution_manager_update (dist_mgr_t *dist_mgr, 
                                  rtm_presentation_data_t *presentation_data);
-        
+
 extern char * (*rtm_get_intf_name) 
     (void *ctx, uint32_t ifindex, char *buffer);
 
@@ -1008,7 +1009,7 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
     rtm_nh_proto_t *nh_proto;
     rtm_ppt_route_t out_add, out_del;
     avltree_node_t *sub_proto_advt_db_node;
-    rtm_presentation_data_t *presentation_data;
+    rtm_presentation_data_t *presentation_data = NULL;
 
     rtm_format_prefix(&route->prefix, prefix_str, sizeof(prefix_str));
 
@@ -1231,7 +1232,10 @@ rtm_ppt_route_advertise (rtm_t *rtm, rtm_route *route) {
     /* Updated the PPT DB after diff */
     if (route->nh_count == 0) {
         // This route will going to be deleted and hence the ppt route also from
-        // rtm_route_check_and_delete( ) . No need to do anything here.
+        // rtm_route_check_and_delete( ) .
+        if (presentation_data) {
+            presentation_data->flags |= RTM_PRES_DATA_F_RT_DEL;
+        }
     }
     else if ( !rtm_route_is_resolved (route)) {
         // If the route has INH and the route is unresolved, then we can delete  the route from
@@ -1293,8 +1297,11 @@ rtm_distribute_presentation_data (rtm_t *rtm, rtm_presentation_data_t *presentat
             rtm_fib_update(rtm, presentation_data);
             
             /* Now Advertise it to Routing Protocols */
-            rtm_distribution_manager_update (rtm->node->dist_mgr, presentation_data);        
-
+            rtm_distribution_manager_update (rtm->node->dist_mgr, presentation_data); 
+            
+            /* Publish routes with native DNHs only to NH Tracker */
+            rtm_publish_to_nhtracker (rtm, presentation_data);
+        
             break;
 
         case AF_MAC:

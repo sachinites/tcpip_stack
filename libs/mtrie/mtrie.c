@@ -459,7 +459,7 @@ mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wild
 }
 
 /* Given a pointer to the leaf node of the mtrie, delete it */
-void 
+mtrie_node_t *
 mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node) {
 
     assert(mtrie_is_leaf_node(node));
@@ -484,13 +484,18 @@ mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node) {
 
     mtrie_node_delete(mtrie, node, NULL);
     mtrie_merge_child_node(mtrie, parent, NULL);
+    return parent;
 }
 
 /* A function used to delete the leaf node from the mtrie , i.e, the actual data. 
     Uses exact match API as helper API to locate the node of interest. 
 */
 mtrie_ops_result_code_t
-mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void **app_data) {
+mtrie_delete_prefix (mtrie_t *mtrie, 
+                     bitmap_t *prefix, 
+                     bitmap_t *wildcard, 
+                     void **app_data,
+                     mtrie_node_t **parent) {
 
     *app_data = NULL;
 
@@ -505,8 +510,9 @@ mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void 
   
    *app_data = node->data;
 
-    mtrie_delete_leaf_node(mtrie, node);
+    mtrie_node_t *parent2 = mtrie_delete_leaf_node(mtrie, node);
 
+    if (parent2 && parent) *parent = parent2;
     return MTRIE_DELETE_SUCCESS;
 }
 
@@ -581,4 +587,35 @@ glthread_t *
     mtrie_node_delete(mtrie, node, NULL);
 
     return next;
+}
+
+
+mtrie_node_t *
+mtrie_get_sibling_node (mtrie_node_t *node) {
+
+    mtrie_node_t *sibling;
+
+    mtrie_node_t *parent = node->parent;
+    
+    if (!parent) return NULL;
+
+    if (parent->child[DONT_CARE] == node){
+
+        if (parent->child[ONE]) return parent->child[ONE];
+        return parent->child[ZERO];
+    }
+
+    if (parent->child[ONE] == node){
+
+        if (parent->child[ZERO]) return parent->child[ZERO];
+        return parent->child[DONT_CARE];
+    }    
+
+    if (parent->child[ZERO] == node){
+
+        if (parent->child[ONE]) return parent->child[ONE];
+        return parent->child[DONT_CARE];
+    }      
+
+    return NULL;
 }

@@ -55,6 +55,7 @@ typedef struct rtm_nh_ rtm_nh;
 typedef struct task_ task_t;
 typedef struct mtrie_ mtrie_t;
 typedef struct rtm_ppt_db_ rtm_ppt_db_t;
+typedef struct rtm_tracker_ rtm_tracker_t;
 
 /* ========================================================================
  * RTM Flags
@@ -115,6 +116,9 @@ typedef struct rtm_ {
     /* List of rtm_presentation_data_t objects, to be advertised to 
         protocols */
     Fglthread_t advt_nhs[RTM_PROTO_MAX];
+
+    /* DBs of client who are interested in routes/NH from this RTM */
+    rtm_tracker_t *nh_tracker;
     
     /* Backpointer to owning node*/
     node_t *node; 

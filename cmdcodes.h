@@ -211,6 +211,9 @@
 /* show <node-name> ip interface brief */
 #define CMDCODE_SHOW_IP_INTERFACE_BRIEF 87
 
+/* show <node-name> rtm <rtm-name> tracker-db */
+#define CMDCODE_SHOW_NODE_RTM_TRACKER_DB 88
+
 /* Flag to distinguish if the CLI typed should go to
    control plane scheduler or data plane scheduler*/
 #define CLI_F_CONTROL_PLANE 1

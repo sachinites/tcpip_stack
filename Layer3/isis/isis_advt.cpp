@@ -293,7 +293,7 @@ isis_advt_data_clear_backlinkage( isis_node_info_t *node_info, isis_adv_data_t *
 
                 rc = mtrie_delete_prefix (&node_info->exported_routes,
                                           &prefix_bm, &mask_bm,
-                                          &app_data);
+                                          &app_data, 0);
 
                 assert (rc == MTRIE_DELETE_SUCCESS);
                 assert (adv_data == (isis_adv_data_t *)app_data);

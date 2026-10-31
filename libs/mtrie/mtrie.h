@@ -68,11 +68,18 @@ mtrie_node_t *mtrie_longest_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix
 mtrie_node_t *mtrie_exact_prefix_match_search(mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard);
 
 mtrie_ops_result_code_t
-mtrie_delete_prefix (mtrie_t *mtrie, bitmap_t *prefix, bitmap_t *wildcard, void **app_data) ;
-
+mtrie_delete_prefix (mtrie_t *mtrie, 
+                     bitmap_t *prefix, 
+                     bitmap_t *wildcard, 
+                     void **app_data,
+                     mtrie_node_t **parent);
+					 
 void mtrie_destroy (mtrie_t *mtrie);
-void 
+mtrie_node_t *
 mtrie_delete_leaf_node(mtrie_t *mtrie, mtrie_node_t *node);
+
+mtrie_node_t *
+mtrie_get_sibling_node (mtrie_node_t *node);
 
 void
 mtrie_longest_prefix_first_traverse(mtrie_t *mtrie, 

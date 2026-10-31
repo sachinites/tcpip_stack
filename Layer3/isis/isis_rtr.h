@@ -1,6 +1,7 @@
 #ifndef __ISIS_RTR__
 #define __ISIS_RTR__
 
+#include <stdint.h>
 #include "isis_events.h"
 #include "isis_pkt.h"
 #include "isis_spf.h"
@@ -114,6 +115,7 @@ typedef struct isis_node_info_ {
     bool layer2_mapping;
     /* LSDB advt block/unblock, used for debugging*/
     bool lsdb_advt_block;
+    uintptr_t rtm_tracker_reg_id;
     /* Make this structure 8B aligned*/
     char padding2[5];
 } __attribute__((aligned(8))) isis_node_info_t;
@@ -131,6 +133,9 @@ isis_is_protocol_enable_on_node(vrf_t *vrf) ;
 
 void
 isis_init(vrf_t *vrf );
+
+void
+isis_rtm_nhtracker_register (vrf_t *vrf);
 
 void
 isis_de_init(vrf_t *vrf) ;

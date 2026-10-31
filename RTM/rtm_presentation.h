@@ -66,6 +66,7 @@ typedef enum rtm_ppt_operation_ {
     RTM_PPT_OP_UPDATE = 3    /* Route/NH is being updated */
 } rtm_ppt_operation_t;
 
+#define RTM_PRES_DATA_F_RT_DEL 1
 
 #pragma pack(push, 8)
 
@@ -76,6 +77,8 @@ typedef struct rtm_presentation_data_ {
     cmn_prefix_t route;
     /* Route owning vrf*/
     uint8_t vrf;
+    /* Flags to carry additional information */
+    uint8_t flags;
     /* Pointer to Direct nexthop being added, if deleted it would be NULL*/
     rtm_nh *nh; 
     /*Indirect Nexthop being resolved by nh, if deleted it would be NULL*/            
